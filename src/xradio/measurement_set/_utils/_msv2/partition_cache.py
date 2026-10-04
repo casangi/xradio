@@ -35,7 +35,10 @@ A stored row is used only when (the staleness layers)
 
 A stale row is never parsed (L1 and L2 come first). Recomputed partitions
 equal to a stale row's only refresh its fingerprint and anchor (no HISTORY
-row: a harmless task, e.g. flagdata, costs one recomputation).
+row: a harmless task, e.g. flagdata, costs one recomputation). The engine
+also checks every partition it opens from a stored row or the memo against
+its MAIN rows (backend_partition.verify_partition_rows), and computes the
+partitions again if one does not describe its rows.
 
 Writes (python-casacore only; ``store_partitions``): every lock is tried once
 (``nattempts=1``, checked with ``haslock``: an open never waits for a lock),

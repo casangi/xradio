@@ -12,8 +12,10 @@ before the node is returned.
 """
 
 import copy
-from collections.abc import Iterable
+import dataclasses
+from collections.abc import Iterable, Sequence
 
+import numpy as np
 import xarray as xr
 
 from xradio._utils._casacore.tables import casatools_serialized
@@ -27,8 +29,96 @@ from xradio.measurement_set._utils._msv2.backend_arrays import (
     OnesArray,
     PartitionIndex,
 )
+from xradio.measurement_set._utils._msv2.backend_errors import StalePartitionsError
 from xradio.measurement_set._utils._msv2.conversion import build_partition
-from xradio.measurement_set._utils._msv2.partition_queries import PartitionMainRows
+from xradio.measurement_set._utils._msv2.partition_queries import (
+    MANDATORY_PARTITION_KEYS,
+    PARTITION_MAIN_KEY_COLUMNS,
+    PartitionKeyMaps,
+    PartitionMainRows,
+    describe_partition_rows,
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class RowCheck:
+    """
+    What verify_partition_rows needs to check a partition description taken
+    from the partition cache against the partition's MAIN rows.
+
+    Attributes
+    ----------
+    key_maps : PartitionKeyMaps
+        partition_key_maps of the MS (read once per open).
+    partition_scheme : Sequence[str]
+        The partition scheme.
+    """
+
+    key_maps: PartitionKeyMaps
+    partition_scheme: Sequence[str]
+
+
+def verify_partition_rows(check: RowCheck, partition_info: dict, main_rows) -> None:
+    """
+    Check that a partition description from the partition cache describes
+    the MAIN rows of the partition: their key columns (DATA_DESC_ID,
+    OBSERVATION_ID, FIELD_ID, SCAN_NUMBER, STATE_ID; ANTENNA1 and ANTENNA2
+    for ANTENNA1 schemes), and the keys derived from them, described as
+    create_partitions describes a partition (describe_partition_rows).
+
+    The descriptions must be equal. For ANTENNA1 schemes, whose partitions
+    hold the autocorrelations of the rows with their keys (and are described
+    by all of these rows), the grouping keys must be equal, the other values
+    of the rows must be in the description, and every row must be an
+    autocorrelation.
+
+    With a scheme without ANTENNA1 and no partition filter, the cache's runs
+    are disjoint and cover MAIN (the row checks of partition_cache), so
+    descriptions that pass this check for every partition are those that
+    create_partitions_with_main_rows gives for the MS now.
+
+    Parameters
+    ----------
+    check : RowCheck
+        The key maps and scheme.
+    partition_info : dict
+        The partition description.
+    main_rows : MainTableRows
+        The partition's rows (``BuiltPartition.main_rows``).
+
+    Raises
+    ------
+    StalePartitionsError
+        At the first difference.
+    """
+    scheme = list(check.partition_scheme)
+    antenna1 = "ANTENNA1" in scheme
+    names = [
+        name for name in PARTITION_MAIN_KEY_COLUMNS if name != "ANTENNA1" or antenna1
+    ]
+    if antenna1:
+        names.append("ANTENNA2")
+    columns = {name: np.asarray(main_rows.getcol(name)) for name in names}
+    if antenna1 and np.any(columns["ANTENNA1"] != columns["ANTENNA2"]):
+        raise StalePartitionsError(
+            "an ANTENNA1 partition has rows that are not autocorrelations"
+        )
+    described = describe_partition_rows(columns, check.key_maps, scheme)
+    if list(described) != list(partition_info):
+        raise StalePartitionsError(
+            f"the description has the keys {list(partition_info)}, the rows "
+            f"{list(described)}"
+        )
+    grouping = set(MANDATORY_PARTITION_KEYS) | set(scheme)
+    for key, values in described.items():
+        expected = partition_info[key]
+        if values == expected:
+            continue
+        if antenna1 and key not in grouping and set(values) <= set(expected):
+            continue
+        raise StalePartitionsError(
+            f"{key} {expected} in the description, {values} in the rows"
+        )
 
 
 def open_partition(
@@ -46,6 +136,7 @@ def open_partition(
     ephemeris_interpolate: bool = False,
     phase_cal_interpolate: bool = False,
     sys_cal_interpolate: bool = False,
+    verify: RowCheck | None = None,
 ) -> xr.DataTree | None:
     """
     The MSv4 of one partition of an MSv2, with lazy main data variables.
@@ -74,11 +165,19 @@ def open_partition(
     main_chunksize, with_pointing, pointing_chunksize, pointing_interpolate,
     ephemeris_interpolate, phase_cal_interpolate, sys_cal_interpolate :
         As for ``convert_msv2_to_processing_set``.
+    verify : RowCheck | None, optional
+        Check the description against the partition's rows
+        (verify_partition_rows): for partitions from the partition cache.
 
     Returns
     -------
     xr.DataTree | None
         The MSv4, or None if the partition has no MAIN rows.
+
+    Raises
+    ------
+    StalePartitionsError
+        If ``verify`` finds that the description does not describe the rows.
     """
     # casatools tables are used by one thread at a time (a no-op with
     # python-casacore)
@@ -102,6 +201,8 @@ def open_partition(
     ):
         if built is None:
             return None
+        if verify is not None:
+            verify_partition_rows(verify, partition_info, built.main_rows)
         index = PartitionIndex.seed(in_file, built)
         ms_xdt, deferred = built.ms_xdt, built.deferred
         reverse_frequency = built.reverse_frequency

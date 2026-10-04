@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import threading
+import time
 import warnings
 
 import numpy as np
@@ -609,6 +610,12 @@ def test_memo_is_reset_in_a_fork_child(backend_ms):
         if pid == 0:  # child
             ok = len(PARTITIONS_MEMO) == 0 and PARTITIONS_MEMO._lock.acquire(timeout=5)
             os._exit(0 if ok else 1)
-    _, status = os.waitpid(pid, 0)
-    assert os.waitstatus_to_exitcode(status) == 0
+    deadline = time.monotonic() + 60
+    while not (done := os.waitpid(pid, os.WNOHANG))[0]:
+        if time.monotonic() > deadline:  # (deadlocked: killed)
+            os.kill(pid, 9)
+            done = os.waitpid(pid, 0)
+            break
+        time.sleep(0.05)
+    assert os.waitstatus_to_exitcode(done[1]) == 0
     assert len(PARTITIONS_MEMO) == 1

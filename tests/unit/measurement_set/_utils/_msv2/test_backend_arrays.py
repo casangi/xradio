@@ -657,6 +657,21 @@ def test_rebuilt_index_with_other_baselines_raises_changed(backend_ms, tmp_path)
         lazy["VISIBILITY"].values  # noqa: B018
 
 
+def test_rebuilt_index_with_other_times_raises_changed(backend_ms, tmp_path):
+    """The same grid shape, other times: the token of the grid tells."""
+    from casacore import tables
+
+    msname = _copy_ms(backend_ms, "dense", tmp_path)
+    lazy, _, _ = lazy_and_reference(msname, 0)
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        times = main_tb.getcol("TIME")
+        times[:300] += 0.5  # (partition 0: its times shifted)
+        main_tb.putcol("TIME", times)
+    backend_arrays.clear_index_memo()
+    with pytest.raises(MSv2ChangedError, match="times or baselines"):
+        lazy["VISIBILITY"].values  # noqa: B018
+
+
 def test_read_errors_name_the_block_and_the_remedy(backend_ms, monkeypatch):
     lazy, _, _ = lazy_and_reference(backend_ms("dense"), 0)
 

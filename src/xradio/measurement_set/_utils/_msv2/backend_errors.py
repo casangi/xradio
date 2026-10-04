@@ -30,3 +30,13 @@ class PartitionCacheWarning(UserWarning):
     per MS and reason in a process; ``partition_cache="read"`` or ``"off"``
     silences it.
     """
+
+
+class StalePartitionsError(RuntimeError):
+    """
+    Partitions taken from the partition cache (the XRADIO_PARTITIONS row or
+    the per-process memo) do not describe the MAIN rows they point to: the
+    MS changed in a way their staleness checks missed, or while it was
+    opened. The engine computes the partitions again (internal: not raised
+    to users).
+    """

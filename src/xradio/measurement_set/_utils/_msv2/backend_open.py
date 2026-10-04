@@ -20,19 +20,34 @@ from typing import Any
 
 import xarray as xr
 
+from xradio._utils._casacore.tables import casatools_serialized
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
     SubtableCache,
     subtable_cache_supported,
 )
-from xradio.measurement_set._utils._msv2.backend_partition import open_partition
+from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
+    read_table_lock,
+)
+from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+from xradio.measurement_set._utils._msv2.backend_errors import (
+    MSv2ChangedError,
+    PartitionCacheWarning,
+    StalePartitionsError,
+)
+from xradio.measurement_set._utils._msv2.backend_partition import (
+    RowCheck,
+    open_partition,
+)
 from xradio.measurement_set._utils._msv2.conversion import msv4_name
 from xradio.measurement_set._utils._msv2.partition_cache import (
+    PARTITIONS_MEMO,
     PartitionsResult,
     load_or_create_partitions,
     resolve_partition_cache_mode,
 )
 from xradio.measurement_set._utils._msv2.partition_queries import (
+    partition_key_maps,
     validate_partition_scheme,
 )
 
@@ -86,9 +101,6 @@ def open_msv2_tree(
         )
     import xradio.measurement_set  # noqa: F401  (the xr_ps / xr_ms accessors)
 
-    result = load_or_create_partitions(path, scheme, mode)
-    selected = _select(path, result.partitions, partition_filter)
-    _warn_large_tree(path, len(selected))
     build_options = {
         "main_chunksize": main_chunksize,
         "with_pointing": with_pointing,
@@ -98,10 +110,52 @@ def open_msv2_tree(
         "phase_cal_interpolate": phase_cal_interpolate,
         "sys_cal_interpolate": sys_cal_interpolate,
     }
-    built = time.perf_counter()
-    tree = _build_tree(
-        path, result, selected, build_options, drop_variables, on_partition_error
-    )
+    for attempt in (1, 2):
+        # (a MAIN table that this process holds open with fewer rows is
+        # re-synchronized with its files first)
+        _check_main_is_current(path)
+        result = load_or_create_partitions(path, scheme, mode)
+        selected = _select(path, result.partitions, partition_filter)
+        if attempt == 1:
+            _warn_large_tree(path, len(selected))
+        built = time.perf_counter()
+        try:
+            _check_main_is_current(path, result.main_nrows)
+            # partitions from the cache are checked against their rows
+            verify = (
+                RowCheck(partition_key_maps(path), scheme)
+                if result.source in ("stored", "memo")
+                else None
+            )
+            tree = _build_tree(
+                path,
+                result,
+                selected,
+                build_options,
+                drop_variables,
+                on_partition_error,
+                verify,
+            )
+            break
+        except StalePartitionsError as exc:
+            if attempt == 2:
+                raise MSv2ChangedError(
+                    f"{path} changed while it was opened ({exc}); open it again"
+                ) from exc
+            if result.source == "fresh":
+                xradio_logger().info(
+                    f"{path} changed while it was opened ({exc}): opening it again"
+                )
+            else:
+                warnings.warn(
+                    f"The partition cache of {path} did not describe its rows "
+                    f"although its staleness checks passed ({exc}); the partitions "
+                    "are computed again. Please report this.",
+                    PartitionCacheWarning,
+                    stacklevel=4,
+                )
+            PARTITIONS_MEMO.discard_path(path)
+            mode = "rebuild" if mode in ("auto", "rebuild") else "off"
     end = time.perf_counter()
     xradio_logger().info(
         f"Opened {path} with the xradio_msv2 engine: {len(tree.children)} MSv4s of "
@@ -111,6 +165,53 @@ def open_msv2_tree(
         f"{end - built:.2f} s)"
     )
     return tree
+
+
+def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None:
+    """
+    Check that this process sees the MAIN table as it is on disk, and has as
+    many rows as the partitions were computed for.
+
+    casacore shares one table object per table in a process: if this
+    process holds MAIN open (e.g. the user's handle), a new open gets that
+    object, whose number of rows does not follow rows that other processes
+    added. It is re-synchronized when it differs from the lock file.
+
+    Parameters
+    ----------
+    path : str
+        Path of the MS.
+    expected_nrows : int | None, optional
+        The MAIN rows of the partitions.
+
+    Raises
+    ------
+    MSv2ChangedError
+        If MAIN cannot be re-synchronized with its files.
+    StalePartitionsError
+        If MAIN does not have ``expected_nrows`` rows.
+    """
+    lock = read_table_lock(path)
+    on_disk = lock.nrrow if lock is not None and lock.lock_ok else None
+    with casatools_serialized(), open_table_ro(path) as main_tb:
+        nrows = main_tb.nrows()
+        if on_disk is not None and nrows != on_disk:
+            try:
+                main_tb.resync()
+            except RuntimeError as exc:
+                raise MSv2ChangedError(
+                    f"The MAIN table of {path} changed and cannot be re-read: {exc}"
+                ) from exc
+            nrows = main_tb.nrows()
+    if on_disk is not None and nrows != on_disk:
+        raise MSv2ChangedError(
+            f"The MAIN table of {path} has {nrows} rows in this process and "
+            f"{on_disk} on disk"
+        )
+    if expected_nrows is not None and nrows != expected_nrows:
+        raise StalePartitionsError(
+            f"the MAIN table has {nrows} rows, the partitions are of {expected_nrows}"
+        )
 
 
 def _check_drop_variables(drop_variables) -> list[str] | None:
@@ -177,6 +278,7 @@ def _build_tree(
     build_options: dict,
     drop_variables: list[str] | None,
     on_partition_error: str,
+    verify: RowCheck | None = None,
 ) -> xr.DataTree:
     """
     The processing set root and one MSv4 node per selected partition with
@@ -184,7 +286,9 @@ def _build_tree(
     in the converter). A partition that fails to open is left out (logged
     with its traceback and warned once) with on_partition_error="skip", and
     raises with "raise"; if no partition could be opened but some failed, a
-    RuntimeError is raised.
+    RuntimeError is raised. With ``verify``, every partition's description
+    is checked against its rows: StalePartitionsError (whatever
+    on_partition_error).
     """
     root = xr.DataTree()
     root.attrs["type"] = "processing_set"
@@ -210,8 +314,11 @@ def _build_tree(
                     node_name=name,
                     drop_variables=drop_variables,
                     subtable_cache=subtable_cache,
+                    verify=verify,
                     **build_options,
                 )
+            except StalePartitionsError:
+                raise
             except Exception as exc:
                 what = f"Partition {idx} ({name}) of {path} could not be opened"
                 if on_partition_error == "raise":

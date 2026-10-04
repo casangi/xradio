@@ -1309,11 +1309,29 @@ def test_threads_reading_and_writing_one_ms(ms_copy):
 @pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
 @pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
 def test_write_mutexes_are_reset_in_a_fork_child(tmp_path):
+    """A child forked while another thread holds a writer mutex (and the
+    lock of their dict) gets free ones."""
     mutex = partition_cache.write_mutex(str(tmp_path))
     with mutex, partition_cache._WRITE_MUTEXES_LOCK:
         pid = os.fork()
         if pid == 0:  # child
-            ok = partition_cache.write_mutex(str(tmp_path)).acquire(timeout=5)
+            ok = partition_cache._WRITE_MUTEXES_LOCK.acquire(timeout=5)
+            if ok:
+                partition_cache._WRITE_MUTEXES_LOCK.release()
+                ok = partition_cache.write_mutex(str(tmp_path)).acquire(timeout=5)
             os._exit(0 if ok else 1)
-    _, status = os.waitpid(pid, 0)
-    assert os.waitstatus_to_exitcode(status) == 0
+    assert wait_child(pid) == 0
+
+
+def wait_child(pid: int, seconds: float = 60.0) -> int | None:
+    """The exit code of a forked child; a child still running after
+    ``seconds`` (e.g. deadlocked) is killed: None."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        done, status = os.waitpid(pid, os.WNOHANG)
+        if done:
+            return os.waitstatus_to_exitcode(status)
+        time.sleep(0.05)
+    os.kill(pid, 9)
+    os.waitpid(pid, 0)
+    return None

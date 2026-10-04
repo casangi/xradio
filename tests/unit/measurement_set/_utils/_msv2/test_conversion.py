@@ -1,6 +1,7 @@
 import os
 import pathlib
 import shutil
+import types
 from collections import namedtuple
 from contextlib import nullcontext as no_raises
 
@@ -358,10 +359,24 @@ def _sizes(time, baselines, frequency, polarization):
         (_sizes(5, 3, 2, 1), {}, None, {}),
     ],
 )
-def test_default_main_chunksize(sizes, variables, names, expected):
+def test_default_main_chunksize(sizes, variables, names, expected, monkeypatch):
+    logged = []
+    logger = types.SimpleNamespace(
+        warning=lambda msg: logged.append(("warning", msg)),
+        debug=lambda msg: logged.append(("debug", msg)),
+    )
+    monkeypatch.setattr(conversion, "xradio_logger", lambda: logger)
     xds = _placeholder_xds(sizes, variables)
     chunks = conversion.default_main_chunksize(xds, names)
     assert chunks == expected
+    # a warning only if a time step is over the Blosc limit (other axes split):
+    # the streamed write holds one time step per batch
+    warnings = [msg for level, msg in logged if level == "warning"]
+    if set(expected) - {"time"}:
+        assert len(warnings) == 1
+        assert "frequency" in warnings[0] and "one time step" in warnings[0]
+    else:
+        assert warnings == []
     for name in names or list(xds.data_vars):
         var = xds[name].variable
         nbytes = conversion._chunk_nbytes(var, chunks)

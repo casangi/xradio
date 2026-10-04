@@ -434,7 +434,14 @@ def default_main_chunksize(
     Only if one time step of the largest data variable is above the Blosc
     limit (BLOSC_MAX_BUFFER_BYTES, the largest chunk the compressor encodes),
     the frequency axis and then the baseline (antenna) axis are split too, to
-    chunks of about DEFAULT_MAIN_CHUNK_BYTES.
+    chunks of about DEFAULT_MAIN_CHUNK_BYTES, and a warning is logged: the
+    streamed write reads and writes whole time steps (a batch holds every
+    chunk of at least one time step), so it then holds one time step of a
+    data variable, more than the Blosc limit, in memory.
+
+    The memory of the streamed write is so about DEFAULT_MAIN_CHUNK_BYTES per
+    batch only if a time step of the largest data variable is at most that
+    size; otherwise it is one time step.
 
     Parameters
     ----------
@@ -474,6 +481,17 @@ def default_main_chunksize(
         per_element = max(_chunk_nbytes(var, chunks | {dim: 1}) for var in with_dim)
         chunks[dim] = max(
             1, min(int(xds.sizes[dim]), DEFAULT_MAIN_CHUNK_BYTES // per_element)
+        )
+    split = [dim for dim in chunks if dim != "time"]
+    if split:
+        xradio_logger().warning(
+            f"One time step of a main data variable is {per_time / 2**30:.2f} GiB, "
+            f"more than the {BLOSC_MAX_BUFFER_BYTES / 2**30:.0f} GiB the Blosc "
+            f"compressor encodes in one chunk: the default chunks also split "
+            f"{', '.join(split)} ({chunks}). The streamed write still reads and "
+            "writes whole time steps (one per batch here), so it holds one time "
+            f"step ({per_time / 2**30:.2f} GiB) of a data variable in memory. "
+            "Pass main_chunksize to choose the chunks."
         )
     return chunks
 

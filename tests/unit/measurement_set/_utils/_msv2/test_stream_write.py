@@ -616,9 +616,9 @@ def test_read_time_chunk_matches_the_whole_grid(cells_table, n_chunks):
     assert padded.shape == shape and np.isnan(padded).all()
 
 
-def test_check_deferred_variables():
-    """Every lazy data variable must be deferred, and xarray's zarr encoding
-    must leave the deferred values unchanged (the streamed write bypasses it)."""
+def _placeholder_xds():
+    """A main xds with deferred placeholders (and their DeferredVariables) as
+    the converter writes it: the encoding of add_encoding, xradio's attrs."""
     import xarray as xr
 
     dims = ("time", "baseline_id", "frequency")
@@ -626,21 +626,23 @@ def test_check_deferred_variables():
     def placeholder(dtype):
         return xr.DataArray(sw.deferred_placeholder("X", (3, 2, 4), dtype), dims=dims)
 
+    dtypes = {"VIS": np.complex64, "FLAG": bool, "W": np.float32, "N": np.int32}
     specs = {
         name: sw.DeferredVariable(name, "COL", np.dtype(dt))
-        for name, dt in (("VIS", np.complex64), ("FLAG", bool), ("W", np.float32))
+        for name, dt in dtypes.items()
     }
-    xds = xr.Dataset(
-        {
-            "VIS": placeholder(np.complex64),
-            "FLAG": placeholder(bool),
-            "W": placeholder(np.float32),
-            "SMALL": xr.DataArray(np.zeros(3), dims=("time",)),
-        }
-    )
+    xds = xr.Dataset({name: placeholder(dt) for name, dt in dtypes.items()})
+    xds["SMALL"] = xr.DataArray(np.zeros(3), dims=("time",))
     for name in specs:
         xds[name].encoding = {"chunks": [1, 2, 4], "compressors": ()}
         xds[name].attrs = {"units": "Jy", "type": "quantity"}
+    return xds, specs
+
+
+def test_check_deferred_variables():
+    """Every lazy data variable must be deferred and every deferred variable
+    still a placeholder."""
+    xds, specs = _placeholder_xds()
     sw.check_deferred_variables(xds, specs)
     sw.check_deferred_variables(xds, {**specs, "UVW": specs["VIS"]})  # dropped
     # a renamed placeholder would be left unwritten
@@ -648,22 +650,135 @@ def test_check_deferred_variables():
         sw.check_deferred_variables(xds.rename({"VIS": "VIS2"}), specs)
     with pytest.raises(RuntimeError, match="holds values"):
         sw.check_deferred_variables(xds, {**specs, "SMALL": specs["W"]})
-    # encodings that change the values (or dtype) on the to_zarr path; the
-    # check asks xarray's own zarr encoder
-    for encoding in (
-        {"scale_factor": 2.0},
-        {"add_offset": 1.0},
-        {"_FillValue": -1.0},  # NaN would be written as -1
-        {"dtype": "float64"},
-    ):
+
+
+# encodings with which to_zarr writes other values (or another dtype) than the
+# values of the variable
+VALUE_CODINGS = (
+    {"scale_factor": 2.0},
+    {"add_offset": 1.0},
+    {"_FillValue": -1.0},  # NaN would be written as -1
+    {"dtype": "float64"},
+)
+
+
+def test_deferred_encoding_problems():
+    """Only xradio's encoding (chunks, compressors) on bool / int / float /
+    complex values is streamed: any CF coding key in the encoding or the
+    attributes, another encoding key or dtype is reported."""
+    xds, specs = _placeholder_xds()
+    assert sw.deferred_encoding_problems(xds, specs) == []
+    assert sw.deferred_encoding_problems(xds, {**specs, "UVW": specs["W"]}) == []
+    for coding in VALUE_CODINGS:
         bad = xds.copy()
-        bad["W"].encoding = {**bad["W"].encoding, **encoding}
-        with pytest.raises(RuntimeError, match="encoding changes the values of"):
-            sw.check_deferred_variables(bad, specs)
-    # the same keys as attributes are written as attributes only
-    ok = xds.copy()
-    ok["W"].attrs = {**ok["W"].attrs, "scale_factor": 2.0, "_FillValue": -1.0}
-    sw.check_deferred_variables(ok, specs)
+        bad["W"].encoding = {**bad["W"].encoding, **coding}
+        assert sw.deferred_encoding_problems(bad, specs) == [
+            f"W: encoding {sorted(coding)}"
+        ]
+    # as attributes they are not applied by to_zarr, but are not told apart from
+    # an applied coding in the stored metadata: not streamed either
+    bad = xds.copy()
+    bad["W"].attrs = {**bad["W"].attrs, "scale_factor": 2.0, "_FillValue": -1.0}
+    assert sw.deferred_encoding_problems(bad, specs) == [
+        "W: attributes ['_FillValue', 'scale_factor']"
+    ]
+    bad = xds.copy()
+    bad["W"].encoding = {**bad["W"].encoding, "filters": None}
+    assert sw.deferred_encoding_problems(bad, specs) == ["W: encoding ['filters']"]
+    times = xds.copy()
+    times["W"] = times["W"].astype("datetime64[ns]")
+    times["W"].encoding = dict(xds["W"].encoding)
+    assert sw.deferred_encoding_problems(times, specs) == ["W: dtype datetime64[ns]"]
+
+
+def _declared_problems(xds, specs, store):
+    """deferred_array_problems of the metadata to_zarr(compute=False) declares
+    (the placeholders are never computed)."""
+    import zarr
+
+    xds.to_zarr(store, mode="w", zarr_format=3, compute=False)
+    group = zarr.open_group(store, mode="r", use_consolidated=False)
+    return sw.deferred_array_problems(group, xds, specs)
+
+
+def test_deferred_array_problems(tmp_path):
+    """The zarr metadata that to_zarr declares for the deferred variables
+    matches what the batch writer writes (the NaN _FillValue xarray adds to
+    floats masks nothing); an encoding that changes the values is reported
+    from the metadata alone."""
+    xds, specs = _placeholder_xds()
+    store = str(tmp_path / "ok")
+    assert _declared_problems(xds, specs, store) == []
+    import zarr
+
+    attrs = dict(zarr.open_group(store, mode="r")["W"].attrs)
+    assert attrs["_FillValue"] == "AAAAAAAA+H8="  # NaN, as xarray stores it
+    # (packing a float32 with a python float scale / offset also stores float64)
+    expected = {
+        "scale_factor": "W: attributes {scale_factor: 2.0}",
+        "add_offset": "W: attributes {add_offset: 1.0}",
+        "_FillValue": "W: attributes {_FillValue: 'AAAAAAAA8L8='}",  # -1.0
+        "dtype": "W: zarr dtype float64, values float32",
+    }
+    for idx, coding in enumerate(VALUE_CODINGS):
+        bad = xds.copy()
+        bad["W"].encoding = {**bad["W"].encoding, **coding}
+        problems = _declared_problems(bad, specs, str(tmp_path / f"bad{idx}"))
+        assert expected[next(iter(coding))] in problems, problems
+        assert all(problem.startswith("W: ") for problem in problems)
+    # attributes written as such are not told apart from an applied coding
+    bad = xds.copy()
+    bad["W"].attrs = {**bad["W"].attrs, "scale_factor": 2.0}
+    problems = _declared_problems(bad, specs, str(tmp_path / "attrs"))
+    assert problems == ["W: attributes {scale_factor: 2.0}"]
+
+
+def test_deferred_array_problems_from_zarr_metadata(tmp_path):
+    """Arrays declared otherwise than the xds (chunks, filters, a missing
+    array) are reported."""
+    import zarr
+
+    xds, specs = _placeholder_xds()
+    specs = {"W": specs["W"]}
+    group = zarr.open_group(str(tmp_path / "g"), mode="w", zarr_format=3)
+    group.create_array("W", shape=(3, 2, 4), chunks=(3, 2, 4), dtype="float32")
+    assert sw.deferred_array_problems(group, xds, specs) == [
+        "W: zarr chunks (3, 2, 4), encoding (1, 2, 4)"
+    ]
+    del group["W"]
+    group.create_array(
+        "W",
+        shape=(3, 2, 4),
+        chunks=(1, 2, 4),
+        dtype="float32",
+        filters=[zarr.codecs.TransposeCodec(order=(0, 1, 2))],
+    )
+    problems = sw.deferred_array_problems(group, xds, specs)
+    assert len(problems) == 1 and problems[0].startswith("W: filters")
+    del group["W"]
+    problems = sw.deferred_array_problems(group, xds, specs)
+    assert len(problems) == 1 and problems[0].startswith("W: KeyError")
+
+
+@pytest.mark.parametrize(
+    "value, is_nan",
+    [
+        ("AAAAAAAA+H8=", True),  # float64 NaN (xarray, zarr format 3)
+        ("AADAfw==", True),  # float32 NaN
+        ("AAAAAAAA8L8=", False),  # -1.0
+        ("NaN", True),
+        (float("nan"), True),
+        (np.float32("nan"), True),
+        (0.0, False),
+        (-1, False),
+        (True, False),
+        ("not base64!", False),
+        ("AAAA", False),  # 3 bytes
+        (None, False),
+    ],
+)
+def test_stored_fill_value_is_nan(value, is_nan):
+    assert sw._stored_fill_value_is_nan(value) is is_nan
 
 
 @pytest.mark.parametrize("remove_store", [True, False])

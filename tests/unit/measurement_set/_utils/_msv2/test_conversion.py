@@ -1736,6 +1736,62 @@ def test_stream_write_write_failure_removes_the_msv4(
     assert os.path.isdir(out) and os.listdir(out) == []
 
 
+@pytest.mark.parametrize("declared", [False, True])
+def test_stream_write_encoding_that_changes_values_is_not_streamed(
+    ms_main_layouts, declared, tmp_path, monkeypatch, stream_stats
+):
+    """
+    A deferred data variable whose encoding makes to_zarr write other values
+    (here WEIGHT stored as float64) is not streamed: told by the encoding
+    before writing (the partition is read whole and written by to_zarr) or,
+    if only the zarr metadata declares it, before any value is written (the
+    partition is converted again without the streamed write). The MSv4 is
+    the non-streamed one.
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    add_encoding = conversion.add_encoding
+
+    def float64_weight(xds, *args, **kwargs):
+        add_encoding(xds, *args, **kwargs)
+        if "WEIGHT" in xds:
+            xds["WEIGHT"].encoding["dtype"] = "float64"
+
+    monkeypatch.setattr(conversion, "add_encoding", float64_weight)
+    if declared:  # only the zarr metadata tells
+        monkeypatch.setattr(conversion, "deferred_encoding_problems", lambda *a: [])
+    attempts = []
+    convert = conversion._convert_and_write_partition
+
+    def spy(*args, allow_stream_write=True, **kwargs):
+        attempts.append(allow_stream_write)
+        return convert(*args, allow_stream_write=allow_stream_write, **kwargs)
+
+    monkeypatch.setattr(conversion, "_convert_and_write_partition", spy)
+    msname = ms_main_layouts["dense"]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[0]}
+    old_xdt, old = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "old"), partitions[0], "0", **kw
+    )
+    assert old_xdt.ds["WEIGHT"].encoding["dtype"] == np.float64
+    attempts.clear()
+    stream_stats.clear()
+    new_xdt, new = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "new"), partitions[0], "1", 1e-9, **kw
+    )
+    assert_stores_identical(old, new)
+    assert_msv4_bit_identical(old_xdt, new_xdt)
+    if declared:
+        assert attempts == [True, False]
+        assert stream_stats == []  # the streamed write raised before writing
+    else:
+        assert attempts == [True]
+        assert [stats["summary"]["in_memory"] for stats in stream_stats] == [True]
+
+
 @pytest.mark.parametrize(
     "main_read, parallel_mode, stream, streamed",
     [

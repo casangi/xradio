@@ -15,7 +15,16 @@ until one ``DataTree.to_zarr`` call writes the MSv4. With streaming:
    shape other than the first cell's (``check_partition_cells``).
 2. ``DataTree.to_zarr(compute=False)`` writes all metadata (with the encoding,
    chunks and compressor of the non-streamed path), the numpy variables and the
-   consolidated metadata. The placeholders are never computed.
+   consolidated metadata. The placeholders are never computed. The streamed
+   write writes the values to the zarr arrays directly, bypassing xarray's
+   encoding, so it is used only where that encoding leaves the values
+   unchanged: the encoding xradio sets (chunks, compressors) and no CF coding
+   (``deferred_encoding_problems``, before writing; otherwise the partition is
+   read whole and written by to_zarr), and the zarr metadata declared for the
+   deferred variables must match the values (dtype, shape, chunks, no filters,
+   no CF coding attributes but a NaN _FillValue: ``deferred_array_problems``,
+   before writing any value; otherwise the partition is converted again
+   without the streamed write).
 3. ``write_deferred_variables`` fills the placeholders one variable at a time,
    in batches of whole zarr chunks along time: each batch is read with one
    ascending pass over its rows (``read_time_chunk``), converted as in the
@@ -49,9 +58,11 @@ the MSv4 (``discard_msv4``) and is raised: no MSv4 with missing or partly
 written data variables is left behind (except after a hard kill).
 """
 
+import base64
 import json
 import os
 import shutil
+import struct
 import time
 import uuid
 from collections.abc import Callable
@@ -352,75 +363,50 @@ def deferred_ones(
     return deferred_placeholder(name, shape, dtype), spec
 
 
-def _encoding_probe(dtype: np.dtype) -> np.ndarray:
-    """Distinct values of ``dtype`` (with NaN for inexact types) to check that
-    xarray's encoding leaves the values of a variable unchanged."""
-    dtype = np.dtype(dtype)
-    if dtype.kind == "b":
-        values = [True, False]
-    elif dtype.kind in "iu":
-        values = [0, 1, 7]
-    elif dtype.kind == "f":
-        values = [0.0, 1.5, -2.25, np.nan]
-    elif dtype.kind == "c":
-        values = [0, 1.5 - 2j, complex(np.nan, np.nan)]
-    else:
-        raise RuntimeError(f"The streamed write cannot write values of dtype {dtype}")
-    return np.asarray(values).astype(dtype)
+# Encoding keys of the deferred data variables (set by add_encoding) that act
+# through the zarr array itself (chunk grid, compressors), so the batch writer,
+# which writes through the same zarr arrays, applies them as to_zarr does.
+STREAMED_ENCODING_KEYS = frozenset({"chunks", "compressors", "preferred_chunks"})
+# CF encoding keys / attributes with which xarray transforms the values of a
+# variable before handing them to zarr (masking, packing, dtype, time units).
+# The streamed write writes the values to the zarr arrays directly, so a
+# deferred variable with any of them is not streamed. Every such
+# transformation is recorded in the stored metadata (the reader needs it to
+# decode the values): the dtype or one of these attributes.
+CF_VALUE_CODING_KEYS = frozenset(
+    {
+        "_FillValue",
+        "missing_value",
+        "scale_factor",
+        "add_offset",
+        "dtype",
+        "calendar",
+        "_Unsigned",
+    }
+)
+# dtype kinds the streamed write writes (bool, integers, floats, complex)
+STREAMED_DTYPE_KINDS = "biufc"
 
 
-def _check_encoding_is_identity(name: str, var: xr.Variable) -> None:
-    """Raise if xarray's zarr encoding of ``var`` (its attrs and encoding)
-    would change its values or dtype: the streamed write writes the values to
-    the zarr array directly, bypassing that encoding."""
-    try:
-        from xarray.backends.zarr import encode_zarr_variable
-    except ImportError:  # pragma: no cover - older / newer xarray layouts
-        encode_zarr_variable = None
-    if encode_zarr_variable is None:
-        coded = {"_FillValue", "missing_value", "scale_factor", "add_offset", "dtype"}
-        found = coded & (set(var.attrs) | set(var.encoding))
-        if found or var.dtype.kind in "mMOSUV":
-            raise RuntimeError(
-                f"The deferred data variable {name} has a CF encoding ({found}, "
-                f"dtype {var.dtype}) that the streamed write does not apply"
-            )
-        return
-    probe = _encoding_probe(var.dtype)
-    shape = (probe.size,) + (1,) * (var.ndim - 1)
-    test = xr.Variable(
-        var.dims,
-        probe.reshape(shape),
-        attrs=dict(var.attrs),
-        encoding=dict(var.encoding),
-    )
-    encoded = encode_zarr_variable(test, name=name, zarr_format=ZARR_FORMAT)
-    values = np.asarray(encoded.data)
-    if (
-        encoded.dtype != var.dtype
-        or values.shape != shape
-        or values.tobytes() != probe.tobytes()
-    ):
-        raise RuntimeError(
-            f"xarray's zarr encoding changes the values of the deferred data "
-            f"variable {name} (dtype {var.dtype} -> {encoded.dtype}; attrs "
-            f"{sorted(var.attrs)}, encoding {sorted(var.encoding)}): the streamed "
-            "write, which writes the values straight to the zarr array, would "
-            "differ from to_zarr"
-        )
+class DeferredEncodingError(RuntimeError):
+    """
+    The zarr metadata written for the deferred data variables declares an
+    encoding that the streamed write does not apply (see
+    ``deferred_array_problems``). Raised before any value is written; the
+    caller converts the partition again without the streamed write.
+    """
 
 
 def check_deferred_variables(
     xds: xr.Dataset, deferred: dict[str, DeferredVariable]
 ) -> None:
     """
-    Check, before the MSv4 is written, that the streamed write writes exactly
-    what to_zarr would: every lazy (placeholder) data variable of the main xds
-    has a deferred description (otherwise its zarr array would get metadata
-    but no chunks and read back as fill values), every deferred variable of
-    the xds is still a placeholder, and xarray's zarr encoding leaves the
-    values of every deferred variable unchanged (no _FillValue masking,
-    scale_factor / add_offset, dtype or time encoding).
+    Check, before the MSv4 is written, that the streamed write writes every
+    variable exactly once: every lazy (placeholder) data variable of the main
+    xds has a deferred description (otherwise its zarr array would get metadata
+    but no chunks and read back as fill values), and every deferred variable
+    of the xds is still a placeholder. The encodings are checked by
+    ``deferred_encoding_problems`` and ``deferred_array_problems``.
 
     Parameters
     ----------
@@ -442,15 +428,145 @@ def check_deferred_variables(
                 "the streamed write would leave it unwritten"
             )
     for name in deferred:
-        if name not in xds.data_vars:
-            continue
-        var = xds[name].variable
-        if not isinstance(var.data, da.Array):
+        if name in xds.data_vars and not isinstance(xds[name].data, da.Array):
             raise RuntimeError(
                 f"The deferred data variable {name} holds values: they would be "
                 "written twice"
             )
-        _check_encoding_is_identity(name, var)
+
+
+def deferred_encoding_problems(
+    xds: xr.Dataset, deferred: dict[str, DeferredVariable]
+) -> list[str]:
+    """
+    Why the deferred data variables of the xds cannot be streamed, from their
+    dtype, attributes and encoding (checked before anything is written): the
+    streamed write writes the values straight to the zarr arrays, so it gives
+    what to_zarr writes only if xarray's encoding leaves the values unchanged.
+    That holds for the encoding xradio sets (``add_encoding``: chunks and
+    compressors, applied by the zarr arrays) on bool, integer, float and
+    complex values; any other encoding key, or a CF coding key
+    (``CF_VALUE_CODING_KEYS``: _FillValue, scale_factor, dtype, ...) in the
+    attributes or the encoding, is reported. ``deferred_array_problems``
+    checks the zarr metadata that to_zarr then declares.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        The main xds about to be written.
+    deferred : dict[str, DeferredVariable]
+        The deferred data variables, by name.
+
+    Returns
+    -------
+    list[str]
+        One message per problem (empty: the variables can be streamed).
+    """
+    problems = []
+    for name in deferred:
+        if name not in xds.data_vars:
+            continue
+        var = xds[name].variable
+        if var.dtype.kind not in STREAMED_DTYPE_KINDS or not var.dtype.isnative:
+            problems.append(f"{name}: dtype {var.dtype}")
+        other = sorted(set(var.encoding) - STREAMED_ENCODING_KEYS)
+        if other:
+            problems.append(f"{name}: encoding {other}")
+        coded = sorted(CF_VALUE_CODING_KEYS & set(var.attrs))
+        if coded:
+            problems.append(f"{name}: attributes {coded}")
+    return problems
+
+
+def _stored_fill_value_is_nan(value) -> bool:
+    """
+    Whether a stored ``_FillValue`` attribute is NaN (masking NaN with NaN
+    leaves the values unchanged): a number, or a string as zarr format 3
+    stores xarray's floating fill values (base64 of a little-endian float64,
+    ``"AAAAAAAA+H8="`` for NaN), or "NaN".
+    """
+    if isinstance(value, bool):
+        return False
+    if isinstance(value, int | float | np.integer | np.floating):
+        return bool(np.isnan(value))
+    if isinstance(value, str):
+        if value == "NaN":
+            return True
+        try:
+            raw = base64.b64decode(value, validate=True)
+        except ValueError:
+            return False
+        if len(raw) in (4, 8):
+            fmt = "<f" if len(raw) == 4 else "<d"
+            return bool(np.isnan(struct.unpack(fmt, raw)[0]))
+    return False
+
+
+def deferred_array_problems(
+    group, xds: xr.Dataset, deferred: dict[str, DeferredVariable]
+) -> list[str]:
+    """
+    Why the zarr arrays that ``DataTree.to_zarr(compute=False)`` declared for
+    the deferred data variables do not hold what the batch writer writes (it
+    writes the values, of the placeholder's dtype, with the arrays' own codecs
+    in chunk-aligned regions): another dtype, shape or chunk shape than the
+    xds declares, array-to-array codecs (filters) or a serializer other than
+    the plain bytes codec, or CF coding attributes that record a transformation
+    of the values (scale_factor, add_offset, a non-NaN _FillValue, ...). Only
+    public zarr metadata is used.
+
+    Parameters
+    ----------
+    group : zarr.Group
+        The MSv4 zarr group (as written by ``DataTree.to_zarr(compute=False)``).
+    xds : xr.Dataset
+        The main xds that was written.
+    deferred : dict[str, DeferredVariable]
+        The deferred data variables, by name.
+
+    Returns
+    -------
+    list[str]
+        One message per problem (empty: the batch writer writes exactly what
+        to_zarr would).
+    """
+    problems = []
+    for name in deferred:
+        if name not in xds.data_vars:
+            continue
+        var = xds[name].variable
+        try:
+            arr = group[name]
+            dtype = np.dtype(arr.dtype)
+            shape, chunks = tuple(arr.shape), tuple(arr.chunks)
+            filters, serializer = tuple(arr.filters), arr.serializer
+            attrs = dict(arr.attrs)
+        except Exception as exc:  # anything unexpected: do not stream
+            problems.append(f"{name}: {type(exc).__name__}: {exc}")
+            continue
+        if dtype != var.dtype:
+            problems.append(f"{name}: zarr dtype {dtype}, values {var.dtype}")
+        if shape != var.shape:
+            problems.append(f"{name}: zarr shape {shape}, values {var.shape}")
+        expected_chunks = tuple(int(n) for n in var.encoding.get("chunks", shape))
+        if chunks != expected_chunks:
+            problems.append(f"{name}: zarr chunks {chunks}, encoding {expected_chunks}")
+        if filters:
+            problems.append(f"{name}: filters {filters}")
+        if type(serializer).__name__ != "BytesCodec":
+            problems.append(f"{name}: serializer {serializer}")
+        coded = sorted(CF_VALUE_CODING_KEYS & set(attrs))
+        if "_FillValue" in coded and dtype.kind in "fc":
+            # xarray's default for floats: masking NaN with NaN changes nothing
+            fill = attrs["_FillValue"]
+            parts = fill if isinstance(fill, list | tuple) else [fill]
+            if parts and all(_stored_fill_value_is_nan(part) for part in parts):
+                coded.remove("_FillValue")
+        if coded:
+            problems.append(
+                f"{name}: attributes {{{', '.join(f'{k}: {attrs[k]!r}' for k in coded)}}}"
+            )
+    return problems
 
 
 def time_batches(
@@ -923,8 +1039,10 @@ def write_deferred_variables(
     written in pieces of at most ``target_bytes`` (whole chunks). Variables
     whose cells only the read can verify are written first.
 
-    The caller checks ``check_deferred_variables`` before writing the
-    metadata. Nothing is cleaned up on failure (see ``discard_msv4``).
+    The caller checks ``check_deferred_variables`` and
+    ``deferred_encoding_problems`` before writing the metadata; the zarr
+    metadata is checked here (``deferred_array_problems``) before any value is
+    written. Nothing is cleaned up on failure (see ``discard_msv4``).
 
     Parameters
     ----------
@@ -954,6 +1072,10 @@ def write_deferred_variables(
 
     Raises
     ------
+    DeferredEncodingError
+        If the zarr metadata declares an encoding that the streamed write does
+        not apply (nothing written yet): the caller converts the partition
+        again without the streamed write.
     DeferredReadError
         If reading (or converting) a column fails: the caller converts the
         partition again without it.
@@ -968,6 +1090,12 @@ def write_deferred_variables(
     group = zarr.open_group(
         store_path, mode="r+", zarr_format=ZARR_FORMAT, use_consolidated=False
     )
+    problems = deferred_array_problems(group, xds, deferred)
+    if problems:
+        raise DeferredEncodingError(
+            f"The zarr metadata of {store_path} declares an encoding that the "
+            f"streamed write does not apply: {'; '.join(problems)}"
+        )
     runs_whole = count_row_runs(main_rows.rows)
     cache: dict = {}
     var_stats = {}

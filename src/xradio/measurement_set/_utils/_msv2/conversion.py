@@ -77,9 +77,11 @@ from xradio.measurement_set._utils._msv2.partition_queries import (
     partition_main_rows,
 )
 from xradio.measurement_set._utils._msv2.stream_write import (
+    DeferredEncodingError,
     DeferredReadError,
     DeferredVariable,
     check_deferred_variables,
+    deferred_encoding_problems,
     deferred_main_column,
     deferred_ones,
     discard_msv4,
@@ -1287,14 +1289,28 @@ def convert_and_write_partition(*args, **kwargs):
     fails after the MSv4 metadata was written (see ``DeferredReadError``) makes
     the partition be converted again without that column (the MSv4 written so
     far is removed first): the result is that of the non-streamed path, which
-    skips a column whose read fails.
+    skips a column whose read fails. If the zarr metadata declares an encoding
+    that the streamed write does not apply (``DeferredEncodingError``, raised
+    before any value is written), the partition is converted again without
+    the streamed write.
     """
     unreadable: set[str] = set()
-    for _ in range(len(col_to_data_variable_names) + 1):
+    allow_stream_write = True
+    for _ in range(len(col_to_data_variable_names) + 2):
         try:
             return _convert_and_write_partition(
-                *args, unreadable_columns=frozenset(unreadable), **kwargs
+                *args,
+                unreadable_columns=frozenset(unreadable),
+                allow_stream_write=allow_stream_write,
+                **kwargs,
             )
+        except DeferredEncodingError as exc:
+            if not allow_stream_write:  # not streamed again: cannot happen
+                raise
+            xradio_logger().warning(
+                f"{exc}: converting the partition again without the streamed write"
+            )
+            allow_stream_write = False
         except DeferredReadError as exc:
             if exc.col in unreadable:  # not read again: cannot happen
                 raise
@@ -1331,6 +1347,7 @@ def _convert_and_write_partition(
     subtable_cache: SubtableCache | None = None,
     main_row_runs: PartitionMainRows | None = None,
     unreadable_columns: frozenset[str] = frozenset(),
+    allow_stream_write: bool = True,
 ):
     """_summary_
 
@@ -1385,6 +1402,10 @@ def _convert_and_write_partition(
         MAIN columns skipped as if their read had failed (set by
         convert_and_write_partition after a failed read of the streamed
         write), by default none.
+    allow_stream_write : bool, optional
+        False disables the streamed write of the MAIN data variables (set by
+        convert_and_write_partition after a DeferredEncodingError), by
+        default True.
 
     Returns
     -------
@@ -1406,7 +1427,8 @@ def _convert_and_write_partition(
     # parallel_mode="time" with a time chunk size already writes the large ones
     # lazily (dask); without one it reads like "none" (decided below).
     stream_write = (
-        storage_backend == "zarr"
+        allow_stream_write
+        and storage_backend == "zarr"
         and main_read == "rows"
         and parallel_mode in ("none", "partition", "time")
         and get_stream_write_mode()
@@ -1757,14 +1779,23 @@ def _convert_and_write_partition(
             xds["bidxs"] = bidxs
             xds["row_id"] = tb_tool.rownumbers()  # tb_tool.getcol("row_id")
 
-        if deferred is not None and fits_in_memory(xds, deferred, stream_batch_bytes):
-            # Small data variables (a fraction of a batch together): read them
-            # whole and write the MSv4 with one to_zarr, as the non-streamed
-            # path (the streamed write costs a few ms per variable)
-            read_deferred_variables(
-                xds, deferred, tb_tool, tidxs, bidxs, reverse_frequency
-            )
-            deferred = None
+        if deferred is not None:
+            # Read the data variables whole and write the MSv4 with one to_zarr,
+            # as the non-streamed path, if they are small (a fraction of a batch
+            # together: the streamed write costs a few ms per variable) or if
+            # xarray's encoding of a variable would change its values (the
+            # streamed write writes them to the zarr arrays directly)
+            problems = deferred_encoding_problems(xds, deferred)
+            if problems:
+                xradio_logger().warning(
+                    "The MAIN data variables are not streamed (their encoding "
+                    f"changes the values): {'; '.join(problems)}"
+                )
+            if problems or fits_in_memory(xds, deferred, stream_batch_bytes):
+                read_deferred_variables(
+                    xds, deferred, tb_tool, tidxs, bidxs, reverse_frequency
+                )
+                deferred = None
 
         start = time.time()
         ms_v4_name = pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
@@ -1831,8 +1862,9 @@ def _convert_and_write_partition(
                 except BaseException as exc:
                     # No MSv4 with unwritten (fill value) data variables is left:
                     # after a failed read the partition is converted again without
-                    # the column (convert_and_write_partition), otherwise the
-                    # error is raised.
+                    # the column, after an encoding the streamed write does not
+                    # apply without the streamed write (convert_and_write_partition),
+                    # otherwise the error is raised.
                     done = discard_msv4(
                         store_path,
                         set(deferred),
@@ -1841,7 +1873,7 @@ def _convert_and_write_partition(
                         members_before=members_before,
                     )
                     log = xradio_logger().debug
-                    if not isinstance(exc, DeferredReadError):
+                    if not isinstance(exc, DeferredReadError | DeferredEncodingError):
                         log = xradio_logger().error
                     log(f"Writing the data variables of {store_path} failed: {done}")
                     raise

@@ -111,12 +111,13 @@ def convert_msv2_to_processing_set(
         ...     and 6 in p["SCAN_NUMBER"]
         ... )
     main_chunksize : Union[Dict, float, None], optional
-        Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
-        With parallel_mode "none" or "partition" (and the default row read path), the data variables of the main dataset are read and written one at a time, in batches of whole time chunks: with time chunks smaller than a data variable, a partition never holds a whole data variable in memory. By default (None) every data variable is one chunk, written in one piece. Small partitions are read whole.
+        Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions (the other dimensions are not chunked), and acceptable keys are "time", "baseline_id", "antenna_name", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB.
+        By default (None) the data variables are chunked along time only, every other dimension whole: the time chunk length is chosen so that a chunk of the largest data variable holds about 128 MiB (uncompressed), at least one time step. Partitions with fewer time steps than one such chunk have one chunk per data variable. Only if one time step of a data variable is larger than 2 GiB (the largest chunk the Blosc compressor encodes) are the frequency axis, and then the baseline axis, chunked as well. Before this version None meant one chunk per data variable, which fails for data variables of more than 2 GiB with the default compressor.
+        With parallel_mode "none" or "partition", the data variables of the main dataset are read and written one at a time, in batches of whole time chunks of about 128 MiB together: with several time chunks, a partition never holds a whole data variable in memory. Small partitions are read whole.
     with_pointing : bool, optional
         Whether to convert the POINTING subtable into pointing sub-datasets
     pointing_chunksize : Union[Dict, float, None], optional
-        Defines the chunk size of the pointing dataset. If given as a dictionary, defines the sizes of several dimensions, acceptable keys are "time" and "antenna_id". If given as a float, defines the size of a chunk in GiB. By default, None.
+        Defines the chunk size of the pointing dataset. If given as a dictionary, defines the sizes of several dimensions, acceptable keys are "time" and "antenna_id". If given as a float, defines the size of a chunk in GiB. By default, None: one chunk per variable.
     pointing_interpolate : bool, optional
         Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
     ephemeris_interpolate : bool, optional
@@ -137,7 +138,7 @@ def convert_msv2_to_processing_set(
     parallel_mode : Literal["none", "partition", "time"], optional
         Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
         The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
-        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.
+        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`. Without a "time" chunk size in `main_chunksize` (for example with the default None), "time" reads the data as "none" does.
         "time" gives the same output as "none" for any row order and also for missing or duplicated (time, baseline) rows
         (cells without a row are padded as in "none", FLAG=False). Before this version, "time" required dense, time-ordered
         rows (one row for every time and baseline).

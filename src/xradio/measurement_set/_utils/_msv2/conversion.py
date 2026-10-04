@@ -121,9 +121,18 @@ def open_partition_main_table(
             main_rows.close()
 
 
+# Default chunks of the main xds (main_chunksize=None, see default_main_chunksize):
+# along time only, with time chunks of about this size (uncompressed) for the
+# largest data variable.
+DEFAULT_MAIN_CHUNK_BYTES = 128 * 2**20
+# Largest buffer the Blosc compressor encodes (numcodecs raises for larger ones),
+# i.e. the largest zarr chunk the default compressor can write.
+BLOSC_MAX_BUFFER_BYTES = 2**31 - 1
+
+
 def parse_chunksize(
     chunksize: dict | float | None, xds_type: str, xds: xr.Dataset
-) -> dict[str, int]:
+) -> dict[str, int] | None:
     """
     Parameters
     ----------
@@ -137,8 +146,10 @@ def parse_chunksize(
 
     Returns
     -------
-    Dict[str, int]
-        dictionary of chunk sizes (as dim->size)
+    Dict[str, int] | None
+        dictionary of chunk sizes (as dim->size), or None for None (the
+        defaults: one chunk per variable for pointing, default_main_chunksize
+        for main, which needs the data variables)
     """
     if isinstance(chunksize, dict):
         check_chunksize(chunksize, xds_type)
@@ -395,6 +406,71 @@ def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> dict[st
         )
 
     return result
+
+
+def _chunk_nbytes(var: xr.Variable, chunks: dict[str, int]) -> int:
+    """Bytes (uncompressed) of the largest chunk of a variable for the chunk
+    sizes ``chunks`` (dimensions not in ``chunks`` whole)."""
+    nbytes = int(var.dtype.itemsize)
+    for dim, size in zip(var.dims, var.shape, strict=True):
+        nbytes *= min(int(size), int(chunks.get(dim, size)))
+    return nbytes
+
+
+def default_main_chunksize(
+    xds: xr.Dataset, data_var_names: list[str] | None = None
+) -> dict[str, int]:
+    """
+    The chunk sizes of the main xds for main_chunksize=None: chunks along time
+    only (every other dimension whole), with a time chunk length that makes
+    the chunk of the largest data variable about DEFAULT_MAIN_CHUNK_BYTES
+    (uncompressed), at least one time step.
+
+    Only if one time step of the largest data variable is above the Blosc
+    limit (BLOSC_MAX_BUFFER_BYTES, the largest chunk the compressor encodes),
+    the frequency axis and then the baseline (antenna) axis are split too, to
+    chunks of about DEFAULT_MAIN_CHUNK_BYTES.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        The main xds with its data variables (values, lazy or placeholders:
+        only their dimensions, shapes and dtypes are used).
+    data_var_names : list[str] | None, optional
+        The data variables to size the chunks by, by default all of them.
+
+    Returns
+    -------
+    dict[str, int]
+        Chunk sizes by dimension ({} if there is no data variable along time).
+    """
+    if data_var_names is None:
+        data_var_names = list(xds.data_vars)
+    variables = [
+        xds[name].variable
+        for name in data_var_names
+        if name in xds.data_vars and "time" in xds[name].dims
+    ]
+    if not variables:
+        return {}
+    n_times = int(xds.sizes["time"])
+    per_time = max(_chunk_nbytes(var, {"time": 1}) for var in variables)
+    chunks = {
+        "time": max(1, min(n_times, DEFAULT_MAIN_CHUNK_BYTES // max(1, per_time)))
+    }
+    for dim in ("frequency", "baseline_id", "antenna_name"):
+        if max(_chunk_nbytes(var, chunks) for var in variables) <= (
+            BLOSC_MAX_BUFFER_BYTES
+        ):
+            break
+        with_dim = [var for var in variables if dim in var.dims]
+        if not with_dim:
+            continue
+        per_element = max(_chunk_nbytes(var, chunks | {dim: 1}) for var in with_dim)
+        chunks[dim] = max(
+            1, min(int(xds.sizes[dim]), DEFAULT_MAIN_CHUNK_BYTES // per_element)
+        )
+    return chunks
 
 
 def find_baseline_or_antenna_var(xds: xr.Dataset) -> str:
@@ -1325,7 +1401,8 @@ def _convert_and_write_partition(
     field_id : int, optional
         _description_, by default None
     main_chunksize : Union[Dict, float, None], optional
-        _description_, by default None
+        Chunk sizes of the main xds (see convert_msv2_to_processing_set), by
+        default None: chunks along time only (default_main_chunksize).
     with_pointing: bool, optional
         _description_, by default True
     pointing_chunksize : Union[Dict, float, None], optional
@@ -1696,6 +1773,16 @@ def _convert_and_write_partition(
 
         # xds ready, prepare to write
         start = time.time()
+        if main_chunksize is None:
+            # (UVW is dropped from single dish xdss)
+            main_chunksize = default_main_chunksize(
+                xds,
+                [
+                    name
+                    for name in xds.data_vars
+                    if not (is_single_dish and name == "UVW")
+                ],
+            )
         add_encoding(xds, compressor=compressor, chunks=main_chunksize)
         xradio_logger().debug(
             "Time add compressor and chunk " + str(time.time() - start)

@@ -279,6 +279,97 @@ def test_mem_chunksize_to_dict_pointing(mem_size, dim_sizes, expected_chunksize)
     assert res == pytest.approx(expected_chunksize)
 
 
+def _placeholder_xds(sizes: dict, variables: dict) -> xr.Dataset:
+    """A main xds whose data variables (name -> (dims, dtype)) hold no memory
+    (zero-strided)."""
+    data_vars = {}
+    for name, (dims, dtype) in variables.items():
+        shape = tuple(sizes[dim] for dim in dims)
+        data_vars[name] = (dims, np.broadcast_to(np.zeros((), dtype=dtype), shape))
+    return xr.Dataset(data_vars)
+
+
+VIS_DIMS = ("time", "baseline_id", "frequency", "polarization")
+SD_DIMS = ("time", "antenna_name", "frequency", "polarization")
+MAIN_VARS = {
+    "VISIBILITY": (VIS_DIMS, np.complex64),
+    "FLAG": (VIS_DIMS, np.bool_),
+    "WEIGHT": (VIS_DIMS, np.float32),
+    "UVW": (("time", "baseline_id", "uvw_label"), np.float64),
+    "TIME_CENTROID": (("time", "baseline_id"), np.float64),
+}
+
+
+def _sizes(time, baselines, frequency, polarization):
+    return {
+        "time": time,
+        "baseline_id": baselines,
+        "antenna_name": baselines,
+        "frequency": frequency,
+        "polarization": polarization,
+        "uvw_label": 3,
+    }
+
+
+@pytest.mark.parametrize(
+    "sizes, variables, names, expected",
+    [
+        # small partition: one time chunk (as one chunk per variable before)
+        (_sizes(30, 10, 16, 2), MAIN_VARS, None, {"time": 30}),
+        # 3c391-like: 718848 bytes of VISIBILITY per time step
+        (_sizes(4000, 351, 64, 4), MAIN_VARS, None, {"time": 186}),
+        # double precision visibilities: half the time steps
+        (
+            _sizes(4000, 351, 64, 4),
+            MAIN_VARS | {"VISIBILITY": (VIS_DIMS, np.complex128)},
+            None,
+            {"time": 93},
+        ),
+        # the WEIGHT=1 fallback (float64) as large as complex64 VISIBILITY
+        (
+            _sizes(4000, 351, 64, 4),
+            MAIN_VARS | {"WEIGHT": (VIS_DIMS, np.float64)},
+            None,
+            {"time": 186},
+        ),
+        # one channel and polarization: UVW (24 bytes per baseline) is largest
+        (_sizes(10**6, 351, 1, 1), MAIN_VARS, None, {"time": 2**27 // (351 * 24)}),
+        # single dish without UVW (dropped)
+        (
+            _sizes(10**5, 12, 4096, 2),
+            {
+                "SPECTRUM": (SD_DIMS, np.float32),
+                "FLAG": (SD_DIMS, np.bool_),
+                "UVW": (("time", "antenna_name", "uvw_label"), np.float64),
+            },
+            ["SPECTRUM", "FLAG"],
+            {"time": 2**27 // (12 * 4096 * 2 * 4)},
+        ),
+        # one time step of 252 MiB (under the Blosc limit): time only
+        (_sizes(5, 2016, 4096, 4), MAIN_VARS, None, {"time": 1}),
+        # one time step of 2.35 GiB (over the Blosc limit): frequency too
+        (
+            _sizes(3, 131328, 600, 4),
+            MAIN_VARS,
+            None,
+            {"time": 1, "frequency": 2**27 // (131328 * 4 * 8)},
+        ),
+        # no data variable along time
+        (_sizes(5, 3, 2, 1), {}, None, {}),
+    ],
+)
+def test_default_main_chunksize(sizes, variables, names, expected):
+    xds = _placeholder_xds(sizes, variables)
+    chunks = conversion.default_main_chunksize(xds, names)
+    assert chunks == expected
+    for name in names or list(xds.data_vars):
+        var = xds[name].variable
+        nbytes = conversion._chunk_nbytes(var, chunks)
+        assert nbytes <= conversion.BLOSC_MAX_BUFFER_BYTES
+        if chunks.get("time", 0) > 1:
+            assert nbytes <= conversion.DEFAULT_MAIN_CHUNK_BYTES
+
+
 def test_itemsize_spec():
     assert conversion.itemsize_spec(xds_main) == 8
 
@@ -2031,3 +2122,133 @@ def test_convert_and_write_partition_casatools_tiled_shape_main(
             **kw,
         )
         assert_stores_identical(old[idx], new)
+
+
+# --- default chunks of the main xds (main_chunksize=None) ---------------------
+
+
+def assert_msv4_values_identical(xdt_a: xr.DataTree, xdt_b: xr.DataTree) -> None:
+    """As assert_msv4_bit_identical, but the chunks may differ."""
+    assert {node.path for node in xdt_a.subtree} == {
+        node.path for node in xdt_b.subtree
+    }
+    for node in xdt_a.subtree:
+        ds_a = node.to_dataset(inherit=False)
+        ds_b = xdt_b[node.path].to_dataset(inherit=False)
+        assert list(ds_a.variables) == list(ds_b.variables), node.path
+        assert _without_dates(ds_a.attrs) == _without_dates(ds_b.attrs), node.path
+        for name, var_a in ds_a.variables.items():
+            var_b = ds_b.variables[name]
+            where = f"{node.path}/{name}"
+            assert var_a.dims == var_b.dims and var_a.dtype == var_b.dtype, where
+            values_a, values_b = var_a.values, var_b.values
+            if values_a.dtype == object:
+                np.testing.assert_array_equal(values_a, values_b, err_msg=where)
+            else:
+                assert values_a.tobytes() == values_b.tobytes(), where
+            assert _without_dates(var_a.attrs) == _without_dates(var_b.attrs), where
+            encoding = {
+                key: repr(var_a.encoding.get(key))
+                for key in ("dtype", "compressors", "filters", "_FillValue")
+            }
+            assert encoding == {
+                key: repr(var_b.encoding.get(key)) for key in encoding
+            }, where
+
+
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+@pytest.mark.parametrize("batch_mb", [None, 1e-9])
+def test_default_main_chunksize_time_chunks(
+    ms_main_layouts, layout, batch_mb, tmp_path, monkeypatch
+):
+    """
+    main_chunksize=None chunks the data variables along time only, about
+    DEFAULT_MAIN_CHUNK_BYTES of the largest one (here made small): the MSv4 is
+    byte-identical to one with these time chunks given explicitly, and holds
+    the values of one with other chunks. With the real default (small
+    partitions) it is one chunk per variable, as before.
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts[layout]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_row_runs": runs[1]}
+    # one chunk per variable (main_chunksize=None before this version)
+    one_chunk_xdt, one_chunk = _convert_streamed(
+        monkeypatch,
+        msname,
+        str(tmp_path / "one"),
+        partitions[1],
+        "1",
+        None,
+        main_chunksize={},
+        **kw,
+    )
+    _, default = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "d0"), partitions[1], "1", None, **kw
+    )
+    assert_stores_identical(one_chunk, default)
+    n_times = one_chunk_xdt.ds.sizes["time"]
+    assert one_chunk_xdt.ds.VISIBILITY.encoding["chunks"][0] == n_times
+
+    # 3 time steps of VISIBILITY (10 baselines x 16 channels x 2 x 8 bytes)
+    monkeypatch.setattr(conversion, "DEFAULT_MAIN_CHUNK_BYTES", 3 * 2560 + 100)
+    default_xdt, default = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "d"), partitions[1], "1", batch_mb, **kw
+    )
+    _, explicit = _convert_streamed(
+        monkeypatch,
+        msname,
+        str(tmp_path / "e"),
+        partitions[1],
+        "1",
+        batch_mb,
+        main_chunksize={"time": 3},
+        **kw,
+    )
+    assert_stores_identical(default, explicit)
+    for name, var in default_xdt.ds.data_vars.items():
+        assert var.encoding["chunks"] == (3,) + var.shape[1:], name
+    assert_msv4_values_identical(one_chunk_xdt, default_xdt)
+
+
+def test_default_main_chunksize_beyond_the_blosc_limit(
+    ms_main_layouts, tmp_path, monkeypatch, stream_stats
+):
+    """
+    A data variable whose time steps are larger than the Blosc limit (here
+    made small) is also chunked along frequency, and converts (streamed in
+    batches of one chunk) to the values of a one-chunk conversion.
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts["dense"]
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_row_runs": runs[0]}
+    one_chunk_xdt, _ = _convert_streamed(
+        monkeypatch,
+        msname,
+        str(tmp_path / "one"),
+        partitions[0],
+        "0",
+        main_chunksize={},
+        **kw,
+    )
+    # a time step of VISIBILITY is 2560 bytes, of one channel 160 bytes
+    monkeypatch.setattr(conversion, "BLOSC_MAX_BUFFER_BYTES", 1000)
+    monkeypatch.setattr(conversion, "DEFAULT_MAIN_CHUNK_BYTES", 500)
+    xdt, store = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "d"), partitions[0], "1", 1e-9, **kw
+    )
+    assert xdt.ds.VISIBILITY.encoding["chunks"] == (1, 10, 3, 2)
+    assert xdt.ds.FLAG.encoding["chunks"] == (1, 10, 3, 2)
+    assert xdt.ds.UVW.encoding["chunks"] == (1, 10, 3)
+    for name, var in xdt.ds.data_vars.items():
+        chunk = np.prod(var.encoding["chunks"]) * var.dtype.itemsize
+        assert chunk <= 1000, name
+    assert not stream_stats[-1]["summary"]["in_memory"]
+    assert_msv4_values_identical(one_chunk_xdt, xdt)

@@ -281,14 +281,59 @@ OPEN_STORED_VALUES = {
 }
 
 
-# Variables computed with libm trigonometry (OBSERVER_POSITION: astropy's
-# EarthLocation, in ERFA), whose last bits may differ between platforms (the
-# reference is computed on Linux, the casatools workflow also runs on macOS):
-# their values are kept in the fingerprint ("approx") and compared with a
-# relative tolerance of APPROX_RTOL; their variable_record covers everything
-# else.
-APPROX_VARIABLES = ("OBSERVER_POSITION",)
+# Variables whose values come from libm or from interpolation, whose last bits
+# may differ between platforms (the reference is computed on Linux x86-64, the
+# casatools workflow also runs on macOS arm64, whose libm and compilers, e.g.
+# fused multiply-adds, may round differently): their values are kept in the
+# fingerprint ("approx") and compared with a tolerance of APPROX_RTOL relative
+# to the largest magnitude of the variable (so that components that are 0 in
+# the reference compare as well); their variable_record covers everything else
+# (dtype, dims, shape, attributes) bit for bit, as all the other variables.
+# See approx_variables:
+# - OBSERVER_POSITION (LIBM_VARIABLES): astropy's EarthLocation (ERFA
+#   trigonometry);
+# - the EPHEMERIS_VARIABLES of an ephemeris field_and_source_xds that are on
+#   the main time axis ("time"): interpolated from the ephemeris table to the
+#   MSv4 times (create_field_and_source_xds: interpolate_to_time, xarray's
+#   interp). FIELD_*_CENTER_DIRECTION and FIELD_*_CENTER_DISTANCE always are;
+#   the others only with ephemeris_interpolate=True (otherwise they are on
+#   "time_ephemeris", the values of the ephemeris table, bit for bit). The
+#   other variables on "time" (LINE_*, from the SOURCE table) are not
+#   interpolated.
+LIBM_VARIABLES = ("OBSERVER_POSITION",)
+EPHEMERIS_TYPE = "field_and_source_ephemeris"
+# The variables that extract_ephemeris_info computes from the ephemeris table
+EPHEMERIS_VARIABLES = (
+    "FIELD_PHASE_CENTER_DIRECTION",
+    "FIELD_PHASE_CENTER_DISTANCE",
+    "FIELD_REFERENCE_CENTER_DIRECTION",
+    "FIELD_REFERENCE_CENTER_DISTANCE",
+    "HELIOCENTRIC_RADIAL_VELOCITY",
+    "NORTH_POLE_ANGULAR_DISTANCE",
+    "NORTH_POLE_POSITION_ANGLE",
+    "OBSERVER_PHASE_ANGLE",
+    "SOURCE_DIRECTION",
+    "SOURCE_DISTANCE",
+    "SOURCE_RADIAL_VELOCITY",
+    "SUB_OBSERVER_DIRECTION",
+    "SUB_SOLAR_DIRECTION",
+    "SUB_SOLAR_DISTANCE",
+)
 APPROX_RTOL = 1e-12
+
+
+def approx_variables(ds: Any) -> list[str]:
+    """The variables of a dataset whose values are compared with a tolerance
+    (LIBM_VARIABLES, and the EPHEMERIS_VARIABLES interpolated to the MSv4
+    times)."""
+    names = {str(name) for name in LIBM_VARIABLES if name in ds.variables}
+    if ds.attrs.get("type") == EPHEMERIS_TYPE:
+        names |= {
+            name
+            for name in EPHEMERIS_VARIABLES
+            if name in ds.variables and "time" in ds.variables[name].dims
+        }
+    return sorted(names)
 
 
 def variable_record(var: Any, approx: bool = False) -> str:
@@ -312,37 +357,63 @@ def node_fingerprint(ds: Any) -> dict:
     Fingerprint of one node (dataset) of a processing set: "vars", the
     variable_record of every variable (coordinates included), "meta", the
     digest of the coordinate names and the dataset attributes, and "approx",
-    the values of the APPROX_VARIABLES (if any).
+    the float64 values of the approx_variables (if any).
     """
+    approx_names = approx_variables(ds)
     meta = [sorted(str(name) for name in ds.coords), without_run_specific(ds.attrs)]
     fingerprint = {
         "meta": digest(canonical_json(meta)),
         "vars": {
-            str(name): variable_record(var, str(name) in APPROX_VARIABLES)
+            str(name): variable_record(var, str(name) in approx_names)
             for name, var in ds.variables.items()
         },
     }
-    approx = {
-        name: np.asarray(ds.variables[name].values, dtype=np.float64).tolist()
-        for name in APPROX_VARIABLES
-        if name in ds.variables
-    }
-    if approx:
-        fingerprint["approx"] = approx
+    if approx_names:
+        fingerprint["approx"] = {
+            name: np.asarray(ds.variables[name].values, dtype=np.float64).tolist()
+            for name in approx_names
+        }
     return fingerprint
+
+
+def approx_equal(expected: Any, actual: Any, rtol: float = APPROX_RTOL) -> bool:
+    """
+    Whether two arrays of float values are equal up to ``rtol`` times the
+    largest finite magnitude of ``expected`` (NaNs at the same places).
+    """
+    exp_arr = np.asarray(expected, dtype=np.float64)
+    act_arr = np.asarray(actual, dtype=np.float64)
+    if exp_arr.shape != act_arr.shape:
+        return False
+    finite = np.abs(exp_arr[np.isfinite(exp_arr)])
+    scale = float(finite.max()) if finite.size else 0.0
+    return bool(
+        np.allclose(act_arr, exp_arr, rtol=rtol, atol=rtol * scale, equal_nan=True)
+    )
 
 
 def _approx_differences(where: str, expected: dict, actual: dict) -> list[str]:
     diffs = []
-    for name, exp_values in expected.items():
+    for name, exp_values in sorted(expected.items()):
         act_values = actual.get(name)
         if act_values is None:
-            continue  # reported as a missing variable
-        exp_arr, act_arr = np.asarray(exp_values), np.asarray(act_values)
-        if exp_arr.shape != act_arr.shape or not np.allclose(
-            act_arr, exp_arr, rtol=APPROX_RTOL, atol=0, equal_nan=True
-        ):
-            diffs.append(f"{where}/{name}: expected {exp_values}, got {act_values}")
+            diffs.append(f"{where}/{name}: values expected, none kept")
+        elif not approx_equal(exp_values, act_values):
+            exp_arr = np.asarray(exp_values, dtype=np.float64)
+            act_arr = np.asarray(act_values, dtype=np.float64)
+            if exp_arr.shape != act_arr.shape:
+                detail = f"shape {act_arr.shape}, expected {exp_arr.shape}"
+            else:
+                detail = (
+                    "largest difference "
+                    f"{np.nanmax(np.abs(act_arr - exp_arr), initial=0.0)!r}, "
+                    f"largest value {np.nanmax(np.abs(exp_arr), initial=0.0)!r}, "
+                    f"NaNs {int(np.isnan(act_arr).sum())} "
+                    f"(expected {int(np.isnan(exp_arr).sum())})"
+                )
+            diffs.append(f"{where}/{name}: values differ: {detail}")
+    for name in sorted(set(actual) - set(expected)):
+        diffs.append(f"{where}/{name}: values kept, none expected")
     return diffs
 
 

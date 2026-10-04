@@ -3,9 +3,12 @@ convert_msv2_to_processing_set of downloaded test MSs with casatools, compared
 with the processing sets that python-casacore gives
 (reference_python_casacore.json, make_reference.py): every MSv4 and
 sub-dataset, every variable's dims, shape, values (NaN payloads included) and
-attributes, the coordinates and the attributes of every dataset (the values
-of OBSERVER_POSITION, computed with libm trigonometry, to a relative 1e-12:
-see reference.APPROX_VARIABLES).
+attributes, the coordinates and the attributes of every dataset, bit for
+bit, but for the values of the variables computed with libm or interpolated
+(OBSERVER_POSITION, and the ephemeris variables interpolated to the MSv4
+times, e.g. FIELD_PHASE_CENTER_DIRECTION of the ALMA MS), whose last bits may
+differ on other platforms (macOS arm64): to 1e-12 of their largest magnitude
+(reference.approx_variables).
 
 The cases (reference.CONVERSION_CASES) cover TiledShapeStMan, TiledColumnStMan,
 IncrementalStMan and StandardStMan MAIN columns, cells of several shapes in one
@@ -29,6 +32,7 @@ macOS workflows), see reference.skip_unless_casatools_backend.
 
 import shutil
 
+import numpy as np
 import pytest
 
 from tests.casatools import reference as ref
@@ -92,3 +96,42 @@ def test_convert_msv2_to_processing_set(case, variant, reference, tmp_path):
             stats["summary"]["batches"] > stats["summary"]["variables"]
             for stats in spy.streamed
         )
+
+
+def test_approx_values_compared_with_a_tolerance(reference):
+    """
+    The values of the variables computed with libm or interpolated
+    (reference.approx_variables: OBSERVER_POSITION and the ephemeris
+    variables of the ALMA MS) are compared with a tolerance relative to
+    their largest magnitude: differences in the last bits (another platform's
+    libm or compiler) pass, larger ones do not.
+    """
+    expected = dict(reference["conversions"]["alma"], nodes=reference["nodes"])
+    kept = {
+        name for node in reference["nodes"].values() for name in node.get("approx", {})
+    }
+    assert kept == {
+        "FIELD_PHASE_CENTER_DIRECTION",
+        "FIELD_PHASE_CENTER_DISTANCE",
+        "OBSERVER_POSITION",
+    }
+
+    def scaled(factor: float) -> dict:
+        """The expected fingerprint with the kept values scaled by factor."""
+        nodes, msv4 = dict(reference["nodes"]), {}
+        for name, paths in expected["msv4"].items():
+            msv4[name] = dict(paths)
+            for path, node_id in paths.items():
+                node = reference["nodes"][node_id]
+                if "approx" in node:
+                    approx = {
+                        var: (np.asarray(values, dtype=np.float64) * factor).tolist()
+                        for var, values in node["approx"].items()
+                    }
+                    msv4[name][path] = f"{node_id}-scaled"
+                    nodes[f"{node_id}-scaled"] = dict(node, approx=approx)
+        return {"msv4": msv4, "nodes": nodes, "attrs": expected["attrs"]}
+
+    assert not ref.fingerprint_differences(expected, scaled(1 + 4e-16))
+    diffs = ref.fingerprint_differences(expected, scaled(1 + 1e-9))
+    assert diffs and all(": values differ: " in line for line in diffs)

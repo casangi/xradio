@@ -1,6 +1,5 @@
 import copy
 import os
-import threading
 
 import dask
 import dask.array as da
@@ -21,7 +20,12 @@ except ImportError:
     from xradio._utils._casacore.casacore_from_casatools import image as casa_image
 
 
-from xradio._utils._casacore.tables import extract_table_attributes, open_table_ro
+from xradio._utils._casacore.tables import (
+    CASATOOLS_LOCK,
+    casatools_serialized,
+    extract_table_attributes,
+    open_table_ro,
+)
 from xradio._utils.coord_math import _deg_to_rad
 from xradio._utils.dict_helpers import (
     _casacore_q_to_xradio_q,
@@ -1294,16 +1298,15 @@ def _read_image_array(
 
 # casatools table calls are not thread safe: with dask's threaded scheduler,
 # concurrent chunk reads crash (segmentation fault) or fail with FiledesIO
-# errors, so they are serialized. python-casacore reads run concurrently
-# without problems and are not locked.
-_CASATOOLS_READ_LOCK = threading.Lock()
+# errors, so they are serialized, with the one lock of every casatools read of
+# the process (MSv2 reads included, see xradio._utils._casacore.tables).
+# python-casacore reads run concurrently without problems and are not locked.
+_CASATOOLS_READ_LOCK = CASATOOLS_LOCK
 
 
 def _read_image_chunk(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:
-    if tables.__name__.endswith("casacore_from_casatools"):
-        with _CASATOOLS_READ_LOCK:
-            return _read_image_chunk_unlocked(infile, shapes, starts)
-    return _read_image_chunk_unlocked(infile, shapes, starts)
+    with casatools_serialized():
+        return _read_image_chunk_unlocked(infile, shapes, starts)
 
 
 def _read_image_chunk_unlocked(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:

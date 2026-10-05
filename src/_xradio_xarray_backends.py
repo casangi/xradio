@@ -15,7 +15,7 @@ image is actually opened. The implementation, with the documentation of the
 parameters, is in :mod:`xradio.image.backends`, which re-exports the entry
 point classes. Likewise the MSv2 reader (the converter's code, with zarr, dask
 and casacore or casatools) is imported only when an MS is opened (see
-:mod:`xradio.measurement_set.open_msv2`).
+:func:`xradio.measurement_set.open_msv2`).
 """
 
 import os

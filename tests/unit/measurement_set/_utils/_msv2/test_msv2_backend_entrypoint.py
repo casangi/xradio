@@ -316,10 +316,18 @@ def test_class_attributes():
     assert _ENGINE.open_dataset_parameters == ("filename_or_obj", "drop_variables")
     assert _ENGINE.description and _ENGINE.url.startswith("https://")
     assert "MSv2BackendEntrypoint" in _xradio_xarray_backends.__all__
-    from xradio.measurement_set import open_msv2 as open_msv2_function
-    from xradio.measurement_set.open_msv2 import MSv2BackendEntrypoint as exported
+    import importlib.util
 
-    assert exported is _ENGINE and callable(open_msv2_function)
+    import xradio.measurement_set as ms
+    from xradio.measurement_set._utils._msv2 import open_msv2 as module
+
+    # (a private module, as the ASDM backend's: xradio.measurement_set.open_msv2
+    # is only the function)
+    assert importlib.util.find_spec("xradio.measurement_set.open_msv2") is None
+    assert ms.open_msv2 is module.open_msv2 and callable(ms.open_msv2)
+    assert module.MSv2BackendEntrypoint is _ENGINE
+    for name in module.__all__:
+        assert getattr(ms, name) is getattr(module, name), name
 
 
 def test_pyproject_registers_the_light_class():

@@ -462,15 +462,12 @@ class TestEntryPoints:
             entry_points = tomllib.load(pyproject)["project"]["entry-points"][
                 "xarray.backends"
             ]
-        # (the other xradio engines are registered in the same table: every
-        # xradio_* engine must be a class of the light module)
+        # (the other xradio engines, registered in the same table, are tested
+        # with their readers)
         assert {
             "xradio_casa_image": "_xradio_xarray_backends:CasaImageBackendEntrypoint",
             "xradio_fits_image": "_xradio_xarray_backends:FitsImageBackendEntrypoint",
         }.items() <= entry_points.items()
-        for name, value in entry_points.items():
-            if name.startswith("xradio_"):
-                assert value.startswith("_xradio_xarray_backends:"), name
 
     def test_classes_are_re_exported_for_the_docs(self):
         from xradio.image import backends

@@ -1,6 +1,9 @@
 """
 Open a MeasurementSet v2 directly as a processing set, without converting it:
-the ``xradio_msv2`` xarray engine.
+the ``xradio_msv2`` xarray engine. The public functions and classes are
+exported by :mod:`xradio.measurement_set` (this module is private, as the
+ASDM backend's ``open_asdm`` module, so that ``xradio.measurement_set.open_msv2``
+is only the function).
 """
 
 import os
@@ -17,7 +20,6 @@ from xradio.measurement_set._utils._msv2.backend_errors import (
 __all__ = [
     "open_msv2",
     "remove_msv2_partition_cache",
-    "MSv2BackendEntrypoint",
     "MSv2ChangedError",
     "MSv2ReadError",
     "PartitionCacheWarning",

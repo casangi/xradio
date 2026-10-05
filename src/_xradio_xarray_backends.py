@@ -312,7 +312,10 @@ class MSv2BackendEntrypoint(BackendEntrypoint):
     description = (
         "Open MeasurementSets v2 as xradio processing sets (DataTrees of MSv4s)"
     )
-    url = "https://xradio.readthedocs.io/en/latest/measurement_set/api.html"
+    url = (
+        "https://xradio.readthedocs.io/en/latest/measurement_set/api.html"
+        "#msv2-xarray-engine-xradio-msv2"
+    )
     supports_groups = True
     open_dataset_parameters = ("filename_or_obj", "drop_variables")
 

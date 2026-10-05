@@ -41,8 +41,13 @@ def open_msv2(
     from the MS when they are indexed or computed. For the pointing_xds, only
     the POINTING TIME and ANTENNA_ID columns are read at open (its time and
     antenna coordinates); it is built at open, as by the converter, with
-    pointing_interpolate=True and for POINTING tables whose cells vary in
-    shape.
+    pointing_interpolate=True and for POINTING tables that cannot be read in
+    blocks (cells of several shapes or empty cells, unusual value types, more
+    than about 16.7 million rows).
+
+    The first open of a writable MS stores its partitions in the MS (see
+    partition_cache below). See the API documentation for the costs of an
+    open, the chunks to use and the changes of an MS after its open.
 
     It is ``xarray.open_datatree(ms_path, engine="xradio_msv2", ...)`` (with
     the engine class, so that it works without installed entry points), with

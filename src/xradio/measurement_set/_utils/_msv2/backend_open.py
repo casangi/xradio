@@ -74,6 +74,7 @@ def open_msv2_tree(
     sys_cal_interpolate: bool = False,
     partition_cache: str | None = None,
     on_partition_error: str = "skip",
+    skip_columns: str | Iterable[str] | None = None,
 ) -> xr.DataTree:
     """
     Open an MSv2 as a processing set DataTree of lazy MSv4s (see
@@ -95,7 +96,8 @@ def open_msv2_tree(
             f"on_partition_error must be one of {list(ON_PARTITION_ERROR)}, got "
             f"{on_partition_error!r}"
         )
-    drop_variables = _check_drop_variables(drop_variables)
+    drop_variables = _check_names("drop_variables", drop_variables)
+    skip_columns = _check_names("skip_columns", skip_columns)
     if partition_filter is not None and not callable(partition_filter):
         raise TypeError(
             f"partition_filter must be a callable, got {type(partition_filter)}"
@@ -110,6 +112,7 @@ def open_msv2_tree(
         "ephemeris_interpolate": ephemeris_interpolate,
         "phase_cal_interpolate": phase_cal_interpolate,
         "sys_cal_interpolate": sys_cal_interpolate,
+        "unreadable_columns": frozenset(skip_columns or ()),
     }
     for attempt in (1, 2):
         # (a MAIN table that this process holds open with fewer rows is
@@ -217,21 +220,22 @@ def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None
         )
 
 
-def _check_drop_variables(drop_variables) -> list[str] | None:
-    """drop_variables as a list of names (a str is one name)."""
-    if drop_variables is None:
+def _check_names(option: str, names) -> list[str] | None:
+    """drop_variables / skip_columns as a list of names (a str is one
+    name)."""
+    if names is None:
         return None
-    if isinstance(drop_variables, str):
-        return [drop_variables]
+    if isinstance(names, str):
+        return [names]
     try:
-        names = list(drop_variables)
+        listed = list(names)
     except TypeError:
         raise TypeError(
-            f"drop_variables must be a str or an iterable of str, got {drop_variables!r}"
+            f"{option} must be a str or an iterable of str, got {names!r}"
         ) from None
-    if not all(isinstance(name, str) for name in names):
-        raise TypeError(f"drop_variables must hold names (str), got {names!r}")
-    return names
+    if not all(isinstance(name, str) for name in listed):
+        raise TypeError(f"{option} must hold names (str), got {listed!r}")
+    return listed
 
 
 def _select(

@@ -978,10 +978,22 @@ class MSv2MainColumnArray(MSv2BackendArray):
             f"failed: {type(exc).__name__}: {exc}"
         )
         if not self.verified:
+            if self.col == "WEIGHT_SPECTRUM":
+                converter = (
+                    "convert_msv2_to_processing_set reads WEIGHT from the WEIGHT "
+                    "column when WEIGHT_SPECTRUM cannot be read"
+                )
+            else:
+                converter = (
+                    f"convert_msv2_to_processing_set leaves {self.col} out (with the "
+                    "data group and field_and_source_xds it makes) when it cannot "
+                    "be read"
+                )
             message += (
                 f". The cells of {self.col} could not be checked when the MS was "
-                "opened (convert_msv2_to_processing_set leaves such a column out); "
-                f"open the MS with drop_variables=[{self.name!r}]"
+                f"opened (only a read can tell): {converter}. Open the MS with "
+                f"skip_columns=[{self.col!r}] for the same processing set, or with "
+                f"drop_variables=[{self.name!r}] to leave out only {self.name}"
             )
         return message
 

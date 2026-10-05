@@ -321,6 +321,66 @@ def test_drop_variables_equal_deleted_variables(backend_ms, converted):
         assert "weight" not in node.attrs["data_groups"]["base"]
 
 
+def _bad_cells(msname: str, column: str, rows) -> None:
+    """Give ``rows`` of a MAIN column cells of half the channels (a
+    StandardStMan column: only a read finds them)."""
+    from casacore import tables
+
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        if column not in main_tb.colnames():  # WEIGHT_SPECTRUM, StandardStMan
+            desc = tables.makearrcoldesc(column, 0.0, ndim=2, valuetype="float")
+            main_tb.addcols(tables.maketabdesc([desc]))
+            shape = (main_tb.nrows(),) + main_tb.getcell("DATA", 0).shape
+            main_tb.putcol(column, np.ones(shape, dtype=np.float32))
+        for row in rows:
+            cell = main_tb.getcell(column, row)
+            main_tb.putcell(column, row, cell[: cell.shape[0] // 2])
+
+
+@pytest.mark.parametrize(
+    "variant, column, variable, rows",
+    [
+        # every partition (DDI x OBS_MODE) has a bad MODEL_DATA cell
+        ("rich", "MODEL_DATA", "VISIBILITY_MODEL", [7, 207, 307, 507, 607, 807, 907]),
+        ("dense", "WEIGHT_SPECTRUM", "WEIGHT", [7, 307, 607, 907]),
+    ],
+)
+def test_skip_columns_gives_the_converters_tree(
+    ms_copy, tmp_path, variant, column, variable, rows
+):
+    """A MAIN column with cells that only a read finds bad: the converter
+    leaves it out (WEIGHT_SPECTRUM: WEIGHT from the WEIGHT column); the
+    engine's read of it raises an MSv2ReadError that names skip_columns, and
+    skip_columns=[column] gives the converter's tree."""
+    from xradio.measurement_set import MSv2ReadError
+
+    msname = ms_copy(variant)
+    _bad_cells(msname, column, rows + [1007] * (variant == "rich"))
+    options = {"with_pointing": False}
+    out = str(tmp_path / "reference.ps.zarr")
+    convert_msv2_to_processing_set(msname, out, **options)
+    reference = open_processing_set(out)
+    engine = xr.open_datatree(msname, engine=ENGINE, chunks={}, **options)
+    assert sorted(engine.children) == sorted(reference.children)
+    with pytest.raises(MSv2ReadError) as raised:
+        engine[next(iter(engine.children))][variable].values  # noqa: B018
+    message = str(raised.value)
+    assert f"skip_columns=['{column}']" in message
+    assert f"drop_variables=['{variable}']" in message
+    if column == "WEIGHT_SPECTRUM":
+        assert "WEIGHT column" in message
+    skipped = xr.open_datatree(
+        msname, engine=ENGINE, chunks={}, skip_columns=column, **options
+    )
+    assert_processing_sets_equivalent(skipped, reference, chunks=True, accessors=False)
+    if column == "MODEL_DATA":
+        for node in skipped.children.values():
+            assert "model" not in node.attrs["data_groups"]
+            assert "field_and_source_model_xds" not in node.children
+    with pytest.raises(TypeError, match="skip_columns"):
+        xr.open_datatree(msname, engine=ENGINE, skip_columns=[1])
+
+
 def test_relative_path_and_chdir(backend_ms, tmp_path, monkeypatch):
     """The lazy arrays read the MS by its absolute path: a relative path
     opened before a chdir still reads."""

@@ -359,6 +359,7 @@ class MSv2BackendEntrypoint(BackendEntrypoint):
         sys_cal_interpolate=False,
         partition_cache=None,
         on_partition_error="skip",
+        skip_columns=None,
     ):
         path = self._require_ms(filename_or_obj)
         return _msv2_driver()(
@@ -375,6 +376,7 @@ class MSv2BackendEntrypoint(BackendEntrypoint):
             sys_cal_interpolate=sys_cal_interpolate,
             partition_cache=partition_cache,
             on_partition_error=on_partition_error,
+            skip_columns=skip_columns,
         )
 
     def open_groups_as_dict(self, filename_or_obj, **kwargs):

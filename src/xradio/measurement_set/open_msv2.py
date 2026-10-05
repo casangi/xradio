@@ -97,6 +97,13 @@ def open_msv2(
           be opened is left out (logged with its traceback, and a
           RuntimeWarning); a RuntimeError is raised only if none can be
           opened. "raise": raise a RuntimeError for the first one.
+        - skip_columns : str | Iterable[str] | None. MAIN columns to treat as
+          unreadable, as the converter treats a column whose read fails: it
+          is left out, with the data group (and field_and_source_xds) it
+          makes; for WEIGHT_SPECTRUM, WEIGHT is read from the WEIGHT column.
+          Some columns can only be checked by reading them (e.g. cells of
+          several shapes in a StandardStMan column): their read then raises
+          an MSv2ReadError that names this remedy.
 
     Returns
     -------

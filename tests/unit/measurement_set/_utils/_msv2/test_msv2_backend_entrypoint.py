@@ -163,6 +163,7 @@ DEFAULTS = {
     "sys_cal_interpolate": False,
     "partition_cache": None,
     "on_partition_error": "skip",
+    "skip_columns": None,
 }
 
 
@@ -183,6 +184,7 @@ def test_options_are_forwarded_unchanged(driver_calls, tmp_path):
         "sys_cal_interpolate": True,
         "partition_cache": "read",
         "on_partition_error": "raise",
+        "skip_columns": ["MODEL_DATA"],
     }
     xr.open_datatree(pathlib.Path(ms), engine=_ENGINE, chunks={}, **options)
     assert driver_calls[-1] == (ms, options)

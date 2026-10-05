@@ -148,6 +148,7 @@ def open_partition(
     sys_cal_interpolate: bool = False,
     verify: RowCheck | None = None,
     lazy_pointing: bool = True,
+    unreadable_columns: frozenset[str] = frozenset(),
 ) -> xr.DataTree | None:
     """
     The MSv4 of one partition of an MSv2, with lazy main data variables (and
@@ -184,6 +185,9 @@ def open_partition(
         True (default): the data variables of the pointing_xds are read when
         indexed (with pointing_interpolate: read here, as by the converter);
         False: they are read here, as by the converter.
+    unreadable_columns : frozenset[str], optional
+        MAIN columns built as the converter builds a partition whose read of
+        them failed (left out; WEIGHT_SPECTRUM: WEIGHT used instead).
 
     Returns
     -------
@@ -225,6 +229,7 @@ def open_partition(
             parallel_mode="none",
             subtable_cache=subtable_cache,
             main_row_runs=main_row_runs,
+            unreadable_columns=frozenset(unreadable_columns),
             defer_main_columns=True,
             pointing_generic_loader=pointing_loader,
         ) as built,

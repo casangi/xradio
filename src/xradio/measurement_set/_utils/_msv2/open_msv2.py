@@ -45,11 +45,14 @@ def open_msv2(
     read at open (its time and antenna coordinates), the shapes of the cells
     of its array columns (stored in the MS by the first open, see
     partition_cache below), and one cell of each data column. Only with
-    pointing_interpolate=True is it built at open, as by the converter; a
+    pointing_interpolate=True is it built at open, as by the converter. A
     partition whose POINTING rows have cells of several shapes or without a
-    value (which the converter leaves out or pads per partition), and every
+    value gets the pointing_xds of the converter (which reads the rows of
+    every partition on its own, and leaves out or pads such a column) from
+    the shapes of its cells: its variables are read lazily (1,000 POINTING
+    rows or more) or built by the converter's code when read (fewer). Every
     partition of a POINTING table that cannot be described without reading
-    it (no DIRECTION column, unusual value types), has its pointing_xds built
+    it (no DIRECTION column, unusual value types) has its pointing_xds built
     at open by the converter's code and again when it is read. An MS without
     MAIN rows opens as an empty processing set.
 

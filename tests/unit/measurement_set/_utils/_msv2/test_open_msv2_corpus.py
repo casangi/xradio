@@ -100,9 +100,15 @@ CASES = {
     "alma": (ALMA, {}, "same"),
     # a DIRECTION cell of another shape, as the converter reads it: without
     # the pointing_xds where it falls (sdimaging), without POINTING_BEAM in the
-    # 12 partitions whose times cover it (VLASS)
+    # 12 partitions whose times cover it (VLASS, X1926f); the other variables
+    # of these pointing_xds are read lazily
     "sdimaging_odd_direction": ("sdimaging.ms", {}, "odd_direction"),
     "vlass_odd_direction": (VLASS, {}, "odd_direction"),
+    "alma_sd_odd_direction": (
+        "uid___A002_X1015532_X1926f.small.ms",
+        {"main_chunksize": {"time": 7}},
+        "odd_direction",
+    ),
     # 48,824 partitions, of which the filter selects 52
     "vlass_field_filtered": (
         VLASS,

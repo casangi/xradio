@@ -47,12 +47,14 @@ indexed or computed: only the rows of the selected times and baselines, in whole
 without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The ``pointing_xds`` is
 lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID`` columns, the shapes
 (not the values) of the cells of its array columns (stored in the MS by the first open, see below) and one cell of each
-data column, and a selection reads only the rows of its times and antennas. Only with ``pointing_interpolate=True`` is it read when the MS is opened, as by the
-converter. The converter reads the POINTING rows of every partition on their own, and leaves out (or pads) a column
-whose cells there have several shapes or no value: a partition whose POINTING rows have such cells, and every partition
-of a POINTING table that cannot be described without reading it (no ``DIRECTION`` column, unusual value types), has its
-``pointing_xds`` built by the converter's code when the MS is opened (the values are not kept) and again when its
-variables are read (once for all of them).
+data column, and a selection reads only the rows of its times and antennas. Only with ``pointing_interpolate=True`` is
+it read when the MS is opened, as by the converter. The converter reads the POINTING rows of every partition on their
+own, and leaves out (1,000 rows or more) or pads (fewer) a column whose cells there have several shapes or no value: a
+partition whose POINTING rows have such cells gets the converter's ``pointing_xds`` from the shapes of its cells (no
+value is read at open), with variables read lazily as above (1,000 rows or more) or built by the converter's code when
+they are read (fewer, once for all of them). Every partition of a POINTING table that cannot be described without
+reading it (no ``DIRECTION`` column, unusual value types) has its ``pointing_xds`` built by the converter's code when
+the MS is opened (the values are not kept) and again when its variables are read.
 
 **Columns only a read can check.** The converter leaves out a MAIN column whose cells cannot be read (for
 ``WEIGHT_SPECTRUM`` it reads ``WEIGHT`` instead). For most storage managers the engine finds such cells when the MS is

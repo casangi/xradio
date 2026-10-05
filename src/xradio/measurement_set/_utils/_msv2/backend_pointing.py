@@ -38,23 +38,35 @@ the variables are indexed or computed:
   time sub-blocks of bounded size; every read opens and closes the table
   and, with casatools, holds the process-wide casatools lock (where
   fragmented rows are read in windows of consecutive rows: the shim has no
-  row selection).
+  row selection; a window never spans a cell of another shape).
 
 Cells of more than one shape: an array column whose description does not
 fix the shape of its cells has the shape of most of its cells; the rows
 whose cells have another shape, or no value, are recorded in the index
-(``odd_rows``, usually none). The converter reads the rows of each partition
-on their own and leaves out (or pads) a column whose cells there vary, so a
-partition whose POINTING rows include such rows has its pointing_xds built
-when the MS is opened by the converter's code, as by the converter, and its
-data variables are :class:`PointingBuildArray`, which build it again when
-read (one build per partition is kept in a bounded per-process memo, so
-that its variables share it; the values are not kept by the open). Tables
-that cannot be described from their column descriptions, cell shapes and
-index (no DIRECTION column, unusual value types, a column without a cell
-of a usual shape, TIME values that are not finite, ...) are built that way
-for every partition. With ``pointing_interpolate=True`` (the interpolation
-needs the values) the pointing_xds is built eagerly.
+with their shapes (``ColumnShapes``; ``odd_rows``: usually none). The
+converter reads the rows of each partition on their own
+(``load_generic_table``), so the pointing_xds of a partition whose POINTING
+rows include such rows follows from the shapes of its cells
+(``partition_layout``, no values): with 1,000 rows or more the converter
+reads every column at once and leaves out a column whose cells vary there;
+the others have one shape (maybe not that of most cells) and are read
+lazily as above. With fewer rows it stacks the rows and pads a column whose
+cells vary (or leaves it out, where a cell does not fit): the data
+variables are then :class:`PointingBuildArray`, which build the
+pointing_xds by the converter's code when read (one build per partition is
+kept in a bounded per-process memo, so that its variables share it; fewer
+than 1,000 rows). Either way nothing but the index is read at open, and an
+error of the converter's build (e.g. DIRECTION cells of two polynomial
+terms) is raised at open, as by the converter. Tables that cannot be
+described from their column descriptions, cell shapes and index (no
+DIRECTION column, unusual value types, a column without a cell of a usual
+shape, TIME values that are not finite, ...), and the rare partitions that
+``partition_layout`` does not describe (cells of zero size, or of several
+shapes in a column of unusual values), have their pointing_xds built when
+the MS is opened by the converter's code, as by the converter, with
+:class:`PointingBuildArray` variables (the values are not kept). With
+``pointing_interpolate=True`` (the interpolation needs the values) the
+pointing_xds is built eagerly.
 
 Staleness: an array records the number of POINTING rows and a token of its
 partition's selection (times, antennas, row numbers). A read finds the
@@ -63,10 +75,11 @@ again (other processes); a POINTING table with another number of rows, or
 a selection with another token, raises :class:`MSv2ChangedError`. A read
 whose rows no longer have the TIME and ANTENNA_ID of the index (rewritten in
 place) reads the index again, as another process would: the outcome does
-not depend on the memo. (The rows are checked one by one only when the
-table's fingerprint changed since the open, or a handle of the process has
-it open for writing.) A pointing_xds built again on read must have the
-coordinates (times, antennas) of the one built at open, and the shapes and
+not depend on the memo; a read whose cells no longer have the shape of the
+open raises MSv2ChangedError. (The rows are checked one by one only when
+the table's fingerprint changed since the open, or a handle of the process
+has it open for writing.) A pointing_xds built again on read must have the
+coordinates (times, antennas) of the one opened, and the shapes and
 dtypes of its variables, else MSv2ChangedError. Every read also checks that
 the partition's MAIN rows, whose time range and antennas select its
 POINTING rows, are those of the open (``PartitionIndex.verify_current``).
@@ -93,8 +106,10 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     add_units_measures,
     convert_casacore_time,
     extract_table_attributes,
+    find_best_col_loader,
     find_loadable_cols,
     is_nested_ms,
+    load_fixed_size_cols,
     projection_tolerance,
 )
 from xradio.measurement_set._utils._msv2._tables.read_pointing import (
@@ -216,6 +231,41 @@ class ColumnShapes:
     def nbytes(self) -> int:
         return self.rows.nbytes + self.codes.nbytes
 
+    def shapes_among(self, rows: np.ndarray) -> set[tuple[int, ...] | None]:
+        """The shapes of the cells of ``rows`` (distinct row numbers; None:
+        a cell without a value)."""
+        if self.shape is None:
+            return {None} if np.asarray(rows).size else set()
+        hit = np.isin(self.rows, rows) if self.rows.size else np.zeros(0, bool)
+        n_odd = int(np.count_nonzero(hit))
+        found = {self.others[code] for code in np.unique(self.codes[hit]).tolist()}
+        if np.asarray(rows).size > n_odd:
+            found.add(self.shape)
+        return found
+
+    def window_breaks(self, rows: np.ndarray, shape: tuple[int, ...]) -> np.ndarray:
+        """
+        For ascending ``rows`` whose cells have ``shape``: whether a row
+        between ``rows[i]`` and ``rows[i + 1]`` has a cell of another shape
+        (or no value), for every i (a read of the consecutive rows between
+        them would fail).
+        """
+        if rows.size < 2:
+            return np.zeros(0, dtype=bool)
+        lo, hi = rows[:-1], rows[1:]
+        if shape == self.shape:
+            # the rows of other shapes are those of self.rows
+            between = np.searchsorted(self.rows, hi, "left") - np.searchsorted(
+                self.rows, lo, "right"
+            )
+            return between > 0
+        same = [i for i, other in enumerate(self.others) if other == shape]
+        rows_same = self.rows[np.isin(self.codes, same)]
+        between = np.searchsorted(rows_same, hi, "left") - np.searchsorted(
+            rows_same, lo, "right"
+        )
+        return between != (hi - lo - 1)
+
     def to_json(self) -> dict:
         return {
             "shape": None if self.shape is None else list(self.shape),
@@ -282,13 +332,22 @@ class PointingIndex:
         Cell shape of every data column (numpy order).
     odd_rows : np.ndarray
         The rows (ascending table row numbers) with a cell of another shape
-        than its column's (or without a value) in an array column: a
-        partition that selects one is built by the converter's code.
+        than its column's (or without a value) in an array column: the
+        pointing_xds of a partition that selects one is described by
+        ``partition_layout``.
     token : str
         Token of the table's fingerprint when the index was read.
     shapes : dict[str, ColumnShapes]
         The cell shapes of every array column whose description does not
         fix them (the scan, or the scan stored in the MS).
+    layout : tuple[tuple[str, bool, tuple[int, ...] | None, str], ...]
+        Every column a partition's read of POINTING loads (the converter's
+        ``load_generic_table``: not SOURCE_MODEL, no record columns), in
+        load order: (name, is a coordinate, cell shape (None: in
+        ``shapes``), value type).
+    row_dtypes : dict[str, np.dtype]
+        dtype of the values of a table row (``table.row``) of every array
+        data column (only for tables with ``odd_rows``).
     shapes_source : str
         "scan" (the shapes were scanned) or "stored" (from the MS).
     """
@@ -299,6 +358,8 @@ class PointingIndex:
     odd_rows: np.ndarray
     token: str
     shapes: dict[str, ColumnShapes] = dataclasses.field(default_factory=dict)
+    layout: tuple = ()
+    row_dtypes: dict[str, np.dtype] = dataclasses.field(default_factory=dict)
     shapes_source: str = "scan"
 
     @property
@@ -313,6 +374,14 @@ class PointingIndex:
             + self.odd_rows.nbytes
             + sum(shapes.nbytes for shapes in self.shapes.values())
         )
+
+    def cells_of(
+        self, col: str, rows: np.ndarray
+    ) -> set[tuple[int, ...] | None] | None:
+        """The shapes of the cells of ``rows`` of an array column (None: no
+        value), or None for a column whose description fixes them."""
+        shapes = self.shapes.get(col)
+        return None if shapes is None else shapes.shapes_among(rows)
 
     def selects_odd_rows(self, selection: "_Selection") -> bool:
         """Whether a partition's rows include rows of ``odd_rows``."""
@@ -748,7 +817,7 @@ def _read_pointing_index(
         else:
             shapes, source = {}, "scan"
 
-        columns, data_cells = [], {}
+        columns, data_cells, layout = [], {}, []
         for col, col_type in col_types.items():
             is_coord = col.endswith("_ID") or col == "TIME"
             is_key = col in ("TIME", "ANTENNA_ID")
@@ -773,6 +842,10 @@ def _read_pointing_index(
             if is_data:
                 data_cells[col] = (cell_shape, first_row)
             columns.append((col, is_coord, cell_shape))
+            if col != "SOURCE_MODEL":
+                layout.append(
+                    (col, is_coord, None if col in shapes else cell_shape, col_type)
+                )
 
         all_rows = np.arange(nrows)
         time = read_column_rows(tb_tool, "TIME", all_rows)
@@ -788,6 +861,14 @@ def _read_pointing_index(
             if odd_parts
             else np.empty(0, dtype=np.int64)
         )
+        # the dtype of the values of a table row (the converter's reads of a
+        # partition with fewer than 1,000 POINTING rows stack table rows)
+        row_dtypes = {}
+        if odd_rows.size:
+            for col, (cell_shape, first_row) in data_cells.items():
+                if cell_shape != ():
+                    value = tb_tool.row([col])[first_row][col]
+                    row_dtypes[col] = np.asarray(value).dtype
 
     data_cols = tuple(data_cells)
     var_dims, sizes = generic_dims(columns, nrows)
@@ -851,6 +932,8 @@ def _read_pointing_index(
         odd_rows,
         token,
         shapes=shapes,
+        layout=tuple(layout),
+        row_dtypes=row_dtypes,
         shapes_source=source,
     )
 
@@ -1039,7 +1122,12 @@ class DeferredPointingVariable:
     dtype : np.dtype
         dtype of the values.
     cell_shape : tuple[int, ...]
-        Cell shape of the column (numpy order).
+        Cell shape of the cells read: those of the partition's rows (numpy
+        order).
+    column_shape : tuple[int, ...] | None, optional
+        Cell shape of most cells of the column (the index's), if not
+        ``cell_shape`` (a partition whose rows all have cells of another
+        shape).
     stored_shapes : bool, optional
         Whether an index read again (another process) may take the cell
         shapes stored in the MS (the ``partition_cache`` mode of the open
@@ -1059,6 +1147,7 @@ class DeferredPointingVariable:
     selection_token: str
     dtype: np.dtype
     cell_shape: tuple[int, ...]
+    column_shape: tuple[int, ...] | None = None
     stored_shapes: bool = False
 
     def changed_error(self, what: str) -> MSv2ChangedError:
@@ -1082,9 +1171,12 @@ class DeferredPointingVariable:
             raise self.changed_error(
                 f"it has {index.nrows} rows, {self.nrows} when the MS was opened"
             )
+        column_shape = (
+            self.cell_shape if self.column_shape is None else self.column_shape
+        )
         if (
             index.dtypes.get(self.col) != self.dtype
-            or index.cell_shapes.get(self.col) != self.cell_shape
+            or index.cell_shapes.get(self.col) != column_shape
         ):
             raise self.changed_error(f"the cells of {self.col} changed")
         return index
@@ -1126,6 +1218,151 @@ class DeferredPointingVariable:
         return selection
 
 
+# Value types of the array columns whose cells of several shapes (or without
+# a value) among the rows of a partition are described from the shapes
+# (partition_layout): the dtypes of their table rows and their pad values are
+# those of every casacore (python-casacore or casatools)
+_ODD_CELL_VALUE_TYPES = (
+    "boolean",
+    "int",
+    "int64",
+    "float",
+    "double",
+    "complex",
+    "dcomplex",
+)
+
+
+@dataclasses.dataclass(frozen=True)
+class PartitionLayout:
+    """
+    The generic pointing dataset of a partition whose POINTING rows include
+    cells of another shape (or without a value), as the converter's read of
+    the partition's rows makes it (``load_generic_table``), described from
+    the shapes of their cells (``partition_layout``).
+
+    Attributes
+    ----------
+    stacked : bool
+        Whether the converter stacks the table rows (fewer than 1,000 rows,
+        ``load_generic_cols``: a column whose cells vary is padded with the
+        pad value of its dtype), else reads every column at once
+        (``load_fixed_size_cols``: a column whose cells vary is left out).
+    columns : tuple[tuple[str, bool, tuple[int, ...]], ...]
+        The columns loaded (name, is a coordinate, cell shape), in load
+        order.
+    var_dims : dict[str, tuple[str, ...]]
+        Dimension names of every column loaded (row dimension first).
+    dtypes : dict[str, np.dtype]
+        dtype of every data column loaded.
+    """
+
+    stacked: bool
+    columns: tuple[tuple[str, bool, tuple[int, ...]], ...]
+    var_dims: dict[str, tuple[str, ...]]
+    dtypes: dict[str, np.dtype]
+
+
+class _NoLayout(Exception):
+    """A partition whose generic pointing dataset is not described from the
+    cell shapes (built by the converter's code)."""
+
+
+def _loaded_cell_shape(
+    found: set[tuple[int, ...] | None], stacked: bool, value_type: str
+) -> tuple[int, ...] | None:
+    """
+    The cell shape of a column in the converter's generic dataset of a
+    partition whose rows have cells of the shapes ``found`` (None: a cell
+    without a value), or None if the column is left out:
+
+    - one shape (every cell with a value): that shape;
+    - read column by column (``load_fixed_size_cols``): left out (its getcol
+      raises);
+    - rows stacked (``stack_tablerow_column``, ``handle_variable_col_issues``):
+      padded to the largest shape (Python's tuple order), where a row
+      without a value (or of zero length) is all padding; left out where a
+      cell does not fit (other dimensions, larger along one).
+
+    Raises _NoLayout for value types whose stacking may differ between
+    casacore libraries, and for zero-size cells.
+    """
+    defined = sorted(shape for shape in found if shape is not None)
+    if len(found) == 1 and defined:
+        if 0 in defined[0]:
+            raise _NoLayout("cells of zero size")
+        return defined[0]
+    if value_type not in _ODD_CELL_VALUE_TYPES:
+        raise _NoLayout(f"{value_type} cells of several shapes")
+    if not stacked:
+        return None
+    if not defined:
+        raise _NoLayout("no cell with a value")
+    largest = max(defined)
+    if 0 in largest:
+        raise _NoLayout("cells of zero size")
+    for shape in defined:
+        if shape[0] == 0:
+            continue
+        if len(shape) != len(largest) or any(
+            n > m for n, m in zip(shape, largest, strict=True)
+        ):
+            return None
+    return largest
+
+
+def partition_layout(index: PointingIndex, selection: _Selection) -> PartitionLayout:
+    """
+    The generic pointing dataset of a partition whose POINTING rows include
+    cells of another shape (``PartitionLayout``), from the cell shapes of
+    the index (no values): the converter reads the partition's rows on
+    their own (``load_generic_table``; with 1,000 rows or more column by
+    column, else row by row, see ``find_best_col_loader``), so the cell
+    shape of every column is that of the cells of these rows
+    (``_loaded_cell_shape``), and the dimension names follow from them
+    (``generic_dims``).
+
+    Raises
+    ------
+    _NoLayout
+        If it is not described so: cells of zero size, value types other than
+        _ODD_CELL_VALUE_TYPES with cells of several shapes, coordinate columns
+        with dimensions of their own.
+    """
+    n_rows = int(selection.sel.size)
+    stacked = (
+        find_best_col_loader(index.columns.table_path, n_rows)
+        is not load_fixed_size_cols
+    )
+    rows = np.asarray(index.columns.row[selection.sel], dtype=np.int64)
+    columns, dtypes = [], {}
+    data_columns = index.columns.data_columns
+    for col, is_coord, fixed_shape, value_type in index.layout:
+        if fixed_shape is None:
+            shape = _loaded_cell_shape(index.cells_of(col, rows), stacked, value_type)
+            if shape is None:
+                continue
+        else:
+            shape = fixed_shape
+        columns.append((col, is_coord, shape))
+        if col in data_columns:
+            if stacked and shape != () and col in index.row_dtypes:
+                dtypes[col] = index.row_dtypes[col]
+            else:
+                dtypes[col] = index.dtypes[col]
+    var_dims, sizes = generic_dims(columns, n_rows)
+    sizes.pop("row")
+    var_sizes = {}
+    for col, is_coord, shape in columns:
+        if not is_coord:
+            var_sizes.update(zip(var_dims[col][1:], shape, strict=True))
+    if var_sizes != sizes:
+        raise _NoLayout(f"dimensions {sizes} vs {var_sizes}")
+    if 0 in sizes.values():
+        raise _NoLayout("cells of zero size")
+    return PartitionLayout(stacked, tuple(columns), var_dims, dtypes)
+
+
 def deferred_pointing_generic_xds(
     in_file: str,
     time_min_max: tuple[np.float64, np.float64] | None,
@@ -1143,6 +1380,14 @@ def deferred_pointing_generic_xds(
     variables, described in ``specs``. Its coordinates, dimensions and
     attributes are those of ``pointing_generic_xds``.
 
+    A partition whose POINTING rows include cells of another shape (or
+    without a value) has the generic dataset of the converter's own read of
+    its rows (``partition_layout``, from the cell shapes: no values): with
+    1,000 rows or more, the columns whose cells vary are left out and the
+    others are read lazily (``specs``, of the shape of the partition's
+    cells); with fewer, they are padded, and the pointing_xds is built by
+    the converter's code when read (no ``specs``: ``rebuilt_pointing_xds``).
+
     Parameters
     ----------
     in_file : str
@@ -1154,12 +1399,12 @@ def deferred_pointing_generic_xds(
     data_columns : Mapping[str, str]
         Data variable name by POINTING data column.
     specs : dict[str, DeferredPointingVariable]
-        Filled with the description of every placeholder, by data variable
-        name.
+        Filled with the description of every placeholder read lazily, by
+        data variable name.
     context : dict | None, optional
         Filled with the partition's ``time_min_max`` and ``antenna_ids``
-        (for a pointing_xds that the converter's code builds at open:
-        ``rebuilt_pointing_xds``).
+        (for a pointing_xds that the converter's code builds again when
+        read: ``rebuilt_pointing_xds``).
     cache_mode : str | None, optional
         The ``partition_cache`` mode of the open: whether the cell shapes of
         POINTING are taken from, and stored in, the MS
@@ -1169,8 +1414,9 @@ def deferred_pointing_generic_xds(
     -------
     xr.Dataset | None
         The dataset (empty if no POINTING row is selected), or None if
-        POINTING is read eagerly: a table the index cannot describe, or a
-        partition whose rows include ``odd_rows``.
+        POINTING is read eagerly (by the converter's code): a table the
+        index cannot describe, or a partition that ``partition_layout``
+        cannot describe.
     """
     if context is not None:
         context["time_min_max"] = time_min_max
@@ -1193,16 +1439,24 @@ def deferred_pointing_generic_xds(
     selected = select_partition(index, time_min_max, antenna_ids)
     if selected is None:
         return xr.Dataset()
+    layout = None
     if index.selects_odd_rows(selected[0]):
         # Cells of another shape (or without a value) among the partition's
-        # rows: built by the converter's code, which reads such a table per
-        # partition (PR 1's sub-table cache would refuse it after reading its
-        # data columns: told so at once)
-        if subtable_cache is not None:
-            subtable_cache.get_or_build(
-                ("pointing_columns", table_path, columns_key), lambda: None
+        # rows: the converter reads such a table per partition
+        try:
+            layout = partition_layout(index, selected[0])
+        except _NoLayout as exc:
+            xradio_logger().debug(
+                f"The pointing_xds of a partition of {in_file} is built by the "
+                f"converter's code: {exc}"
             )
-        return None
+            # (PR 1's sub-table cache would refuse it after reading its data
+            # columns: told so at once)
+            if subtable_cache is not None:
+                subtable_cache.get_or_build(
+                    ("pointing_columns", table_path, columns_key), lambda: None
+                )
+            return None
     grid = selected[1]
     del selected
 
@@ -1211,31 +1465,60 @@ def deferred_pointing_generic_xds(
     shape = (grid.utime.size, grid.uant.size)
     time_min_max = (float(time_min_max[0]), float(time_min_max[1]))
     antenna_ids = tuple(int(ant) for ant in antenna_ids)
-    data_vars = {}
-    for col in columns.data_columns:
-        name = data_columns[col]
-        spec = DeferredPointingVariable(
-            name=name,
-            col=col,
-            table_path=os.path.abspath(table_path),
-            data_columns=columns_key,
-            index_token=index.token,
-            nrows=index.nrows,
-            time_min_max=time_min_max,
-            antenna_ids=antenna_ids,
-            n_times=shape[0],
-            n_antennas=shape[1],
-            selection_token=grid.token,
-            dtype=index.dtypes[col],
-            cell_shape=index.cell_shapes[col],
-            stored_shapes=cache_mode in ("auto", "read", "rebuild"),
+    if layout is None:
+        loaded = [
+            (col, index.cell_shapes[col], columns.data_dims[col])
+            for col in columns.data_columns
+        ]
+        dtypes, bad_cols = index.dtypes, list(columns.bad_cols)
+    else:
+        # (every variable of the converter's generic dataset: its dimensions)
+        loaded = [
+            (col, cell_shape, layout.var_dims[col][1:])
+            for col, is_coord, cell_shape in layout.columns
+            if not is_coord
+        ]
+        dtypes = layout.dtypes
+        # (the columns of the query that are not loaded)
+        names = [col for col, _, _ in layout.columns]
+        bad_cols = list(
+            np.setdiff1d(
+                [col for col, _, _, _ in index.layout] + list(columns.bad_cols), names
+            )
         )
-        specs[name] = spec
+    value_types = {col: value_type for col, _, _, value_type in index.layout}
+    data_vars = {}
+    for col, cell_shape, dims in loaded:
+        if col not in columns.data_columns:
+            # (a placeholder that the converter's code leaves out)
+            dtype = CASACORE_TO_NUMPY_DTYPE.get(value_types[col], np.dtype(object))
+            data_vars[col] = xr.Variable(
+                ("TIME", "ANTENNA_ID") + tuple(dims),
+                deferred_placeholder(f"pointing-{col}", shape + cell_shape, dtype),
+            )
+            continue
+        name = data_columns[col]
+        if layout is None or not layout.stacked:
+            specs[name] = DeferredPointingVariable(
+                name=name,
+                col=col,
+                table_path=os.path.abspath(table_path),
+                data_columns=columns_key,
+                index_token=index.token,
+                nrows=index.nrows,
+                time_min_max=time_min_max,
+                antenna_ids=antenna_ids,
+                n_times=shape[0],
+                n_antennas=shape[1],
+                selection_token=grid.token,
+                dtype=dtypes[col],
+                cell_shape=tuple(cell_shape),
+                column_shape=index.cell_shapes[col],
+                stored_shapes=cache_mode in ("auto", "read", "rebuild"),
+            )
         data_vars[col] = xr.Variable(
-            ("TIME", "ANTENNA_ID") + columns.data_dims[col],
-            deferred_placeholder(
-                f"pointing-{name}", shape + spec.cell_shape, spec.dtype
-            ),
+            ("TIME", "ANTENNA_ID") + tuple(dims),
+            deferred_placeholder(f"pointing-{name}", shape + cell_shape, dtypes[col]),
             attrs=copy.deepcopy(var_attrs[col]),
         )
     coords = {
@@ -1248,7 +1531,7 @@ def deferred_pointing_generic_xds(
         "other": {
             "msv2": {
                 "ctds_attrs": copy.deepcopy(columns.table_attrs),
-                "bad_cols": list(columns.bad_cols),
+                "bad_cols": bad_cols,
             }
         }
     }
@@ -1458,7 +1741,9 @@ class PointingColumnArray(MSv2BackendArray):
         first_rows = rows[first]
         tcode_first, acode_first = np.divmod(cell_key[first], n_antennas)
         del rows, cell_key, first
-        values = self._read_rows(table, first_rows)
+        if check_keys:
+            self._check_cells(table, first_rows)
+        values = self._read_rows(table, first_rows, index)
         return (
             pivot_time_antenna(
                 values, tcode_first, acode_first, (times.size, n_antennas)
@@ -1492,14 +1777,47 @@ class PointingColumnArray(MSv2BackendArray):
                 return f"the {col} of POINTING row {changed} changed"
         return ""
 
-    def _read_rows(self, table: Any, rows: np.ndarray) -> np.ndarray:
-        """The cells of ``rows`` (in that order), read in ascending row order."""
+    def _check_cells(self, table: Any, rows: np.ndarray) -> None:
+        """Raise MSv2ChangedError if a cell of ``rows`` no longer has the
+        shape of the open, or no value (their shapes are read, not their
+        values; for a table written since the open)."""
+        cell_shape = self.spec.cell_shape
+        if cell_shape == () or rows.size == 0:
+            return
+        starts, lengths = rows_to_runs(np.sort(rows))
+        for start, length in zip(starts.tolist(), lengths.tolist(), strict=True):
+            for offset in range(0, length, SHAPE_SCAN_ROWS):
+                n = min(SHAPE_SCAN_ROWS, length - offset)
+                try:
+                    strings = _shape_strings(table, self.spec.col, start + offset, n)
+                except Exception:
+                    raise self.spec.changed_error(
+                        f"a cell of {self.spec.col} has no value"
+                    ) from None
+                for text in set(strings):
+                    if parse_cell_shape(text) != cell_shape:
+                        raise self.spec.changed_error(
+                            f"a cell of {self.spec.col} has the shape "
+                            f"{parse_cell_shape(text)}, {cell_shape} when the MS was "
+                            "opened"
+                        )
+
+    def _read_rows(
+        self, table: Any, rows: np.ndarray, index: PointingIndex | None = None
+    ) -> np.ndarray:
+        """The cells of ``rows`` (in that order), read in ascending row order
+        (with the cell shapes of ``index``, for windowed reads)."""
         cell_shape = self.spec.cell_shape
         if rows.size == 0:
             return np.empty((0,) + cell_shape, dtype=self.spec.dtype)
         order = np.argsort(rows)
         sorted_values = self._read_sorted_rows(
-            table, rows[order], self.spec.col, cell_shape, self.spec.dtype
+            table,
+            rows[order],
+            self.spec.col,
+            cell_shape,
+            self.spec.dtype,
+            None if index is None else index.shapes.get(self.spec.col),
         )
         if (
             sorted_values.dtype != self.spec.dtype
@@ -1521,17 +1839,22 @@ class PointingColumnArray(MSv2BackendArray):
         col: str,
         cell_shape: tuple[int, ...],
         dtype: np.dtype,
+        shapes: ColumnShapes | None = None,
     ) -> np.ndarray:
         """The cells of ascending ``rows`` of a column (read_column_rows, or in
         windows of consecutive rows for fragmented rows without in-place
-        reads)."""
+        reads; a window never spans a row whose cell has another shape than
+        ``cell_shape`` or no value, by the column's ``shapes``)."""
         if has_in_place_reads(table) or rows_to_runs(rows)[0].size <= FRAGMENTED_RUNS:
             return read_column_rows(table, col, rows)
         cell_bytes = max(1, int(np.prod(cell_shape, dtype=np.int64)) * dtype.itemsize)
         window_rows = max(1, _WINDOW_BYTES // cell_bytes)
         # a window ends where the next row is too far from its first row or
-        # from the row before
-        ends = np.flatnonzero(np.diff(rows) > _WINDOW_MAX_GAP) + 1
+        # from the row before, or where rows of other cells lie in between
+        gaps = np.diff(rows) > _WINDOW_MAX_GAP
+        if shapes is not None and cell_shape != ():
+            gaps |= shapes.window_breaks(rows, cell_shape)
+        ends = np.flatnonzero(gaps) + 1
         out = np.empty((rows.size,) + cell_shape, dtype=dtype)
         for lo, hi in zip(
             np.r_[0, ends].tolist(), np.r_[ends, rows.size].tolist(), strict=True
@@ -1579,7 +1902,7 @@ def lazy_pointing_xds(
     return pointing_xds.assign(lazy)
 
 
-# --- pointing_xds that the converter's code builds -------------------------------
+# --- pointing_xds that the converter's code builds (again) -----------------------
 
 
 class _BuildMemo:
@@ -1710,16 +2033,18 @@ def pointing_coords_token(pointing_xds: xr.Dataset) -> str:
 class PointingBuildArray(MSv2BackendArray):
     """
     A data variable of a pointing_xds that only the converter's code can
-    build (POINTING tables that ``read_pointing_index`` cannot describe, and
-    partitions whose rows have cells of another shape): a read takes the
-    partition's pointing_xds from POINTING_BUILD_MEMO (by the POINTING
-    table's fingerprint), or builds it again (:class:`PointingBuild`), and
-    returns the selection of the variable. The variables of a partition so
-    share one build; the open keeps no values. A build whose coordinates
-    (times, antennas) are not those of the open (``coords_token``: e.g.
-    POINTING TIME rewritten in place), or whose variable has another shape
-    or dtype, raises MSv2ChangedError: its values would not be those of the
-    coordinates of the opened pointing_xds.
+    build (POINTING tables that ``read_pointing_index`` cannot describe;
+    partitions of fewer than 1,000 POINTING rows with cells of another
+    shape, which the converter pads, and those that ``partition_layout``
+    cannot describe): a read takes the partition's pointing_xds from
+    POINTING_BUILD_MEMO (by the POINTING table's fingerprint), or builds it
+    again (:class:`PointingBuild`), and returns the selection of the
+    variable. The variables of a partition so share one build; the open
+    keeps no values. A build whose coordinates (times, antennas) are not
+    those of the open (``coords_token``: e.g. POINTING TIME rewritten in
+    place), or whose variable has another shape or dtype, raises
+    MSv2ChangedError: its values would not be those of the coordinates of
+    the opened pointing_xds.
 
     Parameters
     ----------
@@ -1806,9 +2131,10 @@ def rebuilt_pointing_xds(
     partition: PartitionIndex | None = None,
 ) -> xr.Dataset:
     """
-    A pointing_xds built at open by the converter's code with its data
-    variables replaced by lazily indexed arrays that build it again when
-    read (:class:`PointingBuildArray`, checking ``partition`` and the
+    A pointing_xds built at open by the converter's code, or with
+    placeholders described by ``partition_layout``, with its data variables
+    replaced by lazily indexed arrays that build it by the converter's code
+    when read (:class:`PointingBuildArray`, checking ``partition`` and the
     coordinates of the build when read), keeping their dimensions,
     attributes and encoding.
     """

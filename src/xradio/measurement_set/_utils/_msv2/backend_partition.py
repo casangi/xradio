@@ -308,7 +308,10 @@ def open_partition(
             )
         elif pointing_context and pointing_xds.data_vars:
             # built here by the converter's code (a POINTING table the lazy
-            # reads cannot describe): built again when read, values not kept
+            # reads cannot describe: values not kept), or described from the
+            # cell shapes (placeholders: a partition with fewer than 1,000
+            # POINTING rows, whose cells of other shapes the converter pads):
+            # built again by the converter's code when read
             pointing_xds = _rebuilt_pointing(
                 in_file, ms_xdt, pointing_xds, pointing_context, node_name, index
             )
@@ -328,9 +331,12 @@ def _rebuilt_pointing(
     node_name: str,
     partition: PartitionIndex | None = None,
 ) -> xr.Dataset:
-    """The pointing_xds of a partition with data variables that build it
-    again when read (rebuilt_pointing_xds); as built if the antennas of the
-    build cannot be told (kept eager)."""
+    """The pointing_xds of a partition (built at open by the converter's
+    code, or placeholders described from the cell shapes of its POINTING
+    rows) with data variables that build it by the converter's code when
+    read (rebuilt_pointing_xds); as it is if the antennas of the build
+    cannot be told (kept eager; placeholders are then left, which
+    _check_no_placeholder_left reports)."""
     antenna_ids = context["antenna_ids"]
     names = (
         ms_xdt["antenna_xds"].to_dataset(inherit=False)["antenna_name"].values

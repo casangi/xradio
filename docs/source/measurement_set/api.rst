@@ -110,16 +110,22 @@ another process holds a lock on it); an open in another process at the same time
 **When the MS changes.** The stored partitions are used only while a fingerprint of the tables they are computed from
 (the data managers and key columns of MAIN, and the FIELD, STATE and SOURCE tables, read from casacore's lock files) is
 unchanged and the ``HISTORY`` table has no rows newer than xradio's own. They are also checked against their MAIN rows
-when the MS is opened (if they do not describe them because the MS changed meanwhile, the open is done again with the
-partitions computed). An MS that changes after it was opened is not followed: a lazy read raises
-:py:class:`MSv2ChangedError` if MAIN or POINTING has another number of rows, if rows it reads are in another partition
-now (their ``DATA_DESC_ID``, ``OBSERVATION_ID``, observing mode, ephemeris or a key of the ``partition_scheme``
-changed), or if the (time, baseline) grid of a partition, or the times, antennas and rows of its ``pointing_xds``,
-changed; the MS must then be opened again. (Rows that another partition lost to a partition are not seen by a tree
-opened before: they are not among the rows it reads.) Every read whose MAIN key columns may have been written since the
-open checks that the rows it reads still have the partition and the times and antennas of the open (MAIN ``TIME``,
-``ANTENNA1``, ``ANTENNA2``; POINTING ``TIME``, ``ANTENNA_ID``), so the outcome does not depend on what the process kept
-in memory: values rewritten in place are read as they are now, as are rows moved within an unchanged grid.
+when the MS is opened, and so are partitions computed while the MS may have changed (if they do not describe their rows
+because the MS changed meanwhile, the open is done again with the partitions computed). An MS that changes after it was
+opened is not followed: a lazy read returns the current values of the rows of its partition, or raises
+:py:class:`MSv2ChangedError`, and the MS must then be opened again. It raises if MAIN or POINTING has another number of
+rows, if the partition no longer has exactly the rows it had when the MS was opened (rows moved to or from another
+partition because their ``DATA_DESC_ID``, ``OBSERVATION_ID``, observing mode, ephemeris or a key of the
+``partition_scheme`` changed, in MAIN or in the ``FIELD``, ``STATE`` or ``SOURCE`` rows they refer to), or if the (time,
+baseline) grid of the partition, or the times, antennas and rows of its ``pointing_xds``, changed. To tell, a read first
+looks at casacore's lock files: while the key columns of MAIN (and their data managers) and the FIELD, STATE and SOURCE
+tables have not been written since the open, nothing more is read. Otherwise the whole partition is checked against the
+MS as it is now (the key columns of every MAIN row are read), once per state of the MS in a process, and the rows a read
+reads are checked against the times and antennas of their cells (MAIN ``TIME``, ``ANTENNA1``, ``ANTENNA2``; POINTING
+``TIME``, ``ANTENNA_ID``), so the outcome does not depend on what the process kept in memory: values rewritten in place
+are read as they are now, as are rows moved within an unchanged grid. While this process has the MAIN table open for
+writing (its writes are seen before they are flushed), and for reference and concatenated MSs (their lock files do not
+show the writes of the MSs they read), every read checks its partition so.
 
 **Performance.** Opening costs what the converter spends on metadata: about 0.05 to 0.2 s per partition, plus 4 to
 12 ms per node for xarray (about 3 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). The first open in a

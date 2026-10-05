@@ -121,8 +121,8 @@ def open_msv2(
     ------
     MSv2ChangedError
         From a lazy read, if the MS changed since it was opened (MAIN or
-        POINTING rows added or removed, rows moved to another partition or
-        within the time and baseline grid of their partition).
+        POINTING rows added or removed, rows moved to or from another
+        partition, or the time and baseline grid of a partition changed).
     MSv2ReadError
         From a lazy read that failed (see skip_columns for columns whose
         cells only a read can check).

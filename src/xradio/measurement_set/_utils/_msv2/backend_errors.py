@@ -9,11 +9,13 @@ MSv2ChangedError, MSv2ReadError and PartitionCacheWarning are exported by
 class MSv2ChangedError(RuntimeError):
     """
     The MeasurementSet changed since it was opened: the MAIN table has another
-    number of rows, rows read are in another partition now (a partition key
-    rewritten), or the rows of a partition give another (time, baseline)
-    grid; or the POINTING table has another number of rows, or other rows,
-    times or antennas for a partition. The lazy arrays of the opened
-    processing set no longer describe the MS; open it again.
+    number of rows, a partition no longer has exactly the rows it had (rows
+    moved to or from another partition: a partition key rewritten in MAIN,
+    or in the FIELD, STATE or SOURCE rows they refer to), or the rows of a
+    partition give another (time, baseline) grid; or the POINTING table has
+    another number of rows, or other rows, times or antennas for a
+    partition. The lazy arrays of the opened processing set no longer
+    describe the MS; open it again.
     """
 
 

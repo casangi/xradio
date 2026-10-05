@@ -114,6 +114,7 @@ from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_arrays import (
     MSv2BackendArray,
+    PartitionIndex,
     _IndexMemo,
     bounding_slices,
     is_range,
@@ -923,6 +924,10 @@ class PointingColumnArray(MSv2BackendArray):
         dtype of the data variable.
     node : str
         Name of the MSv4 node (for messages).
+    partition : PartitionIndex | None
+        The MAIN rows of the partition, whose time range and antennas select
+        its POINTING rows: a read first checks that the partition is the one
+        of the open (``PartitionIndex.verify_current``).
     """
 
     def __init__(
@@ -931,6 +936,7 @@ class PointingColumnArray(MSv2BackendArray):
         shape: tuple[int, ...],
         dtype: DTypeLike,
         node: str = "",
+        partition: PartitionIndex | None = None,
     ):
         super().__init__(shape, dtype)
         if self.shape[:2] != (spec.n_times, spec.n_antennas):
@@ -948,6 +954,7 @@ class PointingColumnArray(MSv2BackendArray):
             raise ValueError(f"{spec.name}: dtype {self.dtype}, {spec.dtype} read")
         self.spec = spec
         self.node = str(node)
+        self.partition = partition
 
     def _message(self, key: tuple[slice, ...], exc: BaseException) -> str:
         block = ", ".join(f"{k.start}:{k.stop}" for k in key)
@@ -972,6 +979,8 @@ class PointingColumnArray(MSv2BackendArray):
         index and the partition's selection are read again (checked against
         the open: MSv2ChangedError) and the selection read again with them.
         """
+        if self.partition is not None:
+            self.partition.verify_current()
         out = np.empty(tuple(s.size for s in selections), dtype=self.dtype)
         key = bounding_slices(selections)
         for _attempt in (1, 2):
@@ -1196,19 +1205,22 @@ def lazy_pointing_xds(
     pointing_xds: xr.Dataset,
     specs: Mapping[str, DeferredPointingVariable],
     node: str = "",
+    partition: PartitionIndex | None = None,
 ) -> xr.Dataset:
     """
     The pointing_xds of a partition built with ``deferred_pointing_generic_xds``
     with its placeholders replaced by lazily indexed arrays
-    (:class:`PointingColumnArray`), keeping their dimensions, attributes and
-    encoding.
+    (:class:`PointingColumnArray`, checking ``partition`` when read), keeping
+    their dimensions, attributes and encoding.
     """
     lazy = {}
     for name, spec in specs.items():
         if name not in pointing_xds.data_vars:
             continue
         var = pointing_xds.variables[name]
-        array = PointingColumnArray(spec, var.shape, var.dtype, node=node)
+        array = PointingColumnArray(
+            spec, var.shape, var.dtype, node=node, partition=partition
+        )
         lazy_var = xr.Variable(
             var.dims,
             xr.core.indexing.LazilyIndexedArray(array),
@@ -1353,6 +1365,8 @@ class PointingBuildArray(MSv2BackendArray):
         Its dtype.
     node : str
         Name of the MSv4 node (for messages).
+    partition : PartitionIndex | None
+        The MAIN rows of the partition (see PointingColumnArray).
     """
 
     def __init__(
@@ -1362,13 +1376,17 @@ class PointingBuildArray(MSv2BackendArray):
         shape: tuple[int, ...],
         dtype: DTypeLike,
         node: str = "",
+        partition: PartitionIndex | None = None,
     ):
         super().__init__(shape, dtype)
         self.build = build
         self.name = str(name)
         self.node = str(node)
+        self.partition = partition
 
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
+        if self.partition is not None:
+            self.partition.verify_current()
         table = os.path.join(self.build.in_file, POINTING_TABLE)
         try:
             with casatools_serialized():
@@ -1403,17 +1421,22 @@ class PointingBuildArray(MSv2BackendArray):
 
 
 def rebuilt_pointing_xds(
-    pointing_xds: xr.Dataset, build: PointingBuild, node: str = ""
+    pointing_xds: xr.Dataset,
+    build: PointingBuild,
+    node: str = "",
+    partition: PartitionIndex | None = None,
 ) -> xr.Dataset:
     """
     A pointing_xds built at open by the converter's code with its data
     variables replaced by lazily indexed arrays that build it again when
-    read (:class:`PointingBuildArray`), keeping their dimensions, attributes
-    and encoding.
+    read (:class:`PointingBuildArray`, checking ``partition`` when read),
+    keeping their dimensions, attributes and encoding.
     """
     lazy = {}
     for name, var in pointing_xds.data_vars.items():
-        array = PointingBuildArray(build, name, var.shape, var.dtype, node=node)
+        array = PointingBuildArray(
+            build, name, var.shape, var.dtype, node=node, partition=partition
+        )
         lazy_var = xr.Variable(
             var.dims,
             xr.core.indexing.LazilyIndexedArray(array),

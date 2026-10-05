@@ -3,6 +3,7 @@
 import contextlib
 import os
 import pickle
+import re
 import shutil
 import time
 
@@ -466,13 +467,13 @@ def lazy_and_reference(msname, idx=0, scheme=(), **kw):
     reversed along frequency as the converter does) and the values the
     converter reads for them (read_deferred_variables), by name.
     """
-    keys = backend_arrays.keys_token(
-        os.path.abspath(msname), backend_arrays.ROW_KEY_COLUMNS
-    )
+    keys = backend_arrays.keys_token(os.path.abspath(msname))
     partitions, _ = create_partitions_with_main_rows(msname, list(scheme))
     grouping = backend_arrays.partition_grouping(partitions[idx], tuple(scheme))
     with built_partition(msname, idx, scheme, **kw) as built:
-        index = PartitionIndex.seed(os.path.abspath(msname), built, keys, grouping)
+        index = PartitionIndex.seed(
+            os.path.abspath(msname), built, keys, grouping, tuple(scheme)
+        )
         xds = built.ms_xdt.to_dataset(inherit=False)
         lazy = {}
         for name, spec in built.deferred.items():
@@ -480,7 +481,7 @@ def lazy_and_reference(msname, idx=0, scheme=(), **kw):
                 continue
             var = xds.variables[name]
             if spec.col is None:
-                array = OnesArray(var.shape)
+                array = OnesArray(var.shape, index=index)
             else:
                 array = MSv2MainColumnArray.from_spec(
                     index, spec, var.shape, var.dtype, node="node"
@@ -698,8 +699,31 @@ def test_keys_rewritten_after_the_open(ms_copy, layout, memo, column, change, ou
         assert_same_values(got, reference[name].values, f"{name} {column}")
     if column == "DATA":
         assert rebuilds == (1 if memo == "rebuilt" else 0)
-    else:  # the moved rows made the index be rebuilt (once)
-        assert rebuilds == 1
+    else:
+        # the check of the partition (its keys were written) made the index
+        # again, once; with an empty memo the read had made it first
+        assert rebuilds == (2 if memo == "rebuilt" else 1)
+
+
+@pytest.mark.parametrize("memo", ["index of the open", "rebuilt"])
+def test_grid_changed_outside_the_selection(ms_copy, memo):
+    """The TIME of one row rewritten to a time its partition did not have
+    (its grid has one more time now): a read of other times, which reads
+    none of its rows, raises MSv2ChangedError too (the partition is checked
+    whole), with the index of the open in the memo or rebuilt."""
+    msname = ms_copy("dense")
+    lazy, _, _ = lazy_and_reference(msname, 0)
+
+    def change(values):
+        values[0] += 1000.5
+        return values
+
+    _update_main(msname, "TIME", change)
+    if memo == "rebuilt":
+        backend_arrays.clear_index_memo()
+    for name in ("VISIBILITY", "UVW"):
+        with pytest.raises(MSv2ChangedError, match=r"grid of \(31, 10\)"):
+            lazy[name].isel(time=slice(5, 8)).values  # noqa: B018
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)
@@ -762,50 +786,189 @@ def _partition_of(msname, scheme, **keys):
     return idx
 
 
-# (variant, scheme, partition, column, rows 0-9 set to, the key that changes):
-# rows 0-9 are time 0 of DDI 0; in "rich" they are field 0, scan 1, state 0
-# (CALIBRATE_PHASE; state 1 is OBSERVE_TARGET)
-LEFT_CASES = {
-    "DATA_DESC_ID": ("dense", [], {"DATA_DESC_ID": 0}, "DATA_DESC_ID", 2),
+def _update_subtable(subtable, column, row, value):
+    def change(msname):
+        from casacore import tables
+
+        with tables.table(
+            os.path.join(msname, subtable), readonly=False, ack=False
+        ) as table:
+            table.putcell(column, row, value)
+
+    return change
+
+
+def _update_rows(column, value):
+    def change(msname):
+        _update_main(msname, column, _row(slice(0, 10), value))
+
+    return change
+
+
+def _remove_field_ephemeris_id(msname):
+    from casacore import tables
+
+    with tables.table(os.path.join(msname, "FIELD"), readonly=False, ack=False) as t:
+        t.removecols(["EPHEMERIS_ID"])
+
+
+CAL, TARGET = "CALIBRATE_PHASE#ON_SOURCE", "OBSERVE_TARGET#ON_SOURCE"
+# (variant, scheme, the partition that loses rows, the one that gains them,
+# the change, what the first one's reads say, a partition it does not touch):
+# rows 0-9 are time 0 of DDI 0; in "rich" they are field 0 (source 0), scan
+# 1, state 0 (CAL; state 1 is TARGET)
+MOVED_CASES = {
+    "DATA_DESC_ID": (
+        "dense",
+        [],
+        {"DATA_DESC_ID": 0},
+        {"DATA_DESC_ID": 2},
+        _update_rows("DATA_DESC_ID", 2),
+        "has the DATA_DESC_ID 2, 0 when it was opened: it is in another partition",
+        {"DATA_DESC_ID": 1},
+    ),
     "FIELD_ID, scheme FIELD_ID": (
         "rich",
         ["FIELD_ID"],
-        {"DATA_DESC_ID": 0, "FIELD_ID": 0, "STATE_ID": 0},
-        "FIELD_ID",
-        1,
+        {"DATA_DESC_ID": 0, "FIELD_ID": 0, "OBS_MODE": CAL},
+        {"DATA_DESC_ID": 0, "FIELD_ID": 1, "OBS_MODE": CAL},
+        _update_rows("FIELD_ID", 1),
+        "has the FIELD_ID 1, 0 when it was opened: it is in another partition",
+        {"DATA_DESC_ID": 3, "FIELD_ID": 0, "OBS_MODE": CAL},
     ),
     "STATE_ID to another OBS_MODE": (
         "rich",
         [],
-        {"DATA_DESC_ID": 0, "OBS_MODE": "CALIBRATE_PHASE#ON_SOURCE"},
-        "STATE_ID",
-        1,
+        {"DATA_DESC_ID": 0, "OBS_MODE": CAL},
+        {"DATA_DESC_ID": 0, "OBS_MODE": TARGET},
+        _update_rows("STATE_ID", 1),
+        f"has the OBS_MODE '{TARGET}', '{CAL}' when it was opened",
+        {"DATA_DESC_ID": 3, "OBS_MODE": TARGET},
+    ),
+    # (FIELD, STATE and SOURCE changed after the open: the rows of the
+    # partition are those with its keys as create_partitions derives them)
+    "STATE OBS_MODE": (
+        "rich",
+        [],
+        {"DATA_DESC_ID": 0, "OBS_MODE": CAL},
+        {"DATA_DESC_ID": 0, "OBS_MODE": TARGET},
+        _update_subtable("STATE", "OBS_MODE", 0, TARGET),
+        f"has the OBS_MODE '{TARGET}', '{CAL}' when it was opened",
+        None,
+    ),
+    "FIELD SOURCE_ID, scheme SOURCE_ID": (
+        "rich",
+        ["SOURCE_ID"],
+        {"DATA_DESC_ID": 0, "SOURCE_ID": 0, "OBS_MODE": CAL},
+        {"DATA_DESC_ID": 0, "SOURCE_ID": 1, "OBS_MODE": CAL},
+        _update_subtable("FIELD", "SOURCE_ID", 0, 1),
+        "has the SOURCE_ID 1, 0 when it was opened",
+        None,
+    ),
+    "FIELD EPHEMERIS_ID removed": (
+        "rich",
+        [],
+        {"DATA_DESC_ID": 0, "OBS_MODE": CAL},
+        None,
+        _remove_field_ephemeris_id,
+        "the MS no longer has the partition key EPHEMERIS_ID",
+        None,
     ),
 }
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)
-@pytest.mark.parametrize("case", list(LEFT_CASES))
+@pytest.mark.parametrize("case", list(MOVED_CASES))
 def test_rows_moved_to_another_partition(ms_copy, layout, case):
-    """A partition key of rows rewritten in place after the open, so that
-    they belong to another partition now (DATA_DESC_ID; FIELD_ID with the
-    scheme FIELD_ID; STATE_ID to a state of another OBS_MODE): a read of the
-    partition raises MSv2ChangedError (it read the moved rows, under the
-    grid of their old partition, without an error)."""
-    variant, scheme, keys, column, value = LEFT_CASES[case]
+    """
+    Rows that belong to another partition after the open (a key column of
+    MAIN rewritten in place: DATA_DESC_ID; FIELD_ID with the scheme FIELD_ID;
+    STATE_ID to a state of another OBS_MODE; or FIELD / STATE changed: an
+    OBS_MODE, a SOURCE_ID; or a partition key the MS no longer has): every
+    read of the partition that lost them and of the one that gained them
+    raises MSv2ChangedError, also a selection without the moved rows (the
+    partition is not the one of the open). A partition the change does not
+    touch reads as before. The outcome is the same with the memos of the
+    open or empty (as in another process).
+    """
+    variant, scheme, lost_keys, gained_keys, change, message, other_keys = MOVED_CASES[
+        case
+    ]
     msname = ms_copy(variant, layout)
-    idx = _partition_of(msname, scheme, **keys)
-    lazy, _, _ = lazy_and_reference(msname, idx, scheme)
-    _update_main(msname, column, _row(slice(0, 10), value))
-    key = "OBS_MODE" if column == "STATE_ID" else column
-    for name in ("VISIBILITY", "FLAG"):
-        with pytest.raises(
-            MSv2ChangedError, match=f"has the {key} .* another partition"
-        ):
-            lazy[name].values  # noqa: B018
-    # (a selection of times without the moved rows does not read them)
-    n_times = lazy["FLAG"].sizes["time"]
-    assert lazy["FLAG"].isel(time=slice(1, None)).values.shape[0] == n_times - 1
+
+    def partition(keys):
+        if keys is None:
+            return None
+        return lazy_and_reference(msname, _partition_of(msname, scheme, **keys), scheme)
+
+    lost, gained, other = (partition(k) for k in (lost_keys, gained_keys, other_keys))
+    change(msname)
+    for memo in ("of the open", "empty"):
+        if memo == "empty":
+            backend_arrays.clear_index_memo()
+        for name in ("VISIBILITY", "FLAG"):
+            with pytest.raises(MSv2ChangedError, match=re.escape(message)):
+                lost[0][name].values  # noqa: B018
+            with pytest.raises(MSv2ChangedError, match=re.escape(message)):
+                lost[0][name].isel(time=slice(1, None)).values  # noqa: B018
+            if gained is not None:
+                with pytest.raises(
+                    MSv2ChangedError, match="has the keys of the partition now"
+                ):
+                    gained[0][name].isel(time=slice(1, 4)).values  # noqa: B018
+        if other is not None:
+            assert_same_values(
+                other[0]["VISIBILITY"].values, other[1]["VISIBILITY"].values
+            )
+
+
+def test_weight_ones_check_the_partition(ms_copy):
+    """The WEIGHT=1 fallback reads no MAIN value, but a read of it checks the
+    partition like the other variables: MSv2ChangedError after rows moved to
+    another partition, also without the memos of the open."""
+    msname = ms_copy("no_weight")
+    lazy, reference, _ = lazy_and_reference(msname, 0)
+    assert isinstance(lazy["WEIGHT"]._data.array, OnesArray)
+    assert_same_values(lazy["WEIGHT"].values, reference["WEIGHT"].values)
+    _update_main(msname, "DATA_DESC_ID", _row(slice(0, 10), 2))
+    for _ in range(2):
+        with pytest.raises(MSv2ChangedError, match="another partition now"):
+            lazy["WEIGHT"].isel(time=slice(3, 5)).values  # noqa: B018
+        backend_arrays.clear_index_memo()
+    assert pickle.loads(pickle.dumps(lazy["WEIGHT"]._data.array)).index is not None
+
+
+def test_partition_is_checked_once_per_state(ms_copy, monkeypatch):
+    """After a write of the data manager of MAIN's key columns (here FLAG_ROW,
+    which shares it), the whole partition is checked once per state of the
+    MS (CHECK_MEMO, by keys_token), not on every read; a further write checks
+    it again; while a handle of this process has MAIN open for writing (its
+    writes are not flushed), on every read."""
+    from casacore import tables
+
+    msname = ms_copy("rich")
+    lazy, reference, _ = lazy_and_reference(msname, 0)
+    stats = backend_arrays.CHECK_MEMO.stats
+    checks = stats["checks"]
+    for _ in range(3):
+        assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
+    assert stats["checks"] == checks  # (unchanged since the open)
+    for expected in (1, 2):
+        _update_main(msname, "FLAG_ROW", lambda v: v)
+        for _ in range(3):
+            assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
+            assert_same_values(
+                lazy["VISIBILITY"].isel(time=2).values,
+                reference["VISIBILITY"].isel(time=2).values,
+            )
+        assert stats["checks"] == checks + expected
+    writer = tables.table(msname, readonly=False, ack=False)
+    try:
+        for count in (1, 2):
+            assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
+            assert stats["checks"] == checks + 2 + count
+    finally:
+        writer.close()
 
 
 @pytest.mark.parametrize("layout", LAYOUTS)

@@ -1245,6 +1245,50 @@ def test_engine_pointing_is_lazy(backend_ms, variant, monkeypatch):
         assert all(pointing_array(var) is None for var in xds.data_vars.values())
 
 
+def test_pointing_of_a_changed_partition_raises(ms_copy, monkeypatch):
+    """The pointing_xds of a partition whose MAIN rows changed since the open
+    (rows of its first time moved to another partition: its time range and
+    antennas select its POINTING rows) raises MSv2ChangedError, like its main
+    data variables, whichever kind of lazy array it has; the pointing_xds of
+    a partition the change does not touch reads its values."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    ms = ms_copy("rich")
+    partitions, _ = create_partitions_with_main_rows(ms, [])
+    cal = "CALIBRATE_PHASE#ON_SOURCE"
+
+    def node_of(ddi, obs_mode):
+        (idx,) = (
+            i
+            for i, info in enumerate(partitions)
+            if info["DATA_DESC_ID"] == [ddi] and info["OBS_MODE"] == [obs_mode]
+        )
+        return sorted(tree.children)[idx]
+
+    for kind in ("lazy", "rebuilt"):
+        if kind == "rebuilt":  # (built by the converter's code on read)
+            monkeypatch.setattr(bpt, "read_pointing_index", lambda *a, **k: None)
+        bpt.clear_pointing_memos()
+        tree = xr.open_datatree(
+            ms, engine=MSv2BackendEntrypoint, chunks=None, partition_cache="off"
+        )
+        changed = tree[node_of(0, cal)]["pointing_xds"].to_dataset(inherit=False)
+        other = tree[node_of(3, cal)]["pointing_xds"].to_dataset(inherit=False)
+        find = pointing_array if kind == "lazy" else build_array
+        assert find(changed.POINTING_BEAM) is not None
+        expected = other.POINTING_BEAM.values
+        with tables.table(ms, readonly=False, ack=False) as main_tb:
+            state = main_tb.getcol("STATE_ID")
+            main_tb.putcol("STATE_ID", np.where(np.arange(state.size) < 10, 1, state))
+        with pytest.raises(MSv2ChangedError, match="another partition now"):
+            changed.POINTING_BEAM.values  # noqa: B018
+        assert_bits_equal(other.POINTING_BEAM.values, expected)
+        with tables.table(ms, readonly=False, ack=False) as main_tb:
+            main_tb.putcol("STATE_ID", state)
+
+
 def test_engine_pointing_is_lazy_over_the_cache_limit(backend_ms, monkeypatch):
     """POINTING tables larger than what the converter's sub-table cache holds
     (POINTING_MAX_CACHED_INDEX_BYTES, about 16.7 million rows) are read

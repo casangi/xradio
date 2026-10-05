@@ -32,16 +32,25 @@ baseline) index of every row is kept in a bounded per-process memo: seeded
 from the build when the MS is opened, rebuilt with the converter's
 ``calc_indx_for_row_split`` in another process (or after an eviction). A MAIN
 table with another number of rows, or a rebuilt index with another token,
-raises :class:`MSv2ChangedError`. Every read also checks that the rows it
-reads still have the grouping keys of their partition (DATA_DESC_ID,
-OBSERVATION_ID, OBS_MODE, EPHEMERIS_ID and those of the partition scheme:
-MSv2ChangedError if not, the rows belong to another partition now) and the
-TIME, ANTENNA1 and ANTENNA2 of their cells in the index; if not the latter,
-the index is rebuilt (and checked) as in another process, so that the outcome
-of a read does not depend on whether the index was in the memo. The rows are
-not checked one by one while the data managers of those columns are
-unchanged since the open (``keys_token``, from the lock file: no write of
-them flushed since) and no handle of the process has MAIN open for writing.
+raises :class:`MSv2ChangedError`.
+
+Changes after the open: while no write of MAIN's key columns (the data
+managers of ROW_KEY_COLUMNS) or of FIELD, STATE and SOURCE was flushed since
+the open (``keys_token``, from the lock files) and no handle of the process
+has MAIN open for writing, a partition is as when the MS was opened. Else a
+read first checks the whole partition against the MS as it is now
+(``PartitionIndex.check``, once per state of the MS in a process): its rows
+must be exactly the MAIN rows that are in it now (none moved to another
+partition, none moved into it: from the grouping keys DATA_DESC_ID,
+OBSERVATION_ID, OBS_MODE, EPHEMERIS_ID and those of the partition scheme, as
+create_partitions derives them from MAIN, FIELD, SOURCE and STATE) and their
+(time, baseline) grid that of the open; MSv2ChangedError if not. The rows the
+read reads must then have the TIME, ANTENNA1 and ANTENNA2 of their cells in
+the index it reads with; if not, the index is made again from the MS (as in
+another process), so that the outcome of a read does not depend on what the
+process kept in memory. So a read returns the current values of the rows of
+its partition, or raises.
+
 The arrays pickle to their path, runs, grouping keys and column description
 (about 1 kB plus 16 bytes per run), never per-row arrays or table handles.
 """
@@ -72,7 +81,7 @@ from xradio.measurement_set._utils._msv2._tables.read_rows import (
     runs_to_rows,
 )
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
-    table_fingerprint,
+    followed_ms_fingerprint,
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_errors import (
@@ -80,9 +89,14 @@ from xradio.measurement_set._utils._msv2.backend_errors import (
     MSv2ReadError,
 )
 from xradio.measurement_set._utils._msv2.conversion import calc_indx_for_row_split
+from xradio.measurement_set._utils._msv2.partition_cache import (
+    FINGERPRINT_SUBTABLE_COLUMNS,
+    FINGERPRINT_SUBTABLES,
+)
 from xradio.measurement_set._utils._msv2.partition_queries import (
     MANDATORY_PARTITION_KEYS,
     PARTITION_MAIN_KEY_COLUMNS,
+    PartitionKeyMaps,
     _add_derived_columns,
     partition_key_maps,
 )
@@ -106,6 +120,31 @@ PARTITION_KEY_COLUMNS = tuple(
 )
 # The MAIN columns whose writes since the open make reads check their rows
 ROW_KEY_COLUMNS = GRID_KEY_COLUMNS + PARTITION_KEY_COLUMNS
+# Rows of MAIN whose key columns one window of a partition check reads (about
+# 20-28 bytes per row while it lasts)
+CHECK_WINDOW_ROWS = 2**20
+# Bound of the per-process memo of partition checks (entries)
+CHECK_MEMO_MAX_ENTRIES = 4096
+# The MAIN key column of every partition key, and the PartitionKeyMaps lookup
+# of the keys derived from it (create_partitions' _add_derived_columns)
+_KEY_COLUMN = {
+    "DATA_DESC_ID": "DATA_DESC_ID",
+    "OBSERVATION_ID": "OBSERVATION_ID",
+    "FIELD_ID": "FIELD_ID",
+    "SCAN_NUMBER": "SCAN_NUMBER",
+    "STATE_ID": "STATE_ID",
+    "ANTENNA1": "ANTENNA1",
+    "SOURCE_ID": "FIELD_ID",
+    "EPHEMERIS_ID": "FIELD_ID",
+    "OBS_MODE": "STATE_ID",
+    "SUB_SCAN_NUMBER": "STATE_ID",
+}
+_KEY_LOOKUP = {
+    "SOURCE_ID": "field_source",
+    "EPHEMERIS_ID": "field_ephemeris",
+    "OBS_MODE": "state_obs_mode",
+    "SUB_SCAN_NUMBER": "state_sub_scan",
+}
 
 
 # --- the base class ------------------------------------------------------------
@@ -460,14 +499,14 @@ def partition_grouping(
 ) -> tuple[tuple[str, Any], ...]:
     """
     The grouping keys of a partition and their values, which every row of
-    the partition has: MANDATORY_PARTITION_KEYS and the keys of the scheme
-    (but ANTENNA1, which the grid keys check) that its description has with
-    one value (None, a key the MS does not have, is left out).
+    the partition has (ANTENNA1: and its ANTENNA2, autocorrelations only):
+    MANDATORY_PARTITION_KEYS and the keys of the scheme that its description
+    has with one value (None, a key the MS does not have, is left out).
     """
     grouping = []
     for key in dict.fromkeys((*MANDATORY_PARTITION_KEYS, *partition_scheme)):
         values = partition_info.get(key)
-        if key == "ANTENNA1" or values is None or len(values) != 1:
+        if values is None or len(values) != 1:
             continue
         value = values[0]
         if value is None:
@@ -476,39 +515,142 @@ def partition_grouping(
     return tuple(grouping)
 
 
-def keys_token(table_path: str, key_columns: tuple[str, ...]) -> str | None:
+def keys_token(ms_path: str) -> str | None:
     """
-    A token of the storage of ``key_columns`` of a table: its rows, columns
-    and data managers, and the change counters (lock file) and files of the
-    data managers that hold the key columns (``table_fingerprint``). A token
-    equal to an earlier one means that no write of those data managers was
-    flushed since. None if the lock file cannot be read (no such promise).
+    A token of what the partitions of an MS and their (time, baseline) grids
+    are made from (``followed_ms_fingerprint``): the storage of MAIN's
+    ROW_KEY_COLUMNS (its rows, columns and data managers, and the change
+    counters (lock file) and files of the data managers that hold them) and
+    the FIELD, STATE and SOURCE tables (rows, columns, all change counters and
+    files). A token equal to an earlier one means that no write of them was
+    flushed since. None if that cannot be told: a lock file of these tables
+    cannot be read, or their files do not follow their rows (a reference or
+    concatenated MAIN, key columns in a data manager without files of its
+    own, e.g. forwarded to another MS).
     """
-    fingerprint = table_fingerprint(table_path, list(key_columns))
-    if fingerprint is None or not fingerprint["lock_ok"]:
+    fingerprint, unfollowed = followed_ms_fingerprint(
+        ms_path,
+        ROW_KEY_COLUMNS,
+        FINGERPRINT_SUBTABLES,
+        FINGERPRINT_SUBTABLE_COLUMNS,
+    )
+    tables_found = [fingerprint["main"]] + [
+        fingerprint[name] for name in FINGERPRINT_SUBTABLES if fingerprint[name]
+    ]
+    if unfollowed is not None or not all(found["lock_ok"] for found in tables_found):
         return None
     text = json.dumps(fingerprint, sort_keys=True, default=str)
     return hashlib.blake2b(text.encode(), digest_size=16).hexdigest()
 
 
-def keys_unchanged(
-    table: Any, table_path: str, token: str | None, key_columns: tuple[str, ...]
-) -> bool:
+def current_keys_token(table: Any, ms_path: str) -> str | None:
     """
-    Whether the key columns of an opened table are known to be as when
-    ``token`` was taken (``keys_token``), so that a read need not check them
-    row by row: the token is unchanged, and no handle of this process has
-    the table open for writing (its writes are seen by this process before
-    they are flushed: ``iswritable`` of a read-only handle tells).
+    ``keys_token`` of an MS whose MAIN table is opened as ``table``; None
+    (unknown) while a handle of this process has MAIN open for writing: its
+    writes are seen by this process before they are flushed (``iswritable``
+    of a read-only handle tells).
     """
-    if token is None:
-        return False
     try:
         if table.iswritable():
-            return False
+            return None
     except Exception:
-        return False
-    return keys_token(table_path, key_columns) == token
+        return None
+    return keys_token(ms_path)
+
+
+class _CheckMemo:
+    """
+    Per-process LRU memo of the outcome of whole-partition checks
+    (``PartitionIndex.check``): "" or why the partition changed, keyed by the
+    partition (its index key, grouping keys and scheme) and the keys_token of
+    the MS when it was checked; at most CHECK_MEMO_MAX_ENTRIES. Striped locks
+    let threads reading one partition check it once. Renewed (empty, with new
+    locks) in a fork child.
+    """
+
+    def __init__(self, max_entries: int):
+        self.max_entries = int(max_entries)
+        self.reset_after_fork()
+
+    def reset_after_fork(self) -> None:
+        self._lock = threading.Lock()
+        self._check_locks = [threading.Lock() for _ in range(16)]
+        self._entries: collections.OrderedDict[tuple, str] = collections.OrderedDict()
+        self.stats: collections.Counter = collections.Counter()
+
+    def check_lock(self, key: tuple) -> threading.Lock:
+        return self._check_locks[hash(key) % len(self._check_locks)]
+
+    def get(self, key: tuple) -> str | None:
+        with self._lock:
+            found = self._entries.get(key)
+            if found is not None:
+                self._entries.move_to_end(key)
+            return found
+
+    def put(self, key: tuple, outcome: str) -> None:
+        with self._lock:
+            self._entries[key] = outcome
+            self._entries.move_to_end(key)
+            while len(self._entries) > self.max_entries:
+                self._entries.popitem(last=False)
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+            self.stats.clear()
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+
+CHECK_MEMO = _CheckMemo(CHECK_MEMO_MAX_ENTRIES)
+
+
+def _runs_mask(starts: np.ndarray, ends: np.ndarray, r0: int, r1: int) -> np.ndarray:
+    """Which rows of [r0, r1) are in the runs [starts, ends) (ascending,
+    disjoint)."""
+    i0 = int(np.searchsorted(ends, r0, side="right"))
+    i1 = int(np.searchsorted(starts, r1, side="left"))
+    delta = np.zeros(r1 - r0 + 1, dtype=np.int64)
+    np.add.at(delta, np.clip(starts[i0:i1], r0, r1) - r0, 1)
+    np.add.at(delta, np.clip(ends[i0:i1], r0, r1) - r0, -1)
+    return np.cumsum(delta[:-1]) > 0
+
+
+def available_partition_keys(maps: PartitionKeyMaps) -> set[str]:
+    """The partition keys an MS has (create_partitions groups by those of
+    the scheme), with these FIELD / SOURCE / STATE lookups."""
+    frame = pd.DataFrame(
+        {name: np.zeros(0, dtype=np.int32) for name in PARTITION_MAIN_KEY_COLUMNS}
+    )
+    _add_derived_columns(frame, maps)
+    return set(frame.columns)
+
+
+def _key_matches(
+    column: np.ndarray, key: str, value: Any, maps: PartitionKeyMaps
+) -> np.ndarray | str:
+    """
+    Which rows have the partition key ``key`` equal to ``value``, from the
+    values of its MAIN key column (``_KEY_COLUMN``); a derived key is looked
+    up in FIELD / SOURCE / STATE as create_partitions looks it up (numpy
+    indexing: a negative STATE_ID counts from the last STATE row). Or why
+    that cannot be told: a value beyond the rows of the looked up table
+    (create_partitions fails on it).
+    """
+    if key not in _KEY_LOOKUP:
+        return column == value
+    lookup = np.asarray(getattr(maps, _KEY_LOOKUP[key]))
+    n = lookup.shape[0]
+    outside = (column < -n) | (column >= n)
+    if outside.any():
+        return (
+            f"cannot be derived: {_KEY_COLUMN[key]} {int(column[np.argmax(outside)])} "
+            f"is beyond the {n} rows of its table"
+        )
+    hits = np.flatnonzero(lookup == value)
+    return np.isin(column, np.concatenate([hits, hits - n]))
 
 
 class _IndexEntry:
@@ -664,21 +806,25 @@ INDEX_MEMO = _IndexMemo(INDEX_MEMO_MAX_BYTES)
 
 if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=INDEX_MEMO.reset_after_fork)
+    os.register_at_fork(after_in_child=CHECK_MEMO.reset_after_fork)
 
 
 def clear_index_memo() -> None:
-    """Empty the per-process memo of partition indices (for tests)."""
+    """Empty the per-process memos of partition indices and checks (for
+    tests: as in another process)."""
     INDEX_MEMO.clear()
+    CHECK_MEMO.clear()
 
 
 class PartitionIndex:
     """
     The MAIN rows of a partition and its (time, baseline) grid, as when the MS
     was opened: the rows as runs, the number of MAIN rows, the grid shape and
-    its token (``index_token``). The (time, baseline) index of every row is
-    taken from the per-process memo (``INDEX_MEMO``), or rebuilt from the MS
-    (``calc_indx_for_row_split``, the converter's own) and checked against the
-    shape and token. Pickles to these fields only.
+    its token (``index_token``), and the keys that select its rows. The (time,
+    baseline) index of every row is taken from the per-process memo
+    (``INDEX_MEMO``), or rebuilt from the MS (``calc_indx_for_row_split``, the
+    converter's own) and checked against the shape and token. Pickles to
+    these fields only.
 
     Parameters
     ----------
@@ -693,14 +839,17 @@ class PartitionIndex:
     token : str
         ``index_token`` of the grid.
     keys_token : str | None, optional
-        ``keys_token`` of MAIN's ROW_KEY_COLUMNS (the grid's TIME, ANTENNA1,
-        ANTENNA2 and the partition key columns) taken before the grid was
-        made: while it is unchanged, reads need not check the keys of their
-        rows. None: always checked.
+        ``keys_token`` of the MS (MAIN's ROW_KEY_COLUMNS: the grid's TIME,
+        ANTENNA1, ANTENNA2 and the partition key columns; FIELD, STATE and
+        SOURCE) taken before the partitions were computed: while it is
+        unchanged, the partition is as when the MS was opened. None: always
+        checked (``check``).
     grouping : tuple[tuple[str, Any], ...], optional
-        ``partition_grouping`` of the partition: the keys its rows must still
-        have when they are checked (else they belong to another partition
-        now: MSv2ChangedError).
+        ``partition_grouping`` of the partition: the keys that select its
+        rows (``check``: the MAIN rows that have them must be its rows).
+    scheme : tuple[str, ...], optional
+        The partition scheme (with MANDATORY_PARTITION_KEYS, the keys the MS
+        must still have exactly those of ``grouping`` of).
     """
 
     __slots__ = (
@@ -712,6 +861,7 @@ class PartitionIndex:
         "token",
         "keys_token",
         "grouping",
+        "scheme",
     )
 
     def __init__(
@@ -724,6 +874,7 @@ class PartitionIndex:
         token: str,
         keys_token: str | None = None,
         grouping: tuple[tuple[str, Any], ...] = (),
+        scheme: tuple[str, ...] | list[str] = (),
     ):
         self.ms_path = str(ms_path)
         self.starts = np.asarray(starts, dtype=np.int64)
@@ -733,6 +884,7 @@ class PartitionIndex:
         self.token = str(token)
         self.keys_token = None if keys_token is None else str(keys_token)
         self.grouping = tuple((str(key), value) for key, value in grouping)
+        self.scheme = tuple(str(key) for key in scheme)
         if len(self.shape) != 2:
             raise ValueError(f"A (time, baseline) shape is expected, got {shape}")
 
@@ -743,14 +895,15 @@ class PartitionIndex:
         built: Any,
         keys_token: str | None = None,
         grouping: tuple[tuple[str, Any], ...] = (),
+        scheme: tuple[str, ...] | list[str] = (),
     ) -> "PartitionIndex":
         """
         The index of a partition built by ``conversion.build_partition`` (a
         ``BuiltPartition``, inside its context), with the build's (time,
         baseline) indices put in the memo: in this process the reads use
-        exactly the build's index. ``keys_token``: the ``keys_token`` of MAIN
-        (ROW_KEY_COLUMNS) taken before the build; ``grouping``: the
-        partition's ``partition_grouping``.
+        exactly the build's index. ``keys_token``: the ``keys_token`` of the
+        MS taken before the partitions were computed; ``grouping``: the
+        partition's ``partition_grouping``; ``scheme``: the partition scheme.
         """
         rows = built.main_rows.rows
         starts, lengths = rows_to_runs(rows)
@@ -768,6 +921,7 @@ class PartitionIndex:
             ),
             keys_token,
             grouping,
+            scheme,
         )
         INDEX_MEMO.put(
             index.memo_key(),
@@ -824,12 +978,32 @@ class PartitionIndex:
             f"{self.ms_path} changed since it was opened ({what}); open it again"
         )
 
+    def verify_current(self) -> None:
+        """
+        Raise MSv2ChangedError if the partition is no longer the one of the
+        open: MAIN has another number of rows, or ``check`` finds that its rows
+        or grid changed. For the lazy arrays of a partition that read no MAIN
+        rows (OnesArray) or other tables (the pointing_xds, whose rows are
+        selected by the time range and antennas of the partition's rows).
+        """
+        with casatools_serialized():
+            table = None
+            try:
+                with open_table_ro(self.ms_path) as table:
+                    main_nrows = table.nrows()
+                    if main_nrows != self.main_nrows:
+                        raise self.changed_error(
+                            f"the MAIN table has {main_nrows} rows, "
+                            f"{self.main_nrows} when it was opened"
+                        )
+                    self.check(table)
+            finally:
+                table = None  # (casatools: released holding the lock)
+
     def _rebuild(self) -> _IndexEntry:
         """Rebuild the index from the MS with the converter's
         calc_indx_for_row_split, checking the number of MAIN rows, the grid
         shape and its token."""
-        INDEX_MEMO.stats["rebuilds"] += 1
-        rows = runs_to_rows(self.starts, self.lengths)
         with casatools_serialized():
             with open_table_ro(self.ms_path) as main_tb:
                 main_nrows = main_tb.nrows()
@@ -838,21 +1012,32 @@ class PartitionIndex:
                         f"the MAIN table has {main_nrows} rows, "
                         f"{self.main_nrows} when it was opened"
                     )
-                main_rows = MainTableRows(main_tb, rows)
-                try:
-                    tidxs, bidxs, ant1, ant2, utime = calc_indx_for_row_split(main_rows)
-                finally:
-                    main_rows.close()
-                del main_rows
+                entry = self._index_from(main_tb)
             del main_tb  # (casatools: destroyed holding the lock)
+        if isinstance(entry, str):
+            raise self.changed_error(entry)
+        return entry
+
+    def _index_from(self, main_tb: Any) -> "_IndexEntry | str":
+        """The index of the rows made from an opened MAIN table
+        (calc_indx_for_row_split), or why its grid is not that of the open
+        (its shape or token)."""
+        INDEX_MEMO.stats["rebuilds"] += 1
+        rows = runs_to_rows(self.starts, self.lengths)
+        main_rows = MainTableRows(main_tb, rows)
+        try:
+            tidxs, bidxs, ant1, ant2, utime = calc_indx_for_row_split(main_rows)
+        finally:
+            main_rows.close()
+        del main_rows
         shape = (len(utime), len(ant1))
         if shape != self.shape:
-            raise self.changed_error(
+            return (
                 f"the rows of a partition have a (time, baseline) grid of {shape}, "
                 f"{self.shape} when it was opened"
             )
         if index_token(utime, ant1, ant2, shape) != self.token:
-            raise self.changed_error(
+            return (
                 "the times or baselines of the rows of a partition differ from "
                 "those when it was opened"
             )
@@ -884,46 +1069,139 @@ class PartitionIndex:
                 return f"the {col} of MAIN row {changed} changed"
         return ""
 
-    def rows_left(self, table: Any, rows: np.ndarray) -> str:
+    def check(self, table: Any) -> bool:
         """
-        Whether ``rows`` (ascending) no longer have the grouping keys of the
-        partition (``grouping``: from their MAIN key columns and FIELD,
-        SOURCE and STATE as they are now, as create_partitions derives
-        them): the description of the first difference, or "". Such rows
-        belong to another partition now, which the runs of the open cannot
-        follow (rows that another partition lost to this one are not seen
-        here: they are not in its runs).
+        Whether the partition is known to be as when the MS was opened, so
+        that a read need not check the keys of its rows one by one: no write
+        of MAIN's key columns or of FIELD, STATE and SOURCE was flushed since
+        (``keys_token`` unchanged) and no handle of this process has MAIN open
+        for writing.
+
+        Otherwise the whole partition is checked against the MS as it is now,
+        once per state of the MS in a process (memoised by its current
+        ``keys_token``; on every read while it cannot be told): its rows must
+        be exactly the MAIN rows that are in it now (``membership_change``)
+        and their (time, baseline) grid that of the open (its index is made
+        again from the MS and put in the memo). MSv2ChangedError if not; then
+        False: the read checks the TIME, ANTENNA1 and ANTENNA2 of its rows
+        against the index it reads with (``rows_moved``).
+
+        Parameters
+        ----------
+        table : Any
+            The MAIN table, opened by the read (with the number of rows of
+            the open).
+
+        Returns
+        -------
+        bool
+            True if the partition is as when the MS was opened.
+
+        Raises
+        ------
+        MSv2ChangedError
+            If the rows or the grid of the partition changed.
         """
-        if not self.grouping or rows.size == 0:
-            return ""
-        frame = pd.DataFrame(
-            {
-                name: read_column_rows(table, name, rows)
-                for name in PARTITION_KEY_COLUMNS
-            }
-        )
-        derived = {"SOURCE_ID", "EPHEMERIS_ID", "OBS_MODE", "SUB_SCAN_NUMBER"}
-        if derived & {key for key, _ in self.grouping}:
-            try:
-                _add_derived_columns(frame, partition_key_maps(self.ms_path))
-            except IndexError as exc:  # (e.g. a STATE_ID beyond STATE)
+        current = current_keys_token(table, self.ms_path)
+        if current is not None and current == self.keys_token:
+            return True
+        key = None
+        if current is not None:
+            key = (self.memo_key(), self.grouping, self.scheme, current)
+        if key is None:
+            outcome = self._check_now(table)
+        else:
+            with CHECK_MEMO.check_lock(key):
+                outcome = CHECK_MEMO.get(key)
+                if outcome is None:
+                    outcome = self._check_now(table)
+                    CHECK_MEMO.put(key, outcome)
+        if outcome:
+            raise self.changed_error(outcome)
+        return False
+
+    def _check_now(self, table: Any) -> str:
+        """The check of ``check``: "" (the index made again is put in the
+        memo), or why the partition changed."""
+        CHECK_MEMO.stats["checks"] += 1
+        changed = self.membership_change(table)
+        if changed:
+            return changed
+        entry = self._index_from(table)
+        if isinstance(entry, str):
+            return entry
+        INDEX_MEMO.put(self.memo_key(), entry)
+        return ""
+
+    def membership_change(self, table: Any) -> str:
+        """
+        Whether the rows of the partition (its runs) are no longer exactly
+        the MAIN rows that create_partitions_with_main_rows would put in it
+        now: the rows that have its grouping keys (``grouping``, from the MAIN
+        key columns and FIELD, SOURCE and STATE as they are now; an ANTENNA1
+        partition: autocorrelations of its antenna), in an MS that has the
+        same partition keys (MANDATORY_PARTITION_KEYS and the scheme's) as
+        when it was opened. The description of the first difference, or "".
+        Reads the key columns of every MAIN row (in windows of
+        CHECK_WINDOW_ROWS rows) and FIELD, SOURCE and STATE.
+
+        Parameters
+        ----------
+        table : Any
+            The opened MAIN table.
+        """
+        maps = partition_key_maps(self.ms_path)
+        available = available_partition_keys(maps)
+        grouping = dict(self.grouping)
+        for key in dict.fromkeys((*MANDATORY_PARTITION_KEYS, *self.scheme)):
+            if (key in available) != (key in grouping):
+                now = "now has" if key in available else "no longer has"
                 return (
-                    f"the partition keys of MAIN rows {int(rows[0])}..{int(rows[-1])} "
-                    f"cannot be derived ({exc})"
+                    f"the MS {now} the partition key {key}: its partitions are made "
+                    "with it"
                 )
-        for key, value in self.grouping:
-            if key not in frame.columns:
-                return f"its rows no longer have a {key}"
-            found = frame[key].to_numpy()
-            differ = np.flatnonzero(found != value)
-            if differ.size:
-                first = int(differ[0])
-                now = found[first]
-                now = now.item() if isinstance(now, np.generic) else now
+        columns = sorted({_KEY_COLUMN[key] for key in grouping})
+        if "ANTENNA1" in grouping:
+            columns.append("ANTENNA2")
+        ends = self.starts + self.lengths
+        nrows = int(table.nrows())
+        for r0 in range(0, nrows, CHECK_WINDOW_ROWS):
+            r1 = min(nrows, r0 + CHECK_WINDOW_ROWS)
+            window = np.arange(r0, r1, dtype=np.int64)
+            values = {col: read_column_rows(table, col, window) for col in columns}
+            del window
+            matches = {}
+            for key, value in grouping.items():
+                found = _key_matches(values[_KEY_COLUMN[key]], key, value, maps)
+                if isinstance(found, str):
+                    return f"the {key} of MAIN rows {r0}..{r1 - 1} {found}"
+                matches[key] = found
+            if "ANTENNA1" in grouping:
+                matches["ANTENNA2"] = values["ANTENNA2"] == grouping["ANTENNA1"]
+            member = np.logical_and.reduce(list(matches.values()))
+            expected = _runs_mask(self.starts, ends, r0, r1)
+            differ = np.flatnonzero(member != expected)
+            if differ.size == 0:
+                continue
+            first = int(differ[0])
+            row = r0 + first
+            if member[first]:
+                keys = ", ".join(f"{key} {value!r}" for key, value in grouping.items())
                 return (
-                    f"MAIN row {int(rows[first])} has the {key} {now!r}, {value!r} "
-                    "when it was opened: it is in another partition now"
+                    f"MAIN row {row} has the keys of the partition now ({keys}): it "
+                    "was in another partition when the MS was opened"
                 )
+            key = next(key for key, match in matches.items() if not match[first])
+            column = values[_KEY_COLUMN.get(key, key)]
+            now = column[first]
+            if key in _KEY_LOOKUP:
+                now = getattr(maps, _KEY_LOOKUP[key])[now]
+            now = now.item() if isinstance(now, np.generic) else now
+            value = grouping.get(key, grouping.get("ANTENNA1"))
+            return (
+                f"MAIN row {row} has the {key} {now!r}, {value!r} when it was "
+                "opened: it is in another partition now"
+            )
         return ""
 
     def discard(self, entry: _IndexEntry) -> None:
@@ -1165,16 +1443,18 @@ class MSv2MainColumnArray(MSv2BackendArray):
         sub-blocks of at most SUB_BLOCK_BYTES of whole cells (the transform
         applies to whole cells).
 
-        Every sub-block first checks that its rows still have the grouping
-        keys of the partition (``rows_left``: MSv2ChangedError if not) and
-        the TIME, ANTENNA1 and ANTENNA2 of their cells in the index. If not
-        the latter (keys rewritten in place after the open), the index is
-        made again from the MS, as in another process
-        (``calc_indx_for_row_split``, checked against the grid of the open:
-        MSv2ChangedError if it differs), and the selection read again with
-        it: the outcome does not depend on whether the index was in the
-        memo. (The rows are checked only when MAIN's key columns may have
-        been written since the open, see ``keys_unchanged``.)
+        When MAIN's key columns or FIELD, STATE and SOURCE may have been
+        written since the open (``PartitionIndex.check``), the whole
+        partition is first checked against the MS as it is now (once per
+        state of the MS): MSv2ChangedError if its rows are no longer exactly
+        those of the open (rows moved to or from another partition) or its
+        (time, baseline) grid changed. Every sub-block then checks that its
+        rows still have the TIME, ANTENNA1 and ANTENNA2 of their cells in the
+        index the read uses; if not (keys rewritten in place after the open,
+        within the grid), the index is made again from the MS, as in another
+        process (``calc_indx_for_row_split``, checked against the grid of the
+        open), and the selection read again with it: the outcome does not
+        depend on whether the index was in the memo.
         """
         key = bounding_slices(selections)
         for _attempt in (1, 2):
@@ -1212,34 +1492,24 @@ class MSv2MainColumnArray(MSv2BackendArray):
             table = None
             try:
                 with contextlib.ExitStack() as stack:
+                    if out.size:
+                        # opened in the thread / process that reads
+                        table = stack.enter_context(open_table_ro(self.index.ms_path))
+                        main_nrows = table.nrows()
+                        if main_nrows != self.index.main_nrows:
+                            raise self.index.changed_error(
+                                f"the MAIN table has {main_nrows} rows, "
+                                f"{self.index.main_nrows} when it was opened"
+                            )
+                        # (the partition as when the MS was opened: rows not
+                        # checked one by one)
+                        check_keys = not self.index.check(table)
                     for p0 in range(0, times.size, step):
                         sub_times = times[p0 : p0 + step]
                         rows, cells, positions = self.index.select_outer(
                             sub_times, baselines, entry
                         )
-                        if rows.size and table is None:
-                            # opened in the thread / process that reads
-                            table = stack.enter_context(
-                                open_table_ro(self.index.ms_path)
-                            )
-                            main_nrows = table.nrows()
-                            if main_nrows != self.index.main_nrows:
-                                raise self.index.changed_error(
-                                    f"the MAIN table has {main_nrows} rows, "
-                                    f"{self.index.main_nrows} when it was opened"
-                                )
-                            # (key columns not written since the open: rows
-                            # not checked one by one)
-                            check_keys = not keys_unchanged(
-                                table,
-                                self.index.ms_path,
-                                self.index.keys_token,
-                                ROW_KEY_COLUMNS,
-                            )
                         if rows.size and check_keys:
-                            left = self.index.rows_left(table, rows)
-                            if left:
-                                raise self.index.changed_error(left)
                             moved = self.index.rows_moved(table, rows, positions, entry)
                             if moved:
                                 return None, moved
@@ -1279,15 +1549,27 @@ class MSv2MainColumnArray(MSv2BackendArray):
 class OnesArray(MSv2BackendArray):
     """
     The WEIGHT=1 fallback of a partition without readable weights: ones of
-    the shape of VISIBILITY / SPECTRUM (float64), made per block (nothing is
-    read, and no variable-sized array is held).
+    the shape of VISIBILITY / SPECTRUM (float64), made per block (no value is
+    read, and no variable-sized array is held). With the partition's
+    ``index``, a read first checks that the partition is the one of the open
+    (``PartitionIndex.verify_current``).
     """
 
-    def __init__(self, shape: tuple[int, ...], dtype: DTypeLike = np.float64):
+    def __init__(
+        self,
+        shape: tuple[int, ...],
+        dtype: DTypeLike = np.float64,
+        index: PartitionIndex | None = None,
+    ):
         super().__init__(shape, dtype)
+        self.index = index
 
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
+        if self.index is not None:
+            self.index.verify_current()
         return np.ones(tuple(k.stop - k.start for k in key), dtype=self.dtype)
 
     def _read_selection(self, selections: tuple[np.ndarray, ...]) -> np.ndarray:
+        if self.index is not None:
+            self.index.verify_current()
         return np.ones(tuple(s.size for s in selections), dtype=self.dtype)

@@ -192,11 +192,11 @@ def open_partition(
         MAIN columns built as the converter builds a partition whose read of
         them failed (left out; WEIGHT_SPECTRUM: WEIGHT used instead).
     keys_token : str | None, optional
-        ``backend_arrays.keys_token`` of MAIN's ROW_KEY_COLUMNS, taken before
-        the build (None: every read checks its rows' keys).
+        ``backend_arrays.keys_token`` of the MS, taken before the partitions
+        were computed (None: every read checks the partition against the MS).
     partition_scheme : Sequence[str], optional
         The partition scheme: with the mandatory partition keys, the keys
-        that the rows a read checks must still have
+        that select the partition's rows when a read checks them
         (``backend_arrays.partition_grouping``).
 
     Returns
@@ -253,6 +253,7 @@ def open_partition(
             built,
             keys_token,
             partition_grouping(partition_info, tuple(partition_scheme)),
+            tuple(partition_scheme),
         )
         ms_xdt, deferred = built.ms_xdt, built.deferred
         reverse_frequency = built.reverse_frequency
@@ -265,7 +266,7 @@ def open_partition(
             continue
         var = xds.variables[name]
         if spec.col is None:
-            array = OnesArray(var.shape, var.dtype)
+            array = OnesArray(var.shape, var.dtype, index)
         else:
             array = MSv2MainColumnArray.from_spec(
                 index, spec, var.shape, var.dtype, node=node_name
@@ -296,12 +297,14 @@ def open_partition(
     if "pointing_xds" in ms_xdt.children:
         pointing_xds = ms_xdt["pointing_xds"].to_dataset(inherit=False)
         if pointing_specs:
-            pointing_xds = lazy_pointing_xds(pointing_xds, pointing_specs, node_name)
+            pointing_xds = lazy_pointing_xds(
+                pointing_xds, pointing_specs, node_name, partition=index
+            )
         elif pointing_context and pointing_xds.data_vars:
             # built here by the converter's code (a POINTING table the lazy
             # reads cannot describe): built again when read, values not kept
             pointing_xds = _rebuilt_pointing(
-                in_file, ms_xdt, pointing_xds, pointing_context, node_name
+                in_file, ms_xdt, pointing_xds, pointing_context, node_name, index
             )
         _check_no_placeholder_left(pointing_xds)
         _set_preferred_chunks(pointing_xds)
@@ -317,6 +320,7 @@ def _rebuilt_pointing(
     pointing_xds: xr.Dataset,
     context: dict,
     node_name: str,
+    partition: PartitionIndex | None = None,
 ) -> xr.Dataset:
     """The pointing_xds of a partition with data variables that build it
     again when read (rebuilt_pointing_xds); as built if the antennas of the
@@ -335,7 +339,7 @@ def _rebuilt_pointing(
         antenna_ids,
         tuple(str(name) for name in names),
     )
-    return rebuilt_pointing_xds(pointing_xds, build, node_name)
+    return rebuilt_pointing_xds(pointing_xds, build, node_name, partition)
 
 
 def _is_placeholder(var: xr.Variable) -> bool:

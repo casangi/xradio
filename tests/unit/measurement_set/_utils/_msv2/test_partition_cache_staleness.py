@@ -504,6 +504,40 @@ def test_rows_added_while_opening_are_no_cache_defect(ms_copy, tmp_path, monkeyp
     assert_nodes_identical(tree, open_processing_set(out))
 
 
+@pytest.mark.parametrize("mode", ["off", "auto"])
+def test_keys_rewritten_after_the_partitions_were_computed(
+    mode, ms_copy, tmp_path, monkeypatch
+):
+    """Another writer moves rows of field 0 to field 1 right after the
+    partitions were computed (kept in memory, or stored), before the
+    partitions are built: the open finds that the MS changed since before the
+    computation (keys_token), checks the partitions against their rows and
+    opens again with the partitions computed. The tree equals the
+    converter's of the changed MS (no node with the rows of two fields), and
+    its reads succeed (the comparison computes them)."""
+    msname = ms_copy("rich", name="rich.ms")
+    load = backend_open.load_or_create_partitions
+    statuses = []
+
+    def load_then_rewrite(*args, **kwargs):
+        result = load(*args, **kwargs)
+        if not statuses:
+            _update(msname, "FIELD_ID", slice(0, 50), 1)
+        statuses.append(result.status)
+        return result
+
+    monkeypatch.setattr(backend_open, "load_or_create_partitions", load_then_rewrite)
+    options = {"partition_scheme": ["FIELD_ID"], "with_pointing": False}
+    tree = xr.open_datatree(
+        msname, engine=ENGINE, chunks={}, partition_cache=mode, **options
+    )
+    expected = "memory:mode-off" if mode == "off" else "stored"
+    assert statuses == [expected, expected]
+    out = str(tmp_path / "oracle.ps.zarr")
+    convert_msv2_to_processing_set(msname, out, **options)
+    assert_nodes_identical(tree, open_processing_set(out))
+
+
 def test_rows_rewritten_while_opening_are_no_cache_defect(
     ms_copy, tmp_path, monkeypatch
 ):

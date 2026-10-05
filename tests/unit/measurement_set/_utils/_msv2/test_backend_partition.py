@@ -38,10 +38,26 @@ MAIN_DATA_VARIABLES = {
 }
 
 
+def _driver_options(msname, scheme=()) -> dict:
+    """The options of open_partition that the driver (backend_open) passes
+    besides the build's: the MS's keys_token before the partitions are
+    computed, and the scheme."""
+    return {
+        "keys_token": backend_arrays.keys_token(os.path.abspath(msname)),
+        "partition_scheme": tuple(scheme),
+    }
+
+
 def _open(msname, scheme=(), idx=0, **kw):
+    options = _driver_options(msname, scheme)
     partitions, runs = create_partitions_with_main_rows(msname, list(scheme))
     return open_partition(
-        os.path.abspath(msname), partitions[idx], runs[idx], node_name="node", **kw
+        os.path.abspath(msname),
+        partitions[idx],
+        runs[idx],
+        node_name="node",
+        **options,
+        **kw,
     )
 
 
@@ -124,9 +140,15 @@ def test_node_writes_the_converters_msv4(backend_ms, case, tmp_path):
     """
     variant, scheme, idx, kw = WRITE_CASES[case]
     msname = backend_ms(variant)
+    options = _driver_options(msname, scheme)
     partitions, runs = create_partitions_with_main_rows(msname, scheme)
     node = open_partition(
-        os.path.abspath(msname), partitions[idx], runs[idx], node_name="node", **kw
+        os.path.abspath(msname),
+        partitions[idx],
+        runs[idx],
+        node_name="node",
+        **options,
+        **kw,
     )
     node.to_zarr(str(tmp_path / "engine"), mode="w", zarr_format=ZARR_FORMAT)
     out = str(tmp_path / "converted")

@@ -31,10 +31,7 @@ from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
     resync_unless_write_locked,
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
-from xradio.measurement_set._utils._msv2.backend_arrays import (
-    ROW_KEY_COLUMNS,
-    keys_token,
-)
+from xradio.measurement_set._utils._msv2.backend_arrays import keys_token
 from xradio.measurement_set._utils._msv2.backend_errors import (
     MainRowsChangedError,
     MSv2ChangedError,
@@ -128,7 +125,12 @@ def open_msv2_tree(
         # rows than its files is re-synchronized with them first, unless the
         # process holds its write lock: then its rows are those of the
         # process, and the partitions are computed from them)
-        if _check_main_is_current(path):
+        own_rows = _check_main_is_current(path)
+        # The state of the MS before the partitions are computed: a write of
+        # their inputs from here on is seen by the reads (keys_token)
+        with casatools_serialized():
+            token = keys_token(path)
+        if own_rows:
             result = compute_in_memory(path, scheme, MAIN_NOT_FLUSHED)
         else:
             result = load_or_create_partitions(path, scheme, mode)
@@ -136,14 +138,15 @@ def open_msv2_tree(
         if attempt == 1:
             _warn_large_tree(path, len(selected))
         built = time.perf_counter()
-        # (taken before the builds read the keys of the rows)
-        with casatools_serialized():
-            build_options["keys_token"] = keys_token(path, ROW_KEY_COLUMNS)
+        build_options["keys_token"] = token
         try:
             _check_main_is_current(path, result.main_nrows)
-            # partitions from the cache are checked against their rows
+            # Partitions from the cache are checked against their rows, and so
+            # are partitions computed while the MS may have changed (since the
+            # token: e.g. "memory:changed-during-build"); a change made during
+            # the builds is seen by the reads.
             verify = None
-            if result.source in ("stored", "memo"):
+            if result.source in ("stored", "memo") or _may_have_changed(path, token):
                 # (reads FIELD, SOURCE and STATE: casatools tables are used by
                 # one thread at a time, a no-op with python-casacore)
                 with casatools_serialized():
@@ -254,6 +257,15 @@ def _check_main_is_current(path: str, expected_nrows: int | None = None) -> bool
             f"the MAIN table has {nrows} rows, the partitions are of {expected_nrows}"
         )
     return own_rows
+
+
+def _may_have_changed(path: str, token: str | None) -> bool:
+    """Whether the inputs of the partitions of an MS may have been written
+    since its ``keys_token`` was ``token`` (unknown: True)."""
+    if token is None:
+        return True
+    with casatools_serialized():
+        return keys_token(path) != token
 
 
 def _check_names(option: str, names) -> list[str] | None:

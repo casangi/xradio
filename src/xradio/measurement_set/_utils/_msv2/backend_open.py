@@ -32,7 +32,7 @@ from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_arrays import (
-    GRID_KEY_COLUMNS,
+    ROW_KEY_COLUMNS,
     keys_token,
 )
 from xradio.measurement_set._utils._msv2.backend_errors import (
@@ -121,6 +121,7 @@ def open_msv2_tree(
         "phase_cal_interpolate": phase_cal_interpolate,
         "sys_cal_interpolate": sys_cal_interpolate,
         "unreadable_columns": frozenset(skip_columns or ()),
+        "partition_scheme": tuple(scheme),
     }
     for attempt in (1, 2):
         # (a MAIN table that this process holds open with another number of
@@ -137,7 +138,7 @@ def open_msv2_tree(
         built = time.perf_counter()
         # (taken before the builds read the keys of the rows)
         with casatools_serialized():
-            build_options["keys_token"] = keys_token(path, GRID_KEY_COLUMNS)
+            build_options["keys_token"] = keys_token(path, ROW_KEY_COLUMNS)
         try:
             _check_main_is_current(path, result.main_nrows)
             # partitions from the cache are checked against their rows

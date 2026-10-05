@@ -31,6 +31,7 @@ from xradio.measurement_set._utils._msv2.backend_arrays import (
     MSv2MainColumnArray,
     OnesArray,
     PartitionIndex,
+    partition_grouping,
 )
 from xradio.measurement_set._utils._msv2.backend_errors import StalePartitionsError
 from xradio.measurement_set._utils._msv2.backend_pointing import (
@@ -150,6 +151,7 @@ def open_partition(
     lazy_pointing: bool = True,
     unreadable_columns: frozenset[str] = frozenset(),
     keys_token: str | None = None,
+    partition_scheme: Sequence[str] = (),
 ) -> xr.DataTree | None:
     """
     The MSv4 of one partition of an MSv2, with lazy main data variables (and
@@ -190,8 +192,12 @@ def open_partition(
         MAIN columns built as the converter builds a partition whose read of
         them failed (left out; WEIGHT_SPECTRUM: WEIGHT used instead).
     keys_token : str | None, optional
-        ``backend_arrays.keys_token`` of MAIN's TIME, ANTENNA1 and ANTENNA2,
-        taken before the build (None: every read checks its rows' keys).
+        ``backend_arrays.keys_token`` of MAIN's ROW_KEY_COLUMNS, taken before
+        the build (None: every read checks its rows' keys).
+    partition_scheme : Sequence[str], optional
+        The partition scheme: with the mandatory partition keys, the keys
+        that the rows a read checks must still have
+        (``backend_arrays.partition_grouping``).
 
     Returns
     -------
@@ -242,7 +248,12 @@ def open_partition(
             return None
         if verify is not None:
             verify_partition_rows(verify, partition_info, built.main_rows)
-        index = PartitionIndex.seed(in_file, built, keys_token)
+        index = PartitionIndex.seed(
+            in_file,
+            built,
+            keys_token,
+            partition_grouping(partition_info, tuple(partition_scheme)),
+        )
         ms_xdt, deferred = built.ms_xdt, built.deferred
         reverse_frequency = built.reverse_frequency
     # The MAIN table is closed here: nothing below refers to it.

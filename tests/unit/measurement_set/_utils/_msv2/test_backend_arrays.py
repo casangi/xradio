@@ -467,10 +467,12 @@ def lazy_and_reference(msname, idx=0, scheme=(), **kw):
     converter reads for them (read_deferred_variables), by name.
     """
     keys = backend_arrays.keys_token(
-        os.path.abspath(msname), backend_arrays.GRID_KEY_COLUMNS
+        os.path.abspath(msname), backend_arrays.ROW_KEY_COLUMNS
     )
+    partitions, _ = create_partitions_with_main_rows(msname, list(scheme))
+    grouping = backend_arrays.partition_grouping(partitions[idx], tuple(scheme))
     with built_partition(msname, idx, scheme, **kw) as built:
-        index = PartitionIndex.seed(os.path.abspath(msname), built, keys)
+        index = PartitionIndex.seed(os.path.abspath(msname), built, keys, grouping)
         xds = built.ms_xdt.to_dataset(inherit=False)
         lazy = {}
         for name, spec in built.deferred.items():
@@ -634,6 +636,12 @@ def test_selections_read_only_their_times_and_baselines(backend_ms, monkeypatch)
     assert reads == [((1, 10), 10)] * 4
 
 
+# The layouts of the ms_copy fixture (conftest.MS_COPY_LAYOUTS): MAIN's key
+# columns in one StandardStMan shared with other columns, or in a data manager
+# each
+LAYOUTS = ("shared", "per_column")
+
+
 def _update_main(msname, column, change):
     from casacore import tables
 
@@ -651,6 +659,7 @@ def _row(index, value):
     return change
 
 
+@pytest.mark.parametrize("layout", LAYOUTS)
 @pytest.mark.parametrize("memo", ["index of the open", "rebuilt"])
 @pytest.mark.parametrize(
     "column, change, outcome",
@@ -662,15 +671,16 @@ def _row(index, value):
         ("DATA", lambda v: v * 2, None),
     ],
 )
-def test_keys_rewritten_after_the_open(
-    backend_ms, tmp_path, memo, column, change, outcome
-):
+def test_keys_rewritten_after_the_open(ms_copy, layout, memo, column, change, outcome):
     """TIME, ANTENNA1 or ANTENNA2 rewritten in place after the open (the same
     number of rows): with the index of the open in the memo or rebuilt (as in
     another process), a read gives the same outcome: MSv2ChangedError if the
     partition's (time, baseline) grid changed, else the values placed by the
-    current keys (those of an open of the changed MS)."""
-    msname = _copy_ms(backend_ms, "dense", tmp_path)
+    current keys (those of an open of the changed MS). With the key columns
+    in one data manager shared with other columns, or in a data manager each
+    (as CASA split outputs: a write of one key column changes only its own
+    data manager)."""
+    msname = ms_copy("dense", layout)
     lazy, _, _ = lazy_and_reference(msname, 0)
     _update_main(msname, column, change)
     if memo == "rebuilt":
@@ -692,14 +702,17 @@ def test_keys_rewritten_after_the_open(
         assert rebuilds == 1
 
 
-def test_rows_are_checked_only_after_writes(backend_ms, tmp_path, monkeypatch):
-    """The keys of the rows read are checked one by one only when MAIN's
-    TIME / ANTENNA1 / ANTENNA2 data managers were written since the open
-    (keys_token, from the lock file), or while a handle of this process has
-    MAIN open for writing (its writes are seen before they are flushed)."""
+@pytest.mark.parametrize("layout", LAYOUTS)
+def test_rows_are_checked_only_after_writes(ms_copy, layout, monkeypatch):
+    """The keys of the rows read are checked one by one only when the data
+    managers of MAIN's key columns (ROW_KEY_COLUMNS) were written since the
+    open (keys_token, from the lock file), or while a handle of this process
+    has MAIN open for writing (its writes are seen before they are flushed).
+    With a data manager per key column, a write of another column (FLAG_ROW)
+    is no write of them, and a write of any one key column is."""
     from casacore import tables
 
-    msname = _copy_ms(backend_ms, "dense", tmp_path)
+    msname = ms_copy("dense", layout)
     lazy, reference, index = lazy_and_reference(msname, 0)
     assert index.keys_token is not None
     checks = []
@@ -719,15 +732,97 @@ def test_rows_are_checked_only_after_writes(backend_ms, tmp_path, monkeypatch):
     finally:
         writer.close()
     checks.clear()
-    _update_main(msname, "FLAG_ROW", lambda v: v)  # (the SSM of the key columns)
+    # (shared: the SSM of the key columns; per_column: a data manager of its own)
+    _update_main(msname, "FLAG_ROW", lambda v: v)
     assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
-    assert checks == [300]
+    assert checks == ([300] if layout == "shared" else [])
+    # (a grid key rewritten, a key that does not group rows changed)
+    for column, change in (("ANTENNA2", lambda v: v), ("SCAN_NUMBER", _row(0, 2))):
+        lazy, reference, index = lazy_and_reference(msname, 0)
+        checks.clear()
+        _update_main(msname, column, change)
+        assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
+        assert checks == [300], column
     # without a token (lock file not readable): always checked
     checks.clear()
     lazy, reference, index = lazy_and_reference(msname, 0)
     index.keys_token = None
     assert_same_values(lazy["UVW"].values, reference["UVW"].values)
     assert checks == [300]
+
+
+def _partition_of(msname, scheme, **keys):
+    """The index of the partition whose description has these values."""
+    partitions, _ = create_partitions_with_main_rows(msname, list(scheme))
+    (idx,) = (
+        idx
+        for idx, info in enumerate(partitions)
+        if all(info[key] == [value] for key, value in keys.items())
+    )
+    return idx
+
+
+# (variant, scheme, partition, column, rows 0-9 set to, the key that changes):
+# rows 0-9 are time 0 of DDI 0; in "rich" they are field 0, scan 1, state 0
+# (CALIBRATE_PHASE; state 1 is OBSERVE_TARGET)
+LEFT_CASES = {
+    "DATA_DESC_ID": ("dense", [], {"DATA_DESC_ID": 0}, "DATA_DESC_ID", 2),
+    "FIELD_ID, scheme FIELD_ID": (
+        "rich",
+        ["FIELD_ID"],
+        {"DATA_DESC_ID": 0, "FIELD_ID": 0, "STATE_ID": 0},
+        "FIELD_ID",
+        1,
+    ),
+    "STATE_ID to another OBS_MODE": (
+        "rich",
+        [],
+        {"DATA_DESC_ID": 0, "OBS_MODE": "CALIBRATE_PHASE#ON_SOURCE"},
+        "STATE_ID",
+        1,
+    ),
+}
+
+
+@pytest.mark.parametrize("layout", LAYOUTS)
+@pytest.mark.parametrize("case", list(LEFT_CASES))
+def test_rows_moved_to_another_partition(ms_copy, layout, case):
+    """A partition key of rows rewritten in place after the open, so that
+    they belong to another partition now (DATA_DESC_ID; FIELD_ID with the
+    scheme FIELD_ID; STATE_ID to a state of another OBS_MODE): a read of the
+    partition raises MSv2ChangedError (it read the moved rows, under the
+    grid of their old partition, without an error)."""
+    variant, scheme, keys, column, value = LEFT_CASES[case]
+    msname = ms_copy(variant, layout)
+    idx = _partition_of(msname, scheme, **keys)
+    lazy, _, _ = lazy_and_reference(msname, idx, scheme)
+    _update_main(msname, column, _row(slice(0, 10), value))
+    key = "OBS_MODE" if column == "STATE_ID" else column
+    for name in ("VISIBILITY", "FLAG"):
+        with pytest.raises(
+            MSv2ChangedError, match=f"has the {key} .* another partition"
+        ):
+            lazy[name].values  # noqa: B018
+    # (a selection of times without the moved rows does not read them)
+    n_times = lazy["FLAG"].sizes["time"]
+    assert lazy["FLAG"].isel(time=slice(1, None)).values.shape[0] == n_times - 1
+
+
+@pytest.mark.parametrize("layout", LAYOUTS)
+def test_rows_changed_within_their_partition(ms_copy, layout):
+    """A key that does not group the rows (SCAN_NUMBER under the scheme [])
+    rewritten in place: the rows stay in their partition, which a read
+    reads as an open of the changed MS does."""
+    msname = ms_copy("rich", layout)
+    idx = _partition_of(
+        msname, [], DATA_DESC_ID=0, OBS_MODE="CALIBRATE_PHASE#ON_SOURCE"
+    )
+    lazy, _, _ = lazy_and_reference(msname, idx)
+    _update_main(msname, "SCAN_NUMBER", _row(slice(0, 10), 2))
+    values = {name: lazy[name].values for name in ("VISIBILITY", "FLAG")}
+    _, reference, _ = lazy_and_reference(msname, idx)
+    for name, got in values.items():
+        assert_same_values(got, reference[name].values, name)
 
 
 def test_seeded_index_is_used_and_rebuilt_equal(backend_ms):

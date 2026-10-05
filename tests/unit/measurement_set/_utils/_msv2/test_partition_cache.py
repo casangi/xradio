@@ -30,13 +30,18 @@ from xradio.measurement_set import (
     convert_msv2_to_processing_set,
     remove_msv2_partition_cache,
 )
+from xradio.measurement_set._utils._msv2 import backend_pointing as bpt
 from xradio.measurement_set._utils._msv2 import partition_cache
-from xradio.measurement_set._utils._msv2._tables.table_lock_file import history_nrows
+from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
+    history_nrows,
+    table_fingerprint,
+)
 from xradio.measurement_set._utils._msv2.backend_errors import PartitionCacheWarning
 from xradio.measurement_set._utils._msv2.partition_cache import (
     HISTORY_APPLICATION,
     HISTORY_ORIGIN,
     PARTITIONS_MEMO,
+    POINTING_SHAPES_KEY,
     SUBTABLE_COLUMNS,
     SUBTABLE_NAME,
     InvalidRowError,
@@ -155,12 +160,17 @@ def store_test_row(
     return values
 
 
-def stored_rows(msname: str) -> list[dict]:
+def stored_rows(msname: str, pointing: bool = False) -> list[dict]:
+    """The rows of partitions of the sub-table (with ``pointing``: the rows
+    of the POINTING cell shapes, which engine opens store too)."""
     with tables.table(os.path.join(msname, SUBTABLE_NAME), ack=False) as table:
-        return [
+        rows = [
             {name: table.getcell(name, row) for name in SUBTABLE_COLUMNS}
             for row in range(table.nrows())
         ]
+    return [
+        row for row in rows if (row["SCHEME_KEY"] == POINTING_SHAPES_KEY) == pointing
+    ]
 
 
 def load(msname: str, scheme: list[str], mode: str = "read"):
@@ -818,6 +828,19 @@ def test_first_open_stores(ms_copy, monkeypatch):
         'partition_scheme ["SCAN_NUMBER", "FIELD_ID"] in XRADIO_PARTITIONS (first)'
     )
     assert abs(new["TIME"] - (time.time() + 3506716800.0)) < 600
+    # the cell shapes of POINTING, in a row of their own (no HISTORY row)
+    (shapes_row,) = (normalise_row(row) for row in stored_rows(msname, True))
+    assert shapes_row["ALGORITHM_VERSION"] == bpt.POINTING_SHAPES_VERSION
+    assert shapes_row["FORMAT_VERSION"] == 1 and shapes_row["N_PARTITIONS"] == 0
+    assert shapes_row["HISTORY_ROW"] == shapes_row["HISTORY_NROWS_AT_BUILD"] == -1
+    assert json.loads(shapes_row["FINGERPRINT"]) == table_fingerprint(
+        os.path.join(msname, "POINTING")
+    )
+    # (the array columns whose description does not fix the cell shape)
+    assert set(json.loads(shapes_row["PARTITIONS"])["columns"]) == {
+        "DIRECTION",
+        "TARGET",
+    }
     # the next opens
     assert load(msname, ["FIELD_ID", "SCAN_NUMBER"], "auto").status == "hit-memory"
     assert statuses(msname, ["FIELD_ID", "SCAN_NUMBER"], ("auto", "read")) == [

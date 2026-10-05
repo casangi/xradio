@@ -56,6 +56,16 @@ process that closes a MAIN handle releases the MAIN write lock (python-
 casacore's close unlocks the table object the process shares): the MAIN
 keyword writes take it again (``_write_main_keywords``).
 
+The sub-table also holds the cell shapes of the POINTING table (a scan of
+the shapes of its array cells, for the lazy pointing_xds of
+backend_pointing.py) in a row of its own: SCHEME_KEY POINTING_SHAPES_KEY,
+with the fingerprint of the POINTING table they were scanned from (they are
+used only while it is unchanged), and no HISTORY row
+(``store_pointing_shapes``, ``lookup_pointing_shapes``). The layout of the
+sub-table is unchanged (FORMAT_VERSION 1): partition rows are looked up by
+their scheme key, so an xradio that does not know this row ignores it, and
+a sub-table without it is read as before.
+
 A memo entry is valid while the fingerprint and the number of HISTORY rows
 are those it was made with. The memo hands out copies, holds at most
 ``MEMO_MAX_ENTRIES`` results and ``MEMO_MAX_BYTES`` of row runs, computes a
@@ -137,10 +147,16 @@ FINGERPRINT_SUBTABLE_COLUMNS = {
 READ_ATTEMPTS = 3
 # Seconds from MJD 0 to 1970-01-01 (TIME columns hold MJD seconds)
 MJD_UNIX_OFFSET = 3506716800.0
-# At most this many rows are stored (the oldest TIME is evicted), and no row
-# of more runs (64 MiB of run arrays)
+# At most this many rows of partitions are stored (the oldest TIME is
+# evicted), and no row of more runs (64 MiB of run arrays)
 MAX_STORED_ROWS = 8
 MAX_STORED_RUNS = 2**22
+# The SCHEME_KEY of the row that holds the cell shapes of the POINTING table
+# (backend_pointing's scan; at most one row per ALGORITHM_VERSION, which is
+# the version of that scan). No partition scheme has this key (theirs are
+# JSON lists), and partition rows are looked up by their key: an xradio that
+# does not know this row ignores it. See store_pointing_shapes.
+POINTING_SHAPES_KEY = "POINTING cell shapes"
 # The temporary names of sub-tables being created
 # (".XRADIO_PARTITIONS.tmp-<host>-<pid>-<random>"), removed when their
 # process is gone or after TMP_MAX_AGE seconds
@@ -200,11 +216,20 @@ _COLUMNS = (
     ("N_RUNS", "count", "number of MAIN row runs"),
     ("N_ROWS_COVERED", "count", "MAIN rows in a partition"),
     ("N_PARTITIONS", "int", "number of partitions"),
-    ("PARTITIONS", "str", "columnar JSON of the partition descriptions"),
+    (
+        "PARTITIONS",
+        "str",
+        "columnar JSON of the partition descriptions (or JSON of the POINTING "
+        "cell shapes)",
+    ),
     ("ROW_STARTS", "rows", "first MAIN row of every run"),
     ("ROW_LENGTHS", "rows", "number of MAIN rows of every run"),
     ("PARTITION_BOUNDS", "rows", "run range of every partition"),
-    ("FINGERPRINT", "str", "JSON fingerprint of the MS the partitions are of"),
+    (
+        "FINGERPRINT",
+        "str",
+        "JSON fingerprint of the MS the partitions are of (or of the POINTING table)",
+    ),
     ("HISTORY_ROW", "int", "the HISTORY row of the stored content"),
     ("HISTORY_NROWS_AT_BUILD", "int", "HISTORY rows with the fingerprint"),
     ("CHECKSUM", "str", "blake2b-128 of the other columns"),
@@ -794,9 +819,12 @@ def subtable_format(table) -> int | None:
         return None
 
 
-def find_rows(table, scheme_key: str) -> list[int]:
-    """The rows of an opened XRADIO_PARTITIONS table for a scheme key and
-    this ALGORITHM_VERSION."""
+def find_rows(
+    table, scheme_key: str, algorithm_version: int = PARTITION_ALGORITHM_VERSION
+) -> list[int]:
+    """The rows of an opened XRADIO_PARTITIONS table for a scheme key (or
+    POINTING_SHAPES_KEY) and an ALGORITHM_VERSION (by default this one of
+    the partitions)."""
     if table.nrows() == 0:
         return []
     keys = table.getcol("SCHEME_KEY")
@@ -804,7 +832,7 @@ def find_rows(table, scheme_key: str) -> list[int]:
     return [
         index
         for index, (key, version) in enumerate(zip(keys, versions, strict=True))
-        if key == scheme_key and int(version) == PARTITION_ALGORITHM_VERSION
+        if key == scheme_key and int(version) == algorithm_version
     ]
 
 
@@ -1573,17 +1601,20 @@ def _put_row_cells(table, index: int, values: Mapping[str, Any]) -> None:
 
 
 def _remove_rows(table, keep: int, remove: Sequence[int]) -> None:
-    """Remove the rows ``remove``, and the oldest rows (TIME) but ``keep``
-    beyond MAX_STORED_ROWS."""
+    """Remove the rows ``remove``, and the oldest rows of partitions (TIME)
+    but ``keep`` beyond MAX_STORED_ROWS (the rows of POINTING_SHAPES_KEY are
+    not counted, nor removed so)."""
     remove = set(remove) - {keep}
-    excess = table.nrows() - len(remove) - MAX_STORED_ROWS
+    keys = table.getcol("SCHEME_KEY") if table.nrows() else []
+    kept = [
+        index
+        for index, key in enumerate(keys)
+        if key != POINTING_SHAPES_KEY and index not in remove
+    ]
+    excess = len(kept) - MAX_STORED_ROWS
     if excess > 0:
         times = table.getcol("TIME")
-        oldest = sorted(
-            (float(when), index)
-            for index, when in enumerate(times)
-            if index != keep and index not in remove
-        )
+        oldest = sorted((float(times[index]), index) for index in kept if index != keep)
         remove.update(index for _, index in oldest[:excess])
     if remove:
         table.removerows(sorted(remove))
@@ -1770,6 +1801,167 @@ def repair_dangling_keyword(path: str) -> bool:
                 "MAIN is locked"
             )
     return False
+
+
+# --- the cell shapes of the POINTING table -------------------------------------------
+
+
+def encode_pointing_shapes_row(
+    payload: str,
+    fingerprint: str,
+    algorithm_version: int,
+    *,
+    cache_id: str | None = None,
+    build_time: float | None = None,
+) -> dict[str, Any]:
+    """
+    The cell values of the row of the POINTING cell shapes, with its
+    CHECKSUM. It has the layout of the rows of partitions (FORMAT_VERSION
+    unchanged), with SCHEME_KEY POINTING_SHAPES_KEY, ALGORITHM_VERSION the
+    version of the scan, PARTITIONS the scan (JSON, ``payload``) and
+    FINGERPRINT the fingerprint of the POINTING table (JSON) it was made
+    from; no partitions, runs or HISTORY row (HISTORY_ROW and
+    HISTORY_NROWS_AT_BUILD -1).
+    """
+    if build_time is None:
+        build_time = time.time() + MJD_UNIX_OFFSET
+    values = {
+        "CACHE_ID": cache_id or uuid.uuid4().hex,
+        "SCHEME_KEY": POINTING_SHAPES_KEY,
+        "SCHEME": "",
+        "FORMAT_VERSION": FORMAT_VERSION,
+        "ALGORITHM_VERSION": int(algorithm_version),
+        "XRADIO_VERSION": _xradio_version(),
+        "TIME": float(build_time),
+        "MAIN_NROWS": 0,
+        "N_RUNS": 0,
+        "N_ROWS_COVERED": 0,
+        "N_PARTITIONS": 0,
+        "PARTITIONS": str(payload),
+        "ROW_STARTS": np.zeros(0, dtype=np.float64),
+        "ROW_LENGTHS": np.zeros(0, dtype=np.float64),
+        "PARTITION_BOUNDS": np.zeros(0, dtype=np.float64),
+        "FINGERPRINT": str(fingerprint),
+        "HISTORY_ROW": -1,
+        "HISTORY_NROWS_AT_BUILD": -1,
+    }
+    values["CHECKSUM"] = row_checksum(values)
+    return values
+
+
+def _pointing_shapes_of_row(
+    row: Mapping[str, Any], algorithm_version: int
+) -> tuple[str, str]:
+    """(payload, fingerprint) of a normalised row of the POINTING cell
+    shapes (its CHECKSUM checked), or InvalidRowError."""
+    check_row_checksum(row)
+    if (
+        row["FORMAT_VERSION"] != FORMAT_VERSION
+        or row["SCHEME_KEY"] != POINTING_SHAPES_KEY
+        or row["ALGORITHM_VERSION"] != algorithm_version
+    ):
+        raise InvalidRowError("not a row of the POINTING cell shapes")
+    return row["PARTITIONS"], row["FINGERPRINT"]
+
+
+def lookup_pointing_shapes(path: str, algorithm_version: int) -> tuple[str, str] | None:
+    """
+    The stored cell shapes of the POINTING table of an MS, for the scan of
+    ``algorithm_version``: (payload, the fingerprint of the POINTING table
+    they were scanned from), or None if there are none (or the row is torn,
+    unreadable or of another format). The reader protocol of the partitions
+    (lookup_stored_row): no lock, READ_ATTEMPTS attempts. The caller checks
+    the fingerprint and the payload.
+    """
+    try:
+        state = link_state(path)
+    except Exception:
+        return None
+    if state != "linked":
+        return None
+    for attempt in range(READ_ATTEMPTS):
+        if attempt:
+            time.sleep(0.01 * attempt)
+        try:
+            with casatools_serialized(), open_table_ro(subtable_path(path)) as table:
+                if subtable_format(table) != FORMAT_VERSION:
+                    return None
+                indices = find_rows(table, POINTING_SHAPES_KEY, algorithm_version)
+                if len(indices) != 1:
+                    return None
+                row = read_row_cells(table, indices[0])
+            return _pointing_shapes_of_row(row, algorithm_version)
+        except Exception as exc:  # (torn reads of a row being written)
+            xradio_logger().debug(
+                f"Reading the POINTING cell shapes stored in {path} failed: "
+                f"{type(exc).__name__}: {exc}"
+            )
+    return None
+
+
+def store_pointing_shapes(
+    path: str, payload: str, fingerprint: str, algorithm_version: int
+) -> str:
+    """
+    Store the cell shapes of the POINTING table of an MS (python-casacore):
+    in the MS's XRADIO_PARTITIONS sub-table if MAIN links it (partitions
+    were stored) and the MS can be written (why_not_writable), in the MS's
+    writer mutex and under the sub-table's write lock (one attempt). The
+    row of POINTING_SHAPES_KEY and ``algorithm_version`` is replaced (its
+    CHECKSUM written last); no HISTORY row is added (the stored partitions
+    and their HISTORY rule are unchanged). Never raises.
+
+    Returns
+    -------
+    str
+        "stored", "hit-race" (another writer stored them meanwhile) or
+        "memory:<reason>" (not stored: "not linked", "locked", "write
+        failed", a reason of why_not_writable).
+    """
+    try:
+        with write_mutex(path):
+            not_writable = why_not_writable(path)
+            if not_writable is not None:
+                return f"memory:{not_writable[0]}"
+            if link_state(path) != "linked":
+                return "memory:not linked"
+            with _locked_for_update(subtable_path(path)) as table:
+                if subtable_format(table) != FORMAT_VERSION:
+                    return "memory:another format"
+                indices = find_rows(table, POINTING_SHAPES_KEY, algorithm_version)
+                if len(indices) == 1:
+                    try:
+                        stored = _pointing_shapes_of_row(
+                            read_row_cells(table, indices[0]), algorithm_version
+                        )
+                    except Exception:  # (a torn or half written row: replaced)
+                        stored = None
+                    if (
+                        stored is not None
+                        and stored[0] == payload
+                        and same_fingerprint(stored[1], fingerprint)
+                    ):
+                        return "hit-race"
+                values = encode_pointing_shapes_row(
+                    payload, fingerprint, algorithm_version
+                )
+                if indices:
+                    index = indices[0]
+                else:
+                    index = table.nrows()
+                    table.addrows(1)
+                _put_row_cells(table, index, values)
+                _remove_rows(table, index, indices[1:])
+                table.flush()
+        return "stored"
+    except CacheNotStored as exc:
+        return f"memory:{exc.reason}"
+    except Exception as exc:
+        xradio_logger().debug(
+            f"Storing the POINTING cell shapes of {path} failed:\n"
+            f"{traceback.format_exc()}"
+        )
+        return f"memory:write failed ({type(exc).__name__}: {exc})"
 
 
 def _check_own_subtable(subtable: str) -> None:

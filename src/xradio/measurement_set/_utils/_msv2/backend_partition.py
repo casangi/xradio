@@ -152,6 +152,7 @@ def open_partition(
     unreadable_columns: frozenset[str] = frozenset(),
     keys_token: str | None = None,
     partition_scheme: Sequence[str] = (),
+    pointing_cache_mode: str | None = None,
 ) -> xr.DataTree | None:
     """
     The MSv4 of one partition of an MSv2, with lazy main data variables (and
@@ -198,6 +199,10 @@ def open_partition(
         The partition scheme: with the mandatory partition keys, the keys
         that select the partition's rows when a read checks them
         (``backend_arrays.partition_grouping``).
+    pointing_cache_mode : str | None, optional
+        The ``partition_cache`` mode of the open, for the cell shapes of the
+        POINTING table stored in the MS (``backend_pointing.open_pointing_index``;
+        None: neither used nor stored).
 
     Returns
     -------
@@ -218,6 +223,7 @@ def open_partition(
             deferred_pointing_generic_xds,
             specs=pointing_specs,
             context=pointing_context,
+            cache_mode=pointing_cache_mode,
         )
         if lazy_pointing
         else None

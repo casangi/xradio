@@ -470,3 +470,61 @@ def test_pointing_cells_of_another_shape(tmp_path):
         assert sorted(tree[name].children) == sorted(converted[name].children)
     assert all("pointing_xds" not in tree[name].children for name in tree.children)
     assert isinstance(tree, xr.DataTree)
+
+
+def test_stored_pointing_cell_shapes_are_read(tmp_path, monkeypatch):
+    """
+    The cell shapes of POINTING stored in an MS (the sub-table and its rows
+    written here with casatools, as python-casacore's writer writes them;
+    the shapes scanned through the shim) are read through the shim: an open
+    that may read them scans nothing, gives the pointing_xds of an open
+    that scans ("off"), and writes nothing.
+    """
+    from xradio._utils._casacore.casacore_from_casatools import table
+    from xradio.measurement_set._utils._msv2 import backend_pointing as bpt
+    from xradio.measurement_set._utils._msv2 import partition_cache as pc
+    from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
+        table_fingerprint,
+    )
+
+    msname = copy_ms(ref.SD_STANDARD, tmp_path)
+    _create_subtable_with_casatools(msname)
+    _store_row_with_casatools(msname, [])
+    pointing = os.path.join(msname, "POINTING")
+    index = bpt.read_pointing_index(pointing, ("DIRECTION", "ENCODER", "OVER_THE_TOP"))
+    assert index.shapes and index.shapes_source == "scan"
+    values = pc.encode_pointing_shapes_row(
+        bpt.encode_pointing_shapes(index.shapes, index.nrows),
+        bpt._fingerprint_json(table_fingerprint(pointing)),
+        bpt.POINTING_SHAPES_VERSION,
+    )
+    with table(pc.subtable_path(msname), readonly=False) as sub_tb:
+        sub_tb.addrows(1)
+        pc._put_row_cells(sub_tb, sub_tb.nrows() - 1, values)
+
+    scans = []
+    scan = bpt._scan_cell_shapes
+
+    def spy(*args):
+        scans.append(args[1])
+        return scan(*args)
+
+    monkeypatch.setattr(bpt, "_scan_cell_shapes", spy)
+    before = file_digests(msname)
+    trees = {}
+    for mode in ("read", "auto", "off"):
+        bpt.clear_pointing_memos()
+        pc.clear_partition_memo()
+        scans.clear()
+        trees[mode] = open_engine(msname, partition_cache=mode)
+        if mode == "off":
+            assert sorted(scans) == sorted(index.shapes)
+        else:
+            assert scans == []
+            assert bpt.POINTING_INDEX_MEMO.stats["stored shapes"] == 1
+    for name in trees["off"].children:
+        expected = trees["off"][name]["pointing_xds"].to_dataset().compute()
+        for mode in ("read", "auto"):
+            actual = trees[mode][name]["pointing_xds"].to_dataset().compute()
+            assert actual.identical(expected)
+    assert file_digests(msname) == before

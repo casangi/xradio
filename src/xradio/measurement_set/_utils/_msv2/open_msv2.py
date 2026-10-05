@@ -43,7 +43,8 @@ def open_msv2(
     from the MS when they are indexed or computed (a selection reads only its
     rows). For the pointing_xds, the POINTING TIME and ANTENNA_ID columns are
     read at open (its time and antenna coordinates), the shapes of the cells
-    of its array columns, and one cell of each data column. Only with
+    of its array columns (stored in the MS by the first open, see
+    partition_cache below), and one cell of each data column. Only with
     pointing_interpolate=True is it built at open, as by the converter; a
     partition whose POINTING rows have cells of several shapes or without a
     value (which the converter leaves out or pads per partition), and every
@@ -52,9 +53,10 @@ def open_msv2(
     at open by the converter's code and again when it is read. An MS without
     MAIN rows opens as an empty processing set.
 
-    The first open of a writable MS stores its partitions in the MS (see
-    partition_cache below). See the API documentation for the costs of an
-    open, the chunks to use and the changes of an MS after its open.
+    The first open of a writable MS stores its partitions, and the shapes of
+    the cells of its POINTING table, in the MS (see partition_cache below).
+    See the API documentation for the costs of an open, the chunks to use
+    and the changes of an MS after its open.
 
     It is ``xarray.open_datatree(ms_path, engine="xradio_msv2", ...)`` (with
     the engine class, so that it works without installed entry points), with
@@ -101,7 +103,10 @@ def open_msv2(
           compute, neither use nor store. Partitions are also kept in memory
           (per process) while the MS is unchanged (not with "off", nor for an
           MS whose MAIN rows live in other tables: a reference or
-          concatenated MS).
+          concatenated MS). The shapes of the cells of the POINTING array
+          columns, which the first open scans, are stored and used the same
+          way (a row of XRADIO_PARTITIONS, no HISTORY row), while the
+          POINTING table is unchanged (its fingerprint).
         - on_partition_error : str. "skip" (default): a partition that cannot
           be opened is left out (logged with its traceback, and a
           RuntimeWarning); a RuntimeError is raised only if none can be

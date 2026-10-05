@@ -21,6 +21,12 @@ the variables are indexed or computed:
   fixed shape) or from the shapes of the cells (``getcolshapestring``,
   read in bounded chunks: no values). The index is kept in a per-process
   memo while the table's fingerprint (``table_fingerprint``) is unchanged.
+  The scan of the cell shapes (about 0.2 s per column for 550,000 rows) is
+  stored in the MS (a row of its XRADIO_PARTITIONS sub-table,
+  ``partition_cache.store_pointing_shapes``) by the ``partition_cache``
+  modes that store partitions, with the fingerprint of the POINTING table
+  it was made from: later opens (in any process) take it from there while
+  the fingerprint is unchanged (``open_pointing_index``).
 - On access (:class:`PointingColumnArray`, outer indexing): the rows of the
   selected times and antennas, checked against the index (their TIME and
   ANTENNA_ID), the first row (lowest row number) of every (time, antenna)
@@ -82,6 +88,7 @@ from numpy.typing import DTypeLike
 
 from xradio._utils._casacore.tables import casatools_serialized, uses_casatools
 from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2 import partition_cache
 from xradio.measurement_set._utils._msv2._tables.read import (
     add_units_measures,
     convert_casacore_time,
@@ -114,6 +121,7 @@ from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
 )
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
     table_fingerprint,
+    table_type,
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_arrays import (
@@ -156,6 +164,13 @@ SHAPE_SCAN_ROWS = 2**18
 # A scan of cell shapes that meets more calls failing on cells without a
 # value than this gives up: the table is then built by the converter's code
 SHAPE_SCAN_MAX_ERRORS = 64
+# Version of the scan of the cell shapes of the POINTING array columns
+# (_scan_cell_shapes, ColumnShapes): the ALGORITHM_VERSION of its row in the
+# MS's XRADIO_PARTITIONS sub-table (partition_cache.POINTING_SHAPES_KEY)
+POINTING_SHAPES_VERSION = 1
+# Cell shapes holding more rows of other shapes than this (in all columns)
+# are not stored in the MS (scanned on every open)
+POINTING_SHAPES_MAX_STORED = 2**16
 # Bound of the per-process memo of pointing_xds built again on read
 # (PointingBuildArray: the variables of a partition share one build). A
 # build larger than this is not kept.
@@ -166,6 +181,88 @@ POINTING_BUILD_MEMO_MAX_BYTES = 128 * 2**20
 # have one of these types, see read_pointing_index.)
 _EXACT_PROMOTION_KINDS = "bfc"
 _EXACT_PROMOTION_INTS = (np.dtype(np.int8), np.dtype(np.int16), np.dtype(np.int32))
+
+
+@dataclasses.dataclass(frozen=True)
+class ColumnShapes:
+    """
+    The cell shapes of an array column whose description does not fix them,
+    as its scan found them (``_scan_cell_shapes``: the shapes of all cells,
+    not their values).
+
+    Attributes
+    ----------
+    shape : tuple[int, ...] | None
+        The shape of most cells (numpy order; ties: the shape seen first),
+        None if no cell has a value.
+    first : int
+        The first row with ``shape`` (-1 if None).
+    rows : np.ndarray
+        The rows whose cells have another shape or no value (int64,
+        ascending; usually none; none either if ``shape`` is None).
+    codes : np.ndarray
+        The shape of every row of ``rows``: its index in ``others`` (int32).
+    others : tuple[tuple[int, ...] | None, ...]
+        The other shapes (None: no value).
+    """
+
+    shape: tuple[int, ...] | None
+    first: int
+    rows: np.ndarray
+    codes: np.ndarray
+    others: tuple[tuple[int, ...] | None, ...]
+
+    @property
+    def nbytes(self) -> int:
+        return self.rows.nbytes + self.codes.nbytes
+
+    def to_json(self) -> dict:
+        return {
+            "shape": None if self.shape is None else list(self.shape),
+            "first": int(self.first),
+            "rows": self.rows.tolist(),
+            "codes": self.codes.tolist(),
+            "others": [None if s is None else list(s) for s in self.others],
+        }
+
+    @classmethod
+    def from_json(cls, content: Any, nrows: int) -> "ColumnShapes":
+        """The shapes of ``to_json``, checked against the table's rows
+        (ValueError, TypeError or KeyError if they do not fit)."""
+
+        def shape_of(value: Any) -> tuple[int, ...]:
+            if not isinstance(value, list) or not value:
+                raise ValueError(f"not a cell shape: {value!r}")
+            if not all(type(n) is int and n >= 0 for n in value):
+                raise ValueError(f"not a cell shape: {value!r}")
+            return tuple(value)
+
+        shape = None if content["shape"] is None else shape_of(content["shape"])
+        others = tuple(None if s is None else shape_of(s) for s in content["others"])
+        if not all(
+            isinstance(values, list) and all(type(n) is int for n in values)
+            for values in (content["rows"], content["codes"])
+        ):
+            raise ValueError("rows or codes that are not lists of integers")
+        rows = np.asarray(content["rows"], dtype=np.int64)
+        codes = np.asarray(content["codes"], dtype=np.int32)
+        first = content["first"]
+        if type(first) is not int or rows.ndim != 1 or codes.shape != rows.shape:
+            raise ValueError("rows, codes or first of another kind")
+        if rows.size and (
+            rows[0] < 0 or rows[-1] >= nrows or np.any(np.diff(rows) <= 0)
+        ):
+            raise ValueError("rows that are not ascending rows of the table")
+        if codes.size and (codes.min() < 0 or codes.max() >= len(others)):
+            raise ValueError("codes out of range")
+        if shape is None:
+            if first != -1 or rows.size or others:
+                raise ValueError("a column without values has other cells")
+        elif not 0 <= first < nrows or first in set(rows.tolist()):
+            raise ValueError("first is no row of the shape")
+        if shape in others:
+            raise ValueError("the shape of most cells among the others")
+        return cls(shape, first, rows, codes, others)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -189,6 +286,11 @@ class PointingIndex:
         partition that selects one is built by the converter's code.
     token : str
         Token of the table's fingerprint when the index was read.
+    shapes : dict[str, ColumnShapes]
+        The cell shapes of every array column whose description does not
+        fix them (the scan, or the scan stored in the MS).
+    shapes_source : str
+        "scan" (the shapes were scanned) or "stored" (from the MS).
     """
 
     columns: PointingColumns
@@ -196,6 +298,8 @@ class PointingIndex:
     cell_shapes: dict[str, tuple[int, ...]]
     odd_rows: np.ndarray
     token: str
+    shapes: dict[str, ColumnShapes] = dataclasses.field(default_factory=dict)
+    shapes_source: str = "scan"
 
     @property
     def nrows(self) -> int:
@@ -204,7 +308,11 @@ class PointingIndex:
 
     @property
     def nbytes(self) -> int:
-        return self.columns.nbytes + self.odd_rows.nbytes
+        return (
+            self.columns.nbytes
+            + self.odd_rows.nbytes
+            + sum(shapes.nbytes for shapes in self.shapes.values())
+        )
 
     def selects_odd_rows(self, selection: "_Selection") -> bool:
         """Whether a partition's rows include rows of ``odd_rows``."""
@@ -284,6 +392,136 @@ def pointing_table_token(table_path: str) -> str | None:
     if fingerprint is None:
         return None
     return _fingerprint_token(fingerprint)
+
+
+def _fingerprint_json(fingerprint: dict) -> str:
+    return json.dumps(fingerprint, sort_keys=True, separators=(",", ":"))
+
+
+def _follows_writes(table_path: str, fingerprint: dict) -> bool:
+    """
+    Whether the fingerprint of a POINTING table tells every write of its
+    cells: a plain table (not a reference or concatenated one, whose rows
+    live in other tables) whose columns are all held by data managers with
+    files of their own (``table.f<SEQNR>*``, in the fingerprint). Only then
+    are its cell shapes stored in, and taken from, the MS.
+    """
+    if table_type(table_path) != "PlainTable":
+        return False
+    files = fingerprint.get("files") or {}
+    for _, _, seqnr, columns in fingerprint.get("dms", []):
+        if not columns:
+            continue
+        prefix = f"table.f{seqnr}"
+        if seqnr is None or not any(
+            name in (prefix, prefix + "i") or name.startswith(prefix + "_")
+            for name in files
+        ):
+            return False
+    return True
+
+
+def encode_pointing_shapes(
+    shapes: Mapping[str, ColumnShapes], nrows: int
+) -> str | None:
+    """
+    The cell shapes of the columns of a POINTING table of ``nrows`` rows
+    (``PointingIndex.shapes``) as the JSON stored in the MS, or None if they
+    hold more than POINTING_SHAPES_MAX_STORED rows of other shapes (not
+    stored).
+    """
+    if sum(col.rows.size for col in shapes.values()) > POINTING_SHAPES_MAX_STORED:
+        return None
+    return json.dumps(
+        {
+            "version": POINTING_SHAPES_VERSION,
+            "nrows": int(nrows),
+            "columns": {name: col.to_json() for name, col in sorted(shapes.items())},
+        },
+        separators=(",", ":"),
+    )
+
+
+def decode_pointing_shapes(text: str, nrows: int) -> dict[str, ColumnShapes]:
+    """
+    The cell shapes of ``encode_pointing_shapes``, checked against a table
+    of ``nrows`` rows (ValueError if they are not cell shapes of such a
+    table).
+    """
+    try:
+        content = json.loads(text)
+        if content["version"] != POINTING_SHAPES_VERSION or content["nrows"] != nrows:
+            raise ValueError("another version or number of rows")
+        columns = content["columns"]
+        if not isinstance(columns, dict):
+            raise TypeError("no columns")
+        return {
+            str(name): ColumnShapes.from_json(col, nrows)
+            for name, col in columns.items()
+        }
+    except (TypeError, KeyError, AttributeError, OverflowError) as exc:
+        raise ValueError(f"not POINTING cell shapes: {exc}") from None
+
+
+def _stored_shapes(
+    table_path: str, fingerprint: dict | None = None
+) -> dict[str, ColumnShapes] | None:
+    """
+    The cell shapes of a POINTING table stored in its MS
+    (``partition_cache.lookup_pointing_shapes``), if they were scanned from
+    the table as it is now (the fingerprint ``fingerprint``, by default
+    taken here): else None (also for a table whose fingerprint does not
+    tell every write, ``_follows_writes``).
+    """
+    if fingerprint is None:
+        fingerprint = table_fingerprint(table_path)
+    if fingerprint is None or not _follows_writes(table_path, fingerprint):
+        return None
+    ms_path = os.path.dirname(os.path.abspath(table_path))
+    found = partition_cache.lookup_pointing_shapes(ms_path, POINTING_SHAPES_VERSION)
+    if found is None:
+        return None
+    payload, stored_fingerprint = found
+    if not partition_cache.same_fingerprint(
+        stored_fingerprint, _fingerprint_json(fingerprint)
+    ):
+        xradio_logger().debug(
+            f"The POINTING cell shapes stored in {ms_path} are of another state of "
+            "its POINTING table: scanned again"
+        )
+        return None
+    try:
+        shapes = decode_pointing_shapes(payload, int(fingerprint["nrows"]))
+    except Exception as exc:  # (whatever the stored row holds)
+        xradio_logger().debug(
+            f"The POINTING cell shapes stored in {ms_path} are not used: {exc}"
+        )
+        return None
+    POINTING_INDEX_MEMO.stats["stored shapes"] += 1
+    return shapes
+
+
+def _store_shapes(table_path: str, index: PointingIndex, fingerprint: dict) -> str:
+    """Store the cell shapes of a scanned index in the MS of its POINTING
+    table (``partition_cache.store_pointing_shapes``); returns the status
+    ("stored", "hit-race", "memory:<reason>")."""
+    ms_path = os.path.dirname(os.path.abspath(table_path))
+    if not _follows_writes(table_path, fingerprint):
+        status = "memory:POINTING writes not followed"
+    else:
+        payload = encode_pointing_shapes(index.shapes, index.nrows)
+        if payload is None:
+            status = "memory:too many cells of other shapes"
+        else:
+            status = partition_cache.store_pointing_shapes(
+                ms_path,
+                payload,
+                _fingerprint_json(fingerprint),
+                POINTING_SHAPES_VERSION,
+            )
+    POINTING_INDEX_MEMO.stats[f"shapes {status}"] += 1
+    xradio_logger().debug(f"POINTING cell shapes of {ms_path}: {status}")
+    return status
 
 
 def pointing_unchanged(table: Any, table_path: str, token: str) -> bool:
@@ -386,34 +624,48 @@ class _ShapeScan:
         out[:] = codes[np.asarray(inverse).ravel()]
 
 
-def _scan_cell_shapes(
-    table: Any, col: str, nrows: int
-) -> tuple[tuple[int, ...], int, np.ndarray] | None:
+def _scan_cell_shapes(table: Any, col: str, nrows: int) -> ColumnShapes:
     """
-    The cell shape of most cells of an array column (numpy order), the
-    first row with it, and the rows whose cells have another shape or no
-    value; None if no cell has a value. Reads the shapes of the cells
-    (``getcolshapestring``) in chunks of SHAPE_SCAN_ROWS rows, no values.
-    Raises if more than SHAPE_SCAN_MAX_ERRORS calls fail (cells without a
-    value: the caller describes no such table).
+    The cell shapes of an array column (``ColumnShapes``): the shape of most
+    cells (numpy order), the first row with it, and the rows whose cells
+    have another shape or no value, with their shapes. Reads the shapes of
+    the cells (``getcolshapestring``) in chunks of SHAPE_SCAN_ROWS rows, no
+    values. Raises if more than SHAPE_SCAN_MAX_ERRORS calls fail (cells
+    without a value: the caller describes no such table).
     """
     scan = _ShapeScan(table, col)
     codes = np.empty(nrows, dtype=np.int32)
     for start in range(0, nrows, SHAPE_SCAN_ROWS):
         scan.fill(start, codes[start : start + SHAPE_SCAN_ROWS])
+    texts = {code: text for text, code in scan.codes.items()}
     defined = codes >= 0
     if not defined.any():
-        return None
+        empty = np.empty(0, dtype=np.int64)
+        return ColumnShapes(None, -1, empty, empty.astype(np.int32), ())
     # (ties: the shape seen first)
     common = int(np.argmax(np.bincount(codes[defined], minlength=len(scan.codes))))
-    (text,) = (text for text, code in scan.codes.items() if code == common)
     is_common = codes == common
     first = int(np.argmax(is_common))
-    return parse_cell_shape(text), first, np.flatnonzero(~is_common)
+    rows = np.flatnonzero(~is_common).astype(np.int64)
+    del is_common, defined
+    odd_codes, inverse = np.unique(codes[rows], return_inverse=True)
+    others = tuple(
+        None if code < 0 else parse_cell_shape(texts[code]) for code in odd_codes
+    )
+    return ColumnShapes(
+        parse_cell_shape(texts[common]),
+        first,
+        rows,
+        np.asarray(inverse, dtype=np.int32).ravel(),
+        others,
+    )
 
 
 def read_pointing_index(
-    table_path: str, data_columns: tuple[str, ...], token: str = ""
+    table_path: str,
+    data_columns: tuple[str, ...],
+    token: str = "",
+    stored_shapes: Mapping[str, ColumnShapes] | None = None,
 ) -> PointingIndex | None:
     """
     The POINTING index of a table, for a lazy pointing_xds: TIME, ANTENNA_ID
@@ -440,6 +692,10 @@ def read_pointing_index(
         ignored).
     token : str, optional
         Token of the table's fingerprint (recorded in the index).
+    stored_shapes : Mapping[str, ColumnShapes] | None, optional
+        The cell shapes of the columns that need a scan, from a scan of the
+        table as it is (stored in the MS: ``_stored_shapes``): used instead
+        of scanning when they are those of exactly these columns.
 
     Returns
     -------
@@ -448,7 +704,9 @@ def read_pointing_index(
         no rows, ...: see the module docstring). A MemoryError is raised.
     """
     try:
-        return _read_pointing_index(table_path, tuple(data_columns), token)
+        return _read_pointing_index(
+            table_path, tuple(data_columns), token, stored_shapes
+        )
     except MemoryError:
         raise
     except Exception as exc:
@@ -456,7 +714,10 @@ def read_pointing_index(
 
 
 def _read_pointing_index(
-    table_path: str, data_columns: tuple[str, ...], token: str
+    table_path: str,
+    data_columns: tuple[str, ...],
+    token: str,
+    stored_shapes: Mapping[str, ColumnShapes] | None = None,
 ) -> PointingIndex | None:
     if maybe_promote is None:
         return _not_lazy(table_path, "xarray.core.dtypes.maybe_promote missing")
@@ -477,8 +738,17 @@ def _read_pointing_index(
             return _not_lazy(table_path, "no double TIME / int ANTENNA_ID column")
         if "DIRECTION" not in col_types:
             return _not_lazy(table_path, "no DIRECTION column")
+        fixed_shapes = {
+            col: () if tb_tool.isscalarcol(col) else _fixed_cell_shape(tb_tool, col)
+            for col in col_types
+        }
+        to_scan = sorted(col for col, shape in fixed_shapes.items() if shape is None)
+        if stored_shapes is not None and sorted(stored_shapes) == to_scan:
+            shapes, source = dict(stored_shapes), "stored"
+        else:
+            shapes, source = {}, "scan"
 
-        columns, data_cells, odd_parts = [], {}, []
+        columns, data_cells = [], {}
         for col, col_type in col_types.items():
             is_coord = col.endswith("_ID") or col == "TIME"
             is_key = col in ("TIME", "ANTENNA_ID")
@@ -493,14 +763,13 @@ def _read_pointing_index(
             else:
                 if is_data and col_type not in CASACORE_TO_NUMPY_DTYPE:
                     return _not_lazy(table_path, f"{col} is a {col_type} array")
-                cell_shape = _fixed_cell_shape(tb_tool, col)
+                cell_shape = fixed_shapes[col]
                 if cell_shape is None:
-                    scanned = _scan_cell_shapes(tb_tool, col, nrows)
-                    if scanned is None:
+                    if col not in shapes:
+                        shapes[col] = _scan_cell_shapes(tb_tool, col, nrows)
+                    if shapes[col].shape is None:
                         return _not_lazy(table_path, f"{col} has no cell with a value")
-                    cell_shape, first_row, odd = scanned
-                    if odd.size:
-                        odd_parts.append(odd)
+                    cell_shape, first_row = shapes[col].shape, shapes[col].first
             if is_data:
                 data_cells[col] = (cell_shape, first_row)
             columns.append((col, is_coord, cell_shape))
@@ -513,6 +782,12 @@ def _read_pointing_index(
             col: read_column_rows(tb_tool, col, np.array([first_row], dtype=np.int64))
             for col, (_, first_row) in data_cells.items()
         }
+        odd_parts = [col_shapes.rows for col_shapes in shapes.values()]
+        odd_rows = (
+            np.unique(np.concatenate(odd_parts)).astype(np.int64)
+            if odd_parts
+            else np.empty(0, dtype=np.int64)
+        )
 
     data_cols = tuple(data_cells)
     var_dims, sizes = generic_dims(columns, nrows)
@@ -532,11 +807,6 @@ def _read_pointing_index(
         if not _exact_promotion(cell.dtype):
             return _not_lazy(table_path, f"{col} has values of {cell.dtype}")
         dtypes[col], cell_shapes[col] = cell.dtype, tuple(cell.shape[1:])
-    odd_rows = (
-        np.unique(np.concatenate(odd_parts)).astype(np.int64)
-        if odd_parts
-        else np.empty(0, dtype=np.int64)
-    )
 
     # attributes as load_generic_table() sets them
     var_attrs = {}
@@ -572,9 +842,17 @@ def _read_pointing_index(
     xradio_logger().debug(
         f"POINTING index of {table_path}: {nrows} rows, "
         f"{columns.nbytes / 2**20:.1f} MiB, {odd_rows.size} rows with cells of "
-        "another shape"
+        f"another shape (cell shapes: {source})"
     )
-    return PointingIndex(columns, dtypes, cell_shapes, odd_rows, token)
+    return PointingIndex(
+        columns,
+        dtypes,
+        cell_shapes,
+        odd_rows,
+        token,
+        shapes=shapes,
+        shapes_source=source,
+    )
 
 
 def _index_key(
@@ -584,42 +862,91 @@ def _index_key(
 
 
 def _memo_index(
-    table_path: str, data_columns: tuple[str, ...], token: str
-) -> PointingIndex | None:
+    table_path: str,
+    data_columns: tuple[str, ...],
+    token: str,
+    stored_shapes: bool = False,
+    fingerprint: dict | None = None,
+) -> tuple[PointingIndex | None, bool]:
     """The index of the memo under (path, columns, token), read on a miss
-    (once, when several threads miss it). Called holding the casatools
-    lock (``casatools_serialized``), before the memo's build lock."""
+    (once, when several threads miss it), with the cell shapes stored in
+    the MS if ``stored_shapes`` and they are those of the table now
+    (``fingerprint``, by default taken on a miss). Called holding the
+    casatools lock (``casatools_serialized``), before the memo's build lock.
+    Returns (index, whether it was read here)."""
     key = _index_key(table_path, data_columns, token)
     entry = POINTING_INDEX_MEMO.get(key)
+    read = False
     if entry is None:
         with POINTING_INDEX_MEMO.build_lock(key):
             entry = POINTING_INDEX_MEMO.get(key, count=False)
             if entry is None:
                 POINTING_INDEX_MEMO.stats["reads"] += 1
+                shapes = (
+                    _stored_shapes(table_path, fingerprint) if stored_shapes else None
+                )
                 entry = _IndexEntry(
-                    read_pointing_index(table_path, data_columns, token)
+                    read_pointing_index(table_path, data_columns, token, shapes)
                 )
                 POINTING_INDEX_MEMO.put(key, entry)
-    return entry.index
+                read = True
+    return entry.index, read
 
 
 def open_pointing_index(
-    table_path: str, data_columns: tuple[str, ...]
+    table_path: str, data_columns: tuple[str, ...], cache_mode: str | None = None
 ) -> PointingIndex | None:
     """
     The index of a POINTING table when an MS is opened: from the memo while
-    the table's fingerprint is unchanged, else read.
+    the table's fingerprint is unchanged, else read. The cell shapes of its
+    array columns, which the read scans (``_scan_cell_shapes``), are stored
+    in the MS (the XRADIO_PARTITIONS sub-table, ``partition_cache``) by the
+    ``partition_cache`` modes that store partitions ("auto" and "rebuild"),
+    and taken from it by those that read them ("auto", "read") while the
+    table's fingerprint is the one they were scanned with: only the first
+    open of an MS scans them (and every open in a process whose memo has
+    lost the index, with "off", or with a read-only MS that has none
+    stored). "rebuild" scans again (not from the memo).
+
+    Parameters
+    ----------
+    table_path : str
+        Path of the POINTING table.
+    data_columns : tuple[str, ...]
+        Columns the pointing_xds is built from.
+    cache_mode : str | None, optional
+        The ``partition_cache`` mode of the open (None: the stored cell
+        shapes are neither used nor stored).
 
     Returns
     -------
     PointingIndex | None
         None if there is no table, or its pointing_xds is built eagerly.
     """
+    data_columns = tuple(data_columns)
     with casatools_serialized():
-        token = pointing_table_token(table_path)
-        if token is None:
+        fingerprint = table_fingerprint(table_path)
+        if fingerprint is None:
             return None
-        return _memo_index(table_path, tuple(data_columns), token)
+        token = _fingerprint_token(fingerprint)
+        if cache_mode == "rebuild":
+            POINTING_INDEX_MEMO.discard(_index_key(table_path, data_columns, token))
+        index, read = _memo_index(
+            table_path,
+            data_columns,
+            token,
+            stored_shapes=cache_mode in ("auto", "read"),
+            fingerprint=fingerprint,
+        )
+    if (
+        read
+        and index is not None
+        and index.shapes
+        and index.shapes_source == "scan"
+        and cache_mode in ("auto", "rebuild")
+    ):
+        _store_shapes(table_path, index, fingerprint)
+    return index
 
 
 @dataclasses.dataclass(frozen=True)
@@ -713,6 +1040,10 @@ class DeferredPointingVariable:
         dtype of the values.
     cell_shape : tuple[int, ...]
         Cell shape of the column (numpy order).
+    stored_shapes : bool, optional
+        Whether an index read again (another process) may take the cell
+        shapes stored in the MS (the ``partition_cache`` mode of the open
+        reads them).
     """
 
     name: str
@@ -728,6 +1059,7 @@ class DeferredPointingVariable:
     selection_token: str
     dtype: np.dtype
     cell_shape: tuple[int, ...]
+    stored_shapes: bool = False
 
     def changed_error(self, what: str) -> MSv2ChangedError:
         """The error raised when POINTING no longer matches the open."""
@@ -738,7 +1070,12 @@ class DeferredPointingVariable:
 
     def index(self) -> PointingIndex:
         """The POINTING index (memo, or read again in another process)."""
-        index = _memo_index(self.table_path, self.data_columns, self.index_token)
+        index, _ = _memo_index(
+            self.table_path,
+            self.data_columns,
+            self.index_token,
+            stored_shapes=self.stored_shapes,
+        )
         if index is None:
             raise self.changed_error("its cells can no longer be read lazily")
         if index.nrows != self.nrows:
@@ -797,6 +1134,7 @@ def deferred_pointing_generic_xds(
     *,
     specs: dict[str, DeferredPointingVariable],
     context: dict | None = None,
+    cache_mode: str | None = None,
 ) -> xr.Dataset | None:
     """
     The ``generic_loader`` of ``create_pointing_xds`` for the MSv2 backend:
@@ -822,6 +1160,10 @@ def deferred_pointing_generic_xds(
         Filled with the partition's ``time_min_max`` and ``antenna_ids``
         (for a pointing_xds that the converter's code builds at open:
         ``rebuilt_pointing_xds``).
+    cache_mode : str | None, optional
+        The ``partition_cache`` mode of the open: whether the cell shapes of
+        POINTING are taken from, and stored in, the MS
+        (``open_pointing_index``).
 
     Returns
     -------
@@ -839,12 +1181,12 @@ def deferred_pointing_generic_xds(
     columns_key = tuple(data_columns)
     subtable_cache = active_subtable_cache()
     if subtable_cache is None:
-        index = open_pointing_index(table_path, columns_key)
+        index = open_pointing_index(table_path, columns_key, cache_mode)
     else:
         # one fingerprint per open (the partitions of an open share the cache)
         index = subtable_cache.get_or_build(
             ("pointing_index", table_path, columns_key),
-            lambda: open_pointing_index(table_path, columns_key),
+            lambda: open_pointing_index(table_path, columns_key, cache_mode),
         )
     if index is None:
         return None
@@ -886,6 +1228,7 @@ def deferred_pointing_generic_xds(
             selection_token=grid.token,
             dtype=index.dtypes[col],
             cell_shape=index.cell_shapes[col],
+            stored_shapes=cache_mode in ("auto", "read", "rebuild"),
         )
         specs[name] = spec
         data_vars[col] = xr.Variable(

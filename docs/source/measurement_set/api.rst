@@ -46,8 +46,8 @@ builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those o
 indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time. Cells
 without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The ``pointing_xds`` is
 lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID`` columns, the shapes
-(not the values) of the cells of its array columns and one cell of each data column, and a selection reads only the
-rows of its times and antennas. Only with ``pointing_interpolate=True`` is it read when the MS is opened, as by the
+(not the values) of the cells of its array columns (stored in the MS by the first open, see below) and one cell of each
+data column, and a selection reads only the rows of its times and antennas. Only with ``pointing_interpolate=True`` is it read when the MS is opened, as by the
 converter. The converter reads the POINTING rows of every partition on their own, and leaves out (or pads) a column
 whose cells there have several shapes or no value: a partition whose POINTING rows have such cells, and every partition
 of a POINTING table that cannot be described without reading it (no ``DIRECTION`` column, unusual value types), has its
@@ -84,7 +84,9 @@ are read, which takes time for large MSs. So the first open of a writable MS sto
 - a row of the ``HISTORY`` table.
 
 Later opens read the stored partitions (in milliseconds) while the MS is unchanged, and every process also keeps them
-in memory. ``partition_cache`` sets what is done:
+in memory. The sub-table also stores the shapes of the cells of the POINTING array columns, which the first open scans
+(about 0.2 s per column for 550,000 rows), with a fingerprint of the POINTING table: later opens, in any process, use
+them while that table is unchanged (no ``HISTORY`` row is written for them). ``partition_cache`` sets what is done:
 
 - ``"auto"`` (default): use the stored partitions, or compute and store them;
 - ``"read"``: use the stored partitions, never write (for archives and shared data);
@@ -137,9 +139,10 @@ writing (its writes are seen before they are flushed), and for reference and con
 show the writes of the MSs they read), every read checks its partition so.
 
 **Performance.** Opening costs what the converter spends on metadata: about 0.05 to 0.2 s per partition, plus 4 to
-12 ms per node for xarray (about 3 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). The first open in a
-process also reads the cell shapes of the POINTING array columns (about 1 s per column for 3.6 million rows). Opening more than
-1,000 partitions gives a warning. For large MSs, keep the default ``partition_scheme=[]``, select partitions with
+12 ms per node for xarray (about 3 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). The first open of an MS
+also scans the cell shapes of the POINTING array columns (about 1 s per column for 3.6 million rows), which it stores in
+the MS for later opens (an MS that cannot be written: once per process). Opening more than 1,000 partitions gives a
+warning. For large MSs, keep the default ``partition_scheme=[]``, select partitions with
 ``partition_filter``, and pass ``with_pointing=False`` when the pointing is not needed. python-casacore holds the
 Python GIL while it reads, so reading with threads is not faster: use processes (Dask's ``processes`` scheduler, or a
 ``distributed.LocalCluster(processes=True)``); with casatools, reads are serialized by one process-wide lock.

@@ -119,6 +119,8 @@ def open_msv2_tree(
         "sys_cal_interpolate": sys_cal_interpolate,
         "unreadable_columns": frozenset(skip_columns or ()),
         "partition_scheme": tuple(scheme),
+        # (the mode asked for, also when the partitions are computed again)
+        "pointing_cache_mode": mode,
     }
     for attempt in (1, 2):
         # (a MAIN table that this process holds open with another number of

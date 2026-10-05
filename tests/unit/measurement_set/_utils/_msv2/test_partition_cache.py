@@ -1266,6 +1266,32 @@ def test_not_stored_notices(setup, reason, warn, ms_copy, monkeypatch, caplog, r
     assert (infos if warn else warned) == []
 
 
+def test_reference_table_is_reported_at_info(
+    ms_copy, tmp_path, monkeypatch, caplog, recwarn
+):
+    """A reference table (no lock file of its own, as concatenated tables):
+    its partitions are not stored because it is one (an INFO log), not
+    because of its lock file (a PartitionCacheWarning naming the wrong
+    cause); no file of it changes."""
+    msname = ms_copy("dense")
+    ref = str(tmp_path / "ref.ms")
+    with tables.table(msname, ack=False) as main_tb:
+        main_tb.query("ANTENNA1 >= 0", name=ref).close()
+    for name in os.listdir(msname):
+        if os.path.isfile(os.path.join(msname, name, "table.dat")):
+            shutil.copytree(os.path.join(msname, name), os.path.join(ref, name))
+    assert not os.path.exists(os.path.join(ref, "table.lock"))
+    before = file_digests(ref)
+    monkeypatch.setattr(partition_cache, "xradio_logger", lambda: _ListLogger(caplog))
+    reason = "MAIN is a reference or concatenated table"
+    for _ in range(2):
+        assert statuses(ref, []) == [f"memory:{reason}"]
+    infos, warned = _notices(caplog, recwarn)
+    assert [f"({reason})" in m for m in infos] == [True]
+    assert warned == []
+    assert file_digests(ref) == before
+
+
 class _ListLogger:
     """A logger that records INFO messages in caplog.records."""
 

@@ -1162,6 +1162,18 @@ def why_not_writable(
         return "MS directory not writable", True
     if not tables.tableiswritable(path):
         return "MAIN table not writable", True
+    with open_table_ro(path) as main_tb:
+        parts = [os.path.realpath(name) for name in main_tb.partnames()]
+        dm_types = sorted({str(dm["TYPE"]) for dm in main_tb.getdminfo().values()})
+        keyword = (
+            main_tb.getkeyword(SUBTABLE_NAME)
+            if SUBTABLE_NAME in main_tb.keywordnames()
+            else None
+        )
+        writing = write_locked_here(main_tb)
+    if parts != [os.path.realpath(path)]:
+        # (before the lock file: such a table has none)
+        return "MAIN is a reference or concatenated table", False
     if not os.access(os.path.join(path, "table.lock"), os.W_OK):
         return "MAIN lock file not writable", True
     history = os.path.join(path, "HISTORY")
@@ -1187,17 +1199,6 @@ def why_not_writable(
             return "cache written by a newer xradio", False
         if version < FORMAT_VERSION:  # (none yet)
             return "cache written by an older xradio", False
-    with open_table_ro(path) as main_tb:
-        parts = [os.path.realpath(name) for name in main_tb.partnames()]
-        dm_types = sorted({str(dm["TYPE"]) for dm in main_tb.getdminfo().values()})
-        keyword = (
-            main_tb.getkeyword(SUBTABLE_NAME)
-            if SUBTABLE_NAME in main_tb.keywordnames()
-            else None
-        )
-        writing = write_locked_here(main_tb)
-    if parts != [os.path.realpath(path)]:
-        return "MAIN is a reference or concatenated table", False
     if keyword is not None and not _is_subtable_link(keyword):
         return f"the MAIN keyword {SUBTABLE_NAME} is no link to the cache", False
     if writing:

@@ -42,12 +42,15 @@ def open_msv2(
     (POINTING_BEAM, POINTING_DISH_MEASURED, POINTING_OVER_THE_TOP) are read
     from the MS when they are indexed or computed (a selection reads only its
     rows). For the pointing_xds, the POINTING TIME and ANTENNA_ID columns are
-    read at open (its time and antenna coordinates), and one cell of each
-    data column. Only with pointing_interpolate=True is it built at open, as
-    by the converter (for POINTING tables whose cells cannot be described
-    without reading them, e.g. empty cells or unusual value types, it is
-    built at open to find its shape and built again when it is read).
-    An MS without MAIN rows opens as an empty processing set.
+    read at open (its time and antenna coordinates), the shapes of the cells
+    of its array columns, and one cell of each data column. Only with
+    pointing_interpolate=True is it built at open, as by the converter; a
+    partition whose POINTING rows have cells of several shapes or without a
+    value (which the converter leaves out or pads per partition), and every
+    partition of a POINTING table that cannot be described without reading
+    it (no DIRECTION column, unusual value types), has its pointing_xds built
+    at open by the converter's code and again when it is read. An MS without
+    MAIN rows opens as an empty processing set.
 
     The first open of a writable MS stores its partitions in the MS (see
     partition_cache below). See the API documentation for the costs of an
@@ -117,7 +120,9 @@ def open_msv2(
     Raises
     ------
     MSv2ChangedError
-        From a lazy read, if the MS changed since it was opened.
+        From a lazy read, if the MS changed since it was opened (MAIN or
+        POINTING rows added or removed, rows moved to another partition or
+        within the time and baseline grid of their partition).
     MSv2ReadError
         From a lazy read that failed (see skip_columns for columns whose
         cells only a read can check).

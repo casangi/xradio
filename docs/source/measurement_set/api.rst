@@ -45,20 +45,22 @@ builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those o
 ``WEIGHT``, ``UVW``, ``TIME_CENTROID``, ``EFFECTIVE_INTEGRATION_TIME``) are read from the MAIN table only when they are
 indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time. Cells
 without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The ``pointing_xds`` is
-lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID`` columns and one cell of
-each data column, and a selection reads only the rows of its times and antennas. Only with ``pointing_interpolate=True``
-is it read when the MS is opened, as by the converter. (A POINTING table whose cells cannot be described without reading
-them, for example empty cells or unusual value types, is built when the MS is opened to find the shape of the
-``pointing_xds``, which is built again when its variables are read.)
+lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID`` columns, the shapes
+(not the values) of the cells of its array columns and one cell of each data column, and a selection reads only the
+rows of its times and antennas. Only with ``pointing_interpolate=True`` is it read when the MS is opened, as by the
+converter. The converter reads the POINTING rows of every partition on their own, and leaves out (or pads) a column
+whose cells there have several shapes or no value: a partition whose POINTING rows have such cells, and every partition
+of a POINTING table that cannot be described without reading it (no ``DIRECTION`` column, unusual value types), has its
+``pointing_xds`` built by the converter's code when the MS is opened (the values are not kept) and again when its
+variables are read (once for all of them).
 
 **Columns only a read can check.** The converter leaves out a MAIN column whose cells cannot be read (for
 ``WEIGHT_SPECTRUM`` it reads ``WEIGHT`` instead). For most storage managers the engine finds such cells when the MS is
 opened and does the same. Where only a read can tell (cells of several shapes in a ``StandardStMan`` column, reference
 and concatenated MSs), the variable is opened and its read raises :py:class:`MSv2ReadError`, which names the remedies:
 ``skip_columns=["<column>"]`` gives the converter's processing set (the column treated as unreadable in every
-partition), ``drop_variables=["<variable>"]`` leaves out only that variable. Likewise the cells of a POINTING data
-column are taken to have the shape of its first row (unless its description fixes the shape), and a read that finds
-other shapes raises :py:class:`MSv2ReadError`: convert such an MS, or pass ``with_pointing=False``.
+partition), ``drop_variables=["<variable>"]`` leaves out only that variable. (The cells of POINTING columns are checked
+when the MS is opened, see above.)
 
 **Chunks.** Open with ``chunks={}``: every variable is a Dask array, and the main data variables have the chunks of the
 converter (``main_chunksize``, by default about 128 MiB along time). The other variables are one chunk each, but for the
@@ -89,7 +91,10 @@ in memory. ``partition_cache`` sets what is done:
 The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``. A
 read-only MS is opened with partitions computed in memory, and a :py:class:`PartitionCacheWarning` (once per MS and
 reason) says so; so is an MS whose MAIN table another process has locked (for example a CASA session with the MS open):
-xradio never waits for a lock. With casatools the partitions are never stored (logged once). If the process that opens
+xradio never waits for a lock. With casatools, and for reference or concatenated MSs, the partitions are never stored
+(logged once). Nor are they while this process holds the MAIN table's write lock (a writable handle, whose changes may
+not be flushed yet); if that handle added rows not flushed yet, the partitions are computed from the rows the process
+sees, as the converter reads them, without the stored ones. If the process that opens
 the MS also holds it open with python-casacore's default (automatic) locking, storing switches that table to user
 locking (once per MS): pass ``partition_cache="read"`` in such sessions. Within one process, python-casacore shares one
 table object per table, and closing any handle of it releases its locks: a thread that closes a MAIN handle while
@@ -98,20 +103,25 @@ and flushes the MAIN keyword; between these steps another process could take the
 few Python statements, once per MS). CASA tasks that copy an MS (``split``, ``mstransform``, ``tb.copy``, ``msconcat``)
 also copy the sub-table: the copy's first open finds that it does not apply and computes the partitions again.
 :py:func:`remove_msv2_partition_cache` removes the stored partitions (only a sub-table that xradio wrote, and not while
-another process holds a lock on it).
+another process holds a lock on it); an open in another process at the same time stores a sub-table of its own.
 
 **When the MS changes.** The stored partitions are used only while a fingerprint of the tables they are computed from
 (the data managers and key columns of MAIN, and the FIELD, STATE and SOURCE tables, read from casacore's lock files) is
 unchanged and the ``HISTORY`` table has no rows newer than xradio's own. They are also checked against their MAIN rows
-when the MS is opened. An MS that changes after it was opened is not followed: a lazy read raises
-:py:class:`MSv2ChangedError` if MAIN or POINTING has another number of rows, or if the (time, baseline) grid of a
-partition, or the times, antennas and rows of its ``pointing_xds``, changed; the MS must then be opened again. Every
-read checks that the rows it reads still have the times and antennas of the open (MAIN ``TIME``, ``ANTENNA1``,
-``ANTENNA2``; POINTING ``TIME``, ``ANTENNA_ID``), so the outcome does not depend on what the process kept in memory:
-values rewritten in place are read as they are now, as are rows moved within an unchanged grid.
+when the MS is opened (if they do not describe them because the MS changed meanwhile, the open is done again with the
+partitions computed). An MS that changes after it was opened is not followed: a lazy read raises
+:py:class:`MSv2ChangedError` if MAIN or POINTING has another number of rows, if rows it reads are in another partition
+now (their ``DATA_DESC_ID``, ``OBSERVATION_ID``, observing mode, ephemeris or a key of the ``partition_scheme``
+changed), or if the (time, baseline) grid of a partition, or the times, antennas and rows of its ``pointing_xds``,
+changed; the MS must then be opened again. (Rows that another partition lost to a partition are not seen by a tree
+opened before: they are not among the rows it reads.) Every read whose MAIN key columns may have been written since the
+open checks that the rows it reads still have the partition and the times and antennas of the open (MAIN ``TIME``,
+``ANTENNA1``, ``ANTENNA2``; POINTING ``TIME``, ``ANTENNA_ID``), so the outcome does not depend on what the process kept
+in memory: values rewritten in place are read as they are now, as are rows moved within an unchanged grid.
 
 **Performance.** Opening costs what the converter spends on metadata: about 0.05 to 0.2 s per partition, plus 4 to
-12 ms per node for xarray (about 2.6 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). Opening more than
+12 ms per node for xarray (about 3 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). The first open in a
+process also reads the cell shapes of the POINTING array columns (about 1 s per column for 3.6 million rows). Opening more than
 1,000 partitions gives a warning. For large MSs, keep the default ``partition_scheme=[]``, select partitions with
 ``partition_filter``, and pass ``with_pointing=False`` when the pointing is not needed. python-casacore holds the
 Python GIL while it reads, so reading with threads is not faster: use processes (Dask's ``processes`` scheduler, or a

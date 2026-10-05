@@ -38,12 +38,14 @@ def open_msv2(
     variables (VISIBILITY*, SPECTRUM*, FLAG, WEIGHT, UVW, TIME_CENTROID,
     EFFECTIVE_INTEGRATION_TIME) and the data variables of the pointing_xds
     (POINTING_BEAM, POINTING_DISH_MEASURED, POINTING_OVER_THE_TOP) are read
-    from the MS when they are indexed or computed. For the pointing_xds, only
-    the POINTING TIME and ANTENNA_ID columns are read at open (its time and
-    antenna coordinates); it is built at open, as by the converter, with
-    pointing_interpolate=True and for POINTING tables that cannot be read in
-    blocks (cells of several shapes or empty cells, unusual value types, more
-    than about 16.7 million rows).
+    from the MS when they are indexed or computed (a selection reads only its
+    rows). For the pointing_xds, the POINTING TIME and ANTENNA_ID columns are
+    read at open (its time and antenna coordinates), and one cell of each
+    data column. Only with pointing_interpolate=True is it built at open, as
+    by the converter (for POINTING tables whose cells cannot be described
+    without reading them, e.g. empty cells or unusual value types, it is
+    built at open to find its shape and built again when it is read).
+    An MS without MAIN rows opens as an empty processing set.
 
     The first open of a writable MS stores its partitions in the MS (see
     partition_cache below). See the API documentation for the costs of an
@@ -115,7 +117,8 @@ def open_msv2(
     MSv2ChangedError
         From a lazy read, if the MS changed since it was opened.
     MSv2ReadError
-        From a lazy read that failed.
+        From a lazy read that failed (see skip_columns for columns whose
+        cells only a read can check).
     """
     if array_backend == "xarray":
         chunks, chunked_array_type = None, None

@@ -50,6 +50,7 @@ from xradio.measurement_set._utils._msv2.partition_cache import (
     MAIN_NOT_FLUSHED,
     PARTITIONS_MEMO,
     PartitionsResult,
+    changed_since,
     compute_in_memory,
     load_or_create_partitions,
     resolve_partition_cache_mode,
@@ -161,8 +162,13 @@ def open_msv2_tree(
                 raise MSv2ChangedError(
                     f"{path} changed while it was opened ({exc}); open it again"
                 ) from exc
-            if result.source == "fresh" or isinstance(exc, MainRowsChangedError):
-                # (a change made while the MS was opened, not a cache defect)
+            if (
+                result.source == "fresh"
+                or isinstance(exc, MainRowsChangedError)
+                or changed_since(path, result)
+            ):
+                # (a change made while the MS was opened, e.g. by another
+                # process: not a cache defect)
                 xradio_logger().info(
                     f"{path} changed while it was opened ({exc}): opening it again"
                 )

@@ -903,12 +903,17 @@ class PartitionsResult:
         a reason of why_not_writable, or MAIN_NOT_FLUSHED (compute_in_memory:
         the view of this process, which holds MAIN's write lock with rows
         not flushed yet).
+    fingerprint, history_nrows : str | None, int | None
+        For partitions from the memo or a stored row: the fingerprint and
+        HISTORY rows of the MS they were validated with (changed_since).
     """
 
     partitions: list[dict]
     runs: MainRowRuns
     source: str
     status: str
+    fingerprint: str | None = None
+    history_nrows: int | None = None
 
     @property
     def main_nrows(self) -> int:
@@ -925,7 +930,12 @@ class _MemoEntry:
 
     def result(self, source: str, status: str) -> PartitionsResult:
         return PartitionsResult(
-            copy.deepcopy(self.partitions), _copy_runs(self.runs), source, status
+            copy.deepcopy(self.partitions),
+            _copy_runs(self.runs),
+            source,
+            status,
+            self.fingerprint,
+            self.history_nrows,
         )
 
 
@@ -1867,6 +1877,20 @@ def _store(
         # valid (as the stored row: the HISTORY rule holds)
         entry.history_nrows = n_history + 1
     return status
+
+
+def changed_since(path: str, result: PartitionsResult) -> bool:
+    """
+    Whether an MS changed since partitions from the memo or a stored row
+    were validated: its fingerprint or number of HISTORY rows is another
+    now (a write made while the MS was opened), or cannot be computed. A
+    result without them (computed) counts as changed.
+    """
+    if result.fingerprint is None:
+        return True
+    with write_mutex(path):
+        fingerprint, n_history = _ms_state(path)
+    return fingerprint != result.fingerprint or n_history != result.history_nrows
 
 
 def compute_in_memory(

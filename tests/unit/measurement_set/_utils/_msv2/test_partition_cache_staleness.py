@@ -494,6 +494,54 @@ def test_rows_added_while_opening_are_no_cache_defect(ms_copy, tmp_path, monkeyp
     assert_nodes_identical(tree, open_processing_set(out))
 
 
+def test_rows_rewritten_while_opening_are_no_cache_defect(
+    ms_copy, tmp_path, monkeypatch
+):
+    """A key column rewritten (another writer) between the load of stored
+    partitions and their check against the rows: the check fails because
+    the MS changed (its fingerprint), not because of the cache, so the open
+    is logged at INFO and done again with the partitions computed, without
+    the "please report" PartitionCacheWarning; the tree equals the
+    converter's of the changed MS."""
+    import warnings
+
+    msname = ms_copy("rich", name="rich.ms")
+    assert status_of(msname) == "stored"
+    partition_cache.clear_partition_memo()
+    load = backend_open.load_or_create_partitions
+    statuses = []
+
+    def load_then_rewrite(*args, **kwargs):
+        result = load(*args, **kwargs)
+        if not statuses:
+            _update(msname, "FIELD_ID", slice(0, 50), 1)
+        statuses.append(result.status)
+        return result
+
+    infos = []
+
+    class Logger:
+        def info(self, message):
+            infos.append(message)
+
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+
+    monkeypatch.setattr(backend_open, "load_or_create_partitions", load_then_rewrite)
+    monkeypatch.setattr(backend_open, "xradio_logger", Logger)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        tree = xr.open_datatree(
+            msname, engine=ENGINE, chunks={}, partition_cache="auto", **OPTIONS
+        )
+    assert statuses == ["hit", "stored"]
+    assert [w for w in caught if issubclass(w.category, PartitionCacheWarning)] == []
+    assert any("changed while it was opened" in m for m in infos)
+    out = str(tmp_path / "oracle.ps.zarr")
+    convert_msv2_to_processing_set(msname, out, **OPTIONS)
+    assert_nodes_identical(tree, open_processing_set(out))
+
+
 def _last_history_params(msname: str) -> list[str]:
     with tables.table(os.path.join(msname, "HISTORY"), ack=False) as history:
         return list(history.getcell("APP_PARAMS", history.nrows() - 1))

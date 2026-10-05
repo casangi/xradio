@@ -9,7 +9,7 @@ Xarray Radio Astronomy Data IO is still in development.
 [![Documentation Status](https://readthedocs.org/projects/xradio/badge/?version=latest)](https://xradio.readthedocs.io)
 [![Version Status](https://img.shields.io/pypi/v/xradio.svg)](https://pypi.python.org/pypi/xradio/)
 [![Benchmarks](https://img.shields.io/badge/Benchmarks-Tests-orange)](https://casangi.github.io/benchviper/xradio)
-[![Read the Docs Status](https://readthedocs.org)](https://xradio.readthedocs.io/en/latest/?badge=latest)
+[![Read the Docs Status](https://readthedocs.org/projects/xradio/badge/?version=latest)](https://xradio.readthedocs.io/en/latest/?badge=latest)
 
 
 # Installing

@@ -640,6 +640,38 @@ def test_rebuilt_pointing_changed(pointing_ms, tmp_path):
         _ = actual.POINTING_BEAM.values
 
 
+@pytest.mark.parametrize("variant", ["float_over_the_top", "varying_direction"])
+def test_rebuilt_pointing_with_other_times_raises(pointing_ms, tmp_path, variant):
+    """POINTING TIME rewritten in place after the open, keeping the shape of
+    the grid (every time shifted by half a sample): the pointing_xds built
+    again on read has other time coordinates than the one opened, so a read
+    raises MSv2ChangedError (its values would be served under the opened
+    coordinates), as for lazily read pointing_xds; also with the memos
+    emptied. Values rewritten in place (the same times) are read as they
+    are now. (A table the index cannot describe, and a partition with cells
+    of another shape.)"""
+    ms = shutil.copytree(pointing_ms[variant], str(tmp_path / "copy.ms"))
+    ant_names = antenna_names(range(NANTS))
+    time_min_max = whole_time_range(ms)
+    actual = opened_pointing(ms, ant_names, time_min_max)
+    name = next(iter(actual.data_vars))
+    assert build_array(actual[name]) is not None
+    with tables.table(os.path.join(ms, "POINTING"), readonly=False, ack=False) as tb:
+        value = tb.getcell("OVER_THE_TOP", 0)
+        boolean = isinstance(value, bool | np.bool_)
+        tb.putcell("OVER_THE_TOP", 0, (not value) if boolean else value + 1)
+    assert_bits_equal(
+        actual[name].values,
+        create_pointing_xds(ms, ant_names, time_min_max, None)[name].values,
+    )
+    with tables.table(os.path.join(ms, "POINTING"), readonly=False, ack=False) as tb:
+        tb.putcol("TIME", tb.getcol("TIME") + 0.5)
+    for _ in range(2):
+        with pytest.raises(MSv2ChangedError, match="times or antennas"):
+            _ = actual[name].values
+        bpt.clear_pointing_memos()
+
+
 def _window_without(ms: str, rows: np.ndarray) -> tuple:
     """The widest time range (inside, 3 samples from either end) between the
     times of POINTING rows ``rows``."""

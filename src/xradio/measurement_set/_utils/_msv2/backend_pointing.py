@@ -59,7 +59,11 @@ whose rows no longer have the TIME and ANTENNA_ID of the index (rewritten in
 place) reads the index again, as another process would: the outcome does
 not depend on the memo. (The rows are checked one by one only when the
 table's fingerprint changed since the open, or a handle of the process has
-it open for writing.)
+it open for writing.) A pointing_xds built again on read must have the
+coordinates (times, antennas) of the one built at open, and the shapes and
+dtypes of its variables, else MSv2ChangedError. Every read also checks that
+the partition's MAIN rows, whose time range and antennas select its
+POINTING rows, are those of the open (``PartitionIndex.verify_current``).
 """
 
 import collections
@@ -1343,15 +1347,36 @@ class PointingBuild:
             )
 
 
+def pointing_coords_token(pointing_xds: xr.Dataset) -> str:
+    """
+    Token of the coordinates of a pointing_xds (every coordinate variable:
+    its name, dimensions and values; the time and antenna grid of the
+    partition's POINTING rows).
+    """
+    digest = hashlib.blake2b(digest_size=16)
+    for name in sorted(str(name) for name in pointing_xds.coords):
+        var = pointing_xds.coords[name].variable
+        values = np.asarray(var.values)
+        if values.dtype.kind == "O":
+            values = values.astype(str)
+        digest.update(json.dumps([name, list(var.dims)]).encode())
+        digest.update(_digest(values).encode())
+    return digest.hexdigest()
+
+
 class PointingBuildArray(MSv2BackendArray):
     """
     A data variable of a pointing_xds that only the converter's code can
     build (POINTING tables that ``read_pointing_index`` cannot describe, and
     partitions whose rows have cells of another shape): a read takes the
-    partition's pointing_xds from POINTING_BUILD_MEMO, or builds it again
-    (:class:`PointingBuild`) while the POINTING table is as it was (its
-    fingerprint), and returns the selection of the variable. The variables
-    of a partition so share one build; the open keeps no values.
+    partition's pointing_xds from POINTING_BUILD_MEMO (by the POINTING
+    table's fingerprint), or builds it again (:class:`PointingBuild`), and
+    returns the selection of the variable. The variables of a partition so
+    share one build; the open keeps no values. A build whose coordinates
+    (times, antennas) are not those of the open (``coords_token``: e.g.
+    POINTING TIME rewritten in place), or whose variable has another shape
+    or dtype, raises MSv2ChangedError: its values would not be those of the
+    coordinates of the opened pointing_xds.
 
     Parameters
     ----------
@@ -1367,6 +1392,9 @@ class PointingBuildArray(MSv2BackendArray):
         Name of the MSv4 node (for messages).
     partition : PartitionIndex | None
         The MAIN rows of the partition (see PointingColumnArray).
+    coords_token : str
+        ``pointing_coords_token`` of the pointing_xds built at open ("": not
+        checked).
     """
 
     def __init__(
@@ -1377,12 +1405,14 @@ class PointingBuildArray(MSv2BackendArray):
         dtype: DTypeLike,
         node: str = "",
         partition: PartitionIndex | None = None,
+        coords_token: str = "",
     ):
         super().__init__(shape, dtype)
         self.build = build
         self.name = str(name)
         self.node = str(node)
         self.partition = partition
+        self.coords_token = str(coords_token)
 
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
         if self.partition is not None:
@@ -1416,6 +1446,12 @@ class PointingBuildArray(MSv2BackendArray):
                 f"{self.name} of {self.node or 'an MSv4'} is {found}, "
                 f"{self.dtype} {self.shape} when it was opened); open it again"
             )
+        if self.coords_token and pointing_coords_token(xds) != self.coords_token:
+            raise MSv2ChangedError(
+                f"The POINTING table {table} changed since the MS was opened (the "
+                f"times or antennas of the pointing_xds of {self.node or 'an MSv4'} "
+                "differ from those when it was opened); open it again"
+            )
         # (a copy: the build may be kept in the memo)
         return np.array(var.values[key], copy=True)
 
@@ -1429,13 +1465,21 @@ def rebuilt_pointing_xds(
     """
     A pointing_xds built at open by the converter's code with its data
     variables replaced by lazily indexed arrays that build it again when
-    read (:class:`PointingBuildArray`, checking ``partition`` when read),
-    keeping their dimensions, attributes and encoding.
+    read (:class:`PointingBuildArray`, checking ``partition`` and the
+    coordinates of the build when read), keeping their dimensions,
+    attributes and encoding.
     """
     lazy = {}
+    coords_token = pointing_coords_token(pointing_xds)
     for name, var in pointing_xds.data_vars.items():
         array = PointingBuildArray(
-            build, name, var.shape, var.dtype, node=node, partition=partition
+            build,
+            name,
+            var.shape,
+            var.dtype,
+            node=node,
+            partition=partition,
+            coords_token=coords_token,
         )
         lazy_var = xr.Variable(
             var.dims,

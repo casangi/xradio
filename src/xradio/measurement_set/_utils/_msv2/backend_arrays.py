@@ -7,20 +7,23 @@ EFFECTIVE_INTEGRATION_TIME) are not read when an MSv2 is opened:
 :class:`MSv2MainColumnArray` reads the values of one data variable of one
 partition when it is indexed, and :class:`OnesArray` stands for the WEIGHT=1
 fallback (nothing to read). Both derive from :class:`MSv2BackendArray`, which
-reduces every key xarray passes to one ``slice(start, stop, 1)`` per dimension
-(the bounding block) and applies the rest of the key to the block.
+supports outer indexing: every key xarray passes is reduced to the sorted
+unique indices to read along every dimension, and the rest of the key
+(integers, reversals, unsorted or repeated indices) is applied to what was
+read.
 
-Values: a block is read in time sub-blocks of whole cells (at most
-``SUB_BLOCK_BYTES`` each, at least one time) with the converter's own read
-primitive (``read_grid``: cells without a row padded with
-``get_pad_value``, FLAG=False and NaN; for duplicated (time, baseline) rows
-the last row wins; bounded calls of ascending rows) and the converter's
-transform (TIME_CENTROID epoch, WEIGHT repeated along frequency), and the
-cells are sliced afterwards in numpy. So the values are those the converter
-writes, for any key. Every read opens the MAIN table by name and closes it
-(no handle is kept); with casatools it holds the process-wide casatools lock
-(``casatools_serialized``) over the open, the read, the close and the release
-of the table.
+Values: only the rows of the selected (time, baseline) cells are read, in
+time sub-blocks of whole cells (at most ``SUB_BLOCK_BYTES`` each, at least one
+time), with the converter's own read primitive (``read_grid``: cells without
+a row padded with ``get_pad_value``, FLAG=False and NaN; for duplicated
+(time, baseline) rows the last row wins; bounded calls of ascending rows) and
+the converter's transform (TIME_CENTROID epoch, WEIGHT repeated along
+frequency); the selected cell elements are taken afterwards in numpy. So the
+values are those the converter writes, for any key, and a read holds at most
+its result plus one sub-block. Every read opens the MAIN table by name and
+closes it (no handle is kept); with casatools it holds the process-wide
+casatools lock (``casatools_serialized``) over the open, the read, the close
+and the release of the table.
 
 Rows: :class:`PartitionIndex` holds the MAIN rows of a partition as runs, the
 number of MAIN rows and the (time, baseline) grid shape when the MS was
@@ -29,9 +32,12 @@ baseline) index of every row is kept in a bounded per-process memo: seeded
 from the build when the MS is opened, rebuilt with the converter's
 ``calc_indx_for_row_split`` in another process (or after an eviction). A MAIN
 table with another number of rows, or a rebuilt index with another token,
-raises :class:`MSv2ChangedError`. The arrays pickle to their path, runs and
-column description (about 1 kB plus 16 bytes per run), never per-row arrays
-or table handles.
+raises :class:`MSv2ChangedError`. Every read also checks that the rows it
+reads still have the TIME, ANTENNA1 and ANTENNA2 of their cells in the index;
+if not, the index is rebuilt (and checked) as in another process, so that the
+outcome of a read does not depend on whether the index was in the memo. The arrays pickle to their path, runs and column
+description (about 1 kB plus 16 bytes per run), never per-row arrays or table
+handles.
 """
 
 import collections
@@ -48,9 +54,11 @@ from numpy.typing import DTypeLike
 
 from xradio._utils._casacore.tables import casatools_serialized
 from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
     MainTableRows,
     make_row_grid_plan,
+    read_column_rows,
     read_grid,
     rows_to_runs,
     runs_to_rows,
@@ -74,43 +82,47 @@ INDEX_MEMO_MAX_BYTES = 256 * 2**20
 INDEX_BUILD_LOCKS = 64
 
 
-# --- copied from the ASDM backend (_asdm/asdm_backend_arrays.py) -------------
-# TODO: unify with _asdm/asdm_backend_arrays.py once both backends are merged.
+# --- the base class ------------------------------------------------------------
+# Adapted from the ASDM backend (_asdm/asdm_backend_arrays.py), which supports
+# basic indexing only (the bounding block of a selection is read); here outer
+# indexing (TODO: unify with _asdm/asdm_backend_arrays.py once both backends
+# are merged).
 
 
-def normalize_basic_key(
+def normalize_outer_key(
     key: tuple, shape: tuple[int, ...]
-) -> tuple[tuple[slice, ...], tuple, tuple[int, ...]]:
+) -> tuple[tuple[np.ndarray, ...], list, tuple[int, ...]]:
     """
-    Split a basic (integers and slices) key into a step-1 block key and the key
-    to apply to that block.
+    Split an outer key (one int, slice or 1-D integer array per dimension)
+    into the sorted unique indices to read along every dimension and the
+    numpy indexing that turns those into the selection.
 
     Parameters
     ----------
     key : tuple
-        Basic indexing key: one int or slice per dimension (missing trailing
-        dimensions are selected entirely).
+        Outer indexing key (missing trailing dimensions are selected
+        entirely). Negative indices count from the end.
     shape : tuple[int, ...]
         Shape of the indexed array.
 
     Returns
     -------
-    tuple[tuple[slice, ...], tuple, tuple[int, ...]]
-        - block_key: one ``slice(start, stop, 1)`` per dimension, with Python ints
-          and ``0 <= start <= stop <= dim_len``: the bounding block of the
-          selection (integers become length-1 ranges). ``start == stop`` (only)
-          for empty selections.
-        - residual_key: key that applied to the block gives the selection
-          (``0`` for integer keys, slices for the steps / reversals).
-        - result_shape: shape of the selection (integer-indexed dimensions are
-          dropped).
+    tuple[tuple[np.ndarray, ...], list, tuple[int, ...]]
+        - selections: per dimension, the indices to read (int64, ascending,
+          unique, in range).
+        - post: per dimension, what to apply to the read values along it:
+          ``0`` (an integer key: the dimension is dropped), ``slice(None)``,
+          ``slice(None, None, -1)`` (a negative-step slice) or an int64
+          array of positions into ``selections`` (unsorted or repeated array
+          keys).
+        - result_shape: shape of the selection.
 
     Raises
     ------
     IndexError
-        If there are too many indices or an integer index is out of bounds.
+        If there are too many indices or an index is out of bounds.
     TypeError
-        If an index is not an int or a slice.
+        If an index is not an int, a slice or a 1-D integer array.
     """
     if not isinstance(key, tuple):
         key = (key,)
@@ -120,9 +132,7 @@ def normalize_basic_key(
         )
     key = key + (slice(None),) * (len(shape) - len(key))
 
-    block_key = []
-    residual_key = []
-    result_shape = []
+    selections, post, result_shape = [], [], []
     for dim_key, dim_len in zip(key, shape, strict=True):
         if isinstance(dim_key, int | np.integer) and not isinstance(
             dim_key, bool | np.bool_
@@ -132,32 +142,95 @@ def normalize_basic_key(
                 raise IndexError(
                     f"Index {index} is out of bounds for a dimension of size {dim_len}"
                 )
-            index %= dim_len
-            block_key.append(slice(index, index + 1, 1))
-            residual_key.append(0)
+            selections.append(np.array([index % dim_len], dtype=np.int64))
+            post.append(0)
         elif isinstance(dim_key, slice):
             selected = range(dim_len)[dim_key]
             result_shape.append(len(selected))
-            if len(selected) == 0:
-                block_key.append(slice(0, 0, 1))
-                residual_key.append(slice(None))
-                continue
-            first, last = selected[0], selected[-1]
-            start, stop = min(first, last), max(first, last) + 1
-            block_key.append(slice(start, stop, 1))
-            if selected.step == 1:
-                residual_key.append(slice(None))
-            elif selected.step > 0:
-                residual_key.append(slice(0, None, selected.step))
+            if selected.step > 0:
+                selections.append(
+                    np.arange(selected.start, selected.stop, selected.step)
+                )
+                post.append(slice(None))
             else:
-                residual_key.append(slice(stop - start - 1, None, selected.step))
+                selections.append(
+                    np.arange(selected.start, selected.stop, selected.step)[::-1].copy()
+                )
+                post.append(slice(None, None, -1))
+        elif isinstance(dim_key, np.ndarray | list | tuple):
+            indices = np.asarray(dim_key)
+            if indices.ndim != 1 or (indices.size and indices.dtype.kind not in "iu"):
+                raise TypeError(
+                    f"Unsupported outer index {dim_key!r}: only 1-D integer arrays"
+                )
+            indices = indices.astype(np.int64)
+            if indices.size and (indices.min() < -dim_len or indices.max() >= dim_len):
+                raise IndexError(
+                    f"Indices {indices} are out of bounds for a dimension of size "
+                    f"{dim_len}"
+                )
+            indices = np.where(indices < 0, indices + dim_len, indices)
+            unique, positions = np.unique(indices, return_inverse=True)
+            selections.append(unique)
+            result_shape.append(indices.size)
+            if unique.size == indices.size and np.all(np.diff(indices) > 0):
+                post.append(slice(None))
+            else:
+                post.append(positions.reshape(-1).astype(np.int64))
         else:
             raise TypeError(
-                f"Unsupported basic index {dim_key!r} of type {type(dim_key)}: only "
-                "integers and slices are supported"
+                f"Unsupported index {dim_key!r} of type {type(dim_key)}: only "
+                "integers, slices and 1-D integer arrays are supported"
             )
+    return tuple(selections), post, tuple(result_shape)
 
-    return tuple(block_key), tuple(residual_key), tuple(result_shape)
+
+def apply_outer_post(values: np.ndarray, post: list) -> np.ndarray:
+    """Apply the ``post`` of normalize_outer_key to the values read for its
+    ``selections`` (outer semantics: every dimension on its own)."""
+    for axis, dim_post in enumerate(post):
+        if isinstance(dim_post, np.ndarray):
+            values = np.take(values, dim_post, axis=axis)
+    basic = tuple(
+        slice(None) if isinstance(dim_post, np.ndarray) else dim_post
+        for dim_post in post
+    )
+    if any(dim_post != slice(None) for dim_post in basic):
+        values = values[basic]
+    return values
+
+
+def bounding_slices(selections: tuple[np.ndarray, ...]) -> tuple[slice, ...]:
+    """One ``slice(first, last + 1, 1)`` per dimension (non-empty sorted
+    selections)."""
+    return tuple(
+        slice(int(selected[0]), int(selected[-1]) + 1, 1) for selected in selections
+    )
+
+
+def is_range(selected: np.ndarray) -> bool:
+    """Whether sorted unique indices are consecutive."""
+    return (
+        selected.size == 0 or int(selected[-1]) - int(selected[0]) + 1 == selected.size
+    )
+
+
+def take_from_block(
+    block: np.ndarray, selections: tuple[np.ndarray, ...], offsets
+) -> np.ndarray:
+    """The ``selections`` (indices relative to ``offsets``) of a block read
+    for them, along every dimension (outer); slices where they are
+    consecutive (no copy)."""
+    basic = []
+    for axis, (selected, offset) in enumerate(zip(selections, offsets, strict=True)):
+        if is_range(selected):
+            basic.append(
+                slice(int(selected[0]) - offset, int(selected[-1]) + 1 - offset)
+            )
+        else:
+            block = np.take(block, selected - offset, axis=axis)
+            basic.append(slice(None))
+    return block[tuple(basic)]
 
 
 def _replace_empty_slices(
@@ -185,16 +258,24 @@ class MSv2BackendArray(xr.backends.BackendArray):
     """
     Base class of the lazily indexable MSv2 backend arrays.
 
-    Subclasses implement :meth:`_raw_indexing_method`, which receives a normalised
-    key (see :func:`normalize_basic_key`): a tuple with one
-    ``slice(start, stop, 1)`` per dimension, with Python ints and
-    ``0 <= start < stop <= dim_len`` (never None, never empty, never an int,
-    never a step != 1). It must return an array with exactly ``stop - start``
-    elements along every dimension (all dimensions kept).
+    xarray indexes it with outer keys (``IndexingSupport.OUTER``: per
+    dimension an int, a slice or an integer array; vectorized keys are
+    decomposed by xarray into an outer key and a numpy key applied to the
+    result). :meth:`__getitem__` reduces every key to the sorted unique
+    indices to read along every dimension (:func:`normalize_outer_key`) and
+    calls :meth:`_read_selection` with them; integer keys (squeezed),
+    negative steps, unsorted and repeated indices are applied to its result,
+    empty selections skip it. The result is cast to the declared dtype and
+    its shape checked.
 
-    The wrapper (:meth:`__getitem__`) handles integer keys (squeeze), steps and
-    negative steps (applied to the loaded block), empty selections (no loader
-    call), casts the result to the declared dtype and checks its shape.
+    Subclasses implement :meth:`_raw_indexing_method`, which receives a
+    normalised block key: a tuple with one ``slice(start, stop, 1)`` per
+    dimension, with Python ints and ``0 <= start < stop <= dim_len``, and
+    returns an array with exactly ``stop - start`` elements along every
+    dimension. By default :meth:`_read_selection` reads the bounding block of
+    the selection with it; subclasses that can read only the selected
+    indices (the MAIN and POINTING columns: only the selected times and
+    baselines or antennas) override :meth:`_read_selection`.
 
     Parameters
     ----------
@@ -224,46 +305,44 @@ class MSv2BackendArray(xr.backends.BackendArray):
         Makes the MSv2 backend arrays indexable (subscriptable with []), via the
         LazilyIndexedArray wrapper class.
 
-        'key' is an explicit indexer from xarray. Outer / vectorized indexers are
-        decomposed by xarray into a basic indexer (handled by
-        :meth:`_getitem_basic`) and a NumPy indexer applied to its result.
+        'key' is an explicit indexer from xarray. Vectorized indexers are
+        decomposed by xarray into an outer indexer (handled by
+        :meth:`_getitem_outer`) and a NumPy indexer applied to its result.
         """
         return xr.core.indexing.explicit_indexing_adapter(
             _replace_empty_slices(key, self.shape),
             self.shape,
-            xr.core.indexing.IndexingSupport.BASIC,
-            self._getitem_basic,
+            xr.core.indexing.IndexingSupport.OUTER,
+            self._getitem_outer,
         )
 
-    def _getitem_basic(self, key: tuple) -> np.ndarray:
-        """Index with a basic key (ints and slices), see the class docstring."""
-        block_key, residual_key, result_shape = normalize_basic_key(key, self.shape)
-
-        block_shape = tuple(dim_key.stop - dim_key.start for dim_key in block_key)
-        if 0 in block_shape:
+    def _getitem_outer(self, key: tuple) -> np.ndarray:
+        """Index with an outer key, see the class docstring."""
+        selections, post, result_shape = normalize_outer_key(key, self.shape)
+        if any(selected.size == 0 for selected in selections):
             return np.empty(result_shape, dtype=self.dtype)
-
+        expected = tuple(selected.size for selected in selections)
         try:
-            block = np.asarray(self._raw_indexing_method(block_key))
+            values = np.asarray(self._read_selection(selections))
         except Exception as exc:
             message = str(exc).strip()
             summary = message.splitlines()[0][:300] if message else ""
+            what = ", ".join(_describe_selection(selected) for selected in selections)
             xradio_logger().warning(
-                f"Exception while loading {type(self).__name__} block {block_key=} "
-                f"(for {key=}): {type(exc).__name__}: {summary}"
+                f"Exception while loading {type(self).__name__} [{what}] (for "
+                f"{key=}): {type(exc).__name__}: {summary}"
             )
             raise
-
-        if block.shape != block_shape:
+        if values.shape != expected:
             raise RuntimeError(
                 f"{type(self).__name__}: the loader returned an array of shape "
-                f"{block.shape} for the block {block_key}, expected {block_shape}"
+                f"{values.shape} for a selection of shape {expected}"
             )
-
-        trivial_residual = all(dim_key == slice(None) for dim_key in residual_key)
-        result = block if trivial_residual else block[residual_key]
-        result = self._cast(result, copy=not trivial_residual)
-
+        result = apply_outer_post(values, post)
+        trivial = all(
+            isinstance(dim_post, slice) and dim_post == slice(None) for dim_post in post
+        )
+        result = self._cast(result, copy=not trivial)
         if result.shape != result_shape:
             raise RuntimeError(
                 f"{type(self).__name__}: indexing with {key=} produced shape "
@@ -285,9 +364,35 @@ class MSv2BackendArray(xr.backends.BackendArray):
             return np.array(values, dtype=self.dtype)
         return values
 
+    def _read_selection(self, selections: tuple[np.ndarray, ...]) -> np.ndarray:
+        """
+        The values at the outer product of ``selections`` (per dimension,
+        sorted unique indices, none empty), of shape ``tuple(len(s) for s in
+        selections)``. By default the bounding block, read with
+        :meth:`_raw_indexing_method`, then selected.
+        """
+        block_key = bounding_slices(selections)
+        block = np.asarray(self._raw_indexing_method(block_key))
+        block_shape = tuple(dim_key.stop - dim_key.start for dim_key in block_key)
+        if block.shape != block_shape:
+            raise RuntimeError(
+                f"{type(self).__name__}: the loader returned an array of shape "
+                f"{block.shape} for the block {block_key}, expected {block_shape}"
+            )
+        return take_from_block(
+            block, selections, [dim_key.start for dim_key in block_key]
+        )
+
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
         """Load the block given by a normalised key (one step-1 slice per dim)."""
         raise NotImplementedError
+
+
+def _describe_selection(selected: np.ndarray) -> str:
+    """A short description of the indices read along a dimension."""
+    if is_range(selected):
+        return f"{int(selected[0])}:{int(selected[-1]) + 1}"
+    return f"{selected.size} of {int(selected[0])}..{int(selected[-1])}"
 
 
 # --- the (time, baseline) index of the rows of a partition -------------------
@@ -330,12 +435,32 @@ class _IndexEntry:
     (int64, ascending), their time and baseline indices (int32), the order of
     the rows by time (int64, None if the rows are time-ordered) and, for every
     time index t, the first position of that order with a time index >= t.
+    Also the grid's unique times (Unix seconds) and the antennas of its
+    baselines, against which a read checks the rows it reads (None: not
+    checked, for indices made without them in tests).
     """
 
-    __slots__ = ("rows", "tidxs", "bidxs", "order", "time_bounds", "nbytes")
+    __slots__ = (
+        "rows",
+        "tidxs",
+        "bidxs",
+        "order",
+        "time_bounds",
+        "utime",
+        "baseline_ant1",
+        "baseline_ant2",
+        "nbytes",
+    )
 
     def __init__(
-        self, rows: np.ndarray, tidxs: np.ndarray, bidxs: np.ndarray, n_times: int
+        self,
+        rows: np.ndarray,
+        tidxs: np.ndarray,
+        bidxs: np.ndarray,
+        n_times: int,
+        utime: np.ndarray | None = None,
+        baseline_ant1: np.ndarray | None = None,
+        baseline_ant2: np.ndarray | None = None,
     ):
         self.rows = np.array(rows, dtype=np.int64)
         self.tidxs = np.array(tidxs, dtype=np.int32)
@@ -345,6 +470,12 @@ class _IndexEntry:
                 f"Got {self.tidxs.size} time and {self.bidxs.size} baseline indices "
                 f"for {self.rows.size} rows"
             )
+        if utime is None:
+            self.utime = self.baseline_ant1 = self.baseline_ant2 = None
+        else:
+            self.utime = np.array(utime, dtype=np.float64)
+            self.baseline_ant1 = np.array(baseline_ant1, dtype=np.int32)
+            self.baseline_ant2 = np.array(baseline_ant2, dtype=np.int32)
         if self.tidxs.size < 2 or bool(np.all(np.diff(self.tidxs) >= 0)):
             self.order = None
             sorted_tidxs = self.tidxs
@@ -356,8 +487,18 @@ class _IndexEntry:
         ).astype(np.int64)
         self.nbytes = sum(
             values.nbytes
-            for values in (self.rows, self.tidxs, self.bidxs, self.time_bounds)
-        ) + (0 if self.order is None else self.order.nbytes)
+            for values in (
+                self.rows,
+                self.tidxs,
+                self.bidxs,
+                self.time_bounds,
+                self.order,
+                self.utime,
+                self.baseline_ant1,
+                self.baseline_ant2,
+            )
+            if values is not None
+        )
 
 
 class _IndexMemo:
@@ -399,6 +540,16 @@ class _IndexMemo:
                 _, evicted = self._entries.popitem(last=False)
                 self._nbytes -= evicted.nbytes
                 self.stats["evictions"] += 1
+
+    def discard(self, key: tuple, entry: Any = None) -> None:
+        """Remove the entry of ``key`` (only if it is ``entry``, when given:
+        another thread may have replaced it meanwhile)."""
+        with self._lock:
+            found = self._entries.get(key)
+            if found is not None and (entry is None or found is entry):
+                del self._entries[key]
+                self._nbytes -= found.nbytes
+                self.stats["discards"] += 1
 
     def clear(self) -> None:
         with self._lock:
@@ -506,7 +657,15 @@ class PartitionIndex:
         )
         INDEX_MEMO.put(
             index.memo_key(),
-            _IndexEntry(rows, built.tidxs, built.bidxs, index.shape[0]),
+            _IndexEntry(
+                rows,
+                built.tidxs,
+                built.bidxs,
+                index.shape[0],
+                built.utime,
+                built.baseline_ant1,
+                built.baseline_ant2,
+            ),
         )
         return index
 
@@ -583,7 +742,37 @@ class PartitionIndex:
                 "the times or baselines of the rows of a partition differ from "
                 "those when it was opened"
             )
-        return _IndexEntry(rows, tidxs, bidxs, self.shape[0])
+        return _IndexEntry(rows, tidxs, bidxs, self.shape[0], utime, ant1, ant2)
+
+    def rows_moved(
+        self, table: Any, rows: np.ndarray, positions: np.ndarray, entry: _IndexEntry
+    ) -> str:
+        """
+        Whether ``rows`` (ascending, at ``positions`` of the index) no longer
+        have the TIME, ANTENNA1 and ANTENNA2 of their (time, baseline) cell
+        in ``entry``: the description of the first difference, or "". A read
+        places the values of a row with the index, so an index whose rows
+        moved (keys rewritten in place since it was made) must be made
+        again from the MS (see MSv2MainColumnArray._read_selection).
+        """
+        if entry.utime is None:
+            return ""
+        for col, expected in (
+            ("TIME", entry.utime[entry.tidxs[positions]]),
+            ("ANTENNA1", entry.baseline_ant1[entry.bidxs[positions]]),
+            ("ANTENNA2", entry.baseline_ant2[entry.bidxs[positions]]),
+        ):
+            values = read_column_rows(table, col, rows)
+            if col == "TIME":
+                values = convert_casacore_time(values, False)
+            if not np.array_equal(values, expected):
+                changed = int(rows[np.flatnonzero(values != expected)[0]])
+                return f"the {col} of MAIN row {changed} changed"
+        return ""
+
+    def discard(self, entry: _IndexEntry) -> None:
+        """Remove ``entry`` from the memo (rebuilt on the next read)."""
+        INDEX_MEMO.discard(self.memo_key(), entry)
 
     def select(
         self,
@@ -610,20 +799,81 @@ class PartitionIndex:
         tuple[np.ndarray, np.ndarray]
             Rows (int64, ascending) and block cells (int64).
         """
+        rows, cells, _ = self.select_outer(
+            np.arange(t0, t1, dtype=np.int64),
+            np.arange(b0, b1, dtype=np.int64),
+            entry,
+        )
+        return rows, cells
+
+    def select_outer(
+        self,
+        times: np.ndarray,
+        baselines: np.ndarray,
+        entry: _IndexEntry | None = None,
+    ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+        """
+        The rows of the times ``times`` and baselines ``baselines`` of the
+        grid (sorted unique indices), in ascending order, and the flat cell
+        of every row in the (len(times), len(baselines)) grid of the
+        selection; also the positions of the rows in the index.
+
+        Parameters
+        ----------
+        times, baselines : np.ndarray
+            Time and baseline indices (ascending, unique).
+        entry : _IndexEntry | None, optional
+            The index (``entry()``), by default looked up.
+
+        Returns
+        -------
+        tuple[np.ndarray, np.ndarray, np.ndarray]
+            Rows (int64, ascending), selection cells (int64) and positions
+            of the rows in the index (int64).
+        """
         if entry is None:
             entry = self.entry()
-        lo, hi = int(entry.time_bounds[t0]), int(entry.time_bounds[t1])
-        if entry.order is None:
+        times = np.asarray(times, dtype=np.int64)
+        baselines = np.asarray(baselines, dtype=np.int64)
+        if times.size == 0 or baselines.size == 0:
+            empty = np.empty(0, dtype=np.int64)
+            return empty, empty.copy(), empty.copy()
+        if is_range(times):
+            t0, t1 = int(times[0]), int(times[-1]) + 1
+            lo, hi = int(entry.time_bounds[t0]), int(entry.time_bounds[t1])
             pos = np.arange(lo, hi, dtype=np.int64)
+            time_position = None
         else:
-            pos = np.sort(entry.order[lo:hi])
-        if b0 > 0 or b1 < self.shape[1]:
-            bidxs = entry.bidxs[pos]
-            pos = pos[(bidxs >= b0) & (bidxs < b1)]
-        cells = (entry.tidxs[pos].astype(np.int64) - t0) * (b1 - b0) + (
-            entry.bidxs[pos].astype(np.int64) - b0
+            lo, hi = entry.time_bounds[times], entry.time_bounds[times + 1]
+            counts = hi - lo
+            # the positions of the time ranges, concatenated
+            pos = np.repeat(lo - (np.cumsum(counts) - counts), counts) + np.arange(
+                int(counts.sum()), dtype=np.int64
+            )
+            time_position = np.full(self.shape[0], -1, dtype=np.int64)
+            time_position[times] = np.arange(times.size)
+        if entry.order is not None:
+            pos = np.sort(entry.order[pos])
+        # (else ascending: the times are, and so are their ranges)
+        bidxs = entry.bidxs[pos].astype(np.int64)
+        if is_range(baselines):
+            b0, b1 = int(baselines[0]), int(baselines[-1]) + 1
+            if b0 > 0 or b1 < self.shape[1]:
+                keep = (bidxs >= b0) & (bidxs < b1)
+                pos, bidxs = pos[keep], bidxs[keep]
+            baseline_cell = bidxs - b0
+        else:
+            baseline_position = np.full(self.shape[1], -1, dtype=np.int64)
+            baseline_position[baselines] = np.arange(baselines.size)
+            baseline_cell = baseline_position[bidxs]
+            keep = baseline_cell >= 0
+            pos, baseline_cell = pos[keep], baseline_cell[keep]
+        tidxs = entry.tidxs[pos].astype(np.int64)
+        time_cell = (
+            tidxs - int(times[0]) if time_position is None else time_position[tidxs]
         )
-        return entry.rows[pos], cells
+        cells = time_cell * baselines.size + baseline_cell
+        return entry.rows[pos], cells, pos
 
 
 # --- the lazy data variables --------------------------------------------------
@@ -736,25 +986,64 @@ class MSv2MainColumnArray(MSv2BackendArray):
         return message
 
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
-        time_key, baseline_key = key[0], key[1]
-        cell_key = (slice(None), slice(None)) + tuple(key[2:])
-        n_baselines = baseline_key.stop - baseline_key.start
-        out = np.empty(tuple(k.stop - k.start for k in key), dtype=self.dtype)
+        return self._read_selection(
+            tuple(np.arange(k.start, k.stop, dtype=np.int64) for k in key)
+        )
+
+    def _read_selection(self, selections: tuple[np.ndarray, ...]) -> np.ndarray:
+        """
+        The values of the selected times, baselines and cell elements: only
+        the rows of the selected (time, baseline) cells are read, in time
+        sub-blocks of at most SUB_BLOCK_BYTES of whole cells (the transform
+        applies to whole cells).
+
+        Every sub-block first checks that its rows still have the TIME,
+        ANTENNA1 and ANTENNA2 of their cells in the index. If not (keys
+        rewritten in place after the open), the index is made again from the
+        MS, as in another process (``calc_indx_for_row_split``, checked
+        against the grid of the open: MSv2ChangedError if it differs), and
+        the selection read again with it: the outcome does not depend on
+        whether the index was in the memo.
+        """
+        key = bounding_slices(selections)
+        for _attempt in (1, 2):
+            try:
+                entry = self.index.entry()
+            except MSv2ChangedError:
+                raise
+            except Exception as exc:
+                raise MSv2ReadError(self._message(key, exc)) from exc
+            values, moved = self._read_with(selections, entry, key)
+            if not moved:
+                return values
+            del values
+            xradio_logger().debug(
+                f"{self.index.ms_path}: {moved} since the index of a partition was "
+                "made: made again"
+            )
+            self.index.discard(entry)
+        raise self.index.changed_error(f"{moved} while it was read")
+
+    def _read_with(
+        self,
+        selections: tuple[np.ndarray, ...],
+        entry: _IndexEntry,
+        key: tuple[slice, ...],
+    ) -> tuple[np.ndarray | None, str]:
+        """The values of a selection read with the index ``entry``, or
+        (None, why) if rows of the selection no longer have its keys."""
+        times, baselines, cell_selections = selections[0], selections[1], selections[2:]
+        n_baselines = baselines.size
+        out = np.empty(tuple(s.size for s in selections), dtype=self.dtype)
         step = max(1, SUB_BLOCK_BYTES // (n_baselines * self._cell_bytes()))
-        try:
-            entry = self.index.entry()
-        except MSv2ChangedError:
-            raise
-        except Exception as exc:
-            raise MSv2ReadError(self._message(key, exc)) from exc
         with casatools_serialized():
             table = None
             try:
                 with contextlib.ExitStack() as stack:
-                    for t0 in range(time_key.start, time_key.stop, step):
-                        t1 = min(time_key.stop, t0 + step)
-                        rows, cells = self.index.select(
-                            t0, t1, baseline_key.start, baseline_key.stop, entry
+                    for p0 in range(0, times.size, step):
+                        sub_times = times[p0 : p0 + step]
+                        rows, cells, positions = self.index.select_outer(
+                            sub_times, baselines, entry
                         )
                         if rows.size and table is None:
                             # opened in the thread / process that reads
@@ -767,18 +1056,33 @@ class MSv2MainColumnArray(MSv2BackendArray):
                                     f"the MAIN table has {main_nrows} rows, "
                                     f"{self.index.main_nrows} when it was opened"
                                 )
-                        plan = make_row_grid_plan(rows, cells, (t1 - t0) * n_baselines)
+                        if rows.size:
+                            moved = self.index.rows_moved(table, rows, positions, entry)
+                            if moved:
+                                return None, moved
+                        del positions
+                        plan = make_row_grid_plan(
+                            rows, cells, sub_times.size * n_baselines
+                        )
                         del rows, cells
                         grid = read_grid(
                             table,
                             self.col,
                             plan,
-                            (t1 - t0, n_baselines) + self.cell_shape,
+                            (sub_times.size, n_baselines) + self.cell_shape,
                             self.grid_dtype,
                             transform=self.transform,
                         )
                         del plan
-                        out[t0 - time_key.start : t1 - time_key.start] = grid[cell_key]
+                        out[p0 : p0 + sub_times.size] = take_from_block(
+                            grid,
+                            (
+                                np.arange(sub_times.size),
+                                np.arange(n_baselines),
+                            )
+                            + tuple(cell_selections),
+                            [0] * grid.ndim,
+                        )
                         del grid
             except MSv2ChangedError:
                 raise
@@ -786,7 +1090,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
                 raise MSv2ReadError(self._message(key, exc)) from exc
             finally:
                 table = None  # (casatools: released holding the lock)
-        return out
+        return out, ""
 
 
 class OnesArray(MSv2BackendArray):
@@ -801,3 +1105,6 @@ class OnesArray(MSv2BackendArray):
 
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
         return np.ones(tuple(k.stop - k.start for k in key), dtype=self.dtype)
+
+    def _read_selection(self, selections: tuple[np.ndarray, ...]) -> np.ndarray:
+        return np.ones(tuple(s.size for s in selections), dtype=self.dtype)

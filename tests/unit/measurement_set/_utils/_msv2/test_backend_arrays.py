@@ -21,8 +21,9 @@ from xradio.measurement_set._utils._msv2.backend_arrays import (
     PartitionIndex,
     _IndexEntry,
     _IndexMemo,
+    apply_outer_post,
     index_token,
-    normalize_basic_key,
+    normalize_outer_key,
 )
 from xradio.measurement_set._utils._msv2.backend_errors import (
     MSv2ChangedError,
@@ -32,7 +33,7 @@ from xradio.measurement_set._utils._msv2.partition_queries import (
     create_partitions_with_main_rows,
 )
 
-# --- the block base class (cases copied from the ASDM backend's tests) -------
+# --- the base class (cases adapted from the ASDM backend's tests) ------------
 
 DIMS = ("time", "baseline_id", "frequency", "polarization")
 SHAPE = (7, 6, 8, 2)
@@ -98,56 +99,85 @@ LAZY_KEYS = {
         "frequency": slice(2, 7, 2),
         "polarization": -1,
     },
+    "list_repeated": {"time": [3, 3, 0]},
+    "lists_outer": {"time": [5, 1], "frequency": [2, 7, 2], "polarization": [1]},
 }
 
 
-def numpy_key(dims, isel):
-    return tuple(isel.get(dim, slice(None)) for dim in dims)
+def outer_numpy(values, dims, isel):
+    """numpy indexing of ``values`` with ``isel`` (lists as xarray's outer
+    indexing: every dimension on its own)."""
+    for axis in reversed(range(len(dims))):
+        key = isel.get(dims[axis], slice(None))
+        values = np.take(values, np.arange(values.shape[axis])[key], axis=axis)
+    return values
 
 
 @pytest.mark.parametrize(
-    "key, shape, expected",
+    "key, shape, expected_selections, expected_post, result_shape",
     [
         (
             (slice(None), 3, slice(2, 5), -1),
             SHAPE,
-            (
-                (slice(0, 7, 1), slice(3, 4, 1), slice(2, 5, 1), slice(1, 2, 1)),
-                (slice(None), 0, slice(None), 0),
-                (7, 3),
-            ),
+            ([0, 1, 2, 3, 4, 5, 6], [3], [2, 3, 4], [1]),
+            [slice(None), 0, slice(None), 0],
+            (7, 3),
         ),
         (
             (slice(None, None, 2), slice(6, 1, -3)),
             (7, 8),
-            (
-                (slice(0, 7, 1), slice(3, 7, 1)),
-                (slice(0, None, 2), slice(3, None, -3)),
-                (4, 2),
-            ),
+            ([0, 2, 4, 6], [3, 6]),
+            [slice(None), slice(None, None, -1)],
+            (4, 2),
         ),
         (
             (slice(3, 3),),
             (7, 8),
-            ((slice(0, 0, 1), slice(0, 8, 1)), (slice(None), slice(None)), (0, 8)),
+            ([], [0, 1, 2, 3, 4, 5, 6, 7]),
+            [slice(None), slice(None)],
+            (0, 8),
         ),
         (
             (np.int64(2), slice(None, None, -1)),
             (7, 8),
-            ((slice(2, 3, 1), slice(0, 8, 1)), (0, slice(7, None, -1)), (8,)),
+            ([2], [0, 1, 2, 3, 4, 5, 6, 7]),
+            [0, slice(None, None, -1)],
+            (8,),
+        ),
+        (
+            (np.array([6, 0, 3, 0]), [-1, 2]),
+            (7, 8),
+            ([0, 3, 6], [2, 7]),
+            [[2, 0, 1, 0], [1, 0]],
+            (4, 2),
+        ),
+        (
+            (np.array([1, 4, 5]),),
+            (7, 8),
+            ([1, 4, 5], [0, 1, 2, 3, 4, 5, 6, 7]),
+            [slice(None), slice(None)],
+            (3, 8),
         ),
     ],
 )
-def test_normalize_basic_key(key, shape, expected):
-    block_key, residual_key, result_shape = normalize_basic_key(key, shape)
-    assert (block_key, residual_key, result_shape) == expected
+def test_normalize_outer_key(
+    key, shape, expected_selections, expected_post, result_shape
+):
+    selections, post, got_shape = normalize_outer_key(key, shape)
+    assert [s.tolist() for s in selections] == list(expected_selections)
+    assert all(s.dtype == np.int64 for s in selections)
+    assert [p.tolist() if isinstance(p, np.ndarray) else p for p in post] == (
+        expected_post
+    )
+    assert got_shape == result_shape
     reference = reference_values(shape)
     if 0 not in result_shape:
-        np.testing.assert_array_equal(
-            reference[block_key][residual_key], reference[key]
-        )
-        for dim_key in block_key:
-            assert type(dim_key.start) is int and type(dim_key.stop) is int
+        read = reference[np.ix_(*selections)]
+        expected = reference
+        full_key = tuple(key) + (slice(None),) * (len(shape) - len(key))
+        for axis in reversed(range(len(shape))):  # outer, from the last axis
+            expected = np.take(expected, np.arange(shape[axis])[full_key[axis]], axis)
+        np.testing.assert_array_equal(apply_outer_post(read, post), expected)
 
 
 @pytest.mark.parametrize(
@@ -156,13 +186,15 @@ def test_normalize_basic_key(key, shape, expected):
         ((7,), IndexError),
         ((-8,), IndexError),
         ((0, 0, 0), IndexError),
-        (([0, 1],), TypeError),
+        ((np.array([0, 7]),), IndexError),
+        ((np.array([0.5]),), TypeError),
+        ((np.array([[0, 1]]),), TypeError),
         ((None,), TypeError),
     ],
 )
-def test_normalize_basic_key_errors(key, error):
+def test_normalize_outer_key_errors(key, error):
     with pytest.raises(error):
-        normalize_basic_key(key, (7, 8))
+        normalize_outer_key(key, (7, 8))
 
 
 def test_MSv2BackendArray_base():
@@ -188,7 +220,7 @@ def test_lazy_indexing_matches_numpy(key_name, dtype):
     reference = reference_values(dtype=dtype)
     fake = FakeArray(reference)
     isel = LAZY_KEYS[key_name]
-    expected = reference[numpy_key(DIMS, isel)]
+    expected = outer_numpy(reference, DIMS, isel)
     result = lazy_variable(fake).isel(isel)
     assert result.shape == expected.shape
     values = result.values
@@ -336,6 +368,30 @@ def test_partition_index_select_matches_brute_force(layout, window):
         assert np.all(np.diff(got_rows) > 0)  # one ascending pass
         np.testing.assert_array_equal(got_rows, exp_rows)
         np.testing.assert_array_equal(got_cells, exp_cells)
+    finally:
+        backend_arrays.clear_index_memo()
+
+
+@pytest.mark.parametrize("layout", list(SELECT_LAYOUTS))
+@pytest.mark.parametrize(
+    "times, baselines",
+    [([0, 3, 7], [0, 1, 2, 3, 4]), ([1, 2, 6], [4, 0]), ([5], [1, 3]), ([2, 4], [2])],
+)
+def test_partition_index_select_outer_matches_brute_force(layout, times, baselines):
+    nt, nb = 8, 5
+    tidxs, bidxs = SELECT_LAYOUTS[layout](nt, nb)
+    index, rows = _synthetic_index(tidxs, bidxs, (nt, nb))
+    times, baselines = np.asarray(times), np.sort(np.asarray(baselines))
+    try:
+        got_rows, got_cells, positions = index.select_outer(times, baselines)
+        keep = np.isin(tidxs, times) & np.isin(bidxs, baselines)
+        exp_cells = np.searchsorted(times, tidxs[keep]) * baselines.size + (
+            np.searchsorted(baselines, bidxs[keep])
+        )
+        assert np.all(np.diff(got_rows) > 0)  # one ascending pass
+        np.testing.assert_array_equal(got_rows, rows[keep])
+        np.testing.assert_array_equal(got_cells, exp_cells)
+        np.testing.assert_array_equal(rows[positions], got_rows)
     finally:
         backend_arrays.clear_index_memo()
 
@@ -534,6 +590,103 @@ def test_reads_hold_bounded_time_sub_blocks(backend_ms, monkeypatch):
     shapes.clear()
     lazy["VISIBILITY"].isel(time=5, frequency=2).values  # noqa: B018
     assert [s[0] for s in shapes] == [1]
+
+
+def test_selections_read_only_their_times_and_baselines(backend_ms, monkeypatch):
+    """Lists and steps along time and baseline (array_backend "xarray") read
+    only the rows of the selected cells: a read holds its result plus one
+    time sub-block, never the bounding block."""
+    lazy, reference, _ = lazy_and_reference(backend_ms("shuffled"), 0)
+    reads = []
+    read_grid = backend_arrays.read_grid
+
+    def spy(table, col, plan, shape, *args, **kwargs):
+        reads.append((shape[:2], plan.rows.size))
+        return read_grid(table, col, plan, shape, *args, **kwargs)
+
+    monkeypatch.setattr(backend_arrays, "read_grid", spy)
+    cases = [
+        ({"time": [0, -1]}, [((2, 10), 20)]),
+        ({"time": slice(None, None, 10)}, [((3, 10), 30)]),
+        ({"time": [29, 0, 29], "baseline_id": [7, 2]}, [((2, 2), 4)]),
+        ({"time": slice(28, 1, -13), "baseline_id": slice(1, None, 4)}, [((3, 3), 9)]),
+        ({"time": 4, "baseline_id": [9]}, [((1, 1), 1)]),
+    ]
+    for isel, expected in cases:
+        reads.clear()
+        for name in ("VISIBILITY", "FLAG", "UVW"):
+            assert_same_values(
+                lazy[name].isel(isel).values,
+                reference[name].isel(isel).values,
+                f"{name} {isel}",
+            )
+        assert reads == expected * 3, isel
+    # a list of times in several sub-blocks: each sub-block only the selected
+    monkeypatch.setattr(backend_arrays, "SUB_BLOCK_BYTES", 1)
+    reads.clear()
+    isel = {"time": [3, 9, 20, 21]}
+    assert_same_values(
+        lazy["VISIBILITY"].isel(isel).values, reference["VISIBILITY"].isel(isel).values
+    )
+    assert reads == [((1, 10), 10)] * 4
+
+
+def _update_main(msname, column, change):
+    from casacore import tables
+
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        values = main_tb.getcol(column)
+        main_tb.putcol(column, change(values.copy()))
+    return values
+
+
+def _row(index, value):
+    def change(values):
+        values[index] = value
+        return values
+
+    return change
+
+
+@pytest.mark.parametrize("memo", ["index of the open", "rebuilt"])
+@pytest.mark.parametrize(
+    "column, change, outcome",
+    [
+        ("TIME", lambda v: v + 0.5, "times or baselines"),
+        ("ANTENNA2", _row(4, 0), r"grid of \(30, 11\)"),  # a new baseline (1, 0)
+        ("ANTENNA1", _row(4, 0), None),  # row 4 to baseline (0, 2), still a grid
+        ("ANTENNA2", _row(slice(0, 2), np.array([2, 1])), None),  # swapped
+        ("DATA", lambda v: v * 2, None),
+    ],
+)
+def test_keys_rewritten_after_the_open(
+    backend_ms, tmp_path, memo, column, change, outcome
+):
+    """TIME, ANTENNA1 or ANTENNA2 rewritten in place after the open (the same
+    number of rows): with the index of the open in the memo or rebuilt (as in
+    another process), a read gives the same outcome: MSv2ChangedError if the
+    partition's (time, baseline) grid changed, else the values placed by the
+    current keys (those of an open of the changed MS)."""
+    msname = _copy_ms(backend_ms, "dense", tmp_path)
+    lazy, _, _ = lazy_and_reference(msname, 0)
+    _update_main(msname, column, change)
+    if memo == "rebuilt":
+        backend_arrays.clear_index_memo()
+    rebuilds = INDEX_MEMO.stats["rebuilds"]
+    if outcome is not None:
+        for name in ("VISIBILITY", "FLAG"):
+            with pytest.raises(MSv2ChangedError, match=outcome):
+                lazy[name].values  # noqa: B018
+        return
+    values = {name: lazy[name].values for name in ("VISIBILITY", "FLAG", "UVW")}
+    rebuilds = INDEX_MEMO.stats["rebuilds"] - rebuilds
+    _, reference, _ = lazy_and_reference(msname, 0)  # (an open of the changed MS)
+    for name, got in values.items():
+        assert_same_values(got, reference[name].values, f"{name} {column}")
+    if column == "DATA":
+        assert rebuilds == (1 if memo == "rebuilt" else 0)
+    else:  # the moved rows made the index be rebuilt (once)
+        assert rebuilds == 1
 
 
 def test_seeded_index_is_used_and_rebuilt_equal(backend_ms):

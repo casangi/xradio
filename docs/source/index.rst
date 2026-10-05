@@ -35,6 +35,7 @@ The Measurement Set |MSV4_SCHEMA_VERSION| is described in the section :doc:`Meas
    image_data/overview
    image_data/tutorials/index
    image_data/schema
+   image_data/api
 
 .. toctree::
    :hidden:

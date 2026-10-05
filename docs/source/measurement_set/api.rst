@@ -72,22 +72,20 @@ in memory. ``partition_cache`` sets what is done:
 - ``"rebuild"``: compute the partitions and store them (a ``HISTORY`` row only if they changed);
 - ``"off"``: compute the partitions, neither use nor store them.
 
-The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``.
-A read-only MS is opened with partitions computed in memory, and a :py:class:`PartitionCacheWarning
-<xradio.measurement_set.open_msv2.PartitionCacheWarning>` (once per MS and reason) says so; so is an MS whose MAIN
-table another process has locked (for example a CASA session with the MS open): xradio never waits for a lock. With
-casatools the partitions are never stored (logged once). If the process that opens the MS also holds it open with
-python-casacore's default (automatic) locking, storing switches that table to user locking (once per MS): pass
-``partition_cache="read"`` in such sessions. CASA tasks that copy an MS (``split``, ``mstransform``, ``tb.copy``,
-``msconcat``) also copy the sub-table: the copy's first open finds that it does not apply and computes the partitions
-again. :py:func:`remove_msv2_partition_cache` removes the stored partitions.
+The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``. A
+read-only MS is opened with partitions computed in memory, and a :py:class:`PartitionCacheWarning` (once per MS and
+reason) says so; so is an MS whose MAIN table another process has locked (for example a CASA session with the MS open):
+xradio never waits for a lock. With casatools the partitions are never stored (logged once). If the process that opens
+the MS also holds it open with python-casacore's default (automatic) locking, storing switches that table to user
+locking (once per MS): pass ``partition_cache="read"`` in such sessions. CASA tasks that copy an MS (``split``,
+``mstransform``, ``tb.copy``, ``msconcat``) also copy the sub-table: the copy's first open finds that it does not apply
+and computes the partitions again. :py:func:`remove_msv2_partition_cache` removes the stored partitions.
 
 **When the MS changes.** The stored partitions are used only while a fingerprint of the tables they are computed from
 (the data managers and key columns of MAIN, and the FIELD, STATE and SOURCE tables, read from casacore's lock files) is
 unchanged and the ``HISTORY`` table has no rows newer than xradio's own. They are also checked against their MAIN rows
 when the MS is opened. An MS that changes after it was opened is not followed: a lazy read then raises
-:py:class:`MSv2ChangedError <xradio.measurement_set.open_msv2.MSv2ChangedError>` (MAIN or POINTING has other rows),
-and the MS must be opened again.
+:py:class:`MSv2ChangedError` (MAIN or POINTING has other rows), and the MS must be opened again.
 
 **Performance.** Opening costs what the converter spends on metadata: about 0.05 to 0.2 s per partition, plus 4 to
 12 ms per node for xarray (about 2.6 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). Opening more than
@@ -107,11 +105,11 @@ every CASA table.
 
 .. autofunction:: remove_msv2_partition_cache
 
-.. autoexception:: xradio.measurement_set.open_msv2.MSv2ChangedError
+.. autoexception:: MSv2ChangedError
 
-.. autoexception:: xradio.measurement_set.open_msv2.MSv2ReadError
+.. autoexception:: MSv2ReadError
 
-.. autoexception:: xradio.measurement_set.open_msv2.PartitionCacheWarning
+.. autoexception:: PartitionCacheWarning
 
 ProcessingSetXdt API
 --------------------

@@ -26,6 +26,13 @@ try:
     from xradio.measurement_set.convert_msv2_to_processing_set import (
         estimate_conversion_memory_and_cores as estimate_conversion_memory_and_cores,
     )
+    from xradio.measurement_set.open_msv2 import (
+        MSv2ChangedError as MSv2ChangedError,
+    )
+    from xradio.measurement_set.open_msv2 import MSv2ReadError as MSv2ReadError
+    from xradio.measurement_set.open_msv2 import (
+        PartitionCacheWarning as PartitionCacheWarning,
+    )
     from xradio.measurement_set.open_msv2 import open_msv2 as open_msv2
     from xradio.measurement_set.open_msv2 import (
         remove_msv2_partition_cache as remove_msv2_partition_cache,
@@ -41,5 +48,8 @@ else:
             "estimate_conversion_memory_and_cores",
             "open_msv2",
             "remove_msv2_partition_cache",
+            "MSv2ChangedError",
+            "MSv2ReadError",
+            "PartitionCacheWarning",
         ]
     )

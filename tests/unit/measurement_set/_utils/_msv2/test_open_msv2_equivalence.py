@@ -285,6 +285,23 @@ def test_open_msv2(backend_ms, converted):
         open_msv2(msname, array_backend="numpy")
 
 
+def test_error_classes_are_exported():
+    """The engine's error and warning classes are attributes of
+    xradio.measurement_set (the submodule open_msv2 is shadowed by the
+    function of that name), usable as warning filter categories."""
+    import xradio.measurement_set as ms_api
+    from xradio.measurement_set._utils._msv2 import backend_errors
+
+    for name in ("MSv2ChangedError", "MSv2ReadError", "PartitionCacheWarning"):
+        assert getattr(ms_api, name) is getattr(backend_errors, name)
+        assert name in ms_api.__all__
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        warnings.filterwarnings("ignore", category=ms_api.PartitionCacheWarning)
+        warnings.warn("not stored", backend_errors.PartitionCacheWarning, stacklevel=1)
+    assert caught == []
+
+
 def test_drop_variables_equal_deleted_variables(backend_ms, converted):
     """drop_variables of main data variables equals deleting them from the
     converted processing set (variables and data group roles)."""

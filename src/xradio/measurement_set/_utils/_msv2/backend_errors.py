@@ -1,7 +1,8 @@
 """
 Errors of the MSv2 xarray backend (engine ``xradio_msv2``).
 
-They are re-exported by :mod:`xradio.measurement_set.open_msv2`.
+MSv2ChangedError, MSv2ReadError and PartitionCacheWarning are exported by
+:mod:`xradio.measurement_set` (and :mod:`xradio.measurement_set.open_msv2`).
 """
 
 

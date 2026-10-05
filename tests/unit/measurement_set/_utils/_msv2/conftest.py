@@ -12,6 +12,15 @@ import shutil
 import numpy as np
 import pytest
 
+
+def pytest_configure(config):
+    # (registered here, not in pyproject.toml: pytest runs with --strict-markers)
+    config.addinivalue_line(
+        "markers",
+        "slow: slow tests on downloaded MSs, run only with XRADIO_SLOW_TESTS=1",
+    )
+
+
 # The variants of backend_ms (see make_backend_ms)
 BACKEND_MS_VARIANTS = (
     "dense",

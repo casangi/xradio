@@ -8,6 +8,7 @@ and free again in a fork child. The bindings in use are set by patching
 import contextlib
 import os
 import threading
+import time
 import types
 
 import numpy as np
@@ -128,8 +129,10 @@ def test_image_and_msv2_reads_take_the_lock(monkeypatch, casatools):
     assert _blocked_while_held(msv2_read) == casatools
 
 
-def _in_fork_child(child) -> int:
-    """Run child() in a fork child; its exit status (0: child() was True)."""
+def _in_fork_child(child, seconds: float = 60.0) -> int | None:
+    """Run child() in a fork child; its exit status (0: child() was True),
+    or None for a child still running after ``seconds`` (deadlocked: it is
+    killed)."""
     pid = os.fork()
     if pid == 0:  # the child: never return into pytest
         status = 1
@@ -137,8 +140,15 @@ def _in_fork_child(child) -> int:
             status = 0 if child() else 1
         finally:
             os._exit(status)
-    _, status = os.waitpid(pid, 0)
-    return os.waitstatus_to_exitcode(status)
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        done, status = os.waitpid(pid, os.WNOHANG)
+        if done:
+            return os.waitstatus_to_exitcode(status)
+        time.sleep(0.05)
+    os.kill(pid, 9)
+    os.waitpid(pid, 0)
+    return None
 
 
 @pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")

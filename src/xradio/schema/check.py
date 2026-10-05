@@ -722,8 +722,8 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
 
 _DATASET_TYPES = {}
 
+# Prefix of dataset ``type`` attributes that denote extension datasets
 EXTENSION_TYPE_PREFIX = "extension:"
-"""Prefix of dataset ``type`` attributes that denote extension datasets"""
 
 _EXTENSION_TYPE_RE = re.compile(r"^extension:[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
 

@@ -1048,7 +1048,9 @@ def test_remove_msv2_partition_cache(ms_copy, monkeypatch):
     assert len(history_rows(msname)) == n_history
     assert load(msname, [], "read").status == "memory:mode-read"  # (memo emptied)
     assert remove_msv2_partition_cache(msname) is False
-    # the keyword first: a failure after it leaves no dangling keyword
+    # the keyword and the sub-table's name first: a failure to delete the
+    # sub-table leaves no dangling keyword (and a temporary sub-table, removed
+    # once this process is gone)
     assert statuses(msname, []) == ["stored"]
 
     def fail(path, *args, **kwargs):
@@ -1057,12 +1059,57 @@ def test_remove_msv2_partition_cache(ms_copy, monkeypatch):
     monkeypatch.setattr(partition_cache.shutil, "rmtree", fail)
     with pytest.raises(OSError, match="simulated"):
         remove_msv2_partition_cache(msname)
-    assert partition_cache.link_state(msname) == "unlinked"
+    assert partition_cache.link_state(msname) == "absent"
     monkeypatch.undo()
+    (left,) = (
+        name
+        for name in os.listdir(msname)
+        if name.startswith(partition_cache.TMP_PREFIX)
+    )
+    assert f"-{os.getpid()}-" in left
+    assert statuses(msname, []) == ["stored"]
     assert remove_msv2_partition_cache(msname) is True
     assert partition_cache.link_state(msname) == "absent"
     with pytest.raises(FileNotFoundError):
         remove_msv2_partition_cache(os.path.join(msname, "nothing"))
+
+
+def test_remove_while_another_process_stores(ms_copy):
+    """Another process opens the MS ("auto") right after the removal took
+    the keyword and the sub-table away and before the sub-table is deleted:
+    it stores a sub-table of its own and links it; the removal deletes only
+    its own, so no dangling keyword is left (the review's race: it linked
+    the sub-table being deleted)."""
+    msname = ms_copy("dense")
+    assert statuses(msname, []) == ["stored"]
+    real_rmtree = shutil.rmtree
+    raced = []
+
+    def racing_rmtree(path, *args, **kwargs):
+        name = os.path.basename(str(path))
+        if not raced and (
+            name == SUBTABLE_NAME or name.startswith(partition_cache.TMP_PREFIX)
+        ):
+            code = (
+                "from xradio.measurement_set._utils._msv2 import partition_cache\n"
+                f"result = partition_cache.load_or_create_partitions({msname!r}, [], "
+                "'auto')\n"
+                "print(result.status)\n"
+            )
+            run = subprocess.run(
+                [sys.executable, "-c", code], capture_output=True, text=True, check=True
+            )
+            raced.append(run.stdout.strip().splitlines()[-1])
+        return real_rmtree(path, *args, **kwargs)
+
+    partition_cache.shutil.rmtree = racing_rmtree
+    try:
+        assert remove_msv2_partition_cache(msname) is True
+    finally:
+        partition_cache.shutil.rmtree = real_rmtree
+    assert raced == ["stored"]
+    assert partition_cache.link_state(msname) == "linked"
+    assert statuses(msname, [], ("read",)) == ["hit"]
 
 
 @pytest.mark.skipif(os.geteuid() == 0, reason="root writes read-only files")

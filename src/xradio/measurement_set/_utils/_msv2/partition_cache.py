@@ -1337,6 +1337,14 @@ def remove_stale_tmp_tables(path: str) -> list[str]:
     return removed
 
 
+def _tmp_subtable_path(path: str) -> str:
+    """A new temporary name of a sub-table of this process
+    (remove_stale_tmp_tables removes it once the process is gone)."""
+    return os.path.join(
+        path, f"{TMP_PREFIX}{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
+    )
+
+
 def _create_subtable(path: str) -> str | None:
     """
     Create the empty sub-table under a temporary name and rename it into
@@ -1346,9 +1354,7 @@ def _create_subtable(path: str) -> str | None:
     from casacore import tables
 
     final = subtable_path(path)
-    tmp = os.path.join(
-        path, f"{TMP_PREFIX}{socket.gethostname()}-{os.getpid()}-{uuid.uuid4().hex[:8]}"
-    )
+    tmp = _tmp_subtable_path(path)
     try:
         with tables.table(
             tmp, subtable_description(), nrow=0, readonly=False, ack=False
@@ -1734,8 +1740,12 @@ def remove_partition_cache(path: str) -> bool:
     sub-table (so that no keyword is left without its sub-table), and the
     temporary sub-tables of gone writers. The sub-table is removed only if
     it is xradio's (its keyword CREATOR), and while its write lock, which
-    writers hold while they store a row, could be taken (one attempt); the
-    MAIN keyword is removed under the MAIN write lock (one attempt).
+    writers hold while they store a row, could be taken (one attempt). Under
+    the MAIN write lock (one attempt), the keyword is removed and the
+    sub-table renamed to a temporary name (atomically; it is deleted after
+    the locks are released): a writer links a sub-table under that lock, so
+    one that finds no keyword makes a new sub-table instead of linking the
+    one being deleted (which would leave a dangling keyword).
 
     Parameters
     ----------
@@ -1778,24 +1788,31 @@ def remove_partition_cache(path: str) -> bool:
             )
         if has_table:
             _check_own_subtable(subtable)
+        removed = None
         with contextlib.ExitStack() as stack:
             try:
                 if has_table:
-                    # (held until the keyword is gone: no writer stores a row)
+                    # (held until the sub-table is renamed: no writer stores a
+                    # row; closed last, renamed: unchanged, it writes nothing)
                     stack.enter_context(_locked_for_update(subtable))
+                main_tb = stack.enter_context(_locked_for_update(path))
                 if state in ("linked", "dangling"):
-                    with _locked_for_update(path) as main_tb:
-                        _write_main_keywords(
-                            main_tb, lambda tb: _remove_link_keyword(tb, path, False)
-                        )
+                    _write_main_keywords(
+                        main_tb, lambda tb: _remove_link_keyword(tb, path, False)
+                    )
+                if has_table:
+                    # (lost if another thread of the process closed MAIN)
+                    _hold_write_lock(main_tb)
+                    removed = _tmp_subtable_path(path)
+                    os.rename(subtable, removed)
             except CacheNotStored:
                 raise RuntimeError(
                     f"Another process has a lock on the MAIN table of {path} or on "
                     f"its {SUBTABLE_NAME} sub-table: its partition cache was not "
                     "removed"
                 ) from None
-        if has_table:
-            shutil.rmtree(subtable)
+        if removed is not None:
+            shutil.rmtree(removed)
         remove_stale_tmp_tables(path)
     PARTITIONS_MEMO.discard_path(path)
     return True

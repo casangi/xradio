@@ -91,8 +91,10 @@ in memory. ``partition_cache`` sets what is done:
 The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``. A
 read-only MS is opened with partitions computed in memory, and a :py:class:`PartitionCacheWarning` (once per MS and
 reason) says so; so is an MS whose MAIN table another process has locked (for example a CASA session with the MS open):
-xradio never waits for a lock. With casatools, and for reference or concatenated MSs, the partitions are never stored
-(logged once). Nor are they while this process holds the MAIN table's write lock (a writable handle, whose changes may
+xradio never waits for a lock. With casatools the partitions are never stored (logged once). Those of reference and
+concatenated MSs (a multi-MS), and of MSs whose MAIN key columns are forwarded to other MSs (as ``msconcat`` makes them),
+are computed on every open, neither stored nor kept in memory (logged once): their rows live in other tables, whose
+changes their lock files do not show. Nor are they while this process holds the MAIN table's write lock (a writable handle, whose changes may
 not be flushed yet); if that handle added rows not flushed yet, the partitions are computed from the rows the process
 sees, as the converter reads them, without the stored ones. If the process that opens
 the MS also holds it open with python-casacore's default (automatic) locking, storing switches that table to user

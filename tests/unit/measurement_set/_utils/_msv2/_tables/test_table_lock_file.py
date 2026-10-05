@@ -383,6 +383,45 @@ def test_fingerprint_of_absent_sub_tables(ms_copy):
         ms_fingerprint(os.path.join(msname, "NOT_THERE"), KEY_COLUMNS)
 
 
+def test_tables_whose_writes_the_fingerprint_cannot_follow(ms_copy, tmp_path):
+    """table_type reads casacore's table type from table.dat (no table open,
+    casatools has no partnames); followed_ms_fingerprint names MAINs whose
+    rows live in other tables (reference, concatenated) and key columns in a
+    data manager without files of its own (msconcat's ForwardColumnEngine);
+    a plain MS has none."""
+    from casacore.tables import msutil
+
+    msname = ms_copy("dense", name="a.ms")
+    other = ms_copy("dense", name="b.ms")
+    ref, concat, forward = (str(tmp_path / n) for n in ("ref", "concat", "fwd.ms"))
+    with tables.table(msname, ack=False) as main_tb:
+        main_tb.query("ANTENNA1 >= 0", name=ref).close()
+    joined = tables.table([msname, other], ack=False)
+    joined.rename(concat)
+    joined.close()
+    msutil.msconcat([msname, other], forward, concatTime=False)
+    types = [table_lock_file.table_type(p) for p in (msname, ref, concat, forward)]
+    assert types == ["PlainTable", "RefTable", "ConcatTable", "PlainTable"]
+    assert table_lock_file.table_type(os.path.join(msname, "NOT_THERE")) is None
+    reasons = {
+        path: table_lock_file.followed_ms_fingerprint(path, KEY_COLUMNS, ())[1]
+        for path in (msname, ref, concat, forward)
+    }
+    assert reasons == {
+        msname: None,
+        ref: "MAIN is a reference or concatenated table",
+        concat: "MAIN is a reference or concatenated table",
+        forward: "MAIN uses ForwardColumnEngine",
+    }
+    # (sub-tables: only the given columns' data managers must have files)
+    fingerprint, reason = table_lock_file.followed_ms_fingerprint(
+        msname, KEY_COLUMNS, ("FIELD",), {"FIELD": ("SOURCE_ID",)}
+    )
+    assert reason is None and fingerprint == ms_fingerprint(
+        msname, KEY_COLUMNS, ("FIELD",)
+    )
+
+
 def test_history_nrows(ms_copy):
     msname = ms_copy("dense")
     with tables.table(os.path.join(msname, "HISTORY"), ack=False) as history:

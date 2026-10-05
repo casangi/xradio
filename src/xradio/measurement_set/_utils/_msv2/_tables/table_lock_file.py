@@ -24,6 +24,7 @@ first bytes.
 import dataclasses
 import os
 import struct
+from collections.abc import Mapping
 
 import numpy as np
 
@@ -328,6 +329,33 @@ def data_manager_files(
     return _file_stats(table_path, names)
 
 
+# The types of tables whose rows live in other tables (table.dat)
+_REFERENCING_TABLE_TYPES = ("RefTable", "ConcatTable")
+
+
+def table_type(table_path: str) -> str | None:
+    """
+    casacore's type of a table, from the start of its ``table.dat`` (the
+    AipsIO object "Table": version, number of rows, format, then the type):
+    "PlainTable", "RefTable" (a reference table: rows of another table) or
+    "ConcatTable" (rows of several tables); None if it cannot be read. Needs
+    no table open (casatools has no ``partnames``).
+    """
+    try:
+        with open(os.path.join(table_path, "table.dat"), "rb") as dat_file:
+            content = dat_file.read(1024)
+        reader = _BigEndianReader(content)
+        version = reader.object_start("Table", outermost=True)
+        if version > 2:
+            reader.uint64()  # number of rows
+        else:
+            reader.uint32()
+        reader.uint32()  # format (endianness)
+        return reader.string()
+    except (OSError, ValueError, struct.error, UnicodeDecodeError):
+        return None
+
+
 def table_fingerprint(
     table_path: str, key_columns: list[str] | tuple[str, ...] | None = None
 ) -> dict | None:
@@ -348,8 +376,49 @@ def table_fingerprint(
     dict | None
         None if there is no table at ``table_path``.
     """
+    return followed_table_fingerprint(table_path, key_columns)[0]
+
+
+def followed_table_fingerprint(
+    table_path: str,
+    key_columns: list[str] | tuple[str, ...] | None = None,
+    followed_columns: list[str] | tuple[str, ...] | None = None,
+) -> tuple[dict | None, str | None]:
+    """
+    The fingerprint of one table (``table_fingerprint``) and why it cannot
+    tell the writes of the table, if it cannot (``unfollowed``): the
+    fingerprint describes the table's own lock file and data-manager files
+    (only their size and mtime without a readable lock file), which do not
+    change when
+
+    - the rows live in other tables: a reference or concatenated table
+      (``table_type``; such tables have no lock file and no data-manager
+      files of their own);
+    - a column is held by a data manager without files of its own (e.g.
+      ``ForwardColumnEngine``, whose columns are read from another table, or
+      a virtual column engine): only for ``followed_columns`` (default: the
+      key columns).
+
+    Parameters
+    ----------
+    table_path : str
+        Path of the table.
+    key_columns : list[str] | tuple[str, ...] | None, optional
+        As for ``table_fingerprint``.
+    followed_columns : list[str] | tuple[str, ...] | None, optional
+        The columns whose data managers must have files of their own (default
+        ``key_columns``; none if both are None).
+
+    Returns
+    -------
+    tuple[dict | None, str | None]
+        (fingerprint, None if it follows the writes of the table, else the
+        reason as a predicate of the table: "is a reference or concatenated
+        table" or "uses <data manager type>"). (None, None) if there is no
+        table.
+    """
     if not os.path.isfile(os.path.join(table_path, "table.dat")):
-        return None
+        return None, None
     lock = read_table_lock(table_path)
     lock_ok = lock is not None and lock.lock_ok
     with casatools_serialized(), open_table_ro(table_path) as table:
@@ -358,6 +427,34 @@ def table_fingerprint(
             resync_unless_write_locked(table)
         nrows = int(lock.nrrow) if lock_ok else int(table.nrows())
         dms = data_managers(table)
+    fingerprint = _make_fingerprint(
+        table_path, key_columns, lock if lock_ok else None, nrows, dms
+    )
+    unfollowed = None
+    if table_type(table_path) in _REFERENCING_TABLE_TYPES:
+        unfollowed = "is a reference or concatenated table"
+    else:
+        followed = key_columns if followed_columns is None else followed_columns
+        file_names = os.listdir(table_path)
+        for dm_type, _, seqnr, columns in dms:
+            if set(columns) & set(followed or ()) and not data_manager_files(
+                table_path, seqnr, file_names
+            ):
+                unfollowed = f"uses {dm_type}"
+                break
+    return fingerprint, unfollowed
+
+
+def _make_fingerprint(
+    table_path: str,
+    key_columns: list[str] | tuple[str, ...] | None,
+    lock: TableLockInfo | None,
+    nrows: int,
+    dms: list[list],
+) -> dict:
+    """The fingerprint of table_fingerprint from the rows and data managers of
+    a table, with its lock file data (None: not readable)."""
+    lock_ok = lock is not None
     counters = list(lock.dm_change_counters) if lock_ok else None
     fingerprint = {
         "nrows": nrows,
@@ -433,13 +530,39 @@ def ms_fingerprint(
         Whatever opening and describing the tables raises (e.g. a MAIN table
         that does not exist).
     """
-    main = table_fingerprint(ms_path, list(main_key_columns))
+    return followed_ms_fingerprint(ms_path, main_key_columns, subtables)[0]
+
+
+def followed_ms_fingerprint(
+    ms_path: str,
+    main_key_columns: list[str] | tuple[str, ...],
+    subtables: tuple[str, ...] = ("FIELD", "STATE", "SOURCE"),
+    subtable_columns: Mapping[str, tuple[str, ...]] | None = None,
+) -> tuple[dict, str | None]:
+    """
+    ``ms_fingerprint`` and why it cannot tell the writes of the tables it
+    describes, if it cannot (``followed_table_fingerprint`` of MAIN, for its
+    key columns, and of every sub-table, for its ``subtable_columns``).
+
+    Returns
+    -------
+    tuple[dict, str | None]
+        (fingerprint, None, or the reason, e.g. "MAIN is a reference or
+        concatenated table", "MAIN uses ForwardColumnEngine").
+    """
+    main, unfollowed = followed_table_fingerprint(ms_path, list(main_key_columns))
     if main is None:
         raise FileNotFoundError(f"No MAIN table in {ms_path}")
+    reason = None if unfollowed is None else f"MAIN {unfollowed}"
     fingerprint = {"v": FINGERPRINT_VERSION, "main": main}
     for name in subtables:
-        fingerprint[name] = table_fingerprint(os.path.join(ms_path, name))
-    return fingerprint
+        columns = (subtable_columns or {}).get(name, ())
+        fingerprint[name], unfollowed = followed_table_fingerprint(
+            os.path.join(ms_path, name), None, columns
+        )
+        if reason is None and unfollowed is not None:
+            reason = f"{name} {unfollowed}"
+    return fingerprint, reason
 
 
 def history_nrows(ms_path: str) -> int | None:

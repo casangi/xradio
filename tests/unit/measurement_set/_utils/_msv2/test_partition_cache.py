@@ -1339,6 +1339,104 @@ def test_reference_table_is_reported_at_info(
     assert file_digests(ref) == before
 
 
+def _referencing_ms(kind: str, parent: str, other: str, target: str) -> str:
+    """
+    An MS whose MAIN rows live in other MSs: a reference table of all the
+    rows of ``parent``, a concatenation (ConcatTable, as a multi-MS) of
+    ``parent`` and ``other``, or python-casacore's msconcat of them (MAIN
+    columns forwarded to them with ForwardColumnEngine).
+    """
+    if kind == "msconcat":
+        from casacore.tables import msutil
+
+        msutil.msconcat([parent, other], target, concatTime=False)
+        return target
+    if kind == "reference":
+        with tables.table(parent, ack=False) as main_tb:
+            main_tb.query("ANTENNA1 >= 0", name=target).close()
+    else:
+        concat = tables.table([parent, other], ack=False)
+        concat.rename(target)
+        concat.close()
+    for name in os.listdir(parent):
+        if os.path.isfile(os.path.join(parent, name, "table.dat")):
+            shutil.copytree(os.path.join(parent, name), os.path.join(target, name))
+    return target
+
+
+@pytest.mark.parametrize(
+    "kind, reason",
+    [
+        ("reference", "MAIN is a reference or concatenated table"),
+        ("concatenated", "MAIN is a reference or concatenated table"),
+        ("msconcat", "MAIN uses ForwardColumnEngine"),
+    ],
+)
+def test_partitions_of_unfollowed_mains_are_never_memoised(
+    kind, reason, ms_copy, tmp_path
+):
+    """
+    A MAIN whose rows live in other MSs (reference and concatenated tables,
+    msconcat's forwarded columns): its fingerprint (its own lock file and
+    data-manager files) does not change when they change, so its partitions
+    are computed on every open, never memoised nor stored. After the FIELD_ID
+    of rows of the MS it reads changed, the next open (also with a
+    partition_filter: only the selected partitions are opened) has the
+    partitions of the changed rows.
+    """
+    parent = ms_copy("rich", name="parent.ms")
+    other = ms_copy("rich", name="other.ms")
+    msname = _referencing_ms(kind, parent, other, str(tmp_path / f"{kind}.ms"))
+    scheme = ["FIELD_ID"]
+    before = load(msname, scheme, "auto")
+    assert before.status == f"memory:{reason}"
+    assert partition_cache.memo_key(msname, scheme) not in PARTITIONS_MEMO
+    assert not os.path.exists(os.path.join(msname, SUBTABLE_NAME))
+    # rows of field 0 of the MS read first moved to field 1
+    changed = other if kind == "concatenated" else parent
+    with tables.table(changed, readonly=False, ack=False) as main_tb:
+        field = main_tb.getcol("FIELD_ID")
+        field[np.flatnonzero(field == 0)[::2]] = 1
+        main_tb.putcol("FIELD_ID", field)
+    after = load(msname, scheme, "auto")
+    fresh = load(msname, scheme, "off")
+    assert after.status == f"memory:{reason}"
+
+    def same(a, b):
+        return (
+            a.partitions == b.partitions
+            and np.array_equal(a.runs.starts, b.runs.starts)
+            and np.array_equal(a.runs.lengths, b.runs.lengths)
+        )
+
+    assert same(after, fresh) and not same(after, before)
+
+    def field_1(info):
+        return info["FIELD_ID"] == [1]
+
+    def sizes(tree):
+        return sorted(
+            (
+                tuple(sorted(node.dataset.sizes.items())),
+                tuple(sorted(str(name) for name in node.dataset.field_name.values)),
+            )
+            for node in tree.children.values()
+        )
+
+    options = dict(
+        engine=ENGINE,
+        partition_scheme=scheme,
+        partition_filter=field_1,
+        with_pointing=False,
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PartitionCacheWarning)
+        opened = xr.open_datatree(msname, partition_cache="auto", **options)
+    assert sizes(opened) == sizes(
+        xr.open_datatree(msname, partition_cache="off", **options)
+    )
+
+
 class _ListLogger:
     """A logger that records INFO messages in caplog.records."""
 

@@ -33,6 +33,12 @@ A stored row is used only when (the staleness layers)
   every row unless the scheme has ANTENNA1; single-valued, distinct grouping
   keys).
 
+An MS whose fingerprint cannot follow the changes of the inputs of its
+partitions (``unfollowed_reason``: a reference or concatenated MAIN, whose
+rows live in other tables, or key columns in a data manager without files of
+its own, e.g. forwarded to another table) has its partitions computed on
+every open: neither stored nor memoised.
+
 A stale row is never parsed (L1 and L2 come first). Recomputed partitions
 equal to a stale row's only refresh its fingerprint and anchor (no HISTORY
 row: a harmless task, e.g. flagdata, costs one recomputation). The engine
@@ -80,6 +86,7 @@ import numpy as np
 from xradio._utils._casacore.tables import casatools_serialized, uses_casatools
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
+    followed_ms_fingerprint,
     history_nrows,
     ms_fingerprint,
     resync_unless_write_locked,
@@ -119,6 +126,12 @@ HISTORY_ORIGIN = "xradio.measurement_set.open_msv2"
 # key columns (and ANTENNA2, for the ANTENNA1 rule) and sub-tables
 FINGERPRINT_MAIN_COLUMNS = tuple(PARTITION_MAIN_KEY_COLUMNS) + ("ANTENNA2",)
 FINGERPRINT_SUBTABLES = ("FIELD", "STATE", "SOURCE")
+# The sub-table columns the partition keys are looked up in, which must be
+# stored in files of their sub-table for the fingerprint to follow them
+FINGERPRINT_SUBTABLE_COLUMNS = {
+    "FIELD": ("SOURCE_ID", "EPHEMERIS_ID"),
+    "STATE": ("OBS_MODE", "SUB_SCAN"),
+}
 # Attempts to read a stored row (a row being rewritten reads torn: its
 # CHECKSUM does not match, or the read raises)
 READ_ATTEMPTS = 3
@@ -598,6 +611,25 @@ def fingerprint_json(path: str) -> str:
     return json.dumps(fingerprint, sort_keys=True, separators=(",", ":"))
 
 
+def unfollowed_reason(path: str) -> str | None:
+    """
+    Why the fingerprint of an MS cannot tell the changes of the inputs of its
+    partitions, if it cannot (``table_lock_file.followed_ms_fingerprint``): a
+    reference or concatenated MAIN (e.g. a multi-MS: its rows live in other
+    tables, whose writes change neither its lock file nor files of its own),
+    or a key column held by a data manager without files of its own (e.g.
+    the ``ForwardColumnEngine`` of ``msconcat``), in MAIN or in FIELD /
+    STATE. Its partitions are then computed on every open, never memoised
+    or stored.
+    """
+    return followed_ms_fingerprint(
+        path,
+        FINGERPRINT_MAIN_COLUMNS,
+        FINGERPRINT_SUBTABLES,
+        FINGERPRINT_SUBTABLE_COLUMNS,
+    )[1]
+
+
 def same_fingerprint(stored: str, current: str) -> bool:
     """Whether a stored fingerprint (JSON) equals the current one."""
     if stored == current:
@@ -898,7 +930,10 @@ class PartitionsResult:
         (another process stored them meanwhile); or computed and kept in
         memory, "memory:<reason>": "mode-off", "mode-read", "no-fingerprint"
         (the fingerprint of the MS could not be computed: neither stored
-        rows nor the memo are used), "changed-during-build" (the MS changed
+        rows nor the memo are used), an ``unfollowed_reason`` (e.g. "MAIN is
+        a reference or concatenated table": a fingerprint that cannot follow
+        the changes of the MS, neither stored rows nor the memo are used
+        either), "changed-during-build" (the MS changed
         while they were computed: not memoised), "locked", "write failed",
         a reason of why_not_writable, or MAIN_NOT_FLUSHED (compute_in_memory:
         the view of this process, which holds MAIN's write lock with rows
@@ -1826,12 +1861,20 @@ def _compute(path: str, partition_scheme: list[str]) -> tuple[list[dict], MainRo
         return create_partitions_with_main_rows(path, partition_scheme)
 
 
-def _ms_state(path: str) -> tuple[str | None, int | None]:
-    """(fingerprint JSON, HISTORY rows) of an MS, or (None, None) if the
-    fingerprint cannot be computed (then neither stored rows nor the memo
-    are used)."""
+def _ms_state(path: str) -> tuple[str | None, int | None, str]:
+    """
+    (fingerprint JSON, HISTORY rows, "") of an MS; or (None, None, reason)
+    if there is no fingerprint that follows the inputs of its partitions
+    (then neither stored rows nor the memo are used): "no-fingerprint" if it
+    cannot be computed, else the ``unfollowed_reason`` (told at INFO once
+    per MS and reason).
+    """
     try:
-        return fingerprint_json(path), history_nrows(path)
+        unfollowed = unfollowed_reason(path)
+        if unfollowed is not None:
+            notify_not_stored(path, unfollowed, False)
+            return None, None, unfollowed
+        return fingerprint_json(path), history_nrows(path), ""
     except Exception as exc:
         if _first_notice(path, "no-fingerprint"):
             xradio_logger().info(
@@ -1839,7 +1882,7 @@ def _ms_state(path: str) -> tuple[str | None, int | None]:
                 f"({type(exc).__name__}: {exc}): its partitions are computed in "
                 "memory"
             )
-        return None, None
+        return None, None, "no-fingerprint"
 
 
 def _history_reason(reason: str) -> str:
@@ -1906,7 +1949,7 @@ def changed_since(path: str, result: PartitionsResult) -> bool:
     if result.fingerprint is None:
         return True
     with write_mutex(path):
-        fingerprint, n_history = _ms_state(path)
+        fingerprint, n_history, _ = _ms_state(path)
     return fingerprint != result.fingerprint or n_history != result.history_nrows
 
 
@@ -1963,11 +2006,11 @@ def load_or_create_partitions(
             return result
         if fingerprint is None:
             partitions, runs = _compute(path, partition_scheme)
-            return PartitionsResult(partitions, runs, "fresh", "memory:no-fingerprint")
+            return PartitionsResult(partitions, runs, "fresh", f"memory:{reason}")
         PARTITIONS_MEMO.stats["computed"] += 1
         partitions, runs = _compute(path, partition_scheme)
         with write_mutex(path):
-            after, _ = _ms_state(path)
+            after, _, _ = _ms_state(path)
         if after != fingerprint or runs.main_nrows != _fingerprint_nrows(fingerprint):
             return PartitionsResult(
                 partitions, runs, "fresh", "memory:changed-during-build"
@@ -1988,15 +2031,18 @@ def _valid_partitions(
     """
     The fingerprint and HISTORY rows of an MS, and its partitions from the
     memo or the stored row if they are valid (else the reason of the HISTORY
-    row of a store); a dangling MAIN keyword is removed ("auto").
+    row of a store; without a fingerprint, why there is none); a dangling
+    MAIN keyword is removed ("auto").
 
     Returns
     -------
     tuple[str | None, int | None, PartitionsResult | None, str]
         (fingerprint, HISTORY rows, result or None, reason).
     """
-    fingerprint, n_history = _ms_state(path)
-    if fingerprint is None or mode == "rebuild":
+    fingerprint, n_history, why_none = _ms_state(path)
+    if fingerprint is None:
+        return None, None, None, why_none
+    if mode == "rebuild":
         return fingerprint, n_history, None, "rebuild"
     entry = PARTITIONS_MEMO.get(key)
     if (

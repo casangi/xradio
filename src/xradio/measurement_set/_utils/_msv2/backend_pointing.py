@@ -17,9 +17,10 @@ the variables are indexed or computed:
   are placeholders, described by a :class:`DeferredPointingVariable`, and
   the rest of the pointing_xds (dimension names, attributes, encoding) is
   built by the converter's own code. No data column is read but one cell
-  each (its dtype); cell shapes come from the column descriptions (a fixed
-  shape) or the first row. The index is kept in a per-process memo while
-  the table's fingerprint (``table_fingerprint``) is unchanged.
+  each (its dtype); the cell shapes come from the column descriptions (a
+  fixed shape) or from the shapes of the cells (``getcolshapestring``,
+  read in bounded chunks: no values). The index is kept in a per-process
+  memo while the table's fingerprint (``table_fingerprint``) is unchanged.
 - On access (:class:`PointingColumnArray`, outer indexing): the rows of the
   selected times and antennas, checked against the index (their TIME and
   ANTENNA_ID), the first row (lowest row number) of every (time, antenna)
@@ -33,20 +34,21 @@ the variables are indexed or computed:
   fragmented rows are read in windows of consecutive rows: the shim has no
   row selection).
 
-Cells of a data column whose shape the column description does not fix are
-taken to have the shape of its first row (as the converter's sub-table cache
-requires of a table it holds); a read of a cell of another shape raises
-:class:`MSv2ReadError` (the converter reads such a table per partition, and
-leaves out or pads the column there).
-
-Tables that cannot be described from their column descriptions, first row
-and index (no DIRECTION column, unusual value types, an undefined or empty
-cell in the first row, TIME values that are not finite, ...): their
-pointing_xds is built at open by the converter's code, as by the converter,
-and its data variables are replaced by :class:`PointingBuildArray`, which
-builds it again when they are read (the values are not kept). With
-``pointing_interpolate=True`` (the interpolation needs the values) the
-pointing_xds is built eagerly.
+Cells of more than one shape: an array column whose description does not
+fix the shape of its cells has the shape of most of its cells; the rows
+whose cells have another shape, or no value, are recorded in the index
+(``odd_rows``, usually none). The converter reads the rows of each partition
+on their own and leaves out (or pads) a column whose cells there vary, so a
+partition whose POINTING rows include such rows has its pointing_xds built
+when the MS is opened by the converter's code, as by the converter, and its
+data variables are :class:`PointingBuildArray`, which build it again when
+read (one build per partition is kept in a bounded per-process memo, so
+that its variables share it; the values are not kept by the open). Tables
+that cannot be described from their column descriptions, cell shapes and
+index (no DIRECTION column, unusual value types, a column without a cell
+of a usual shape, TIME values that are not finite, ...) are built that way
+for every partition. With ``pointing_interpolate=True`` (the interpolation
+needs the values) the pointing_xds is built eagerly.
 
 Staleness: an array records the number of POINTING rows and a token of its
 partition's selection (times, antennas, row numbers). A read finds the
@@ -60,19 +62,21 @@ table's fingerprint changed since the open, or a handle of the process has
 it open for writing.)
 """
 
+import collections
 import copy
 import dataclasses
 import hashlib
 import json
 import os
-from collections.abc import Mapping
+import threading
+from collections.abc import Callable, Hashable, Mapping
 from typing import Any
 
 import numpy as np
 import xarray as xr
 from numpy.typing import DTypeLike
 
-from xradio._utils._casacore.tables import casatools_serialized
+from xradio._utils._casacore.tables import casatools_serialized, uses_casatools
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read import (
     add_units_measures,
@@ -141,6 +145,16 @@ _ROW_INDEX_BYTES = 64
 # _WINDOW_MAX_GAP rows, or at _WINDOW_BYTES of cells.
 _WINDOW_MAX_GAP = 1024
 _WINDOW_BYTES = 16 * 2**20
+# Rows of a column whose cell shapes are read in one call when the index is
+# read (getcolshapestring: no values; about 60 bytes per row while it lasts)
+SHAPE_SCAN_ROWS = 2**18
+# A scan of cell shapes that meets more calls failing on cells without a
+# value than this gives up: the table is then built by the converter's code
+SHAPE_SCAN_MAX_ERRORS = 64
+# Bound of the per-process memo of pointing_xds built again on read
+# (PointingBuildArray: the variables of a partition share one build). A
+# build larger than this is not kept.
+POINTING_BUILD_MEMO_MAX_BYTES = 128 * 2**20
 # Value dtypes whose round trip through xarray's promoted fill dtype (for
 # grids with missing cells) keeps every value: a block pivoted with or without
 # missing cells gives the values of the whole grid. (POINTING data columns
@@ -164,9 +178,10 @@ class PointingIndex:
         dtype of the values of every data column (as read).
     cell_shapes : dict[str, tuple[int, ...]]
         Cell shape of every data column (numpy order).
-    verified : dict[str, bool]
-        Whether the column description vouches for the cell shape of every
-        row of a data column (a fixed shape), else it is the first row's.
+    odd_rows : np.ndarray
+        The rows (ascending table row numbers) with a cell of another shape
+        than its column's (or without a value) in an array column: a
+        partition that selects one is built by the converter's code.
     token : str
         Token of the table's fingerprint when the index was read.
     """
@@ -174,7 +189,7 @@ class PointingIndex:
     columns: PointingColumns
     dtypes: dict[str, np.dtype]
     cell_shapes: dict[str, tuple[int, ...]]
-    verified: dict[str, bool]
+    odd_rows: np.ndarray
     token: str
 
     @property
@@ -184,7 +199,14 @@ class PointingIndex:
 
     @property
     def nbytes(self) -> int:
-        return self.columns.nbytes
+        return self.columns.nbytes + self.odd_rows.nbytes
+
+    def selects_odd_rows(self, selection: "_Selection") -> bool:
+        """Whether a partition's rows include rows of ``odd_rows``."""
+        if self.odd_rows.size == 0:
+            return False
+        rows = self.columns.row[selection.sel]
+        return bool(np.isin(rows, self.odd_rows).any())
 
 
 class _IndexEntry:
@@ -225,10 +247,11 @@ if hasattr(os, "register_at_fork"):
 
 
 def clear_pointing_memos() -> None:
-    """Empty the per-process memos of POINTING indices and selections (for
-    tests)."""
+    """Empty the per-process memos of POINTING indices, selections and
+    builds (for tests)."""
     POINTING_INDEX_MEMO.clear()
     POINTING_SELECTION_MEMO.clear()
+    POINTING_BUILD_MEMO.clear()
 
 
 def _digest(*arrays: np.ndarray) -> str:
@@ -291,12 +314,9 @@ def _not_lazy(table_path: str, reason: str) -> None:
     xradio_logger().debug(f"Not reading {table_path} lazily: {reason}")
 
 
-def _declared_cell_shape(table: Any, col: str) -> tuple[tuple[int, ...], bool]:
-    """
-    The cell shape of an array column (numpy order), and whether the column
-    description fixes it (then every cell has it); otherwise the shape of the
-    first row (a RuntimeError if it is undefined). Reads no data.
-    """
+def _fixed_cell_shape(table: Any, col: str) -> tuple[int, ...] | None:
+    """The cell shape of an array column (numpy order) if its description
+    fixes it (every cell then has it), else None. Reads no data."""
     desc = table.getcoldesc(col)
     shape = desc.get("shape")
     if (
@@ -304,8 +324,87 @@ def _declared_cell_shape(table: Any, col: str) -> tuple[tuple[int, ...], bool]:
         and shape is not None
         and len(shape)
     ):
-        return tuple(int(n) for n in np.asarray(shape).ravel()), True
-    return parse_shape_string(table.getcolshapestring(col, 0, 1)[0]), False
+        return tuple(int(n) for n in np.asarray(shape).ravel())
+    return None
+
+
+def _shape_strings(table: Any, col: str, start: int, nrow: int) -> list[str]:
+    """
+    The shape strings of ``nrow`` cells of a column from ``start``
+    (``getcolshapestring``; raises at a cell without a value). With the
+    casatools shim, casatools' own strings (casacore axis order), which the
+    shim would parse one by one; parse_cell_shape reads both.
+    """
+    if uses_casatools():
+        import casatools
+
+        return casatools.table.getcolshapestring(table, col, start, nrow)
+    return table.getcolshapestring(col, start, nrow)
+
+
+def parse_cell_shape(shape_string: str) -> tuple[int, ...]:
+    """A cell shape (numpy order) from a string of _shape_strings."""
+    shape = parse_shape_string(shape_string)
+    return shape[::-1] if uses_casatools() else shape
+
+
+class _ShapeScan:
+    """Codes of the cell shapes of a column's rows (-1: no value), by the
+    shape strings of a scan (_scan_cell_shapes)."""
+
+    def __init__(self, table: Any, col: str):
+        self.table, self.col = table, col
+        self.codes: dict[str, int] = {}
+        self.errors = 0
+
+    def fill(self, start: int, out: np.ndarray) -> None:
+        """The codes of the rows ``start`` + range(out.size) into ``out``;
+        a call that fails (a cell without a value) is split in two."""
+        try:
+            strings = _shape_strings(self.table, self.col, start, out.size)
+        except Exception:
+            self.errors += 1
+            if self.errors > SHAPE_SCAN_MAX_ERRORS:
+                raise
+            if out.size == 1:
+                out[0] = -1
+                return
+            half = out.size // 2
+            self.fill(start, out[:half])
+            self.fill(start + half, out[half:])
+            return
+        unique, inverse = np.unique(np.asarray(strings), return_inverse=True)
+        codes = np.array(
+            [self.codes.setdefault(str(text), len(self.codes)) for text in unique],
+            dtype=np.int32,
+        )
+        out[:] = codes[np.asarray(inverse).ravel()]
+
+
+def _scan_cell_shapes(
+    table: Any, col: str, nrows: int
+) -> tuple[tuple[int, ...], int, np.ndarray] | None:
+    """
+    The cell shape of most cells of an array column (numpy order), the
+    first row with it, and the rows whose cells have another shape or no
+    value; None if no cell has a value. Reads the shapes of the cells
+    (``getcolshapestring``) in chunks of SHAPE_SCAN_ROWS rows, no values.
+    Raises if more than SHAPE_SCAN_MAX_ERRORS calls fail (cells without a
+    value: the caller describes no such table).
+    """
+    scan = _ShapeScan(table, col)
+    codes = np.empty(nrows, dtype=np.int32)
+    for start in range(0, nrows, SHAPE_SCAN_ROWS):
+        scan.fill(start, codes[start : start + SHAPE_SCAN_ROWS])
+    defined = codes >= 0
+    if not defined.any():
+        return None
+    # (ties: the shape seen first)
+    common = int(np.argmax(np.bincount(codes[defined], minlength=len(scan.codes))))
+    (text,) = (text for text, code in scan.codes.items() if code == common)
+    is_common = codes == common
+    first = int(np.argmax(is_common))
+    return parse_cell_shape(text), first, np.flatnonzero(~is_common)
 
 
 def read_pointing_index(
@@ -314,16 +413,18 @@ def read_pointing_index(
     """
     The POINTING index of a table, for a lazy pointing_xds: TIME, ANTENNA_ID
     and the row numbers, sorted by TIME (16 bytes per row, whatever the
-    number of rows), with the dtype (one cell read) and the cell shape (the
-    column description, or the first row) of every data column. No other
+    number of rows), with the dtype (one cell read) and the cell shape of
+    every data column, and the rows with cells of another shape. No other
     data is read.
 
     These are PR 1's ``PointingColumns`` (without data), with the checks of
-    its sub-table cache that need no data: the dimensions of the generic
-    dataset (``generic_dims``, from the cell shapes of all columns), usual
-    value types, defined cells of non-zero size in the first row, finite
-    TIME. Cells of another shape than the first row's (in columns whose
-    description does not fix the shape) are found by the reads.
+    its sub-table cache, made without the data: the dimensions of the
+    generic dataset (``generic_dims``, from the cell shapes of all
+    columns), usual value types, cells of non-zero size, finite TIME. The
+    cell shape of an array column is that of its description (a fixed
+    shape) or of most of its cells (``_scan_cell_shapes``: the shapes of all
+    cells are read, not their values); the rows whose cells have another
+    shape or no value in any array column are ``odd_rows``.
 
     Parameters
     ----------
@@ -372,12 +473,12 @@ def _read_pointing_index(
         if "DIRECTION" not in col_types:
             return _not_lazy(table_path, "no DIRECTION column")
 
-        columns, data_cells = [], {}
+        columns, data_cells, odd_parts = [], {}, []
         for col, col_type in col_types.items():
             is_coord = col.endswith("_ID") or col == "TIME"
             is_key = col in ("TIME", "ANTENNA_ID")
             is_data = col in data_columns and not is_coord
-            fixed = True
+            first_row = 0
             if tb_tool.isscalarcol(col):
                 if is_data and col_type not in _SCALAR_VALUE_TYPES:
                     return _not_lazy(table_path, f"{col} is a {col_type} scalar")
@@ -387,10 +488,16 @@ def _read_pointing_index(
             else:
                 if is_data and col_type not in CASACORE_TO_NUMPY_DTYPE:
                     return _not_lazy(table_path, f"{col} is a {col_type} array")
-                # (raises for an undefined first cell)
-                cell_shape, fixed = _declared_cell_shape(tb_tool, col)
+                cell_shape = _fixed_cell_shape(tb_tool, col)
+                if cell_shape is None:
+                    scanned = _scan_cell_shapes(tb_tool, col, nrows)
+                    if scanned is None:
+                        return _not_lazy(table_path, f"{col} has no cell with a value")
+                    cell_shape, first_row, odd = scanned
+                    if odd.size:
+                        odd_parts.append(odd)
             if is_data:
-                data_cells[col] = (cell_shape, fixed)
+                data_cells[col] = (cell_shape, first_row)
             columns.append((col, is_coord, cell_shape))
 
         all_rows = np.arange(nrows)
@@ -398,8 +505,8 @@ def _read_pointing_index(
         antenna_id = read_column_rows(tb_tool, "ANTENNA_ID", all_rows)
         # one cell of every data column: the dtype of the values as read
         first_cells = {
-            col: read_column_rows(tb_tool, col, np.zeros(1, dtype=np.int64))
-            for col in data_cells
+            col: read_column_rows(tb_tool, col, np.array([first_row], dtype=np.int64))
+            for col, (_, first_row) in data_cells.items()
         }
 
     data_cols = tuple(data_cells)
@@ -412,15 +519,19 @@ def _read_pointing_index(
     if data_sizes != sizes or 0 in sizes.values():
         # the other variables have dimensions of their own (or cells are empty)
         return _not_lazy(table_path, f"dimensions {sizes} vs {data_sizes}")
-    dtypes, cell_shapes, verified = {}, {}, {}
+    dtypes, cell_shapes = {}, {}
     for col in data_cols:
         cell = first_cells[col]
         if cell.shape[1:] != data_cells[col][0]:
-            return _not_lazy(table_path, f"{col}: a first cell of {cell.shape[1:]}")
+            return _not_lazy(table_path, f"{col}: a cell of {cell.shape[1:]}")
         if not _exact_promotion(cell.dtype):
             return _not_lazy(table_path, f"{col} has values of {cell.dtype}")
         dtypes[col], cell_shapes[col] = cell.dtype, tuple(cell.shape[1:])
-        verified[col] = data_cells[col][1]
+    odd_rows = (
+        np.unique(np.concatenate(odd_parts)).astype(np.int64)
+        if odd_parts
+        else np.empty(0, dtype=np.int64)
+    )
 
     # attributes as load_generic_table() sets them
     var_attrs = {}
@@ -455,9 +566,10 @@ def _read_pointing_index(
     )
     xradio_logger().debug(
         f"POINTING index of {table_path}: {nrows} rows, "
-        f"{columns.nbytes / 2**20:.1f} MiB"
+        f"{columns.nbytes / 2**20:.1f} MiB, {odd_rows.size} rows with cells of "
+        "another shape"
     )
-    return PointingIndex(columns, dtypes, cell_shapes, verified, token)
+    return PointingIndex(columns, dtypes, cell_shapes, odd_rows, token)
 
 
 def _index_key(
@@ -596,9 +708,6 @@ class DeferredPointingVariable:
         dtype of the values.
     cell_shape : tuple[int, ...]
         Cell shape of the column (numpy order).
-    verified : bool
-        Whether the column description fixes the cell shape (else it is the
-        first row's: a read finds other shapes).
     """
 
     name: str
@@ -614,7 +723,6 @@ class DeferredPointingVariable:
     selection_token: str
     dtype: np.dtype
     cell_shape: tuple[int, ...]
-    verified: bool = True
 
     def changed_error(self, what: str) -> MSv2ChangedError:
         """The error raised when POINTING no longer matches the open."""
@@ -714,7 +822,8 @@ def deferred_pointing_generic_xds(
     -------
     xr.Dataset | None
         The dataset (empty if no POINTING row is selected), or None if
-        POINTING is read eagerly.
+        POINTING is read eagerly: a table the index cannot describe, or a
+        partition whose rows include ``odd_rows``.
     """
     if context is not None:
         context["time_min_max"] = time_min_max
@@ -737,6 +846,16 @@ def deferred_pointing_generic_xds(
     selected = select_partition(index, time_min_max, antenna_ids)
     if selected is None:
         return xr.Dataset()
+    if index.selects_odd_rows(selected[0]):
+        # Cells of another shape (or without a value) among the partition's
+        # rows: built by the converter's code, which reads such a table per
+        # partition (PR 1's sub-table cache would refuse it after reading its
+        # data columns: told so at once)
+        if subtable_cache is not None:
+            subtable_cache.get_or_build(
+                ("pointing_columns", table_path, columns_key), lambda: None
+            )
+        return None
     grid = selected[1]
     del selected
 
@@ -762,7 +881,6 @@ def deferred_pointing_generic_xds(
             selection_token=grid.token,
             dtype=index.dtypes[col],
             cell_shape=index.cell_shapes[col],
-            verified=index.verified[col],
         )
         specs[name] = spec
         data_vars[col] = xr.Variable(
@@ -839,15 +957,6 @@ class PointingColumnArray(MSv2BackendArray):
             f"(block [{block}]) from {self.spec.table_path} failed: "
             f"{type(exc).__name__}: {exc}"
         )
-        if not self.spec.verified:
-            message += (
-                f". The cells of {self.spec.col} were taken to have the shape of its "
-                f"first row, {self.spec.cell_shape}, when the MS was opened (only a "
-                "read can check them): if they vary in shape, convert the MS with "
-                "convert_msv2_to_processing_set (which reads such a table per "
-                f"partition), or open it with drop_variables=[{self.spec.name!r}] "
-                "or with_pointing=False"
-            )
         return message
 
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
@@ -1114,6 +1223,78 @@ def lazy_pointing_xds(
 # --- pointing_xds that the converter's code builds -------------------------------
 
 
+class _BuildMemo:
+    """
+    Per-process LRU memo of the pointing_xds that PointingBuildArray builds
+    on read, by build and POINTING fingerprint, bounded by bytes (a build
+    larger than the bound is not kept), with striped locks so that threads
+    reading the variables of one partition build it once. Renewed (empty,
+    with new locks) in a fork child.
+    """
+
+    def __init__(self, max_bytes: int):
+        self.max_bytes = int(max_bytes)
+        self.reset_after_fork()
+
+    def reset_after_fork(self) -> None:
+        self._lock = threading.Lock()
+        self._build_locks = [threading.Lock() for _ in range(16)]
+        self._entries: collections.OrderedDict[Hashable, tuple[xr.Dataset, int]] = (
+            collections.OrderedDict()
+        )
+        self._nbytes = 0
+        self.stats: collections.Counter = collections.Counter()
+
+    def _get(self, key: Hashable) -> xr.Dataset | None:
+        with self._lock:
+            entry = self._entries.get(key)
+            if entry is None:
+                return None
+            self._entries.move_to_end(key)
+            self.stats["hits"] += 1
+            return entry[0]
+
+    def get_or_build(
+        self, key: Hashable, build: Callable[[], xr.Dataset]
+    ) -> xr.Dataset:
+        """The dataset of ``key``, built with ``build()`` on a miss (once,
+        when several threads miss it; never called holding the casatools
+        lock, which ``build`` takes)."""
+        xds = self._get(key)
+        if xds is not None:
+            return xds
+        with self._build_locks[hash(key) % len(self._build_locks)]:
+            xds = self._get(key)
+            if xds is not None:
+                return xds
+            self.stats["builds"] += 1
+            xds = build()
+            nbytes = sum(int(var.nbytes) for var in xds.variables.values())
+            if nbytes <= self.max_bytes:
+                with self._lock:
+                    self._entries[key] = (xds, nbytes)
+                    self._nbytes += nbytes
+                    while self._nbytes > self.max_bytes:
+                        _, (_, evicted) = self._entries.popitem(last=False)
+                        self._nbytes -= evicted
+            return xds
+
+    def clear(self) -> None:
+        with self._lock:
+            self._entries.clear()
+            self._nbytes = 0
+            self.stats.clear()
+
+    def __len__(self) -> int:
+        return len(self._entries)
+
+
+POINTING_BUILD_MEMO = _BuildMemo(POINTING_BUILD_MEMO_MAX_BYTES)
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=POINTING_BUILD_MEMO.reset_after_fork)
+
+
 @dataclasses.dataclass(frozen=True)
 class PointingBuild:
     """
@@ -1153,10 +1334,12 @@ class PointingBuild:
 class PointingBuildArray(MSv2BackendArray):
     """
     A data variable of a pointing_xds that only the converter's code can
-    build (POINTING tables that ``read_pointing_index`` cannot describe):
-    every read builds the partition's pointing_xds again
-    (:class:`PointingBuild`) and returns the selection of the variable, so
-    the values are not kept between reads.
+    build (POINTING tables that ``read_pointing_index`` cannot describe, and
+    partitions whose rows have cells of another shape): a read takes the
+    partition's pointing_xds from POINTING_BUILD_MEMO, or builds it again
+    (:class:`PointingBuild`) while the POINTING table is as it was (its
+    fingerprint), and returns the selection of the variable. The variables
+    of a partition so share one build; the open keeps no values.
 
     Parameters
     ----------
@@ -1188,7 +1371,18 @@ class PointingBuildArray(MSv2BackendArray):
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
         table = os.path.join(self.build.in_file, POINTING_TABLE)
         try:
-            xds = self.build.build()
+            with casatools_serialized():
+                token = pointing_table_token(table)
+            xds = POINTING_BUILD_MEMO.get_or_build(
+                (
+                    os.path.realpath(self.build.in_file),
+                    self.build.time_min_max,
+                    self.build.antenna_ids,
+                    self.build.antenna_names,
+                    token,
+                ),
+                self.build.build,
+            )
         except Exception as exc:
             block = ", ".join(f"{k.start}:{k.stop}" for k in key)
             raise MSv2ReadError(
@@ -1204,7 +1398,8 @@ class PointingBuildArray(MSv2BackendArray):
                 f"{self.name} of {self.node or 'an MSv4'} is {found}, "
                 f"{self.dtype} {self.shape} when it was opened); open it again"
             )
-        return np.asarray(var.values[key])
+        # (a copy: the build may be kept in the memo)
+        return np.array(var.values[key], copy=True)
 
 
 def rebuilt_pointing_xds(

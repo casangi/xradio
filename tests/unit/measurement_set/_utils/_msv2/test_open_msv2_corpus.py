@@ -19,6 +19,7 @@ import os
 import pathlib
 import shutil
 
+import numpy as np
 import pytest
 import xarray as xr
 
@@ -54,8 +55,9 @@ def _every_1000th_field(partition):
     return partition["FIELD_ID"][0] % 1000 == 0
 
 
-# case: (MS, options of the converter and of the engine, rows of the copy:
-# "same" or "time_descending")
+# case: (MS, options of the converter and of the engine, the copy: "same",
+# "time_descending" (rows), or "odd_direction" (a POINTING DIRECTION cell of
+# another shape))
 CASES = {
     # reversed frequencies
     "antennae": ("Antennae_North.cal.lsrk.split.ms", {}, "same"),
@@ -96,6 +98,11 @@ CASES = {
     "vlass": (VLASS, {}, "same"),
     # cells of 3 shapes in one column, ephemeris fields
     "alma": (ALMA, {}, "same"),
+    # a DIRECTION cell of another shape, as the converter reads it: without
+    # the pointing_xds where it falls (sdimaging), without POINTING_BEAM in the
+    # 12 partitions whose times cover it (VLASS)
+    "sdimaging_odd_direction": ("sdimaging.ms", {}, "odd_direction"),
+    "vlass_odd_direction": (VLASS, {}, "odd_direction"),
     # 48,824 partitions, of which the filter selects 52
     "vlass_field_filtered": (
         VLASS,
@@ -106,15 +113,24 @@ CASES = {
 
 
 def _copy_ms(name: str, rows: str, target: pathlib.Path) -> str:
-    """A copy of a downloaded MS (``rows``: "same", or "time_descending": a
-    deep copy with the rows sorted by decreasing TIME, ANTENNA1, ANTENNA2)."""
+    """A copy of a downloaded MS (``rows``: "same"; "time_descending": a
+    deep copy with the rows sorted by decreasing TIME, ANTENNA1, ANTENNA2;
+    "odd_direction": the POINTING DIRECTION cell of the middle row with two
+    polynomial terms, the others have one)."""
     source = download_measurement_set(name, MS_DIR)
     target.mkdir()
     msname = str(target / name)
-    if rows == "same":
-        shutil.copytree(source, msname, symlinks=True)
-        return msname
     from casacore import tables
+
+    if rows in ("same", "odd_direction"):
+        shutil.copytree(source, msname, symlinks=True)
+        if rows == "odd_direction":
+            pointing = os.path.join(msname, "POINTING")
+            with tables.table(pointing, readonly=False, ack=False) as table:
+                row = table.nrows() // 2
+                cell = table.getcell("DIRECTION", row)
+                table.putcell("DIRECTION", row, np.vstack([cell, cell * 0 + 1e-6]))
+        return msname
 
     with tables.table(str(source), ack=False) as main_tb:
         with main_tb.sort("TIME desc, ANTENNA1 desc, ANTENNA2 desc") as rows_tb:

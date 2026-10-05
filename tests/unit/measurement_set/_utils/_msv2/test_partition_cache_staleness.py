@@ -419,6 +419,27 @@ def test_forged_fingerprint(layout, ms_copy, tmp_path, monkeypatch):
     assert status_of(msname) == "hit"
 
 
+def test_forged_fingerprint_non_grouping_axis(ms_copy, tmp_path, monkeypatch):
+    """A change the fingerprint misses (forged) that alters only an axis of
+    a partition description that does not group the rows (SCAN_NUMBER under
+    the scheme []: the rows of scan 1 of DDI 0 moved to scan 2, which only
+    another partition had): the check against the rows compares every
+    described axis, so it is caught and the partitions are computed again."""
+    msname = ms_copy("rich", name="rich.ms")
+    options = {"partition_scheme": [], "with_pointing": False}
+    assert status_of(msname, []) == "stored"
+    forged = _stored_row(msname)["FINGERPRINT"]
+    monkeypatch.setattr(partition_cache, "fingerprint_json", lambda path: forged)
+    _update(msname, "SCAN_NUMBER", slice(0, 10), 2)
+    assert status_of(msname, []) == "hit"  # (the staleness checks pass)
+    partition_cache.clear_partition_memo()
+    with pytest.warns(PartitionCacheWarning, match="SCAN_NUMBER"):
+        tree = assert_equals_the_oracle(
+            msname, str(tmp_path / "oracle.ps.zarr"), **options
+        )
+    assert len(tree.children) == 8
+
+
 def test_rows_added_while_opening_are_no_cache_defect(ms_copy, tmp_path, monkeypatch):
     """MAIN gains rows (another process) between the load of stored
     partitions and the build: logged at INFO and opened again with the

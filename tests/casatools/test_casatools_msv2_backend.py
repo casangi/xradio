@@ -23,6 +23,7 @@ import hashlib
 import json
 import os
 import shutil
+import threading
 
 import numpy as np
 import pytest
@@ -372,3 +373,59 @@ def test_stored_partitions_are_read(tmp_path, monkeypatch):
     with cache_statuses(monkeypatch) as statuses:
         open_engine(msname, partition_cache="auto", with_pointing=False)
     assert statuses == ["memory:casatools only"]
+
+
+def test_every_table_open_holds_the_casatools_lock(tmp_path, monkeypatch):
+    """
+    Every table of the MS that an open uses is opened holding the
+    process-wide casatools lock, also when the partitions come from the memo
+    or the stored row (the check of their rows reads FIELD, SOURCE and
+    STATE), and so are the lazy reads: dask threads reading another tree
+    meanwhile cannot run casatools calls concurrently with the open.
+    """
+    import dask
+
+    from xradio._utils._casacore import casacore_from_casatools as shim
+    from xradio._utils._casacore.tables import CASATOOLS_LOCK
+    from xradio.measurement_set._utils._msv2 import partition_cache as pc
+
+    msname = copy_ms(ref.VLASS, tmp_path)
+    _create_subtable_with_casatools(msname)
+    _store_row_with_casatools(msname, [])
+    root = os.path.realpath(msname)
+    unlocked = []
+    table_init = shim.table.__init__
+
+    def spy(self, *args, **kwargs):
+        tablename = args[0] if args else kwargs.get("tablename", "")
+        name = os.path.realpath(str(tablename)) if tablename else ""
+        if name.startswith(root) and not getattr(CASATOOLS_LOCK._held, "locks", None):
+            unlocked.append(os.path.relpath(name, root))
+        table_init(self, *args, **kwargs)
+
+    monkeypatch.setattr(shim.table, "__init__", spy)
+    pc.clear_partition_memo()
+    other = open_engine(msname, partition_cache="off", with_pointing=True)
+    blocks = [
+        _block_digests(node[var].data)
+        for node in other.children.values()
+        for var in ("VISIBILITY", "FLAG")
+    ]
+    # lazy reads of another tree in 4 dask threads, while the MS is opened
+    reader = threading.Thread(
+        target=dask.compute,
+        args=blocks,
+        kwargs={"scheduler": "threads", "num_workers": 4},
+    )
+    with cache_statuses(monkeypatch) as statuses:
+        reader.start()
+        try:
+            for _ in range(2):  # the stored row, then the memo
+                tree = open_engine(msname, partition_cache="read", with_pointing=True)
+        finally:
+            reader.join()
+    assert statuses == ["hit", "hit-memory"]
+    name = sorted(tree.children)[0]
+    tree[name].VISIBILITY.isel(time=slice(0, 2)).values  # noqa: B018
+    tree[name]["pointing_xds"].POINTING_BEAM.isel(time_pointing=[0, -1]).values  # noqa: B018
+    assert unlocked == []

@@ -5,6 +5,7 @@ import pandas as pd
 import xarray as xr
 
 from xradio._utils.list_and_array import to_list
+from xradio.schema.check import is_extension_type
 
 PS_DATASET_TYPES = {"processing_set"}
 
@@ -50,6 +51,20 @@ class ProcessingSetXdt:
                 "keeping the accessor object alive beyond its DataTree."
             )
         return xdt
+
+    def _ms_items(self) -> list[tuple[str, xr.DataTree]]:
+        """(name, node) pairs of the Measurement Sets in this Processing Set,
+        excluding extension datasets (see
+        :py:func:`xradio.schema.check.is_extension_type`)."""
+        return [
+            (name, node)
+            for name, node in self._xdt.children.items()
+            if not is_extension_type(node.attrs.get("type"))
+        ]
+
+    def _ms_values(self) -> list[xr.DataTree]:
+        """The Measurement Sets in this Processing Set, excluding extension datasets."""
+        return [node for _, node in self._ms_items()]
 
     def _weaken(self) -> "ProcessingSetXdt":
         """Switch to a WEAK back-reference; called by the accessor-protocol
@@ -102,7 +117,7 @@ class ProcessingSetXdt:
         def find_data_group_base_or_first(
             data_group_name: str, xdt: xr.DataTree
         ) -> str:
-            first_msv4 = next(iter(xdt.values()))
+            first_msv4 = self._ms_values()[0]
             first_data_groups = first_msv4.attrs["data_groups"]
             if data_group_name is None:
                 data_group_name = (
@@ -163,7 +178,7 @@ class ProcessingSetXdt:
             return self.meta["max_dims"]
         else:
             max_dims = None
-            for ms_xdt in self._xdt.values():
+            for ms_xdt in self._ms_values():
                 if max_dims is None:
                     max_dims = dict(ms_xdt.sizes)
                 else:
@@ -198,10 +213,8 @@ class ProcessingSetXdt:
         else:
             spw_names = []
             freq_axis_list = []
-            frame = self._xdt[next(iter(self._xdt.children))].frequency.attrs[
-                "observer"
-            ]
-            for ms_xdt in self._xdt.values():
+            frame = self._ms_values()[0].frequency.attrs["observer"]
+            for ms_xdt in self._ms_values():
                 assert frame == ms_xdt.frequency.attrs["observer"], (
                     "Frequency reference frame not consistent in Processing Set."
                 )
@@ -238,7 +251,7 @@ class ProcessingSetXdt:
         import astropy.units as u
         from astropy.coordinates import SkyCoord
 
-        for key, value in sorted(self._xdt.items()):
+        for key, value in sorted(self._ms_items()):
             partition_info = value.xr_ms.get_partition_info()
             observation_info = value.observation_info
 
@@ -393,7 +406,7 @@ class ProcessingSetXdt:
             summary_table = summary_table.query(query)
 
         sub_ps_xdt = xr.DataTree()
-        for key, val in self._xdt.items():
+        for key, val in self._ms_items():
             if key in summary_table["name"].values:
                 if data_group_name is not None:
                     sub_ps_xdt[key] = val.xr_ms.sel(data_group_name=data_group_name)
@@ -433,7 +446,7 @@ class ProcessingSetXdt:
             )
 
         combined_field_and_source_xds = xr.Dataset()
-        for ms_xdt in self._xdt.values():
+        for ms_xdt in self._ms_values():
             field_and_source_xds = ms_xdt.xr_ms.get_field_and_source_xds(
                 data_group_name
             )
@@ -531,7 +544,7 @@ class ProcessingSetXdt:
             )
 
         combined_ephemeris_field_and_source_xds = xr.Dataset()
-        for ms_xdt in self._xdt.values():
+        for ms_xdt in self._ms_values():
             field_and_source_xds = field_and_source_xds = (
                 ms_xdt.xr_ms.get_field_and_source_xds(data_group_name)
             )
@@ -786,7 +799,7 @@ class ProcessingSetXdt:
             )
 
         combined_antenna_xds = xr.Dataset()
-        for ms_xdt in self._xdt.values():
+        for ms_xdt in self._ms_values():
             antenna_xds = ms_xdt.antenna_xds.ds
 
             if len(combined_antenna_xds.data_vars) == 0:
@@ -1279,10 +1292,11 @@ class ProcessingSetXdt:
             The Measurement Set Data Tree object.
         """
 
-        assert len(self._xdt.children) == 1, (
+        ms_values = self._ms_values()
+        assert len(ms_values) == 1, (
             "Processing Set contains multiple Measurement Sets and cannot determine which to return."
         )
-        return list(self._xdt.children.values())[0]
+        return ms_values[0]
 
 
 def _xr_ps_accessor_factory(datatree: xr.DataTree) -> ProcessingSetXdt:

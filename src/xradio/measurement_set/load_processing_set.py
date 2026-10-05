@@ -3,6 +3,8 @@ import time
 
 import xarray as xr
 
+from xradio.schema.check import is_extension_type
+
 
 def load_processing_set(
     ps_store: str,
@@ -99,6 +101,8 @@ def load_processing_set(
 
         if (include_variables is not None) or data_group_name:
             for ms_name, ms_xdt in ps_xdt.items():
+                if is_extension_type(ms_xdt.attrs.get("type")):
+                    continue
                 ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
                 if include_variables is not None:
@@ -109,6 +113,8 @@ def load_processing_set(
 
     if not load_sub_datasets:
         for ms_xdt in ps_xdt.children.values():
+            if is_extension_type(ms_xdt.attrs.get("type")):
+                continue
             ms_xdt_names = list(ms_xdt.keys())
             for sub_xds_name in ms_xdt_names:
                 if "xds" in sub_xds_name:

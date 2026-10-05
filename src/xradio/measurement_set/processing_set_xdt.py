@@ -351,7 +351,8 @@ class ProcessingSetXdt:
         Returns
         -------
         xr.DataTree
-            A new Processing Set DataTree instance containing only the Measurement Sets that match the selection criteria.
+            A new Processing Set DataTree instance containing only the Measurement Sets that match the selection criteria,
+            together with any extension datasets (see :py:func:`xradio.schema.check.is_extension_type`).
 
         Examples
         --------
@@ -406,8 +407,11 @@ class ProcessingSetXdt:
             summary_table = summary_table.query(query)
 
         sub_ps_xdt = xr.DataTree()
-        for key, val in self._ms_items():
-            if key in summary_table["name"].values:
+        for key, val in self._xdt.children.items():
+            if is_extension_type(val.attrs.get("type")):
+                # Extension datasets are kept as they are
+                sub_ps_xdt[key] = val
+            elif key in summary_table["name"].values:
                 if data_group_name is not None:
                     sub_ps_xdt[key] = val.xr_ms.sel(data_group_name=data_group_name)
                 else:

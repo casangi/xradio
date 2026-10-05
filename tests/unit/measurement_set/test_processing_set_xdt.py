@@ -489,8 +489,14 @@ class TestProcessingSetXdtWithExtension:
         assert not ext_ps_xdt.xr_ps.get_combined_antenna_xds().identical(xr.Dataset())
         ext_ps_xdt.xr_ps.get_combined_field_and_source_xds()
 
+        # Queries select among the MSv4s and keep extension datasets
         queried = ext_ps_xdt.xr_ps.query(data_group_name="corrected")
-        assert list(queried.children) == ms_names
+        assert list(queried.children) == ["gains", *ms_names]
+        xr.testing.assert_identical(
+            queried["gains"].to_dataset(), self._extension_xds()
+        )
+        queried = ext_ps_xdt.xr_ps.query(name=ms_names[0])
+        assert list(queried.children) == ["gains", ms_names[0]]
 
     @pytest.mark.parametrize(
         "processing_set_from_custom_ms",

@@ -44,7 +44,10 @@ unless a schema has been registered for their type, issuing an
 and reports malformed extension types as issues. Children of an extension dataset are still checked
 against their own types. The processing set accessor and
 :py:func:`~xradio.measurement_set.load_processing_set` ignore extension
-datasets stored next to measurement sets.
+datasets stored next to measurement sets when computing summaries or applying
+selections, but keep them in the processing set: for example,
+:py:meth:`~xradio.measurement_set.ProcessingSetXdt.query`
+returns them alongside the selected measurement sets.
 
 To have xradio check an extension dataset, a package can declare a schema
 for it in the usual way. Importing the module registers the type:

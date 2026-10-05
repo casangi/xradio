@@ -120,6 +120,13 @@ def _subtable_cell(subtable, column, row, value):
     return modify
 
 
+def _source_removed(msname):
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        main_tb.removekeyword("SOURCE")
+    tables.tabledelete(os.path.join(msname, "SOURCE"), ack=False)
+    return msname
+
+
 def _taql_update(msname):
     with tables.table(msname, readonly=False, ack=False) as main_tb:
         tables.taql("UPDATE $1 SET FIELD_ID = 1 WHERE ROWID() < 50", tables=[main_tb])
@@ -286,6 +293,9 @@ SCENARIOS = {
         _subtable_cell("FIELD", "NAME", 0, "another field"),
         ("revalidated", "revalidated"),
     ),
+    # (the partitions then have no SOURCE_ID; an emptied SOURCE cannot be
+    # converted: casacore's TaQL fails on the StandardStMan without rows)
+    "SOURCE removed": (_source_removed, ("stored", "stored")),
     "addrows": (_add_rows, ("stored", "stored")),
     "column added": (_add_column, ("revalidated", "revalidated")),
     "column removed": (_remove_column, ("revalidated", "revalidated")),

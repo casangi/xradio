@@ -538,7 +538,7 @@ def _create_antenna_or_baseline_coords(
     asdm: pyasdm.ASDM,
     partition_descr: dict[str, np.ndarray],
     is_spectrum_xds: bool,
-) -> tuple[dict, int]:
+) -> tuple[dict, int, int]:
     if is_spectrum_xds:
         return _create_antenna_coords(asdm, partition_descr)
     else:

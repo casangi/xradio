@@ -299,6 +299,74 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
     assert time_indices_by_bdf == {}
 
 
+@pytest.mark.parametrize(
+    "input_is_single_dish",
+    [(True), (False)],
+)
+def test__create_antenna_or_baseline_coords(
+    asdm_with_main_data_description_config_description_antenna_polarization,
+    input_is_single_dish,
+):
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        _create_antenna_or_baseline_coords,
+    )
+
+    coords, num_antenna, len_antenna_or_baseline_coords = (
+        _create_antenna_or_baseline_coords(
+            asdm_with_main_data_description_config_description_antenna_polarization,
+            {"configDescriptionId": [0], "fieldId": [0]},
+            input_is_single_dish,
+        )
+    )
+    assert isinstance(coords, dict)
+    if input_is_single_dish:
+        assert "antenna_name" in coords
+        assert len(coords) == 1
+    else:
+        assert "baseline_id" in coords
+        assert "baseline_antenna1_name" in coords
+        assert "baseline_antenna2_name" in coords
+        assert len(coords) == 3
+    assert num_antenna == 2
+    assert len_antenna_or_baseline_coords == 2
+
+
+def test__create_antenna_coords(
+    asdm_with_main_data_description_config_description_antenna_polarization,
+):
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        _create_antenna_coords,
+    )
+
+    coords, num_antenna, len_antenna_coords = _create_antenna_coords(
+        asdm_with_main_data_description_config_description_antenna_polarization,
+        {"configDescriptionId": [0], "fieldId": [0]},
+    )
+    assert isinstance(coords, dict)
+    assert "antenna_name" in coords
+    assert num_antenna == 2
+    assert len_antenna_coords == 2
+
+
+def test__create_baseline_coords(
+    asdm_with_main_data_description_config_description_antenna_polarization,
+):
+    from xradio.measurement_set._utils._asdm.open_partition import (
+        _create_baseline_coords,
+    )
+
+    coords, num_antenna, len_baseline_coords = _create_baseline_coords(
+        asdm_with_main_data_description_config_description_antenna_polarization,
+        {"configDescriptionId": [0], "fieldId": [0]},
+    )
+    assert isinstance(coords, dict)
+    assert "baseline_id" in coords
+    assert "baseline_antenna1_name" in coords
+    assert "baseline_antenna2_name" in coords
+    assert num_antenna == 2
+    assert len_baseline_coords == 2
+
+
 def test__create_uvw_data_var():
     from xradio.measurement_set._utils._asdm.open_partition import (
         _create_uvw_data_var,

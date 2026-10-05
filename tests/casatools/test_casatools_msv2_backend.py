@@ -429,3 +429,44 @@ def test_every_table_open_holds_the_casatools_lock(tmp_path, monkeypatch):
     tree[name].VISIBILITY.isel(time=slice(0, 2)).values  # noqa: B018
     tree[name]["pointing_xds"].POINTING_BEAM.isel(time_pointing=[0, -1]).values  # noqa: B018
     assert unlocked == []
+
+
+def test_pointing_cells_of_another_shape(tmp_path):
+    """
+    POINTING cells of another shape under casatools: the index finds the row
+    (the shim's own shape strings, in casacore axis order, read without
+    parsing every cell), keeps the shape of most cells, and the engine's
+    processing set has the nodes of the converter's (sdimaging: no
+    pointing_xds where the converter leaves it out), both under casatools.
+    """
+    import xarray as xr
+
+    from xradio.measurement_set import (
+        convert_msv2_to_processing_set,
+        open_processing_set,
+    )
+    from xradio.measurement_set._utils._msv2 import backend_pointing as bpt
+    from xradio.measurement_set._utils._msv2._tables.table_query import tables
+
+    msname = copy_ms(ref.SD_STANDARD, tmp_path)
+    pointing = os.path.join(msname, "POINTING")
+    table = tables.table(pointing, readonly=False, ack=False)
+    try:
+        row = table.nrows() // 2
+        cell = np.asarray(table.getcell("DIRECTION", row))
+        assert cell.shape == (1, 2)
+        table.putcell("DIRECTION", row, np.vstack([cell, cell * 0 + 1e-6]))
+    finally:
+        table.close()
+    index = bpt.read_pointing_index(pointing, ("DIRECTION", "ENCODER", "OVER_THE_TOP"))
+    assert index.cell_shapes["DIRECTION"] == (1, 2)
+    np.testing.assert_array_equal(index.odd_rows, [row])
+    out = str(tmp_path / "converted.ps.zarr")
+    convert_msv2_to_processing_set(msname, out)
+    converted = open_processing_set(out)
+    tree = open_engine(msname, partition_cache="off")
+    assert sorted(tree.children) == sorted(converted.children)
+    for name in tree.children:
+        assert sorted(tree[name].children) == sorted(converted[name].children)
+    assert all("pointing_xds" not in tree[name].children for name in tree.children)
+    assert isinstance(tree, xr.DataTree)

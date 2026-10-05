@@ -30,6 +30,10 @@ from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
     read_table_lock,
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
+from xradio.measurement_set._utils._msv2.backend_arrays import (
+    GRID_KEY_COLUMNS,
+    keys_token,
+)
 from xradio.measurement_set._utils._msv2.backend_errors import (
     MainRowsChangedError,
     MSv2ChangedError,
@@ -123,6 +127,9 @@ def open_msv2_tree(
         if attempt == 1:
             _warn_large_tree(path, len(selected))
         built = time.perf_counter()
+        # (taken before the builds read the keys of the rows)
+        with casatools_serialized():
+            build_options["keys_token"] = keys_token(path, GRID_KEY_COLUMNS)
         try:
             _check_main_is_current(path, result.main_nrows)
             # partitions from the cache are checked against their rows

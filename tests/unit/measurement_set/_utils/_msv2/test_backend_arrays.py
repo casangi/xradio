@@ -466,8 +466,11 @@ def lazy_and_reference(msname, idx=0, scheme=(), **kw):
     reversed along frequency as the converter does) and the values the
     converter reads for them (read_deferred_variables), by name.
     """
+    keys = backend_arrays.keys_token(
+        os.path.abspath(msname), backend_arrays.GRID_KEY_COLUMNS
+    )
     with built_partition(msname, idx, scheme, **kw) as built:
-        index = PartitionIndex.seed(os.path.abspath(msname), built)
+        index = PartitionIndex.seed(os.path.abspath(msname), built, keys)
         xds = built.ms_xdt.to_dataset(inherit=False)
         lazy = {}
         for name, spec in built.deferred.items():
@@ -687,6 +690,44 @@ def test_keys_rewritten_after_the_open(
         assert rebuilds == (1 if memo == "rebuilt" else 0)
     else:  # the moved rows made the index be rebuilt (once)
         assert rebuilds == 1
+
+
+def test_rows_are_checked_only_after_writes(backend_ms, tmp_path, monkeypatch):
+    """The keys of the rows read are checked one by one only when MAIN's
+    TIME / ANTENNA1 / ANTENNA2 data managers were written since the open
+    (keys_token, from the lock file), or while a handle of this process has
+    MAIN open for writing (its writes are seen before they are flushed)."""
+    from casacore import tables
+
+    msname = _copy_ms(backend_ms, "dense", tmp_path)
+    lazy, reference, index = lazy_and_reference(msname, 0)
+    assert index.keys_token is not None
+    checks = []
+    rows_moved = PartitionIndex.rows_moved
+
+    def spy(self, *args):
+        checks.append(args[1].size)
+        return rows_moved(self, *args)
+
+    monkeypatch.setattr(PartitionIndex, "rows_moved", spy)
+    assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
+    assert checks == []
+    writer = tables.table(msname, readonly=False, ack=False)
+    try:
+        assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
+        assert checks == [300]
+    finally:
+        writer.close()
+    checks.clear()
+    _update_main(msname, "FLAG_ROW", lambda v: v)  # (the SSM of the key columns)
+    assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
+    assert checks == [300]
+    # without a token (lock file not readable): always checked
+    checks.clear()
+    lazy, reference, index = lazy_and_reference(msname, 0)
+    index.keys_token = None
+    assert_same_values(lazy["UVW"].values, reference["UVW"].values)
+    assert checks == [300]
 
 
 def test_seeded_index_is_used_and_rebuilt_equal(backend_ms):

@@ -35,7 +35,10 @@ table with another number of rows, or a rebuilt index with another token,
 raises :class:`MSv2ChangedError`. Every read also checks that the rows it
 reads still have the TIME, ANTENNA1 and ANTENNA2 of their cells in the index;
 if not, the index is rebuilt (and checked) as in another process, so that the
-outcome of a read does not depend on whether the index was in the memo. The arrays pickle to their path, runs and column
+outcome of a read does not depend on whether the index was in the memo. The
+rows are not checked one by one while the data managers of those columns are
+unchanged since the open (``keys_token``, from the lock file: no write of
+them flushed since) and no handle of the process has MAIN open for writing. The arrays pickle to their path, runs and column
 description (about 1 kB plus 16 bytes per run), never per-row arrays or table
 handles.
 """
@@ -43,6 +46,7 @@ handles.
 import collections
 import contextlib
 import hashlib
+import json
 import os
 import threading
 from collections.abc import Callable
@@ -63,6 +67,9 @@ from xradio.measurement_set._utils._msv2._tables.read_rows import (
     rows_to_runs,
     runs_to_rows,
 )
+from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
+    table_fingerprint,
+)
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_errors import (
     MSv2ChangedError,
@@ -80,6 +87,8 @@ INDEX_MEMO_MAX_BYTES = 256 * 2**20
 # Number of locks that serialize the rebuilds of indices (by key hash), so
 # that threads reading one partition rebuild its index once
 INDEX_BUILD_LOCKS = 64
+# The MAIN columns that place a row in the (time, baseline) grid
+GRID_KEY_COLUMNS = ("TIME", "ANTENNA1", "ANTENNA2")
 
 
 # --- the base class ------------------------------------------------------------
@@ -429,6 +438,41 @@ def _runs_digest(starts: np.ndarray, lengths: np.ndarray) -> str:
     return digest.hexdigest()
 
 
+def keys_token(table_path: str, key_columns: tuple[str, ...]) -> str | None:
+    """
+    A token of the storage of ``key_columns`` of a table: its rows, columns
+    and data managers, and the change counters (lock file) and files of the
+    data managers that hold the key columns (``table_fingerprint``). A token
+    equal to an earlier one means that no write of those data managers was
+    flushed since. None if the lock file cannot be read (no such promise).
+    """
+    fingerprint = table_fingerprint(table_path, list(key_columns))
+    if fingerprint is None or not fingerprint["lock_ok"]:
+        return None
+    text = json.dumps(fingerprint, sort_keys=True, default=str)
+    return hashlib.blake2b(text.encode(), digest_size=16).hexdigest()
+
+
+def keys_unchanged(
+    table: Any, table_path: str, token: str | None, key_columns: tuple[str, ...]
+) -> bool:
+    """
+    Whether the key columns of an opened table are known to be as when
+    ``token`` was taken (``keys_token``), so that a read need not check them
+    row by row: the token is unchanged, and no handle of this process has
+    the table open for writing (its writes are seen by this process before
+    they are flushed: ``iswritable`` of a read-only handle tells).
+    """
+    if token is None:
+        return False
+    try:
+        if table.iswritable():
+            return False
+    except Exception:
+        return False
+    return keys_token(table_path, key_columns) == token
+
+
 class _IndexEntry:
     """
     The (time, baseline) index of the rows of a partition, by time: rows
@@ -610,9 +654,21 @@ class PartitionIndex:
         (n_times, n_baselines) of the partition's grid.
     token : str
         ``index_token`` of the grid.
+    keys_token : str | None, optional
+        ``keys_token`` of the grid's key columns (TIME, ANTENNA1, ANTENNA2)
+        taken before the grid was made: while it is unchanged, reads need not
+        check the keys of their rows. None: always checked.
     """
 
-    __slots__ = ("ms_path", "starts", "lengths", "main_nrows", "shape", "token")
+    __slots__ = (
+        "ms_path",
+        "starts",
+        "lengths",
+        "main_nrows",
+        "shape",
+        "token",
+        "keys_token",
+    )
 
     def __init__(
         self,
@@ -622,6 +678,7 @@ class PartitionIndex:
         main_nrows: int,
         shape: tuple[int, int],
         token: str,
+        keys_token: str | None = None,
     ):
         self.ms_path = str(ms_path)
         self.starts = np.asarray(starts, dtype=np.int64)
@@ -629,16 +686,20 @@ class PartitionIndex:
         self.main_nrows = int(main_nrows)
         self.shape = tuple(int(n) for n in shape)
         self.token = str(token)
+        self.keys_token = None if keys_token is None else str(keys_token)
         if len(self.shape) != 2:
             raise ValueError(f"A (time, baseline) shape is expected, got {shape}")
 
     @classmethod
-    def seed(cls, ms_path: str, built: Any) -> "PartitionIndex":
+    def seed(
+        cls, ms_path: str, built: Any, keys_token: str | None = None
+    ) -> "PartitionIndex":
         """
         The index of a partition built by ``conversion.build_partition`` (a
         ``BuiltPartition``, inside its context), with the build's (time,
         baseline) indices put in the memo: in this process the reads use
-        exactly the build's index.
+        exactly the build's index. ``keys_token``: the ``keys_token`` of MAIN
+        (GRID_KEY_COLUMNS) taken before the build.
         """
         rows = built.main_rows.rows
         starts, lengths = rows_to_runs(rows)
@@ -654,6 +715,7 @@ class PartitionIndex:
                 built.baseline_ant2,
                 built.time_baseline_shape,
             ),
+            keys_token,
         )
         INDEX_MEMO.put(
             index.memo_key(),
@@ -1048,6 +1110,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
         n_baselines = baselines.size
         out = np.empty(tuple(s.size for s in selections), dtype=self.dtype)
         step = max(1, SUB_BLOCK_BYTES // (n_baselines * self._cell_bytes()))
+        check_keys = True
         with casatools_serialized():
             table = None
             try:
@@ -1068,7 +1131,15 @@ class MSv2MainColumnArray(MSv2BackendArray):
                                     f"the MAIN table has {main_nrows} rows, "
                                     f"{self.index.main_nrows} when it was opened"
                                 )
-                        if rows.size:
+                            # (key columns not written since the open: rows
+                            # not checked one by one)
+                            check_keys = not keys_unchanged(
+                                table,
+                                self.index.ms_path,
+                                self.index.keys_token,
+                                GRID_KEY_COLUMNS,
+                            )
+                        if rows.size and check_keys:
                             moved = self.index.rows_moved(table, rows, positions, entry)
                             if moved:
                                 return None, moved

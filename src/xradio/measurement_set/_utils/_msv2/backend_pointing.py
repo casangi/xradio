@@ -55,7 +55,9 @@ again (other processes); a POINTING table with another number of rows, or
 a selection with another token, raises :class:`MSv2ChangedError`. A read
 whose rows no longer have the TIME and ANTENNA_ID of the index (rewritten in
 place) reads the index again, as another process would: the outcome does
-not depend on the memo.
+not depend on the memo. (The rows are checked one by one only when the
+table's fingerprint changed since the open, or a handle of the process has
+it open for writing.)
 """
 
 import copy
@@ -239,6 +241,11 @@ def _digest(*arrays: np.ndarray) -> str:
     return digest.hexdigest()
 
 
+def _fingerprint_token(fingerprint: dict) -> str:
+    text = json.dumps(fingerprint, sort_keys=True, default=str)
+    return hashlib.blake2b(text.encode(), digest_size=16).hexdigest()
+
+
 def pointing_table_token(table_path: str) -> str | None:
     """
     Token of the fingerprint of a POINTING table (``table_fingerprint``:
@@ -248,8 +255,27 @@ def pointing_table_token(table_path: str) -> str | None:
     fingerprint = table_fingerprint(table_path)
     if fingerprint is None:
         return None
-    text = json.dumps(fingerprint, sort_keys=True, default=str)
-    return hashlib.blake2b(text.encode(), digest_size=16).hexdigest()
+    return _fingerprint_token(fingerprint)
+
+
+def pointing_unchanged(table: Any, table_path: str, token: str) -> bool:
+    """
+    Whether an opened POINTING table is known to be as when ``token``
+    (``pointing_table_token``) was taken, so that a read need not check the
+    TIME and ANTENNA_ID of its rows one by one: its lock file could be read
+    and the token is unchanged (no write flushed since), and no handle of
+    this process has it open for writing (``iswritable`` of a read-only
+    handle).
+    """
+    try:
+        if table.iswritable():
+            return False
+    except Exception:
+        return False
+    fingerprint = table_fingerprint(table_path)
+    if fingerprint is None or not fingerprint["lock_ok"]:
+        return False
+    return _fingerprint_token(fingerprint) == token
 
 
 def _exact_promotion(dtype: np.dtype) -> bool:
@@ -875,10 +901,14 @@ class PointingColumnArray(MSv2BackendArray):
                             f"it has {nrows} rows, {self.spec.nrows} when the MS was "
                             "opened"
                         )
+                    # (not written since the open: rows not checked one by one)
+                    check_keys = not pointing_unchanged(
+                        table, self.spec.table_path, self.spec.index_token
+                    )
                     for p0 in range(0, times.size, step):
                         sub_times = times[p0 : p0 + step]
                         grid, moved = self._read_grid(
-                            table, index, selection, sub_times, antennas
+                            table, index, selection, sub_times, antennas, check_keys
                         )
                         if moved:
                             return moved
@@ -907,13 +937,15 @@ class PointingColumnArray(MSv2BackendArray):
         selection: _Selection,
         times: np.ndarray,
         antennas: np.ndarray,
+        check_keys: bool = True,
     ) -> tuple[np.ndarray | None, str]:
         """
         The (len(times), len(antennas)) + cell grid of the times ``times`` and
         antennas ``antennas`` (sorted unique indices into the partition's
         grid): the first row (lowest row number) of every cell, pivoted as
         ``pointing_generic_xds`` pivots them; or (None, why) if rows no
-        longer have the TIME and ANTENNA_ID of the index.
+        longer have the TIME and ANTENNA_ID of the index (checked with
+        ``check_keys``).
         """
         starts = selection.time_starts
         if is_range(times):
@@ -947,7 +979,7 @@ class PointingColumnArray(MSv2BackendArray):
         cell_key = tcode * n_antennas + acode
         del acode, tcode
         rows = np.asarray(index.columns.row[positions], dtype=np.int64)
-        moved = self._rows_moved(table, index, positions, rows)
+        moved = self._rows_moved(table, index, positions, rows) if check_keys else ""
         if moved:
             return None, moved
         del positions

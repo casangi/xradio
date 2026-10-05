@@ -149,6 +149,7 @@ def open_partition(
     verify: RowCheck | None = None,
     lazy_pointing: bool = True,
     unreadable_columns: frozenset[str] = frozenset(),
+    keys_token: str | None = None,
 ) -> xr.DataTree | None:
     """
     The MSv4 of one partition of an MSv2, with lazy main data variables (and
@@ -188,6 +189,9 @@ def open_partition(
     unreadable_columns : frozenset[str], optional
         MAIN columns built as the converter builds a partition whose read of
         them failed (left out; WEIGHT_SPECTRUM: WEIGHT used instead).
+    keys_token : str | None, optional
+        ``backend_arrays.keys_token`` of MAIN's TIME, ANTENNA1 and ANTENNA2,
+        taken before the build (None: every read checks its rows' keys).
 
     Returns
     -------
@@ -238,7 +242,7 @@ def open_partition(
             return None
         if verify is not None:
             verify_partition_rows(verify, partition_info, built.main_rows)
-        index = PartitionIndex.seed(in_file, built)
+        index = PartitionIndex.seed(in_file, built, keys_token)
         ms_xdt, deferred = built.ms_xdt, built.deferred
         reverse_frequency = built.reverse_frequency
     # The MAIN table is closed here: nothing below refers to it.

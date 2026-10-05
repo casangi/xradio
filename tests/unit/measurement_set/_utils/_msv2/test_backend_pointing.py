@@ -670,7 +670,7 @@ def test_open_reads_no_pointing_values(pointing_ms, monkeypatch):
 
 def test_selections_read_only_their_rows(pointing_ms, monkeypatch):
     """Lists and steps along time and antenna read only the rows of the
-    selected cells (and check their TIME and ANTENNA_ID)."""
+    selected cells."""
     ms = pointing_ms["regular"]
     ant_names = antenna_names(range(NANTS))
     time_min_max = time_range(ms, (0, 1))
@@ -698,7 +698,7 @@ def test_selections_read_only_their_rows(pointing_ms, monkeypatch):
         cells = grid.isel(isel).values[..., 0]
         n_values = [n for col, n in reads if col == "DIRECTION"]
         assert n_values == [int(np.isfinite(cells).sum())], isel
-        assert {col for col, _ in reads} == {"DIRECTION", "TIME", "ANTENNA_ID"}
+        assert {col for col, _ in reads} == {"DIRECTION"}  # (unchanged: no checks)
 
 
 def test_open_keeps_no_pointing_values(tmp_path):
@@ -890,6 +890,41 @@ def test_swapped_pointing_antennas_are_read(pointing_ms, tmp_path):
         assert_xds_bit_identical(
             actual, create_pointing_xds(ms, ant_names, time_min_max, None)
         )
+
+
+def test_pointing_rows_are_checked_only_after_writes(
+    pointing_ms, tmp_path, monkeypatch
+):
+    """The TIME and ANTENNA_ID of the rows read are checked one by one only
+    when POINTING was written since the open (its fingerprint), or while a
+    handle of this process has it open for writing."""
+    ms = shutil.copytree(pointing_ms["regular"], str(tmp_path / "copy.ms"))
+    ant_names = antenna_names(range(NANTS))
+    time_min_max = time_range(ms, (0, 1))
+    expected = create_pointing_xds(ms, ant_names, time_min_max, None)
+    actual, _ = lazy_pointing(ms, ant_names, time_min_max)
+    checks = []
+    rows_moved = bpt.PointingColumnArray._rows_moved
+
+    def spy(self, *args):
+        checks.append(args[-1].size)
+        return rows_moved(self, *args)
+
+    monkeypatch.setattr(bpt.PointingColumnArray, "_rows_moved", spy)
+    assert_bits_equal(actual.POINTING_BEAM.values, expected.POINTING_BEAM.values)
+    assert checks == []
+    table = os.path.join(ms, "POINTING")
+    writer = tables.table(table, readonly=False, ack=False)
+    try:
+        assert_bits_equal(actual.POINTING_BEAM.values, expected.POINTING_BEAM.values)
+        assert len(checks) == 1
+    finally:
+        writer.close()
+    checks.clear()
+    with tables.table(table, readonly=False, ack=False) as tb:
+        tb.putcol("TRACKING", tb.getcol("TRACKING"))
+    assert_bits_equal(actual.POINTING_BEAM.values, expected.POINTING_BEAM.values)
+    assert len(checks) == 1
 
 
 def test_changed_pointing_values_are_read(pointing_ms, tmp_path):

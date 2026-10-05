@@ -99,7 +99,9 @@ def open_msv2(
           memory, with a PartitionCacheWarning once per MS and reason);
           "read": use, never write; "rebuild": compute again and store; "off":
           compute, neither use nor store. Partitions are also kept in memory
-          (per process) while the MS is unchanged (not with "off").
+          (per process) while the MS is unchanged (not with "off", nor for an
+          MS whose MAIN rows live in other tables: a reference or
+          concatenated MS).
         - on_partition_error : str. "skip" (default): a partition that cannot
           be opened is left out (logged with its traceback, and a
           RuntimeWarning); a RuntimeError is raised only if none can be

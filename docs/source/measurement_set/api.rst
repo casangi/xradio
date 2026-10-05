@@ -59,13 +59,16 @@ variables are read (once for all of them).
 opened and does the same. Where only a read can tell (cells of several shapes in a ``StandardStMan`` column, reference
 and concatenated MSs), the variable is opened and its read raises :py:class:`MSv2ReadError`, which names the remedies:
 ``skip_columns=["<column>"]`` gives the converter's processing set (the column treated as unreadable in every
-partition), ``drop_variables=["<variable>"]`` leaves out only that variable. (The cells of POINTING columns are checked
-when the MS is opened, see above.)
+partition), ``drop_variables=["<variable>"]`` leaves out only that variable. Until then the opened processing set
+differs from the converted one where the converter dropped the column: it has the variable (for a data column also its
+data group and ``field_and_source_xds``), and for ``WEIGHT_SPECTRUM`` its ``WEIGHT`` has the attributes of that column
+rather than those of ``WEIGHT``. (The cells of POINTING columns are checked when the MS is opened, see above.)
 
 **Chunks.** Open with ``chunks={}``: every variable is a Dask array, and the main data variables have the chunks of the
-converter (``main_chunksize``, by default about 128 MiB along time). The other variables are one chunk each, but for the
-time coordinates of the main dataset (such as ``scan_name`` and ``field_name``), which have the time chunks of the data
-so that ``Dataset.chunks`` is defined; the converted processing set has the chunks zarr chose for them when it was
+converter (``main_chunksize``, by default about 128 MiB along time). The other variables (coordinates, and the
+variables of the sub-datasets such as ``system_calibration_xds``) are one chunk each, but for the time coordinates of
+the main dataset (such as ``scan_name`` and ``field_name``), which have the time chunks of the data so that
+``Dataset.chunks`` is defined; the converted processing set has the chunks zarr chose for these variables when it was
 written. The values are the same, but ``to_zarr`` of an opened tree may chunk these variables differently from the
 converter. ``chunks="auto"`` lets Dask choose other chunks for every variable. Without ``chunks``, the variables are
 lazily indexed arrays: a selection reads only its rows, but a variable loaded whole stays in memory as long as the tree;
@@ -94,18 +97,24 @@ reason) says so; so is an MS whose MAIN table another process has locked (for ex
 xradio never waits for a lock. With casatools the partitions are never stored (logged once). Those of reference and
 concatenated MSs (a multi-MS), and of MSs whose MAIN key columns are forwarded to other MSs (as ``msconcat`` makes them),
 are computed on every open, neither stored nor kept in memory (logged once): their rows live in other tables, whose
-changes their lock files do not show. Nor are they while this process holds the MAIN table's write lock (a writable handle, whose changes may
-not be flushed yet); if that handle added rows not flushed yet, the partitions are computed from the rows the process
-sees, as the converter reads them, without the stored ones. If the process that opens
-the MS also holds it open with python-casacore's default (automatic) locking, storing switches that table to user
-locking (once per MS): pass ``partition_cache="read"`` in such sessions. Within one process, python-casacore shares one
-table object per table, and closing any handle of it releases its locks: a thread that closes a MAIN handle while
-another thread stores the partitions releases the MAIN write lock. The store then takes the lock again before it writes
-and flushes the MAIN keyword; between these steps another process could take the lock and write MAIN too (a window of a
-few Python statements, once per MS). CASA tasks that copy an MS (``split``, ``mstransform``, ``tb.copy``, ``msconcat``)
+changes their lock files do not show. CASA tasks that copy an MS (``split``, ``mstransform``, ``tb.copy``, ``msconcat``)
 also copy the sub-table: the copy's first open finds that it does not apply and computes the partitions again.
 :py:func:`remove_msv2_partition_cache` removes the stored partitions (only a sub-table that xradio wrote, and not while
 another process holds a lock on it); an open in another process at the same time stores a sub-table of its own.
+
+**A writable table handle in the same process.** Within one process, python-casacore shares one table object per
+table, with its locks, and closing any handle of a table releases them. Every open of an MS by xradio (the engine in
+every ``partition_cache`` mode, as the converter) opens and closes the tables of the MS, so it releases the write lock
+of a writable MAIN handle that the process holds, which flushes the handle's changes first (the open sees them), unless
+that handle was opened with ``lockoptions="permanent"``. A handle opened with python-casacore's default lock options is
+also switched to user locking: its next write raises ``... should be locked when using UserLocking`` unless it calls
+``lock()`` first (as a handle opened with ``lockoptions="user"`` must anyway). So open such handles with
+``lockoptions="auto"`` (their writes take the lock again) or ``"permanent"``, or close them before the MS is opened by
+xradio. While the process holds the MAIN write lock (``"permanent"``), the partitions are not stored; if the handle
+added rows that it has not flushed, the partitions are computed from the rows the process sees, as the converter reads
+them, without the stored ones. Likewise, a thread that closes a MAIN handle while another thread stores the partitions
+releases the MAIN write lock: the store takes the lock again before it writes and flushes the MAIN keyword; between
+these steps another process could take the lock and write MAIN too (a window of a few Python statements, once per MS).
 
 **When the MS changes.** The stored partitions are used only while a fingerprint of the tables they are computed from
 (the data managers and key columns of MAIN, and the FIELD, STATE and SOURCE tables, read from casacore's lock files) is

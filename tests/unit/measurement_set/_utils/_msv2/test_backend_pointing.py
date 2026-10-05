@@ -1,13 +1,15 @@
 """
 The lazy pointing_xds of the MSv2 xarray backend (``backend_pointing.py``)
-and the converter's hooks for it (``create_pointing_xds(generic_loader=)``,
-``read_pointing_columns(keep_data=)``): values bit-identical to the
-converter's pointing_xds (duplicated rows, missing cells and their fill
-values, every block), no POINTING value read or kept at open, staleness,
+and the converter's hook for it (``create_pointing_xds(generic_loader=)``):
+values bit-identical to the converter's pointing_xds (duplicated rows,
+missing cells and their fill values, every selection), no POINTING value
+read or kept at open (only the index), whatever the size of the table, the
+tables the index cannot describe (built again on read), staleness,
 pickling, threads and fork.
 """
 
 import contextlib
+import dataclasses
 import functools
 import gc
 import os
@@ -59,10 +61,19 @@ POINTING_VARIANTS = (
     "empty_encoder",
     "float_over_the_top",
     "two_polynomials",
+    "varying_direction",
 )
-# Variants whose pointing_xds the converter's sub-table cache holds (the
-# backend reads them lazily); the others are read eagerly
-LAZY_VARIANTS = ("regular", "int_encoder", "no_encoder", "two_polynomials")
+# Variants whose index read_pointing_index reads (lazy PointingColumnArray
+# variables); "empty" has no rows, and the pointing_xds of the others is
+# built by the converter's code (PointingBuildArray variables)
+LAZY_VARIANTS = (
+    "regular",
+    "int_encoder",
+    "no_encoder",
+    "two_polynomials",
+    "varying_target",
+)
+REBUILT_VARIANTS = ("empty_encoder", "float_over_the_top")
 
 
 def make_pointing_ms(
@@ -89,6 +100,8 @@ def make_pointing_ms(
     - "float_over_the_top": OVER_THE_TOP is a float column
     - "two_polynomials": DIRECTION and TARGET cells of shape (2, 2) (the
       converter cannot convert them)
+    - "varying_direction": a few DIRECTION cells of shape (2, 2), the others
+      (and the first row) (1, 2)
     """
     os.makedirs(path, exist_ok=True)
     rng = np.random.default_rng(seed)
@@ -132,6 +145,9 @@ def make_pointing_ms(
         tb.putcol("TRACKING", rng.random(nrows) < 0.5)
         n_poly = 2 if variant == "two_polynomials" else 1
         tb.putcol("DIRECTION", rng.normal(size=(nrows, n_poly, 2)))
+        if variant == "varying_direction":
+            for row in range(1, nrows, 211):
+                tb.putcell("DIRECTION", row, rng.normal(size=(2, 2)))
         if variant == "varying_target":
             for row in range(nrows):
                 shape = (2, 2) if row % 97 == 5 else (1, 2)
@@ -201,25 +217,48 @@ def whole_time_range(ms: str) -> tuple[np.float64, np.float64]:
     return (np.float64(TIME0 - 1), np.float64(TIME0 + NTIMES))
 
 
-def test_read_pointing_columns_keep_data(pointing_ms):
-    """keep_data=False keeps no data column (they are still checked), and the
-    selections of the index give the pointing_xds of the cached columns."""
+def test_read_pointing_index(pointing_ms, monkeypatch):
+    """The index (TIME, ANTENNA_ID, row numbers sorted by TIME) equals the
+    one of the converter's sub-table cache, and its selections give the
+    converter's generic pointing dataset; it is read for tables of any size
+    (the cache's limit of POINTING_MAX_CACHED_INDEX_BYTES does not apply);
+    the tables it cannot describe give None."""
     table = os.path.join(pointing_ms["regular"], "POINTING")
     kept = rp.read_pointing_columns(table, DATA_COLUMNS)
-    index = rp.read_pointing_columns(table, DATA_COLUMNS, keep_data=False)
-    assert kept.data is not None and index.data is None
-    assert index.data_columns == kept.data_columns == DATA_COLUMNS
-    for name in ("time", "antenna_id", "row"):
-        np.testing.assert_array_equal(getattr(index, name), getattr(kept, name))
-    assert index.nbytes == kept.time.nbytes + kept.antenna_id.nbytes + kept.row.nbytes
+    index = bpt.read_pointing_index(table, DATA_COLUMNS)
+    columns = index.columns
+    assert kept.data is not None and columns.data is None
+    assert columns.data_columns == kept.data_columns == DATA_COLUMNS
+    for name in ("time", "antenna_id", "row", "tolerance"):
+        np.testing.assert_array_equal(getattr(columns, name), getattr(kept, name))
+    assert columns.data_dims == kept.data_dims
+    assert columns.nbytes == kept.time.nbytes + kept.antenna_id.nbytes + kept.row.nbytes
+    assert index.cell_shapes == {
+        "DIRECTION": (1, 2),
+        "ENCODER": (2,),
+        "OVER_THE_TOP": (),
+    }
+    assert index.verified == {
+        "DIRECTION": False,
+        "ENCODER": False,
+        "OVER_THE_TOP": True,
+    }
     ants = np.arange(NANTS)
+    with_data = dataclasses.replace(columns, data=kept.data)
     assert_xds_bit_identical(
-        rp.pointing_generic_xds(index, whole_time_range(table), ants),
+        rp.pointing_generic_xds(with_data, whole_time_range(table), ants),
         rp.pointing_generic_xds(kept, whole_time_range(table), ants),
     )
-    for variant in ("varying_target", "empty", "empty_encoder", "float_over_the_top"):
+    monkeypatch.setattr(rp, "POINTING_MAX_CACHED_INDEX_BYTES", 1024)
+    assert rp.read_pointing_columns(table, DATA_COLUMNS) is None
+    large = bpt.read_pointing_index(table, DATA_COLUMNS)
+    np.testing.assert_array_equal(large.columns.row, columns.row)
+    for variant in LAZY_VARIANTS:
         table = os.path.join(pointing_ms[variant], "POINTING")
-        assert rp.read_pointing_columns(table, DATA_COLUMNS, keep_data=False) is None
+        assert bpt.read_pointing_index(table, DATA_COLUMNS) is not None, variant
+    for variant in REBUILT_VARIANTS + ("empty",):
+        table = os.path.join(pointing_ms[variant], "POINTING")
+        assert bpt.read_pointing_index(table, DATA_COLUMNS) is None, variant
 
 
 def test_create_pointing_xds_generic_loader(pointing_ms):
@@ -341,6 +380,30 @@ def lazy_pointing(ms: str, ant_names: xr.DataArray, time_min_max: tuple):
     return bpt.lazy_pointing_xds(xds, specs, node="test_node"), specs
 
 
+def opened_pointing(ms: str, ant_names: xr.DataArray, time_min_max: tuple):
+    """create_pointing_xds as open_partition calls it: lazy variables, or
+    (tables the index cannot describe) variables that build it again."""
+    specs, context = {}, {}
+    xds = create_pointing_xds(
+        ms,
+        ant_names,
+        time_min_max,
+        None,
+        generic_loader=functools.partial(
+            bpt.deferred_pointing_generic_xds, specs=specs, context=context
+        ),
+    )
+    if specs:
+        return bpt.lazy_pointing_xds(xds, specs, node="test_node")
+    build = bpt.PointingBuild(
+        ms,
+        context["time_min_max"],
+        context["antenna_ids"],
+        tuple(str(name) for name in ant_names.values),
+    )
+    return bpt.rebuilt_pointing_xds(xds, build, node="test_node")
+
+
 def pointing_array(var) -> "bpt.PointingColumnArray | None":
     """The PointingColumnArray under the wrappers of a variable, if any."""
     data = getattr(var, "variable", var)._data
@@ -456,33 +519,92 @@ def test_lazy_pointing_blocks(pointing_ms, monkeypatch, variant, sub_block_bytes
             )
 
 
-@pytest.mark.parametrize(
-    "variant", ["varying_target", "empty", "empty_encoder", "float_over_the_top"]
-)
-def test_eager_pointing_tables(pointing_ms, variant):
-    """Tables that the converter's cache does not hold (the backend could not
-    reproduce them exactly) are read eagerly, as by the converter: same
-    result or same error, no lazy variable."""
+def build_array(var) -> "bpt.PointingBuildArray | None":
+    """The PointingBuildArray under the wrappers of a variable, if any."""
+    data = getattr(var, "variable", var)._data
+    for _ in range(10):
+        if isinstance(data, bpt.PointingBuildArray):
+            return data
+        data = getattr(data, "array", None)
+        if data is None:
+            return None
+    return None
+
+
+@pytest.mark.parametrize("variant", ["varying_target", *REBUILT_VARIANTS, "empty"])
+def test_tables_of_other_cells(pointing_ms, variant):
+    """Tables that are no plain grid of cells give the converter's
+    pointing_xds (or its error), with lazy variables: read with the index
+    (TARGET of varying shape: not a data column), or built again by the
+    converter's code on every read (zero-size ENCODER cells, a float
+    OVER_THE_TOP); none for a table without rows."""
     ms = pointing_ms[variant]
     time_min_max = (np.float64(TIME0 - 1), np.float64(TIME0 + NTIMES))
     ant_names = antenna_names(range(NANTS))
 
-    def build(lazy: bool):
+    def build(opened: bool):
         try:
-            if lazy:
-                return lazy_pointing(ms, ant_names, time_min_max)
-            return create_pointing_xds(ms, ant_names, time_min_max, None), {}
+            if opened:
+                return opened_pointing(ms, ant_names, time_min_max)
+            return create_pointing_xds(ms, ant_names, time_min_max, None)
         except Exception as exc:
-            return f"{type(exc).__name__}: {exc}", {}
+            return f"{type(exc).__name__}: {exc}"
 
-    (expected, _), (actual, specs) = build(False), build(True)
-    assert not specs
+    expected, actual = build(False), build(True)
     if isinstance(expected, str):
         assert actual == expected
-    else:
-        assert_xds_bit_identical(actual, expected)
-        assert all(pointing_array(v) is None for v in actual.data_vars.values())
-    assert bpt.POINTING_INDEX_MEMO.stats["reads"] == 1
+        return
+    if variant == "empty":
+        assert not expected.data_vars and not actual.data_vars
+        return
+    find = pointing_array if variant == "varying_target" else build_array
+    assert all(find(v) is not None for v in actual.data_vars.values())
+    assert_xds_bit_identical(actual, expected)
+    rng = np.random.default_rng(3)
+    for name, var in expected.data_vars.items():
+        for _ in range(5):
+            key = random_key(rng, var.shape)
+            assert_bits_equal(
+                actual[name][key].values, orthogonal_index(var.values, key)
+            )
+    if variant != "varying_target":
+        blob = pickle.dumps(build_array(actual[name]))
+        assert len(blob) < 4096
+        array = pickle.loads(blob)
+        key = xr.core.indexing.BasicIndexer((slice(None),) * len(array.shape))
+        assert_bits_equal(array[key], expected[name].values, name)
+
+
+def test_rebuilt_pointing_changed(pointing_ms, tmp_path):
+    """A pointing_xds built again on read whose POINTING table changed shape
+    since the open: MSv2ChangedError; a table gone: MSv2ReadError."""
+    ms = shutil.copytree(pointing_ms["float_over_the_top"], str(tmp_path / "copy.ms"))
+    ant_names = antenna_names(range(NANTS))
+    actual = opened_pointing(ms, ant_names, whole_time_range(ms))
+    assert build_array(actual.POINTING_BEAM) is not None
+    _add_pointing_row(ms, time_offset=0.001)  # (one more time in the range)
+    with pytest.raises(MSv2ChangedError, match="POINTING_BEAM"):
+        _ = actual.POINTING_BEAM.values
+    shutil.rmtree(os.path.join(ms, "POINTING"))
+    with pytest.raises(MSv2ReadError, match="test_node"):
+        _ = actual.POINTING_BEAM.values
+
+
+def test_cells_of_another_shape_raise_on_read(pointing_ms):
+    """DIRECTION cells of another shape than the first row's (the column
+    description does not fix it): the lazy variable has the first row's
+    shape, and a read that meets another shape raises MSv2ReadError with the
+    remedies; selections without such cells read."""
+    ms = pointing_ms["varying_direction"]
+    ant_names = antenna_names(range(NANTS))
+    actual = opened_pointing(ms, ant_names, time_range(ms, (0, 1)))
+    spec = pointing_array(actual.POINTING_BEAM).spec
+    assert spec.cell_shape == (1, 2) and not spec.verified
+    with pytest.raises(MSv2ReadError, match="first row.*with_pointing=False"):
+        _ = actual.POINTING_BEAM.values
+    assert (
+        actual.POINTING_OVER_THE_TOP.values.shape[:2] == actual.POINTING_BEAM.shape[:2]
+    )
 
 
 def test_lazy_pointing_same_errors(pointing_ms):
@@ -509,40 +631,74 @@ def test_lazy_pointing_same_errors(pointing_ms):
 
 
 def test_open_reads_no_pointing_values(pointing_ms, monkeypatch):
-    """Building the lazy pointing_xds reads one cell of every data column
-    (its dtype and shape) and checks the cells in bounded reads (as the
-    converter's cache does); it pivots nothing. Computing reads the values."""
+    """Building the lazy pointing_xds reads TIME and ANTENNA_ID and one cell
+    of every data column (its dtype), nothing else of the data columns (no
+    check of their cells), and pivots nothing. Computing reads the values."""
     ms = pointing_ms["regular"]
-    reads, checks, pivots = [], [], []
-    read_column_rows, read_rows = rp.read_column_rows, rp.read_rows
+    reads, row_reads, pivots = [], [], []
+    read_column_rows, read_rows = bpt.read_column_rows, rp.read_rows
 
     def spy_column_rows(table, col, rows, *args, **kwargs):
         reads.append((col, len(rows)))
         return read_column_rows(table, col, rows, *args, **kwargs)
 
     def spy_rows(table, col, rows, out, *args, **kwargs):
-        checks.append((col, out.size))
+        row_reads.append(col)
         return read_rows(table, col, rows, out, *args, **kwargs)
 
     def spy_pivot(*args):
         pivots.append(args[-1])
         return rp.pivot_time_antenna(*args)
 
-    monkeypatch.setattr(rp, "read_column_rows", spy_column_rows)
-    monkeypatch.setattr(rp, "read_rows", spy_rows)
     monkeypatch.setattr(bpt, "read_column_rows", spy_column_rows)
+    monkeypatch.setattr(rp, "read_rows", spy_rows)
     monkeypatch.setattr(bpt, "pivot_time_antenna", spy_pivot)
     ant_names = antenna_names(range(NANTS))
     actual, specs = lazy_pointing(ms, ant_names, time_range(ms, (0, 1)))
     assert set(specs) == set(actual.data_vars)
-    data_reads = [(col, n) for col, n in reads if col in DATA_COLUMNS]
-    assert sorted(data_reads) == [(col, 1) for col in DATA_COLUMNS]
-    assert all(n <= rp._CHECK_CHUNK_ELEMS for _, n in checks)
-    assert not pivots
+    with open_table_ro(os.path.join(ms, "POINTING")) as tb:
+        nrows = tb.nrows()
+    assert sorted(reads) == sorted(
+        [(col, 1) for col in DATA_COLUMNS] + [("ANTENNA_ID", nrows), ("TIME", nrows)]
+    )
+    assert not row_reads and not pivots
     reads.clear()
     actual.compute()
     assert len(pivots) == len(DATA_COLUMNS)
     assert all(n > 1 for col, n in reads if col in DATA_COLUMNS)
+
+
+def test_selections_read_only_their_rows(pointing_ms, monkeypatch):
+    """Lists and steps along time and antenna read only the rows of the
+    selected cells (and check their TIME and ANTENNA_ID)."""
+    ms = pointing_ms["regular"]
+    ant_names = antenna_names(range(NANTS))
+    time_min_max = time_range(ms, (0, 1))
+    expected = create_pointing_xds(ms, ant_names, time_min_max, None)
+    actual, _ = lazy_pointing(ms, ant_names, time_min_max)
+    grid = expected.POINTING_BEAM
+    reads = []
+    read_sorted_rows = bpt.PointingColumnArray._read_sorted_rows
+
+    def spy(self, table, rows, col, *args):
+        reads.append((col, rows.size))
+        return read_sorted_rows(self, table, rows, col, *args)
+
+    monkeypatch.setattr(bpt.PointingColumnArray, "_read_sorted_rows", spy)
+    nt = grid.sizes["time_pointing"]
+    for isel in (
+        {"time_pointing": [0, nt - 1]},
+        {"time_pointing": slice(None, None, 50), "antenna_name": [4, 1]},
+        {"time_pointing": slice(nt - 1, None, -97), "antenna_name": 2},
+    ):
+        reads.clear()
+        assert_bits_equal(
+            actual.POINTING_BEAM.isel(isel).values, grid.isel(isel).values, str(isel)
+        )
+        cells = grid.isel(isel).values[..., 0]
+        n_values = [n for col, n in reads if col == "DIRECTION"]
+        assert n_values == [int(np.isfinite(cells).sum())], isel
+        assert {col for col, _ in reads} == {"DIRECTION", "TIME", "ANTENNA_ID"}
 
 
 def test_open_keeps_no_pointing_values(tmp_path):
@@ -607,7 +763,7 @@ class GetcolOnlyTable:
 
     def getcol(self, col, startrow=0, nrow=-1, rowincr=1):
         values = self._table.getcol(col, startrow, nrow, rowincr)
-        self.getcol_calls.append((startrow, len(values)))
+        self.getcol_calls.append((col, startrow, len(values)))
         return values
 
 
@@ -652,20 +808,26 @@ def test_reads_without_in_place_reads(pointing_ms, monkeypatch, max_gap, window_
             )
             n_reads += 1
     assert len(entered) == len(used) == n_reads
-    calls = [call for table in used for call in table.getcol_calls]
+    calls = [
+        call
+        for table in used
+        for call in table.getcol_calls
+        if call[0] not in ("TIME", "ANTENNA_ID")  # (the checks of the rows)
+    ]
     if (max_gap, window_bytes) == (1024, 16 * 2**20):
         assert len(calls) <= 2 * n_reads  # (the whole column is never one call)
     else:
         assert len(calls) > 2 * n_reads
 
 
-def _add_pointing_row(ms: str) -> None:
+def _add_pointing_row(ms: str, time_offset: float = 0.0) -> None:
     with tables.table(os.path.join(ms, "POINTING"), readonly=False, ack=False) as tb:
         tb.addrows(1)
         row = tb.nrows() - 1
         for col in tb.colnames():
             if col not in ("NAME",):
                 tb.putcell(col, row, tb.getcell(col, 0))
+        tb.putcell("TIME", row, tb.getcell("TIME", 0) + time_offset)
 
 
 def test_changed_pointing_rows_raise(pointing_ms, tmp_path):
@@ -682,20 +844,52 @@ def test_changed_pointing_rows_raise(pointing_ms, tmp_path):
 
 
 def test_changed_pointing_times_raise(pointing_ms, tmp_path):
-    """A TIME changed in place (same number of rows): this process reads with
-    the index of the open (the values of its rows); a process that reads the
-    index again finds another selection: MSv2ChangedError."""
+    """A TIME changed in place (same number of rows): a read checks the TIME
+    and ANTENNA_ID of its rows, reads the index again and finds another
+    selection: MSv2ChangedError, with the index of the open in the memo as
+    in a process that reads it again."""
     ms = shutil.copytree(pointing_ms["regular"], str(tmp_path / "copy.ms"))
     ant_names = antenna_names(range(NANTS))
     time_min_max = time_range(ms, (0, 1))
-    expected = create_pointing_xds(ms, ant_names, time_min_max, None)
     actual, _ = lazy_pointing(ms, ant_names, time_min_max)
     with tables.table(os.path.join(ms, "POINTING"), readonly=False, ack=False) as tb:
         tb.putcell("TIME", 3, tb.getcell("TIME", 3) + 0.01)
-    assert_xds_bit_identical(actual, expected)
+    with pytest.raises(MSv2ChangedError, match="times, antennas or rows"):
+        _ = actual.POINTING_BEAM.values
     bpt.clear_pointing_memos()
     with pytest.raises(MSv2ChangedError, match="times, antennas or rows"):
         _ = actual.POINTING_DISH_MEASURED.values
+
+
+def test_swapped_pointing_antennas_are_read(pointing_ms, tmp_path):
+    """The ANTENNA_ID of two rows of one time swapped in place (the same
+    times, antennas and rows of the partition): with the index of the open in
+    the memo or read again, the values are those of the changed table."""
+    ms = shutil.copytree(pointing_ms["regular"], str(tmp_path / "copy.ms"))
+    ant_names = antenna_names(range(NANTS))
+    time_min_max = time_range(ms, (0, 1))
+    with tables.table(os.path.join(ms, "POINTING"), readonly=False, ack=False) as tb:
+        time, ant = tb.getcol("TIME"), tb.getcol("ANTENNA_ID")
+    rows = next(
+        np.flatnonzero(time == t)[:2]
+        for t in np.unique(time)
+        if np.unique(ant[time == t]).size >= 2
+        and np.unique(ant[time == t]).size == (time == t).sum()
+    )
+    for clear in (False, True):
+        bpt.clear_pointing_memos()
+        actual, _ = lazy_pointing(ms, ant_names, time_min_max)
+        with tables.table(
+            os.path.join(ms, "POINTING"), readonly=False, ack=False
+        ) as tb:
+            values = tb.getcol("ANTENNA_ID")
+            values[rows] = values[rows[::-1]]
+            tb.putcol("ANTENNA_ID", values)
+        if clear:
+            bpt.clear_pointing_memos()
+        assert_xds_bit_identical(
+            actual, create_pointing_xds(ms, ant_names, time_min_max, None)
+        )
 
 
 def test_changed_pointing_values_are_read(pointing_ms, tmp_path):
@@ -811,13 +1005,13 @@ def test_engine_pointing_is_lazy(backend_ms, variant, monkeypatch):
     pointing_xds data variable is a PointingColumnArray, read on access
     (with pointing_interpolate: eager, as the converter builds it)."""
     reads = []
-    raw_indexing_method = bpt.PointingColumnArray._raw_indexing_method
+    read_selection = bpt.PointingColumnArray._read_selection
 
-    def spy(self, key):
-        reads.append(key)
-        return raw_indexing_method(self, key)
+    def spy(self, selections):
+        reads.append(selections)
+        return read_selection(self, selections)
 
-    monkeypatch.setattr(bpt.PointingColumnArray, "_raw_indexing_method", spy)
+    monkeypatch.setattr(bpt.PointingColumnArray, "_read_selection", spy)
     ms = backend_ms(variant)
     tree = xr.open_datatree(
         ms, engine=MSv2BackendEntrypoint, chunks=None, partition_cache="off"
@@ -850,3 +1044,23 @@ def test_engine_pointing_is_lazy(backend_ms, variant, monkeypatch):
     for xds in interpolated:
         assert "time" in xds.dims
         assert all(pointing_array(var) is None for var in xds.data_vars.values())
+
+
+def test_engine_pointing_is_lazy_over_the_cache_limit(backend_ms, monkeypatch):
+    """POINTING tables larger than what the converter's sub-table cache holds
+    (POINTING_MAX_CACHED_INDEX_BYTES, about 16.7 million rows) are read
+    lazily too: the backend reads its own index, whatever its size."""
+    monkeypatch.setattr(rp, "POINTING_MAX_CACHED_INDEX_BYTES", 16)
+    ms = backend_ms("rich")
+    tree = xr.open_datatree(
+        ms, engine=MSv2BackendEntrypoint, chunks=None, partition_cache="off"
+    )
+    pointing = [
+        tree[name]["pointing_xds"].to_dataset(inherit=False)
+        for name in tree.children
+        if "pointing_xds" in tree[name].children
+    ]
+    assert pointing
+    for xds in pointing:
+        assert all(pointing_array(var) is not None for var in xds.data_vars.values())
+        assert np.isfinite(xds.POINTING_BEAM.values).any()

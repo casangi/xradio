@@ -35,8 +35,10 @@ from xradio.measurement_set._utils._msv2.backend_arrays import (
 from xradio.measurement_set._utils._msv2.backend_errors import StalePartitionsError
 from xradio.measurement_set._utils._msv2.backend_pointing import (
     DeferredPointingVariable,
+    PointingBuild,
     deferred_pointing_generic_xds,
     lazy_pointing_xds,
+    rebuilt_pointing_xds,
 )
 from xradio.measurement_set._utils._msv2.conversion import build_partition
 from xradio.measurement_set._utils._msv2.partition_queries import (
@@ -180,9 +182,8 @@ def open_partition(
         (verify_partition_rows): for partitions from the partition cache.
     lazy_pointing : bool, optional
         True (default): the data variables of the pointing_xds are read when
-        indexed (unless POINTING cannot be read lazily, or with
-        pointing_interpolate); False: they are read here, as by the
-        converter.
+        indexed (with pointing_interpolate: read here, as by the converter);
+        False: they are read here, as by the converter.
 
     Returns
     -------
@@ -194,10 +195,16 @@ def open_partition(
     StalePartitionsError
         If ``verify`` finds that the description does not describe the rows.
     """
-    # descriptions of the lazy pointing_xds data variables, by name
+    # descriptions of the lazy pointing_xds data variables, by name, and the
+    # partition's time range and antennas (as the loader got them)
     pointing_specs: dict[str, DeferredPointingVariable] = {}
+    pointing_context: dict = {}
     pointing_loader = (
-        functools.partial(deferred_pointing_generic_xds, specs=pointing_specs)
+        functools.partial(
+            deferred_pointing_generic_xds,
+            specs=pointing_specs,
+            context=pointing_context,
+        )
         if lazy_pointing
         else None
     )
@@ -270,12 +277,45 @@ def open_partition(
         pointing_xds = ms_xdt["pointing_xds"].to_dataset(inherit=False)
         if pointing_specs:
             pointing_xds = lazy_pointing_xds(pointing_xds, pointing_specs, node_name)
+        elif pointing_context and pointing_xds.data_vars:
+            # built here by the converter's code (a POINTING table the lazy
+            # reads cannot describe): built again when read, values not kept
+            pointing_xds = _rebuilt_pointing(
+                in_file, ms_xdt, pointing_xds, pointing_context, node_name
+            )
         _check_no_placeholder_left(pointing_xds)
         _set_preferred_chunks(pointing_xds)
         ms_xdt["pointing_xds"].dataset = pointing_xds
     if drop_variables is not None:
         _drop_variables(ms_xdt, drop_variables)
     return ms_xdt
+
+
+def _rebuilt_pointing(
+    in_file: str,
+    ms_xdt: xr.DataTree,
+    pointing_xds: xr.Dataset,
+    context: dict,
+    node_name: str,
+) -> xr.Dataset:
+    """The pointing_xds of a partition with data variables that build it
+    again when read (rebuilt_pointing_xds); as built if the antennas of the
+    build cannot be told (kept eager)."""
+    antenna_ids = context["antenna_ids"]
+    names = (
+        ms_xdt["antenna_xds"].to_dataset(inherit=False)["antenna_name"].values
+        if "antenna_xds" in ms_xdt.children
+        else []
+    )
+    if len(names) != len(antenna_ids):
+        return pointing_xds
+    build = PointingBuild(
+        in_file,
+        context["time_min_max"],
+        antenna_ids,
+        tuple(str(name) for name in names),
+    )
+    return rebuilt_pointing_xds(pointing_xds, build, node_name)
 
 
 def _is_placeholder(var: xr.Variable) -> bool:

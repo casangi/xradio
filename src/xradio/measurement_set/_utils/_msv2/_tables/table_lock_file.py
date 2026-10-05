@@ -197,12 +197,47 @@ def read_table_lock(table_path: str) -> TableLockInfo | None:
     return parse_sync_data(content)
 
 
+def write_locked_here(table) -> bool:
+    """
+    Whether this process holds the write lock of an opened table: casacore
+    shares one table object, with its locks, per table in a process, so any
+    handle (a read-only one too) tells. The process may then have changes
+    of the table that are not flushed yet (casacore flushes a table before
+    it releases its write lock). True if that cannot be told.
+    """
+    try:
+        return bool(table.haslock(True))
+    except Exception:
+        return True
+
+
+def resync_unless_write_locked(table) -> bool:
+    """
+    Re-synchronize an opened table with its files (``resync``: e.g. the rows
+    that other processes added), unless this process holds its write lock:
+    a re-synchronization drops the changes that the process has not flushed
+    yet (e.g. rows that a user's writable handle added), so the process's
+    own view is kept then.
+
+    Returns
+    -------
+    bool
+        Whether the table was re-synchronized.
+    """
+    if write_locked_here(table):
+        return False
+    table.resync()
+    return True
+
+
 def table_nrows(table_path: str, lock: TableLockInfo | None = None) -> int:
     """
     The number of rows of a table on disk: from its lock file, or else from
     the table, opened without locks and re-synchronized with its files (an
     open in a process that already has the table open shares its table
-    object, which may have an older number of rows).
+    object, which may have an older number of rows; not re-synchronized,
+    and so the number of rows of this process, if the process holds its
+    write lock: see resync_unless_write_locked).
 
     Parameters
     ----------
@@ -221,7 +256,7 @@ def table_nrows(table_path: str, lock: TableLockInfo | None = None) -> int:
     if lock is not None and lock.lock_ok:
         return int(lock.nrrow)
     with casatools_serialized(), open_table_ro(table_path) as table:
-        table.resync()
+        resync_unless_write_locked(table)
         return int(table.nrows())
 
 
@@ -319,7 +354,8 @@ def table_fingerprint(
     lock_ok = lock is not None and lock.lock_ok
     with casatools_serialized(), open_table_ro(table_path) as table:
         if not lock_ok:
-            table.resync()
+            # (the rows of this process if it holds the table's write lock)
+            resync_unless_write_locked(table)
         nrows = int(lock.nrrow) if lock_ok else int(table.nrows())
         dms = data_managers(table)
     counters = list(lock.dm_change_counters) if lock_ok else None

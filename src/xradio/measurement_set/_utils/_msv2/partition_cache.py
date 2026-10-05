@@ -82,6 +82,8 @@ from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
     history_nrows,
     ms_fingerprint,
+    resync_unless_write_locked,
+    write_locked_here,
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_errors import PartitionCacheWarning
@@ -144,6 +146,12 @@ WRITABLE_DATA_MANAGERS = frozenset(
         "StManAipsIO",
     }
 )
+# Why partitions are not stored while this process holds MAIN's write lock
+# (why_not_writable), and why they are computed from the rows of this
+# process, without the memo and the stored rows (compute_in_memory, see
+# backend_open._check_main_is_current)
+MAIN_WRITE_LOCKED = "MAIN write-locked by this process"
+MAIN_NOT_FLUSHED = "MAIN rows of this process not flushed"
 # The HISTORY columns of the row of a stored content
 HISTORY_COLUMNS = (
     "TIME",
@@ -652,8 +660,9 @@ def history_rule(
         return f"the HISTORY row {history_row} of the partitions is gone"
     with casatools_serialized(), open_table_ro(os.path.join(path, "HISTORY")) as table:
         if table.nrows() < n_history:
-            # (a table object of this process that has not seen new rows)
-            table.resync()
+            # (a table object of this process that has not seen new rows; kept
+            # if the process holds its write lock)
+            resync_unless_write_locked(table)
         if table.nrows() < n_history:
             return "HISTORY changed while it was read"
         if not _is_content_history_row(table, history_row, row["CACHE_ID"]):
@@ -891,7 +900,9 @@ class PartitionsResult:
         (the fingerprint of the MS could not be computed: neither stored
         rows nor the memo are used), "changed-during-build" (the MS changed
         while they were computed: not memoised), "locked", "write failed",
-        or a reason of why_not_writable.
+        a reason of why_not_writable, or MAIN_NOT_FLUSHED (compute_in_memory:
+        the view of this process, which holds MAIN's write lock with rows
+        not flushed yet).
     """
 
     partitions: list[dict]
@@ -1184,10 +1195,17 @@ def why_not_writable(
             if SUBTABLE_NAME in main_tb.keywordnames()
             else None
         )
+        writing = write_locked_here(main_tb)
     if parts != [os.path.realpath(path)]:
         return "MAIN is a reference or concatenated table", False
     if keyword is not None and not _is_subtable_link(keyword):
         return f"the MAIN keyword {SUBTABLE_NAME} is no link to the cache", False
+    if writing:
+        # (a writable handle of this process, e.g. the user's, may have
+        # changes not flushed yet: the partitions computed from them would be
+        # stored with the fingerprint of the files, and the MAIN keyword
+        # write would flush them and release the handle's lock)
+        return MAIN_WRITE_LOCKED, False
     others = [name for name in dm_types if name not in WRITABLE_DATA_MANAGERS]
     if others:
         return f"MAIN uses {others[0]}", False
@@ -1409,7 +1427,7 @@ def _find_content_history_row(path: str, row: Mapping[str, Any]) -> int | None:
     with open_table_ro(os.path.join(path, "HISTORY")) as table:
         n_rows = history_nrows(path) or 0
         if table.nrows() < n_rows:
-            table.resync()
+            resync_unless_write_locked(table)
         n_rows = table.nrows()
         if 0 <= index < n_rows and _is_content_history_row(table, index, cache_id):
             return index
@@ -1848,6 +1866,23 @@ def _store(
         # valid (as the stored row: the HISTORY rule holds)
         entry.history_nrows = n_history + 1
     return status
+
+
+def compute_in_memory(
+    path: str, partition_scheme: list[str], reason: str
+) -> PartitionsResult:
+    """
+    The partitions of an MS computed from what this process sees of it,
+    neither taken from the memo or the stored rows nor kept there (status
+    "memory:<reason>", logged at INFO once per MS and reason): for a MAIN
+    table whose write lock this process holds, with another number of rows
+    than its files (rows not flushed yet), which the fingerprint of the
+    files does not describe.
+    """
+    partition_scheme = validate_partition_scheme(partition_scheme)
+    notify_not_stored(path, reason, False)
+    partitions, runs = _compute(path, partition_scheme)
+    return PartitionsResult(partitions, runs, "fresh", f"memory:{reason}")
 
 
 def load_or_create_partitions(

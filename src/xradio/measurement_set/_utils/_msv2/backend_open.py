@@ -28,6 +28,7 @@ from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
 )
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
     read_table_lock,
+    resync_unless_write_locked,
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_arrays import (
@@ -46,8 +47,10 @@ from xradio.measurement_set._utils._msv2.backend_partition import (
 )
 from xradio.measurement_set._utils._msv2.conversion import msv4_name
 from xradio.measurement_set._utils._msv2.partition_cache import (
+    MAIN_NOT_FLUSHED,
     PARTITIONS_MEMO,
     PartitionsResult,
+    compute_in_memory,
     load_or_create_partitions,
     resolve_partition_cache_mode,
 )
@@ -119,10 +122,14 @@ def open_msv2_tree(
         "unreadable_columns": frozenset(skip_columns or ()),
     }
     for attempt in (1, 2):
-        # (a MAIN table that this process holds open with fewer rows is
-        # re-synchronized with its files first)
-        _check_main_is_current(path)
-        result = load_or_create_partitions(path, scheme, mode)
+        # (a MAIN table that this process holds open with another number of
+        # rows than its files is re-synchronized with them first, unless the
+        # process holds its write lock: then its rows are those of the
+        # process, and the partitions are computed from them)
+        if _check_main_is_current(path):
+            result = compute_in_memory(path, scheme, MAIN_NOT_FLUSHED)
+        else:
+            result = load_or_create_partitions(path, scheme, mode)
         selected = _select(path, result.partitions, partition_filter)
         if attempt == 1:
             _warn_large_tree(path, len(selected))
@@ -180,15 +187,20 @@ def open_msv2_tree(
     return tree
 
 
-def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None:
+def _check_main_is_current(path: str, expected_nrows: int | None = None) -> bool:
     """
-    Check that this process sees the MAIN table as it is on disk, and has as
-    many rows as the partitions were computed for.
+    Check that this process sees the MAIN table as it is on disk (or as the
+    process itself changed it), and has as many rows as the partitions were
+    computed for.
 
     casacore shares one table object per table in a process: if this
     process holds MAIN open (e.g. the user's handle), a new open gets that
     object, whose number of rows does not follow rows that other processes
-    added. It is re-synchronized when it differs from the lock file.
+    added. It is re-synchronized when it differs from the lock file, unless
+    the process holds MAIN's write lock: a re-synchronization would drop
+    the changes of the process that are not flushed yet (e.g. rows that the
+    user's writable handle added), so the rows the process sees are used
+    then, as the converter would read them.
 
     Parameters
     ----------
@@ -196,6 +208,14 @@ def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None
         Path of the MS.
     expected_nrows : int | None, optional
         The MAIN rows of the partitions.
+
+    Returns
+    -------
+    bool
+        Whether the rows of MAIN in this process are not those on disk (the
+        process holds MAIN's write lock, with another number of rows): the
+        partitions must then be computed from them, without the partition
+        cache (whose fingerprint is that of the files).
 
     Raises
     ------
@@ -206,17 +226,18 @@ def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None
     """
     lock = read_table_lock(path)
     on_disk = lock.nrrow if lock is not None and lock.lock_ok else None
+    own_rows = False
     with casatools_serialized(), open_table_ro(path) as main_tb:
         nrows = main_tb.nrows()
         if on_disk is not None and nrows != on_disk:
             try:
-                main_tb.resync()
+                own_rows = not resync_unless_write_locked(main_tb)
             except RuntimeError as exc:
                 raise MSv2ChangedError(
                     f"The MAIN table of {path} changed and cannot be re-read: {exc}"
                 ) from exc
             nrows = main_tb.nrows()
-    if on_disk is not None and nrows != on_disk:
+    if on_disk is not None and nrows != on_disk and not own_rows:
         raise MSv2ChangedError(
             f"The MAIN table of {path} has {nrows} rows in this process and "
             f"{on_disk} on disk"
@@ -225,6 +246,7 @@ def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None
         raise MainRowsChangedError(
             f"the MAIN table has {nrows} rows, the partitions are of {expected_nrows}"
         )
+    return own_rows
 
 
 def _check_names(option: str, names) -> list[str] | None:

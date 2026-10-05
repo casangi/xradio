@@ -644,3 +644,52 @@ def test_main_held_open_in_this_process(ms_copy, tmp_path):
     out = str(tmp_path / "oracle.ps.zarr")
     convert_msv2_to_processing_set(msname, out)
     assert_nodes_identical(tree, open_processing_set(out))
+
+
+@pytest.mark.parametrize("mode", ["off", "auto"])
+def test_rows_this_process_has_not_flushed(mode, ms_copy, tmp_path, monkeypatch):
+    """MAIN rows that this process added and has not flushed (a writable
+    handle that holds the write lock), with the partitions of the MS stored
+    and memoised before: the open keeps them (a re-synchronization of MAIN
+    would roll them back), computes the partitions from the rows of the
+    process without the partition cache, and gives the tree of the
+    converter (which reads the same rows); the rows reach the disk."""
+    from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
+        read_table_lock,
+    )
+
+    msname = ms_copy("dense", name="dense.ms")
+    if mode == "auto":
+        assert status_of(msname, []) == "stored"  # (and memoised)
+    statuses = []
+    load = backend_open.compute_in_memory
+
+    def spy(*args, **kwargs):
+        result = load(*args, **kwargs)
+        statuses.append(result.status)
+        return result
+
+    monkeypatch.setattr(backend_open, "compute_in_memory", spy)
+    writer = tables.table(msname, readonly=False, ack=False)
+    try:
+        nrows = writer.nrows()
+        writer.addrows(10)  # (copies of rows 0-9, 100 s later)
+        for column in writer.colnames():
+            if not writer.iscelldefined(column, 0):  # (FLAG_CATEGORY)
+                continue
+            values = writer.getcol(column, 0, 10)
+            if column in ("TIME", "TIME_CENTROID"):
+                values = values + 100.0
+            writer.putcol(column, values, nrows, 10)
+        assert read_table_lock(msname).nrrow == nrows  # (not flushed)
+        tree = xr.open_datatree(msname, engine=ENGINE, chunks={}, partition_cache=mode)
+        assert writer.nrows() == nrows + 10
+        assert statuses == ["memory:MAIN rows of this process not flushed"]
+        assert tree["dense_0"].sizes["time"] == 31
+    finally:
+        writer.close()
+    with tables.table(msname, ack=False) as main_tb:
+        assert main_tb.nrows() == nrows + 10
+    out = str(tmp_path / "oracle.ps.zarr")
+    convert_msv2_to_processing_set(msname, out, partition_scheme=[])
+    assert_nodes_identical(tree, open_processing_set(out))

@@ -237,6 +237,54 @@ def test_table_nrows_without_lock_file_data(ms_copy):
     assert fingerprint["counters"] is None and fingerprint["ncolumns"] is None
 
 
+def test_rows_not_flushed_by_this_process_are_kept(ms_copy, monkeypatch):
+    """A table whose write lock this process holds, with rows added and not
+    flushed (a user's writable handle): table_nrows and the fingerprint
+    without lock file data, which re-synchronize the table otherwise, give
+    the rows of the process and drop none of them (a resync rolls them
+    back). (Closing a handle releases the lock and flushes them: every case
+    adds rows with a new handle.)"""
+    msname = ms_copy("dense")
+
+    def disk_rows():
+        with tables.table(msname, ack=False) as table:
+            return table.nrows()
+
+    nrows = disk_rows()
+    writer = tables.table(msname, readonly=False, ack=False)
+    try:
+        writer.addrows(3)
+        assert read_table_lock(msname).nrrow == nrows  # (not flushed)
+        assert table_nrows(msname, TableLockInfo(False)) == nrows + 3
+        assert writer.nrows() == nrows + 3
+    finally:
+        writer.close()
+    assert disk_rows() == nrows + 3
+    monkeypatch.setattr(
+        table_lock_file, "read_table_lock", lambda path: TableLockInfo(False)
+    )
+    writer = tables.table(msname, readonly=False, ack=False)
+    try:
+        writer.addrows(2)
+        assert table_fingerprint(msname)["nrows"] == nrows + 5
+        assert writer.nrows() == nrows + 5
+    finally:
+        writer.close()
+    assert disk_rows() == nrows + 5
+    writer = tables.table(msname, readonly=False, ack=False)
+    try:
+        writer.addrows(1)
+        assert table_lock_file.write_locked_here(writer)
+        assert not table_lock_file.resync_unless_write_locked(writer)
+        assert writer.nrows() == nrows + 6
+    finally:
+        writer.close()
+    with tables.table(msname, ack=False) as reader:
+        assert reader.nrows() == nrows + 6
+        assert not table_lock_file.write_locked_here(reader)
+        assert table_lock_file.resync_unless_write_locked(reader)
+
+
 # --- the fingerprint -----------------------------------------------------------
 
 

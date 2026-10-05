@@ -1200,6 +1200,22 @@ def test_environment_variable_sets_the_mode(ms_copy, monkeypatch):
     assert PARTITIONS_MEMO.stats["stored hits"] == 1
 
 
+def test_not_stored_while_this_process_write_locks_main(ms_copy):
+    """A MAIN whose write lock this process holds (another thread writing
+    it): its changes may not be flushed, so nothing is stored (INFO)."""
+    msname = ms_copy("dense")
+    writer = tables.table(msname, readonly=False, lockoptions="user", ack=False)
+    try:
+        writer.lock(True)
+        assert partition_cache.why_not_writable(msname) == (
+            partition_cache.MAIN_WRITE_LOCKED,
+            False,
+        )
+    finally:
+        writer.close()
+    assert partition_cache.why_not_writable(msname) is None
+
+
 def _notices(caplog, recwarn):
     infos = [
         r.getMessage() for r in caplog.records if "is not stored" in r.getMessage()

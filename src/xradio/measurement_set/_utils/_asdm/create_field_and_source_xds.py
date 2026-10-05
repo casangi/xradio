@@ -1,4 +1,5 @@
 import numpy as np
+import pandas as pd
 import pyasdm
 import xarray as xr
 
@@ -7,6 +8,8 @@ from xradio._utils.dict_helpers import (
     make_sky_coord_measure_attrs,
     make_spectral_coord_measure_attrs,
 )
+from xradio._utils.list_and_array import to_np_array
+from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.field_source import get_direction_codes
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
@@ -63,15 +66,22 @@ def create_field_and_source_xds(
 
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
-    # TODO: sourceId is an opt attr
-    sdm_field_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir", "sourceId"]
-    field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
+    sdm_field_required_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir"]
+    sdm_field_optional_attrs = ["sourceId"]
+    try:
+        # TODO: sourceId is an opt attr, but so far always present in ALMA ASDMs
+        field_df = exp_asdm_table_to_df(
+            asdm, "Field", sdm_field_required_attrs + sdm_field_optional_attrs
+        )
+    except ValueError as _exc:
+        field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_required_attrs)
+        field_df["sourceId"] = None
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
 
     field_name = (
-        field_df["fieldName"] + "_" + field_df["fieldId"].astype("str")
+        field_df["fieldName"].astype("str") + "_" + field_df["fieldId"].astype("str")
     ).to_numpy(dtype="str")
     field_coords = {
         "sky_dir_label": ["ra", "dec"],
@@ -98,6 +108,28 @@ def create_field_and_source_xds(
     xds.data_vars[center_direction_dv].attrs.update(
         make_sky_coord_measure_attrs("rad", "fk5")
     )
+
+    xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
+
+    # TODO: ephem
+    is_ephemeris = False
+    xds.attrs.update({"is_ephemeris": is_ephemeris})
+
+    return xds
+
+
+def extract_source_info(
+    xds: xr.Dataset, asdm: pyasdm.ASDM, field_df: pd.DataFrame, spectral_window_id: int
+) -> xr.Dataset:
+    """ """
+
+    if field_df.empty or field_df["sourceId"].isnull().all():
+        xradio_logger().warning(
+            "No sourceId found in the Field table. No source information will be included in field_and_source_xds."
+        )
+        unknown = to_np_array(["Unknown"] * field_df.shape[0])
+        xds = xds.assign_coords({"source_name": ("field_name", unknown)})
+        return xds
 
     line_info_available = True
     sdm_source_required_attrs = [
@@ -174,9 +206,5 @@ def create_field_and_source_xds(
             sys_vel,
             make_quantity_attrs("m/s"),
         )
-
-    # TODO: ephem
-    is_ephemeris = False
-    xds.attrs.update({"is_ephemeris": is_ephemeris})
 
     return xds

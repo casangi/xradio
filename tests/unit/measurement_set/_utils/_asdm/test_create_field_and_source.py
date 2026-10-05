@@ -1,7 +1,9 @@
 import copy
 
+import pandas as pd
 import pyasdm
 import pytest
+import xarray as xr
 
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
@@ -28,6 +30,40 @@ def test_create_field_and_source_xds_with_asdm_default(asdm_with_spw_default):
 def test_create_field_and_source_xds_with_asdm_simple(asdm_with_spw_simple):
     with pytest.raises(IndexError, match="out of bounds"):
         create_field_and_source_xds(asdm_with_spw_simple, {"fieldId": [0]}, 0, False)
+
+
+def test_create_field_and_source_xds_with_field_minimum(asdm_with_spw_simple):
+    asdm_with_minimum_field = copy.deepcopy(asdm_with_spw_simple)
+
+    # A field row with only the required attributes
+    field_row_0_xml = """
+  <row>
+    <fieldId> Field_0 </fieldId>
+    <fieldName> J0423-0120 </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </delayDir>
+    <phaseDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </phaseDir>
+    <referenceDir> 2 1 2 1.148703043969797 -0.02343136276090743  </referenceDir>
+  </row>
+    """
+    field_table = asdm_with_minimum_field.getField()
+    field_row_0 = pyasdm.FieldRow(field_table)
+    field_row_0.setFromXML(field_row_0_xml)
+    field_table.add(field_row_0)
+
+    # IF
+    if_field_and_source_xds = create_field_and_source_xds(
+        asdm_with_minimum_field, {"fieldId": [0]}, 0, False
+    )
+    issues_if = check_dataset(if_field_and_source_xds, FieldSourceXds)
+    assert not issues_if
+
+    # SD
+    sd_field_and_source_xds = create_field_and_source_xds(
+        asdm_with_minimum_field, {"fieldId": [0]}, 0, True
+    )
+    issues_sd = check_dataset(sd_field_and_source_xds, FieldSourceXds)
+    assert not issues_sd
 
 
 def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
@@ -123,3 +159,15 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     )
     issues_field_source = check_dataset(field_and_source_xds, FieldSourceXds)
     assert not issues_field_source
+
+
+def test_extract_source_info_empty():
+    from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
+        extract_source_info,
+    )
+
+    result = extract_source_info(
+        xr.Dataset(), None, pd.DataFrame(columns=["sourceId"]), 0
+    )
+    assert "field_name" in result.dims
+    assert "source_name" in result.coords

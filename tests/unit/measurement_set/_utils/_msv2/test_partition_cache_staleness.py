@@ -371,6 +371,37 @@ def test_modified_ms_equals_the_oracle(
         assert status_of(msname) == "hit"
 
 
+@pytest.mark.parametrize("layout", ["shared", "per_column"])
+def test_antenna2_rewritten_for_antenna1_schemes(layout, ms_copy):
+    """With ANTENNA1 in the scheme a partition holds the autocorrelations of
+    its antenna, and the check of cached partitions against their rows
+    cannot see rows that a partition gained. ANTENNA2 rewritten so that 20
+    cross-correlation rows become autocorrelations (an ANTENNA2-only write;
+    per_column: ANTENNA2 in a data manager of its own, as in CASA split
+    outputs, where only the fingerprint's ANTENNA2 tells): the next open
+    computes and stores the partitions again (not a hit), equal to a fresh
+    computation, and the stored row then holds the 20 rows."""
+    msname = ms_copy("dense", layout, name="dense.ms")
+    scheme = ["ANTENNA1"]
+    assert status_of(msname, scheme) == "stored"
+    first = partition_cache.load_or_create_partitions(msname, scheme, "read")
+    assert first.status == "hit-memory" and first.runs.lengths.sum() == 0
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        antenna1, antenna2 = main_tb.getcol("ANTENNA1"), main_tb.getcol("ANTENNA2")
+        rows = np.flatnonzero(antenna1 != antenna2)[:20]
+        antenna2[rows] = antenna1[rows]
+        main_tb.putcol("ANTENNA2", antenna2)
+    assert status_of(msname, scheme) == "stored"
+    partition_cache.clear_partition_memo()
+    cached = partition_cache.load_or_create_partitions(msname, scheme, "read")
+    fresh = partition_cache.load_or_create_partitions(msname, scheme, "off")
+    assert cached.status == "hit"
+    assert cached.partitions == fresh.partitions
+    np.testing.assert_array_equal(cached.runs.starts, fresh.runs.starts)
+    np.testing.assert_array_equal(cached.runs.lengths, fresh.runs.lengths)
+    assert int(cached.runs.lengths.sum()) == 20
+
+
 def test_unused_state_row(ms_copy, tmp_path):
     """The OBS_MODE of a STATE row no MAIN row uses: the partitions are
     computed again and equal (revalidated)."""

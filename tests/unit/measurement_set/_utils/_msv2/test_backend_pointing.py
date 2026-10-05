@@ -571,6 +571,46 @@ def test_lazy_pointing_blocks(pointing_ms, monkeypatch, variant, sub_block_bytes
             )
 
 
+@pytest.mark.parametrize("variant", ["regular", "int_encoder"])
+def test_lazy_pointing_reads_hold_bounded_time_sub_blocks(
+    pointing_ms, monkeypatch, variant
+):
+    """A read of a lazy pointing variable holds at most one time sub-block of
+    POINTING_SUB_BLOCK_BYTES at a time (its values, grid and per-row index
+    arrays; at least one time): a block of more times is read in several
+    sub-blocks, with the converter's values."""
+    ms = pointing_ms[variant]
+    ant_names = antenna_names(range(NANTS))
+    time_min_max = time_range(ms, (0, 1))
+    expected = create_pointing_xds(ms, ant_names, time_min_max, None)
+    actual, _ = lazy_pointing(ms, ant_names, time_min_max)
+    blocks = []
+    read_grid = bpt.PointingColumnArray._read_grid
+
+    def spy(self, table, index, selection, times, antennas, *args, **kwargs):
+        blocks.append((times.size, antennas.size))
+        return read_grid(
+            self, table, index, selection, times, antennas, *args, **kwargs
+        )
+
+    monkeypatch.setattr(bpt.PointingColumnArray, "_read_grid", spy)
+    for name, var in expected.data_vars.items():
+        array = pointing_array(actual[name])
+        cell_elems = int(np.prod(array.spec.cell_shape)) or 1
+        cell_bytes = cell_elems * (2 * array.dtype.itemsize + 8) + bpt._ROW_INDEX_BYTES
+        bound = 40 * NANTS * cell_bytes  # (40 times of every antenna)
+        monkeypatch.setattr(bpt, "POINTING_SUB_BLOCK_BYTES", bound)
+        blocks.clear()
+        assert_bits_equal(actual[name].values, var.values, name)
+        n_times = var.shape[0]
+        assert n_times > 100
+        assert len(blocks) == -(-n_times // 40), name
+        assert max(t * a * cell_bytes for t, a in blocks) <= bound, name
+        blocks.clear()
+        actual[name].isel(time_pointing=slice(3, 5)).values  # noqa: B018
+        assert blocks == [(2, NANTS)]
+
+
 def build_array(var) -> "bpt.PointingBuildArray | None":
     """The PointingBuildArray under the wrappers of a variable, if any."""
     data = getattr(var, "variable", var)._data

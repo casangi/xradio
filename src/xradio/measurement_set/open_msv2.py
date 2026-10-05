@@ -132,7 +132,8 @@ def remove_msv2_partition_cache(ms_path: str | os.PathLike) -> bool:
     """
     Remove the partitions that the ``xradio_msv2`` engine stored in a
     MeasurementSet v2 (the MAIN keyword XRADIO_PARTITIONS, then the
-    sub-table XRADIO_PARTITIONS). Its HISTORY rows are kept.
+    sub-table XRADIO_PARTITIONS). Its HISTORY rows are kept. A sub-table
+    XRADIO_PARTITIONS that xradio did not write is left alone.
 
     Parameters
     ----------
@@ -150,8 +151,12 @@ def remove_msv2_partition_cache(ms_path: str | os.PathLike) -> bool:
         If there is no MeasurementSet at ``ms_path``.
     PermissionError
         If the MeasurementSet cannot be written.
+    ValueError
+        If its XRADIO_PARTITIONS is not a partition cache of xradio (nothing
+        is removed).
     RuntimeError
-        If another process holds a lock on its MAIN table.
+        If another process holds a lock on its MAIN table or on the
+        sub-table (nothing is removed).
     """
     from xradio.measurement_set._utils._msv2.partition_cache import (
         remove_partition_cache,

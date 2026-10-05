@@ -883,6 +883,33 @@ def test_revalidation_adds_no_history_row(ms_copy):
     assert len(history_rows(msname)) == n_history
 
 
+def test_history_rows_removed_before_the_content_row(ms_copy):
+    """HISTORY rows before the content's HISTORY row removed (its row number
+    shifts): the partitions are computed again and are the same, so the
+    stored row is revalidated with the new row number of its HISTORY row,
+    and no HISTORY row is added."""
+    msname = ms_copy("rich")
+    assert statuses(msname, []) == ["stored"]
+    first = normalise_row(stored_rows(msname)[0])
+    assert first["HISTORY_ROW"] > 0
+    with tables.table(os.path.join(msname, "HISTORY"), readonly=False, ack=False) as h:
+        h.removerows([0])
+    n_history = len(history_rows(msname))
+    assert statuses(msname, []) == ["revalidated"]
+    row = normalise_row(stored_rows(msname)[0])
+    assert len(history_rows(msname)) == n_history
+    assert row["CACHE_ID"] == first["CACHE_ID"]
+    assert row["HISTORY_ROW"] == first["HISTORY_ROW"] - 1
+    assert row["HISTORY_NROWS_AT_BUILD"] == n_history
+    assert statuses(msname, [], ("auto", "read")) == ["hit", "hit"]
+    # the content's HISTORY row itself removed: stored again, with a new one
+    with tables.table(os.path.join(msname, "HISTORY"), readonly=False, ack=False) as h:
+        h.removerows([row["HISTORY_ROW"]])
+    assert statuses(msname, []) == ["stored"]
+    assert len(history_rows(msname)) == n_history
+    assert normalise_row(stored_rows(msname)[0])["CACHE_ID"] != first["CACHE_ID"]
+
+
 def test_changed_partitions_replace_the_row(ms_copy):
     msname = ms_copy("rich")
     assert statuses(msname, ["FIELD_ID"]) == ["stored"]
@@ -1084,6 +1111,47 @@ def test_remove_with_main_locked_elsewhere(ms_copy):
     assert remove_msv2_partition_cache(msname) is True
 
 
+@pytest.mark.parametrize("link", [False, True])
+def test_remove_leaves_a_foreign_subtable(link, ms_copy):
+    """A table or directory XRADIO_PARTITIONS that is not xradio's partition
+    cache (no CREATOR keyword "xradio"): neither it nor a MAIN keyword that
+    links it is removed (ValueError)."""
+    msname = ms_copy("dense")
+    subtable = os.path.join(msname, SUBTABLE_NAME)
+    desc = tables.maketabdesc([tables.makescacoldesc("TIME", 0.0)])
+    tables.table(subtable, desc, nrow=1, ack=False).close()
+    if link:
+        with tables.table(msname, readonly=False, ack=False) as main_tb:
+            main_tb.putkeyword(SUBTABLE_NAME, "Table: " + subtable)
+    before = file_digests(subtable)
+    with pytest.raises(ValueError, match="not a partition cache of xradio"):
+        remove_msv2_partition_cache(msname)
+    assert file_digests(subtable).keys() == before.keys()
+    assert (SUBTABLE_NAME in main_keywords(msname)) == link
+    shutil.rmtree(subtable)
+    os.makedirs(subtable)
+    with pytest.raises(ValueError, match="not a readable table"):
+        remove_msv2_partition_cache(msname)
+    assert os.path.isdir(subtable)
+
+
+def test_remove_with_the_subtable_locked_elsewhere(ms_copy):
+    """A sub-table that another process holds locked (a writer storing a
+    row): nothing is removed (RuntimeError)."""
+    msname = ms_copy("dense")
+    assert statuses(msname, []) == ["stored"]
+    holder = hold_table(os.path.join(msname, SUBTABLE_NAME))
+    try:
+        with pytest.raises(RuntimeError, match="lock"):
+            remove_msv2_partition_cache(msname)
+    finally:
+        holder.kill()
+        holder.wait()
+    assert partition_cache.link_state(msname) == "linked"
+    assert remove_msv2_partition_cache(msname) is True
+    assert partition_cache.link_state(msname) == "absent"
+
+
 def test_stale_temporary_tables_are_removed(ms_copy):
     msname = ms_copy("dense")
     done = subprocess.run(
@@ -1278,6 +1346,76 @@ def test_closing_a_handle_releases_the_lock_of_another(ms_copy):
             writer.putcell("TIME", 0, 1.0)
     finally:
         writer.close()
+
+
+def _close_a_main_handle(msname: str) -> None:
+    """What another thread of this process does when it closes its handle
+    of MAIN (a lazy read, a partition build): python-casacore's close
+    unlocks the table object the process shares."""
+    tables.table(
+        msname, readonly=True, lockoptions={"option": "usernoread"}, ack=False
+    ).close()
+
+
+@pytest.mark.parametrize(
+    "when", ["while the sub-table is made", "before the keyword", "before the flush"]
+)
+def test_main_lock_released_by_another_thread_of_this_process(
+    when, ms_copy, monkeypatch
+):
+    """Another thread of this process closes a MAIN handle while the first
+    store writes the MAIN keyword (releasing the MAIN write lock): the lock is
+    taken again and the partitions are stored."""
+    msname = ms_copy("dense")
+    if when == "while the sub-table is made":
+        create = partition_cache._create_subtable
+
+        def create_then_close(path):
+            created = create(path)
+            _close_a_main_handle(msname)
+            return created
+
+        monkeypatch.setattr(partition_cache, "_create_subtable", create_then_close)
+    else:
+        put = partition_cache._put_main_keyword
+        calls = []
+
+        def put_with_a_close(main_tb, path):
+            calls.append(path)
+            if when == "before the keyword" and len(calls) == 1:
+                _close_a_main_handle(msname)
+            written = put(main_tb, path)
+            if when == "before the flush":
+                _close_a_main_handle(msname)
+            return written
+
+        monkeypatch.setattr(partition_cache, "_put_main_keyword", put_with_a_close)
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", PartitionCacheWarning)
+        assert statuses(msname, []) == ["stored"]
+    assert partition_cache.link_state(msname) == "linked"
+    assert statuses(msname, [], ("auto", "read")) == ["hit", "hit"]
+
+
+def test_main_lock_released_again_and_again(ms_copy, monkeypatch):
+    """The MAIN lock released before every attempt of the keyword write: the
+    write fails after KEYWORD_WRITE_ATTEMPTS (partitions in memory, a
+    warning), and no sub-table is left without its keyword."""
+    msname = ms_copy("dense")
+    put = partition_cache._put_main_keyword
+    calls = []
+
+    def put_after_a_close(main_tb, path):
+        calls.append(path)
+        _close_a_main_handle(msname)
+        return put(main_tb, path)
+
+    monkeypatch.setattr(partition_cache, "_put_main_keyword", put_after_a_close)
+    with pytest.warns(PartitionCacheWarning, match="should be locked"):
+        assert statuses(msname, []) == ["memory:write failed"]
+    assert len(calls) == partition_cache.KEYWORD_WRITE_ATTEMPTS
+    assert partition_cache.link_state(msname) == "absent"
+    assert SUBTABLE_NAME not in os.listdir(msname)
 
 
 def test_threads_reading_and_writing_one_ms(ms_copy):

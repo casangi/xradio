@@ -45,7 +45,10 @@ Writes (python-casacore only; ``store_partitions``): every lock is tried once
 in the order MAIN (alone), the sub-table, HISTORY; one writer per MS in a
 process (a mutex: casacore's locks belong to the process). The sub-table is
 created under a temporary name and renamed into place before MAIN links it,
-so no failure leaves a keyword without its sub-table.
+so no failure leaves a keyword without its sub-table. Another thread of the
+process that closes a MAIN handle releases the MAIN write lock (python-
+casacore's close unlocks the table object the process shares): the MAIN
+keyword writes take it again (``_write_main_keywords``).
 
 A memo entry is valid while the fingerprint and the number of HISTORY rows
 are those it was made with. The memo hands out copies, holds at most
@@ -1067,10 +1070,15 @@ def write_mutex(path: str) -> threading.RLock:
     casacore's locks belong to a process, and a process shares one table
     object per table: two threads would both hold a write lock, and closing
     any handle of a table releases its locks (python-casacore's close
-    unlocks). So the cache's own reads (fingerprint, stored row, HISTORY) and
-    writes of an MS hold this mutex. Other readers of MAIN in this process
-    (partition builds, lazy reads) can still release the MAIN write lock of
-    the one-time keyword write early; the keyword is written all the same.
+    unlocks, which flushes). So the cache's own reads (fingerprint, stored
+    row, HISTORY) and writes of an MS hold this mutex. Other readers of MAIN
+    in this process (partition builds, lazy reads of other trees) do not:
+    one that closes its MAIN handle while the MAIN keyword is written
+    releases the MAIN write lock. The keyword writes take the lock again in
+    that case (``_write_main_keywords``: one attempt before the change and
+    before the flush, and a retry when casacore reports the table unlocked),
+    which leaves only a window of a few Python statements in which another
+    process could take the lock and write MAIN's table.dat too.
     """
     realpath = os.path.realpath(path)
     with _WRITE_MUTEXES_LOCK:
@@ -1212,6 +1220,54 @@ def _locked_for_update(table_path: str):
         table.close()
 
 
+# Attempts of a MAIN keyword write whose write lock another thread of this
+# process released (see _write_main_keywords)
+KEYWORD_WRITE_ATTEMPTS = 3
+
+
+def _hold_write_lock(table) -> None:
+    """Take the write lock of a table opened for update again if this
+    process lost it (one attempt): CacheNotStored("locked") if another
+    process holds a lock."""
+    if not table.haslock(write=True):
+        table.lock(write=True, nattempts=1)
+        if not table.haslock(write=True):
+            raise CacheNotStored("locked")
+
+
+def _write_main_keywords(main_tb, change) -> bool:
+    """
+    ``change(main_tb)`` (keyword changes of MAIN, returning whether it
+    changed anything) and, if it did, a flush, holding the MAIN write lock
+    that ``_locked_for_update`` took. Returns what ``change`` returned.
+
+    python-casacore's close() unlocks (and flushes) the table object that a
+    process shares per table, so another thread of this process that closes
+    a handle of MAIN releases the lock: it is taken again (one attempt)
+    before the change and before the flush, and ``change`` is retried
+    (KEYWORD_WRITE_ATTEMPTS in all) when casacore reports that the table is
+    not locked. ``change`` must be idempotent and check MAIN again (a lock
+    taken again re-reads a table that another process changed).
+    """
+    for attempt in range(1, KEYWORD_WRITE_ATTEMPTS + 1):
+        _hold_write_lock(main_tb)
+        try:
+            changed = bool(change(main_tb))
+            if changed:
+                # (lost meanwhile: the unlock of the closing handle flushed)
+                _hold_write_lock(main_tb)
+                main_tb.flush()
+            return changed
+        except RuntimeError as exc:
+            if "should be locked" not in str(exc) or attempt == KEYWORD_WRITE_ATTEMPTS:
+                raise
+            xradio_logger().debug(
+                f"The write lock of {main_tb.name()} was released by another "
+                f"thread of this process ({exc}): taken again"
+            )
+    raise AssertionError("unreachable")  # pragma: no cover
+
+
 def _process_alive(pid: int) -> bool:
     try:
         os.kill(pid, 0)
@@ -1290,11 +1346,15 @@ def _rename_subtable(tmp: str, final: str) -> None:
     os.rename(tmp, final)
 
 
-def _put_main_keyword(main_tb, path: str) -> None:
+def _put_main_keyword(main_tb, path: str) -> bool:
+    """Link the sub-table from MAIN, unless MAIN has the keyword (the caller
+    flushes, see _write_main_keywords). Returns whether it was written."""
+    if SUBTABLE_NAME in main_tb.keywordnames():
+        return False
     # (python-casacore makes a table keyword of "Table: <path>", which casacore
     # stores relative to MAIN: copies and renames of the MS keep the link)
     main_tb.putkeyword(SUBTABLE_NAME, "Table: " + subtable_path(path))
-    main_tb.flush()
+    return True
 
 
 def _ensure_linked_subtable(path: str) -> None:
@@ -1316,8 +1376,8 @@ def _ensure_linked_subtable(path: str) -> None:
         with _locked_for_update(path) as main_tb:
             if not os.path.isfile(os.path.join(subtable_path(path), "table.dat")):
                 created = _create_subtable(path)
-            if SUBTABLE_NAME not in main_tb.keywordnames():
-                _put_main_keyword(main_tb, path)
+            # (the lock may have been released by another thread meanwhile)
+            _write_main_keywords(main_tb, lambda tb: _put_main_keyword(tb, path))
         if link_state(path) != "linked":
             raise RuntimeError(f"MAIN does not link {SUBTABLE_NAME} after writing it")
     except BaseException:
@@ -1339,16 +1399,35 @@ def _same_content(
     )
 
 
-def _content_history_row_exists(path: str, row: Mapping[str, Any]) -> bool:
-    """Whether HISTORY still holds the row of a stored content."""
-    index = row["HISTORY_ROW"]
+def _find_content_history_row(path: str, row: Mapping[str, Any]) -> int | None:
+    """
+    The row number of the HISTORY row of a stored content: HISTORY_ROW, or,
+    if HISTORY rows before it were removed (or the table rewritten), the row
+    of xradio's cache with the content's cache_id; None if there is none.
+    """
+    index, cache_id = row["HISTORY_ROW"], row["CACHE_ID"]
     with open_table_ro(os.path.join(path, "HISTORY")) as table:
         n_rows = history_nrows(path) or 0
         if table.nrows() < n_rows:
             table.resync()
-        return 0 <= index < table.nrows() and _is_content_history_row(
-            table, index, row["CACHE_ID"]
+        n_rows = table.nrows()
+        if 0 <= index < n_rows and _is_content_history_row(table, index, cache_id):
+            return index
+        if n_rows == 0:
+            return None
+        candidates = np.flatnonzero(
+            (
+                np.asarray(table.getcol("APPLICATION"), dtype=object)
+                == HISTORY_APPLICATION
+            )
+            & (np.asarray(table.getcol("ORIGIN"), dtype=object) == HISTORY_ORIGIN)
         )
+        for candidate in candidates[::-1].tolist():
+            if f"cache_id={cache_id}" in _app_params(
+                table.getcell("APP_PARAMS", candidate)
+            ):
+                return candidate
+    return None
 
 
 def _append_history_row(
@@ -1450,13 +1529,24 @@ def _write_row(
                 and history_rule(path, row, history_nrows(path)) is None
             ):
                 return "hit-race", None  # (stored by another writer meanwhile)
-            if _content_history_row_exists(path, row):
-                # same partitions: a new fingerprint and anchor, no HISTORY row
+            history_row = _find_content_history_row(path, row)
+            if history_row is not None:
+                # same partitions: a new fingerprint and anchor (and the row of
+                # the content's HISTORY row, which moves when earlier HISTORY
+                # rows are removed), no HISTORY row
                 row = dict(
-                    row, FINGERPRINT=fingerprint, HISTORY_NROWS_AT_BUILD=n_history
+                    row,
+                    FINGERPRINT=fingerprint,
+                    HISTORY_NROWS_AT_BUILD=n_history,
+                    HISTORY_ROW=history_row,
                 )
                 row["CHECKSUM"] = row_checksum(row)
-                for name in ("FINGERPRINT", "HISTORY_NROWS_AT_BUILD", "CHECKSUM"):
+                for name in (
+                    "FINGERPRINT",
+                    "HISTORY_NROWS_AT_BUILD",
+                    "HISTORY_ROW",
+                    "CHECKSUM",
+                ):
                     table.putcell(name, indices[0], row[name])
                 _remove_rows(table, indices[0], indices[1:])
                 table.flush()
@@ -1557,6 +1647,20 @@ def store_partitions(
         )
 
 
+def _remove_link_keyword(main_tb, path: str, only_dangling: bool) -> bool:
+    """Remove MAIN's keyword XRADIO_PARTITIONS if it links the sub-table (and
+    the sub-table is gone, with ``only_dangling``); the caller flushes.
+    Returns whether it was removed."""
+    if SUBTABLE_NAME not in main_tb.keywordnames():
+        return False
+    if not _is_subtable_link(main_tb.getkeyword(SUBTABLE_NAME)):
+        return False
+    if only_dangling and os.path.isfile(os.path.join(subtable_path(path), "table.dat")):
+        return False
+    main_tb.removekeyword(SUBTABLE_NAME)
+    return True
+
+
 def repair_dangling_keyword(path: str) -> bool:
     """
     Remove the MAIN keyword XRADIO_PARTITIONS if its sub-table is gone (a
@@ -1566,16 +1670,9 @@ def repair_dangling_keyword(path: str) -> bool:
     with write_mutex(path):
         try:
             with _locked_for_update(path) as main_tb:
-                if (
-                    SUBTABLE_NAME in main_tb.keywordnames()
-                    and _is_subtable_link(main_tb.getkeyword(SUBTABLE_NAME))
-                    and not os.path.isfile(
-                        os.path.join(subtable_path(path), "table.dat")
-                    )
-                ):
-                    main_tb.removekeyword(SUBTABLE_NAME)
-                    main_tb.flush()
-                    return True
+                return _write_main_keywords(
+                    main_tb, lambda tb: _remove_link_keyword(tb, path, True)
+                )
         except CacheNotStored:
             xradio_logger().debug(
                 f"The dangling keyword {SUBTABLE_NAME} of {path} is not removed: "
@@ -1584,11 +1681,32 @@ def repair_dangling_keyword(path: str) -> bool:
     return False
 
 
+def _check_own_subtable(subtable: str) -> None:
+    """Raise ValueError if the table at ``subtable`` is not a partition cache
+    of xradio (its keyword CREATOR), or not a readable table."""
+    try:
+        with open_table_ro(subtable) as table:
+            version = subtable_format(table)
+    except Exception as exc:
+        raise ValueError(
+            f"{subtable} is not a readable table ({type(exc).__name__}: {exc}): it is "
+            "not removed"
+        ) from exc
+    if version is None:
+        raise ValueError(
+            f"{subtable} is not a partition cache of xradio (no keyword CREATOR "
+            "'xradio'): it is not removed"
+        )
+
+
 def remove_partition_cache(path: str) -> bool:
     """
     Remove the stored partitions of an MS: the MAIN keyword first, then the
     sub-table (so that no keyword is left without its sub-table), and the
-    temporary sub-tables of gone writers.
+    temporary sub-tables of gone writers. The sub-table is removed only if
+    it is xradio's (its keyword CREATOR), and while its write lock, which
+    writers hold while they store a row, could be taken (one attempt); the
+    MAIN keyword is removed under the MAIN write lock (one attempt).
 
     Parameters
     ----------
@@ -1606,13 +1724,17 @@ def remove_partition_cache(path: str) -> bool:
         If there is no MAIN table at ``path``.
     PermissionError
         If the MS cannot be written.
+    ValueError
+        If ``<path>/XRADIO_PARTITIONS`` is not a partition cache of xradio
+        (nothing is removed).
     RuntimeError
-        If another process holds a lock on MAIN.
+        If another process holds a lock on MAIN or on the sub-table (nothing
+        is removed).
     """
     path = os.path.abspath(os.path.expanduser(os.fspath(path)))
     if not os.path.isfile(os.path.join(path, "table.dat")):
         raise FileNotFoundError(f"No MeasurementSet at {path}")
-    with write_mutex(path):
+    with write_mutex(path), casatools_serialized():
         state = link_state(path)
         subtable = subtable_path(path)
         has_table = os.path.lexists(subtable)
@@ -1625,16 +1747,23 @@ def remove_partition_cache(path: str) -> bool:
             raise PermissionError(
                 f"{path} is not writable: its partition cache cannot be removed"
             )
-        if state in ("linked", "dangling"):
+        if has_table:
+            _check_own_subtable(subtable)
+        with contextlib.ExitStack() as stack:
             try:
-                with casatools_serialized(), _locked_for_update(path) as main_tb:
-                    if SUBTABLE_NAME in main_tb.keywordnames():
-                        main_tb.removekeyword(SUBTABLE_NAME)
-                        main_tb.flush()
+                if has_table:
+                    # (held until the keyword is gone: no writer stores a row)
+                    stack.enter_context(_locked_for_update(subtable))
+                if state in ("linked", "dangling"):
+                    with _locked_for_update(path) as main_tb:
+                        _write_main_keywords(
+                            main_tb, lambda tb: _remove_link_keyword(tb, path, False)
+                        )
             except CacheNotStored:
                 raise RuntimeError(
-                    f"Another process has a lock on the MAIN table of {path}: its "
-                    "partition cache was not removed"
+                    f"Another process has a lock on the MAIN table of {path} or on "
+                    f"its {SUBTABLE_NAME} sub-table: its partition cache was not "
+                    "removed"
                 ) from None
         if has_table:
             shutil.rmtree(subtable)

@@ -419,6 +419,60 @@ def test_forged_fingerprint(layout, ms_copy, tmp_path, monkeypatch):
     assert status_of(msname) == "hit"
 
 
+def test_rows_added_while_opening_are_no_cache_defect(ms_copy, tmp_path, monkeypatch):
+    """MAIN gains rows (another process) between the load of stored
+    partitions and the build: logged at INFO and opened again with the
+    partitions computed, without a PartitionCacheWarning (no cache
+    defect); the tree has the new rows."""
+    import subprocess
+    import sys
+    import warnings
+
+    msname = ms_copy("dense", name="dense.ms")
+    assert status_of(msname, []) == "stored"
+    partition_cache.clear_partition_memo()
+    script = (
+        "from casacore import tables\n"
+        f"with tables.table({msname!r}, readonly=False, ack=False) as t:\n"
+        "    n = t.nrows()\n"
+        "    t.copyrows(t, startrowin=0, nrow=10)\n"
+        "    t.putcol('TIME', t.getcol('TIME', n, 10) + 100.0, n, 10)\n"
+    )
+    load = backend_open.load_or_create_partitions
+    sources = []
+
+    def load_then_add_rows(*args, **kwargs):
+        result = load(*args, **kwargs)
+        if not sources:
+            subprocess.run([sys.executable, "-c", script], check=True)
+        sources.append(result.source)
+        return result
+
+    infos = []
+
+    class Logger:
+        def info(self, message):
+            infos.append(message)
+
+        def __getattr__(self, name):
+            return lambda *args, **kwargs: None
+
+    monkeypatch.setattr(backend_open, "load_or_create_partitions", load_then_add_rows)
+    monkeypatch.setattr(backend_open, "xradio_logger", Logger)
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always")
+        tree = xr.open_datatree(
+            msname, engine=ENGINE, chunks={}, partition_cache="auto"
+        )
+    assert sources == ["stored", "fresh"]
+    assert [w for w in caught if issubclass(w.category, PartitionCacheWarning)] == []
+    assert any("changed while it was opened" in m for m in infos)
+    assert tree["dense_0"].sizes["time"] == 31
+    out = str(tmp_path / "oracle.ps.zarr")
+    convert_msv2_to_processing_set(msname, out)
+    assert_nodes_identical(tree, open_processing_set(out))
+
+
 def _last_history_params(msname: str) -> list[str]:
     with tables.table(os.path.join(msname, "HISTORY"), ack=False) as history:
         return list(history.getcell("APP_PARAMS", history.nrows() - 1))

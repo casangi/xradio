@@ -31,6 +31,7 @@ from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
 )
 from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.backend_errors import (
+    MainRowsChangedError,
     MSv2ChangedError,
     PartitionCacheWarning,
     StalePartitionsError,
@@ -122,11 +123,12 @@ def open_msv2_tree(
         try:
             _check_main_is_current(path, result.main_nrows)
             # partitions from the cache are checked against their rows
-            verify = (
-                RowCheck(partition_key_maps(path), scheme)
-                if result.source in ("stored", "memo")
-                else None
-            )
+            verify = None
+            if result.source in ("stored", "memo"):
+                # (reads FIELD, SOURCE and STATE: casatools tables are used by
+                # one thread at a time, a no-op with python-casacore)
+                with casatools_serialized():
+                    verify = RowCheck(partition_key_maps(path), scheme)
             tree = _build_tree(
                 path,
                 result,
@@ -142,7 +144,8 @@ def open_msv2_tree(
                 raise MSv2ChangedError(
                     f"{path} changed while it was opened ({exc}); open it again"
                 ) from exc
-            if result.source == "fresh":
+            if result.source == "fresh" or isinstance(exc, MainRowsChangedError):
+                # (a change made while the MS was opened, not a cache defect)
                 xradio_logger().info(
                     f"{path} changed while it was opened ({exc}): opening it again"
                 )
@@ -188,7 +191,7 @@ def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None
     ------
     MSv2ChangedError
         If MAIN cannot be re-synchronized with its files.
-    StalePartitionsError
+    MainRowsChangedError
         If MAIN does not have ``expected_nrows`` rows.
     """
     lock = read_table_lock(path)
@@ -209,7 +212,7 @@ def _check_main_is_current(path: str, expected_nrows: int | None = None) -> None
             f"{on_disk} on disk"
         )
     if expected_nrows is not None and nrows != expected_nrows:
-        raise StalePartitionsError(
+        raise MainRowsChangedError(
             f"the MAIN table has {nrows} rows, the partitions are of {expected_nrows}"
         )
 
@@ -240,10 +243,10 @@ def _select(
     The partitions to open, as (MSv4 id, partition index): those that
     ``partition_filter`` (called with a copy of every description) selects,
     numbered as the converter numbers them (zero-padded ids of the selected
-    partitions).
+    partitions). As in the converter, an MS without MAIN rows (no
+    partitions) gives none, an empty processing set, and a filter that
+    selects none raises.
     """
-    if not partitions:
-        raise RuntimeError(f"No partitions to open in {path} (no MAIN rows)")
     indices = list(range(len(partitions)))
     if partition_filter is not None:
         indices = [
@@ -251,6 +254,9 @@ def _select(
         ]
         if not indices:
             raise RuntimeError("No partitions selected by partition_filter")
+    if not indices:
+        xradio_logger().info(f"{path} has no MAIN rows: an empty processing set")
+        return []
     width = len(str(len(indices) - 1))
     return [(f"{ms_v4_id:0>{width}}", idx) for ms_v4_id, idx in enumerate(indices)]
 

@@ -41,3 +41,12 @@ class StalePartitionsError(RuntimeError):
     opened. The engine computes the partitions again (internal: not raised
     to users).
     """
+
+
+class MainRowsChangedError(StalePartitionsError):
+    """
+    The MAIN table has another number of rows than when the partitions were
+    computed: another process added or removed rows while the MS was opened
+    (not a defect of the partition cache). The engine computes the
+    partitions again (internal: not raised to users).
+    """

@@ -460,6 +460,79 @@ def test_partition_filter(backend_ms):
         xr.open_datatree(msname, engine=ENGINE, partition_filter=lambda p: False)
 
 
+def test_empty_main_is_an_empty_processing_set(backend_ms, tmp_path):
+    """An MS without MAIN rows opens as the empty processing set that the
+    converter writes for it (with any cache mode); a partition_filter
+    raises, as in the converter."""
+    from casacore import tables
+
+    msname = str(tmp_path / "empty.ms")
+    with tables.table(backend_ms("dense"), ack=False) as main_tb:
+        none = main_tb.selectrows([])
+        none.copy(msname, deep=True).close()  # (MAIN without rows, sub-tables)
+        none.close()
+    out = str(tmp_path / "empty.ps.zarr")
+    convert_msv2_to_processing_set(msname, out)
+    reference = open_processing_set(out)
+    assert reference.attrs["type"] == "processing_set" and not reference.children
+    for mode in ("off", "auto", "read"):
+        tree = xr.open_datatree(msname, engine=ENGINE, partition_cache=mode)
+        assert dict(tree.attrs) == dict(reference.attrs) and not tree.children
+    assert not open_msv2(msname).children
+    for opener in (convert_msv2_to_processing_set, None):
+        with pytest.raises(
+            RuntimeError, match="No partitions selected by partition_filter"
+        ):
+            if opener is None:
+                xr.open_datatree(msname, engine=ENGINE, partition_filter=_target)
+            else:
+                opener(msname, out, partition_filter=_target, persistence_mode="w")
+
+
+def test_every_table_open_holds_the_casatools_lock(ms_copy, monkeypatch):
+    """With casatools, every table of the MS that an open reads is opened
+    holding the process-wide casatools lock: partitions computed, read from
+    the stored row and from the memo (simulated here: casatools_serialized
+    gives the lock, and python-casacore's table opens are recorded)."""
+    from casacore import tables
+
+    from xradio._utils._casacore import tables as xradio_tables
+
+    msname = os.path.abspath(ms_copy("rich"))
+    partition_cache.clear_partition_memo()
+    xr.open_datatree(msname, engine=ENGINE, partition_cache="auto")  # stores
+    partition_cache.clear_partition_memo()
+
+    lock = xradio_tables.CASATOOLS_LOCK
+    unlocked = []
+    table_init = tables.table.__init__
+
+    def spy(self, tablename="", *args, **kwargs):
+        name = os.path.abspath(str(tablename))
+        if name.startswith(msname) and not getattr(lock._held, "locks", None):
+            unlocked.append(os.path.relpath(name, msname))
+        table_init(self, tablename, *args, **kwargs)
+
+    monkeypatch.setattr(xradio_tables, "uses_casatools", lambda: True)
+    monkeypatch.setattr(tables.table, "__init__", spy)
+    sources = []
+    load = backend_open.load_or_create_partitions
+
+    def recorded(*args, **kwargs):
+        result = load(*args, **kwargs)
+        sources.append(result.source)
+        return result
+
+    monkeypatch.setattr(backend_open, "load_or_create_partitions", recorded)
+    for mode in ("read", "read", "off"):
+        tree = xr.open_datatree(
+            msname, engine=ENGINE, partition_cache=mode, partition_scheme=[]
+        )
+        assert tree.children
+    assert sources == ["stored", "memo", "fresh"]
+    assert unlocked == []
+
+
 def test_option_errors(backend_ms, monkeypatch):
     msname = backend_ms("dense")
     with pytest.raises(TypeError, match="partition_scheme"):

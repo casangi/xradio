@@ -373,16 +373,22 @@ def test_writer_killed_mid_row(ms_copy, oracle):
 # --- tables locked by other processes ---------------------------------------------------
 
 
-def hold_table(msname: str, lockoptions: dict | None = None):
+def hold_table(msname: str, lockoptions: dict | None = None, write_lock: bool = False):
     """A subprocess that opens a table with python-casacore (by default with
-    its default, auto, locking), reads a column and waits until killed."""
-    options = "" if lockoptions is None else f", lockoptions={lockoptions!r}"
+    its default, auto, locking), reads a column (with ``write_lock``: opens
+    it for update with user locking and takes its write lock) and waits
+    until killed."""
+    if write_lock:
+        options, take = ', readonly=False, lockoptions="user"', "t.lock(True)"
+    else:
+        options = "" if lockoptions is None else f", lockoptions={lockoptions!r}"
+        take = "t.getcol(t.colnames()[0])"
     script = textwrap.dedent(
         f"""
         import time
         from casacore import tables
         t = tables.table({msname!r}, ack=False{options})
-        t.getcol(t.colnames()[0])
+        {take}
         print("ready", flush=True)
         time.sleep(120)
         """
@@ -395,8 +401,8 @@ def hold_table(msname: str, lockoptions: dict | None = None):
 
 
 @contextlib.contextmanager
-def held(msname: str, lockoptions: dict | None = None):
-    holder = hold_table(msname, lockoptions)
+def held(msname: str, lockoptions: dict | None = None, write_lock: bool = False):
+    holder = hold_table(msname, lockoptions, write_lock)
     try:
         yield holder
     finally:
@@ -428,6 +434,24 @@ def test_main_held_by_another_process(ms_copy, oracle):
     with held(msname, {"option": "usernoread"}):
         assert status_of(msname) == "stored"
     assert status_of(msname) == "hit"
+
+
+@pytest.mark.parametrize("table", ["", "HISTORY", SUBTABLE_NAME])
+def test_tables_write_locked_by_another_process(ms_copy, table):
+    """Another process holds the write lock of MAIN, HISTORY or the
+    sub-table (user locking, as a writer that keeps it): the open does not
+    wait for it (the checks before a store open the tables without locks,
+    then one lock attempt) and keeps the partitions in memory; once the
+    lock is released, they are stored."""
+    msname = ms_copy("dense")
+    if table == SUBTABLE_NAME:
+        assert status_of(msname, ["FIELD_ID"]) == "stored"
+    with held(os.path.join(msname, table), write_lock=True):
+        start = time.monotonic()
+        with pytest.warns(PartitionCacheWarning, match="locked"):
+            assert status_of(msname) == "memory:locked"
+        assert time.monotonic() - start < 5.0
+    assert status_of(msname) == "stored"
 
 
 def test_history_held_by_another_process(ms_copy):

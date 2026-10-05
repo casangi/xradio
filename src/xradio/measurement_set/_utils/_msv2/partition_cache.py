@@ -1179,6 +1179,28 @@ def _writable_table(table_path: str) -> bool:
     return True
 
 
+def _table_is_writable(table_path: str) -> bool:
+    """
+    Whether casacore can open a table for update, without waiting for a
+    lock: opened without read locks (as the writers open it), never locked
+    (python-casacore's ``tableiswritable`` opens it with the default
+    locking, which waits while another process holds a write lock). As
+    there, the handle is dropped, not closed: python-casacore's close()
+    unlocks the table object that the process shares, which would release a
+    lock that another handle of this process holds.
+    """
+    tables = _tables_module()
+    try:
+        table = tables.table(
+            table_path, readonly=False, lockoptions=_WRITE_LOCKOPTIONS, ack=False
+        )
+        writable = bool(table.iswritable())
+    except Exception:
+        return False
+    del table
+    return writable
+
+
 def why_not_writable(
     path: str, runs: MainRowRuns | None = None
 ) -> tuple[str, bool] | None:
@@ -1201,11 +1223,10 @@ def why_not_writable(
     """
     if uses_casatools():
         return "casatools only", False  # (the shim cannot create tables)
-    from casacore import tables
 
     if not os.access(path, os.W_OK | os.X_OK):
         return "MS directory not writable", True
-    if not tables.tableiswritable(path):
+    if not _table_is_writable(path):
         return "MAIN table not writable", True
     with open_table_ro(path) as main_tb:
         parts = [os.path.realpath(name) for name in main_tb.partnames()]
@@ -1224,7 +1245,7 @@ def why_not_writable(
     history = os.path.join(path, "HISTORY")
     if not os.path.isfile(os.path.join(history, "table.dat")):
         return "HISTORY missing", True
-    if not (tables.tableiswritable(history) and _writable_table(history)):
+    if not (_table_is_writable(history) and _writable_table(history)):
         return "HISTORY not writable", True
     with open_table_ro(history) as table:
         missing = [name for name in HISTORY_COLUMNS if name not in table.colnames()]
@@ -1234,7 +1255,7 @@ def why_not_writable(
     if os.path.lexists(subtable):
         if not os.path.isfile(os.path.join(subtable, "table.dat")):
             return f"{SUBTABLE_NAME} is not an xradio partition cache", False
-        if not (tables.tableiswritable(subtable) and _writable_table(subtable)):
+        if not (_table_is_writable(subtable) and _writable_table(subtable)):
             return f"{SUBTABLE_NAME} not writable", True
         with open_table_ro(subtable) as table:
             version = subtable_format(table)

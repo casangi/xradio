@@ -1,6 +1,7 @@
 import dataclasses
 import inspect
 import json
+import warnings
 from typing import Literal
 
 import dask.array
@@ -14,6 +15,7 @@ from xradio.schema.bases import (
     xarray_dataset_schema,
 )
 from xradio.schema.check import (
+    ExtensionTypeWarning,
     SchemaIssue,
     SchemaIssues,
     _check_value,
@@ -1911,7 +1913,18 @@ def test_check_datatree_unregistered_extension_skipped():
         {"x": ("coord", numpy.arange(5))},
         attrs={"type": "extension:gains.quartical"},
     )
-    assert not check_datatree(xarray.DataTree(dataset=dataset))
+    with pytest.warns(ExtensionTypeWarning, match="extension:gains.quartical"):
+        assert not check_datatree(xarray.DataTree(dataset=dataset))
+
+
+def test_check_datatree_registered_extension_no_warning():
+    dataset = xarray.Dataset(
+        attrs={"type": "extension:registered.xradio_tests"},
+        coords={"coord": numpy.arange(5, dtype=float)},
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ExtensionTypeWarning)
+        assert not check_datatree(xarray.DataTree(dataset=dataset))
 
 
 def test_check_datatree_malformed_extension():
@@ -1974,7 +1987,8 @@ def test_check_datatree_extension_children_checked():
     dt = xarray.DataTree.from_dict(
         {"/ext": ext_ds, "/ext/good": good_ds, "/ext/unknown": unknown_ds}
     )
-    issues = check_datatree(dt)
+    with pytest.warns(ExtensionTypeWarning):
+        issues = check_datatree(dt)
     assert len(issues) == 1
     assert issues[0].path == [("", "/ext/unknown")]
     assert "Unknown dataset type" in issues[0].message

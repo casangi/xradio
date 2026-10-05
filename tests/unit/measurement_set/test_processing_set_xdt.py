@@ -8,7 +8,7 @@ from xradio.measurement_set.processing_set_xdt import (
     InvalidAccessorLocation,
     ProcessingSetXdt,
 )
-from xradio.schema.check import check_datatree
+from xradio.schema.check import ExtensionTypeWarning, check_datatree
 
 # Define input MS path for testing
 # input_ms = "Antennae_North.cal.lsrk.split.ms"
@@ -478,7 +478,9 @@ class TestProcessingSetXdtWithExtension:
             **ext_ps_xdt.children,
         }
         # The extension adds no schema issues (the synthetic MS may have some)
-        assert repr(check_datatree(ext_ps_xdt)) == repr(check_datatree(ps_xdt))
+        with pytest.warns(ExtensionTypeWarning, match="/gains"):
+            ext_issues = check_datatree(ext_ps_xdt)
+        assert repr(ext_issues) == repr(check_datatree(ps_xdt))
 
         pd.testing.assert_frame_equal(ext_ps_xdt.xr_ps.summary(), expected_summary)
         assert ext_ps_xdt.xr_ps.get_max_dims() == expected_max_dims

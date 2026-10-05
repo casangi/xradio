@@ -39,8 +39,9 @@ provenance such as the producing group or organisation belongs in ordinary
 attributes, so that it can change without changing the type.
 
 :py:func:`~xradio.schema.check.check_datatree` skips extension datasets
-unless a schema has been registered for their type, and reports malformed
-extension types as issues. Children of an extension dataset are still checked
+unless a schema has been registered for their type, issuing an
+:py:class:`~xradio.schema.check.ExtensionTypeWarning` for each one it skips,
+and reports malformed extension types as issues. Children of an extension dataset are still checked
 against their own types. The processing set accessor and
 :py:func:`~xradio.measurement_set.load_processing_set` ignore extension
 datasets stored next to measurement sets.

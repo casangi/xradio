@@ -722,6 +722,14 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
 
 _DATASET_TYPES = {}
 
+
+class ExtensionTypeWarning(UserWarning):
+    """
+    Warning issued by :py:func:`check_datatree` when it skips a dataset with
+    an unregistered extension type (see :py:func:`is_extension_type`)
+    """
+
+
 # Prefix of dataset ``type`` attributes that denote extension datasets
 EXTENSION_TYPE_PREFIX = "extension:"
 
@@ -802,7 +810,8 @@ def check_datatree(
 
     Datasets with an extension type (see :py:func:`is_extension_type`) are
     checked if a schema has been registered for that type, and skipped
-    otherwise. Malformed extension types are reported as issues.
+    with an :py:class:`ExtensionTypeWarning` otherwise. Malformed extension
+    types are reported as issues.
 
     :param datatree: Data to check for schema conformance
     """
@@ -820,6 +829,12 @@ def check_datatree(
         schema = _DATASET_TYPES.get(typ)
         if schema is None and is_extension_type(typ):
             # Unregistered extension dataset: not ours to check
+            warnings.warn(
+                f"Skipping schema check of {xds_name}: "
+                f"no schema registered for extension type {typ!r}",
+                ExtensionTypeWarning,
+                stacklevel=2,
+            )
             continue
         if (
             schema is None

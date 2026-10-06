@@ -14,12 +14,14 @@ here, using two building blocks:
 * **Table keywords** are read from ``tabledesc()["_keywords_"]`` (arcae
   serializes the full table descriptor, keywords included, through
   casacore's own ``JsonOut`` at full float precision).
-* **TaQL statements** cover the operations arcae has no API for: reading and
-  writing slices of tiled columns (arcae's ``getcol`` cannot read
-  ``TiledCellStMan`` columns, but TaQL slice expressions can), creating
+* **TaQL statements** cover what the shim does not do through arcae's API:
+  whole-cell writes to tiled columns (``putcol``/``putcell``), creating
   tables (``CREATE TABLE``), copying tables (``GIVING ... AS PLAIN``) and
-  dropping columns.  Statements always operate on the already-open handle
-  (``$1`` plus arcae's ``tables=[...]`` argument) so no second lock is taken.
+  dropping columns.  Statements always
+  operate on the already-open handle (``$1`` plus arcae's ``tables=[...]``
+  argument) so no second lock is taken.  Cell slices, including those of
+  ``TiledCellStMan`` columns, are read and written natively through arcae's
+  single-row ``getcol``/``putcol`` indexing.
 * **Keyword writes** go through casacore's JSON parser: the keyword value is
   attached as a column keyword of a temporary column (``addcols`` accepts
   keywords in the column descriptor), promoted to a table keyword with
@@ -38,7 +40,6 @@ import sys
 
 import arcae
 import numpy as np
-import pyarrow as pa
 from arcae.lib import arrow_tables as _at
 
 # ---------------------------------------------------------------------------
@@ -113,18 +114,6 @@ def _normalize_lockoptions(lockoptions):
     return lockoptions
 
 
-def _slice_spec(blc, trc, ndim):
-    """Build a TaQL (1-based, inclusive, Fortran-order) slice expression from
-    C-order blc/trc (both inclusive, python-casacore convention)."""
-    blc = [int(b) for b in np.atleast_1d(blc)]
-    trc = [int(t) for t in np.atleast_1d(trc)]
-    if len(blc) != ndim or len(trc) != ndim:
-        raise ValueError(f"blc/trc must have {ndim} entries, got blc={blc}, trc={trc}")
-    # reverse C-order -> Fortran order and convert to 1-based inclusive
-    parts = [f"{b + 1}:{t + 1}" for b, t in zip(blc[::-1], trc[::-1], strict=True)]
-    return "[" + ",".join(parts) + "]"
-
-
 # ---------------------------------------------------------------------------
 # the table class
 # ---------------------------------------------------------------------------
@@ -173,8 +162,6 @@ class table:
         ninstances=1,
     ):
         self._closed = False
-        # Cache for column metadata to avoid redundant lookups in TaQL fallback
-        self._col_cache = {}
         if _arcae_table is not None:
             self._t = _arcae_table
             self._name = _name or ""
@@ -479,46 +466,13 @@ class table:
         return cell
 
     def getcellslice(self, columnname, rownr, blc, trc, inc=[]):  # noqa: B006
-        # Fast path: try native arcae getcol with single-row cell indexing
         inc_list = list(inc) if inc is not None and len(inc) > 0 else [1] * len(blc)
         cell_index = tuple(
             slice(int(b), int(t) + 1, int(s))
             for b, t, s in zip(blc, trc, inc_list, strict=True)
         )
-        try:
-            data = self._t.getcol(
-                columnname, index=([int(rownr)],) + cell_index
-            ).squeeze(axis=0)
-            return self._convert_read(data, columnname)
-        except (pa.ArrowException, RuntimeError, ValueError, IndexError):
-            pass
-
-        # Fallback path: TaQL for older arcae versions without single-row slicing support
-        if inc not in ([], None) and any(int(i) != 1 for i in np.atleast_1d(inc)):
-            raise NotImplementedError("inc != 1 is not supported in TaQL fallback")
-
-        # Use cached column metadata to avoid redundant lookups
-        if columnname not in self._col_cache:
-            desc = self.getcoldesc(columnname)
-            ndim = int(desc.get("ndim", len(np.atleast_1d(blc))))
-            self._col_cache[columnname] = {"ndim": ndim}
-        ndim = self._col_cache[columnname]["ndim"]
-        rownr = int(rownr)
-        blc = np.atleast_1d(blc)
-        trc = np.atleast_1d(trc)
-
-        spec = _slice_spec(blc, trc, ndim)
-        query = f"SELECT {columnname}{spec} AS DATA FROM $1 LIMIT {rownr}:{rownr + 1}"
-        result = self._taql(query)
-        try:
-            data = result.getcol("DATA")
-        finally:
-            result.close()
-        # TaQL expressions promote to double/dcomplex; restore column dtype
-        dtype = self._col_dtype(columnname)
-        if dtype is not None and data.dtype != dtype:
-            data = data.astype(dtype)
-        return data[0]
+        data = self._t.getcol(columnname, index=([int(rownr)],) + cell_index)
+        return self._convert_read(data.squeeze(axis=0), columnname)
 
     def getcolslice(self, columnname, blc, trc, inc=[], startrow=0, nrow=-1, rowincr=1):  # noqa: B006
         if rowincr != 1:
@@ -638,7 +592,7 @@ class table:
         if data.shape[0] == 0:
             return  # nothing to write (and arrow cannot type empty arrays)
         if self._is_tiled(columnname):
-            # arcae cannot write to tiled columns; go through TaQL
+            # whole-cell writes to tiled columns go through TaQL
             self._put_rows_via_taql(columnname, np.ascontiguousarray(data), startrow)
             return
         index = self._row_index(startrow, nrow)
@@ -652,7 +606,6 @@ class table:
         self._t.putcol(columnname, data, index=([int(rownr)],))
 
     def putcellslice(self, columnname, rownr, value, blc, trc, inc=[]):  # noqa: B006
-        # Fast path: try native arcae putcol with single-row cell indexing
         inc_list = list(inc) if inc is not None and len(inc) > 0 else [1] * len(blc)
         cell_index = tuple(
             slice(int(b), int(t) + 1, int(s))
@@ -662,28 +615,11 @@ class table:
         dtype = self._col_dtype(columnname)
         if dtype is not None and val.dtype != dtype:
             val = val.astype(dtype)
-        try:
-            self._t.putcol(
-                columnname, val[None, ...], index=([int(rownr)],) + cell_index
-            )
-            return
-        except (pa.ArrowException, RuntimeError, ValueError, IndexError):
-            pass
-
-        if inc not in ([], None) and any(int(i) != 1 for i in np.atleast_1d(inc)):
-            raise NotImplementedError("inc != 1 is not supported")
-        desc = self.getcoldesc(columnname)
-        ndim = int(desc.get("ndim", len(np.atleast_1d(blc))))
-        spec = _slice_spec(blc, trc, ndim)
-        rownr = int(rownr)
-        self._update_from_helper(
-            columnname, val[np.newaxis, ...], rownr, slice_spec=spec
-        )
+        self._t.putcol(columnname, val[None, ...], index=([int(rownr)],) + cell_index)
 
     def _put_rows_via_taql(self, columnname, data, startrow):
         """Write whole cells of ``data`` (rows first) starting at ``startrow``
-        with a TaQL update — used for tiled columns, which arcae cannot
-        write to directly."""
+        with a TaQL update — used for tiled columns."""
         self._update_from_helper(columnname, data, startrow)
 
     def _update_from_helper(
@@ -691,11 +627,9 @@ class table:
         columnname: str,
         data: np.ndarray,
         startrow: int | float,
-        slice_spec: str = "",
     ) -> None:
-        """UPDATE rows [startrow, startrow+len(data)) of ``columnname`` (with
-        an optional cell slice) from a temporary helper table holding
-        ``data``."""
+        """UPDATE rows [startrow, startrow+len(data)) of ``columnname`` from a
+        temporary helper table holding ``data``."""
         import shutil
         import tempfile
 
@@ -734,7 +668,7 @@ class table:
             self._taql(
                 f"UPDATE {_quote_path(ref_path)}, "
                 f"{_quote_path(helper_path)} t2 "
-                f"SET {columnname}{slice_spec} = t2.XRADIO_PUT_VALUE"
+                f"SET {columnname} = t2.XRADIO_PUT_VALUE"
             ).close()
         finally:
             shutil.rmtree(helper_dir, ignore_errors=True)

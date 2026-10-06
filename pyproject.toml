@@ -45,7 +45,7 @@ test = [
     'pytest',
     'pytest-cov',
     'pytest-html',
-    'arcae'
+    'arcae>=0.5.7'
 ]
 
 # casacore table access (MSv2 conversion and CASA image IO) through arcae,
@@ -59,7 +59,7 @@ casacore = [
     'zarr>=3,<4',
     'pyarrow',
     'psutil',
-    'arcae'
+    'arcae>=0.5.7'
 ]
 
 interactive = [
@@ -104,7 +104,7 @@ all = [
     'pytest',
     'pytest-cov',
     'pytest-html',
-    'arcae',
+    'arcae>=0.5.7',
     'matplotlib',
     'prettytable',
     'jupyterlab',

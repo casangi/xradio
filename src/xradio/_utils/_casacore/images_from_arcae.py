@@ -11,8 +11,7 @@ uses purely with table access through
 
 * metadata comes from the table keywords (``coords``, ``imageinfo``,
   ``units``, ``miscinfo``);
-* the image shape comes from a TaQL ``shape()`` expression (arcae cannot
-  read ``TiledCellStMan`` cells directly);
+* the image shape comes from a TaQL ``shape()`` expression;
 * new images are created with TaQL ``CREATE TABLE`` (tiled data column,
   optional default mask subtable and an empty CASA log table).
 

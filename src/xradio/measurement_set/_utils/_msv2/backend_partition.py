@@ -39,6 +39,7 @@ from xradio.measurement_set._utils._msv2.backend_pointing import (
     PointingBuild,
     deferred_pointing_generic_xds,
     lazy_pointing_xds,
+    pointing_coords_token,
     rebuilt_pointing_xds,
 )
 from xradio.measurement_set._utils._msv2.conversion import build_partition
@@ -348,11 +349,22 @@ def _rebuilt_pointing(
     rows) with data variables that build it by the converter's code when
     read (rebuilt_pointing_xds); as it is if the antennas of the build
     cannot be told (kept eager; placeholders are then left, which
-    _check_no_placeholder_left reports)."""
+    _check_no_placeholder_left reports).
+
+    The antenna names, and the coordinates that the build is checked
+    against, include those the nodes inherit along their dimensions: in a
+    single-dish MSv4, antenna_name is a coordinate of the main node only
+    (the tree keeps no copy of it in antenna_xds and pointing_xds, which the
+    converter builds with it)."""
     antenna_ids = context["antenna_ids"]
-    names = (
-        ms_xdt["antenna_xds"].to_dataset(inherit=False)["antenna_name"].values
+    antenna_xds = (
+        _with_inherited_coords(ms_xdt["antenna_xds"])
         if "antenna_xds" in ms_xdt.children
+        else xr.Dataset()
+    )
+    names = (
+        antenna_xds.coords["antenna_name"].values
+        if "antenna_name" in antenna_xds.coords
         else []
     )
     if len(names) != len(antenna_ids):
@@ -363,7 +375,24 @@ def _rebuilt_pointing(
         antenna_ids,
         tuple(str(name) for name in names),
     )
-    return rebuilt_pointing_xds(pointing_xds, build, node_name, partition)
+    coords_token = pointing_coords_token(_with_inherited_coords(ms_xdt["pointing_xds"]))
+    return rebuilt_pointing_xds(
+        pointing_xds, build, node_name, partition, coords_token=coords_token
+    )
+
+
+def _with_inherited_coords(node: xr.DataTree) -> xr.Dataset:
+    """The dataset of a node (``inherit=False``) with the coordinates it
+    inherits along its own dimensions (e.g. antenna_name, inherited from the
+    main node of a single-dish MSv4), as the converter's sub-dataset had
+    them before it was put in the tree."""
+    own = node.to_dataset(inherit=False)
+    inherited = {
+        name: var
+        for name, var in node.to_dataset().coords.items()
+        if name not in own.coords and set(var.dims) <= set(own.dims)
+    }
+    return own.assign_coords(inherited)
 
 
 def _is_placeholder(var: xr.Variable) -> bool:

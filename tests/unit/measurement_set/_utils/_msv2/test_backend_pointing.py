@@ -1144,6 +1144,7 @@ def _resample_pointing(ms: str, per_second: int) -> None:
         ("rich", "DIRECTION", 1),  # (padded: the converter's error)
         ("single_dish", "DIRECTION", 1),
         ("rich", "TARGET", 1),  # (padded: built by the converter's code on read)
+        ("single_dish", "TARGET", 1),  # (as rich; antenna_name of the main node)
         ("rich", "TARGET", 40),  # (left out: POINTING_BEAM read lazily)
         ("single_dish", "DIRECTION", 40),  # (left out: no pointing_xds)
     ],
@@ -1204,6 +1205,49 @@ def test_engine_with_cells_of_another_shape(
     else:
         assert found["lazy"] and not found["built"]
     assert_nodes_identical(tree, open_processing_set(out, array_backend="xarray"))
+
+
+@pytest.mark.parametrize("variant", ["rich", "single_dish"])
+def test_engine_pointing_built_on_read(ms_copy, tmp_path, monkeypatch, variant):
+    """A POINTING table that the lazy reads cannot describe (an integer
+    OVER_THE_TOP column): every pointing_xds data variable is built by the
+    converter's code on read and gives the converter's processing set, also
+    in single-dish MSv4s (whose pointing_xds and antenna_xds inherit their
+    antenna_name coordinate from the main node). POINTING times rewritten
+    since the open (the coordinates of the build) raise MSv2ChangedError."""
+    from xradio.measurement_set import (
+        convert_msv2_to_processing_set,
+        open_processing_set,
+    )
+    from xradio.testing.measurement_set.equivalence import assert_nodes_identical
+
+    ms = ms_copy(variant)
+    with tables.table(os.path.join(ms, "POINTING"), readonly=False, ack=False) as tb:
+        tb.addcols(tables.makescacoldesc("OVER_THE_TOP", 0))
+        tb.putcol("OVER_THE_TOP", (np.arange(tb.nrows()) % 3).astype(np.int32))
+    out = str(tmp_path / "converted.ps.zarr")
+    convert_msv2_to_processing_set(ms, out)
+    reads = PointingReads(monkeypatch)
+    tree = xr.open_datatree(ms, engine=MSv2BackendEntrypoint, partition_cache="off")
+    pointing = [
+        node["pointing_xds"].to_dataset(inherit=False)
+        for node in tree.children.values()
+        if "pointing_xds" in node.children
+    ]
+    assert pointing
+    for xds in pointing:
+        assert set(xds.data_vars) == {"POINTING_BEAM", "POINTING_OVER_THE_TOP"}
+        assert all(build_array(var) for var in xds.data_vars.values())
+    assert "build" not in reads.calls
+    assert_nodes_identical(tree, open_processing_set(out, array_backend="xarray"))
+    assert "build" in reads.calls
+
+    tree = xr.open_datatree(ms, engine=MSv2BackendEntrypoint, partition_cache="off")
+    with tables.table(os.path.join(ms, "POINTING"), readonly=False, ack=False) as tb:
+        tb.putcol("TIME", tb.getcol("TIME") + 0.25)
+    name = next(name for name in tree.children if "pointing_xds" in tree[name].children)
+    with pytest.raises(MSv2ChangedError, match="changed since the MS was opened"):
+        _ = tree[name]["pointing_xds"]["POINTING_OVER_THE_TOP"].values
 
 
 def test_rebuilt_pointing_variables_share_a_build(pointing_ms, tmp_path, monkeypatch):

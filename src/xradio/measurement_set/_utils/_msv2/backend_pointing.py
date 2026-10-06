@@ -2129,6 +2129,7 @@ def rebuilt_pointing_xds(
     build: PointingBuild,
     node: str = "",
     partition: PartitionIndex | None = None,
+    coords_token: str | None = None,
 ) -> xr.Dataset:
     """
     A pointing_xds built at open by the converter's code, or with
@@ -2137,9 +2138,15 @@ def rebuilt_pointing_xds(
     when read (:class:`PointingBuildArray`, checking ``partition`` and the
     coordinates of the build when read), keeping their dimensions,
     attributes and encoding.
+
+    ``coords_token`` is the ``pointing_coords_token`` of the pointing_xds
+    of the open with every coordinate of the converter's build (default:
+    that of ``pointing_xds``; a pointing_xds taken from a tree without the
+    coordinates it inherits passes the token of the dataset with them).
     """
     lazy = {}
-    coords_token = pointing_coords_token(pointing_xds)
+    if coords_token is None:
+        coords_token = pointing_coords_token(pointing_xds)
     for name, var in pointing_xds.data_vars.items():
         array = PointingBuildArray(
             build,

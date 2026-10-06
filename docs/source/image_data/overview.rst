@@ -235,3 +235,5 @@ Delving further
    writing and creating image datasets, and the ``xr_img`` accessor.
 2. The :doc:`Image Schema <schema>` page documents every data variable,
    coordinate, attribute and data group role of the schema.
+3. The :doc:`API documentation <api>` describes the functions of
+   ``xradio.image`` and the methods of the ``xr_img`` accessor.

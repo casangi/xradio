@@ -263,6 +263,13 @@ def open_partition(
         )
         ms_xdt, deferred = built.ms_xdt, built.deferred
         reverse_frequency = built.reverse_frequency
+        # how the columns are stored (their channel tiling, for the lazy
+        # arrays; the data manager info is read once for all columns)
+        storages = {
+            name: built.main_rows.column_storage(spec.col)
+            for name, spec in deferred.items()
+            if spec.col is not None
+        }
     # The MAIN table is closed here: nothing below refers to it.
 
     xds = ms_xdt.to_dataset(inherit=False)
@@ -275,7 +282,12 @@ def open_partition(
             array = OnesArray(var.shape, var.dtype, index)
         else:
             array = MSv2MainColumnArray.from_spec(
-                index, spec, var.shape, var.dtype, node=node_name
+                index,
+                spec,
+                var.shape,
+                var.dtype,
+                node=node_name,
+                storage=storages.get(name),
             )
         lazy = xr.Variable(
             var.dims,

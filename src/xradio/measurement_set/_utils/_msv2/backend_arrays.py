@@ -20,10 +20,15 @@ a row padded with ``get_pad_value``, FLAG=False and NaN; for duplicated
 the converter's transform (TIME_CENTROID epoch, WEIGHT repeated along
 frequency); the selected cell elements are taken afterwards in numpy. So the
 values are those the converter writes, for any key, and a read holds at most
-its result plus one sub-block. Every read opens the MAIN table by name and
-closes it (no handle is kept); with casatools it holds the process-wide
-casatools lock (``casatools_serialized``) over the open, the read, the close
-and the release of the table.
+its result plus one sub-block. Channel-sliced reads: of a column whose values
+the converter writes as read (CHANNEL_SLICED_COLUMNS) and whose 2-D (chan,
+pol) cells are stored in tiles of fewer channels than a cell
+(``channel_tiling``, found when the MS is opened), python-casacore reads only
+the channels of the selection's range rounded out to whole tiles, with a
+bounded tile cache; the values are the same. Every read opens the MAIN table
+by name and closes it (no handle is kept); with casatools it holds the
+process-wide casatools lock (``casatools_serialized``) over the open, the
+read, the close and the release of the table.
 
 Rows: :class:`PartitionIndex` holds the MAIN rows of a partition as runs, the
 number of MAIN rows and the (time, baseline) grid shape when the MS was
@@ -70,13 +75,17 @@ import xarray as xr
 from numpy.typing import DTypeLike
 
 from xradio._utils._casacore.tables import casatools_serialized
+from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    ColumnStorage,
     MainTableRows,
+    has_in_place_reads,
     make_row_grid_plan,
     read_column_rows,
     read_grid,
+    read_rows_to_grid,
     rows_to_runs,
     runs_to_rows,
 )
@@ -105,6 +114,18 @@ from xradio.measurement_set._utils._msv2.partition_queries import (
 # that one read of a lazy block holds, besides its result: a block of more
 # times is read in several sub-blocks (at least one time each).
 SUB_BLOCK_BYTES = 128 * 2**20
+# The MAIN columns whose values the converter writes as it reads them
+# (postprocess_main_column converts only TIME_CENTROID and WEIGHT): of their
+# 2-D (chan, pol) cells, a range of channels can be read alone (channel-sliced
+# reads, see MSv2MainColumnArray)
+CHANNEL_SLICED_COLUMNS = frozenset(
+    {"DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA", "FLAG", "WEIGHT_SPECTRUM"}
+)
+# The tiled storage managers whose hypercubes have (pol, chan, row) tiles
+CHANNEL_TILED_DM_TYPES = ("TiledShapeStMan", "TiledColumnStMan", "TiledDataStMan")
+# Smallest maximum size (MiB) of the tile cache of a column that a
+# channel-sliced read sets (casacore's setmaxcachesize)
+CHANNEL_SLICE_MIN_CACHE_MIB = 16
 # Bound of the per-process memo of partition indices (bytes of index arrays).
 # The most recently used index is always kept.
 INDEX_MEMO_MAX_BYTES = 256 * 2**20
@@ -1313,11 +1334,97 @@ class PartitionIndex:
 # --- the lazy data variables --------------------------------------------------
 
 
+def _tile_bytes(cube: dict, tile: list[int], dtype: np.dtype) -> int:
+    """Bytes of one tile of a hypercube: its BucketSize, or the tile's
+    elements (bits for booleans, which the tiled storage managers store as
+    bits)."""
+    bucket = int(cube.get("BucketSize", 0) or 0)
+    if bucket > 0:
+        return bucket
+    elements = int(np.prod(tile, dtype=np.int64))
+    if dtype.kind == "b":
+        return -(-elements // 8)
+    return elements * dtype.itemsize
+
+
+def channel_tiling(
+    storage: ColumnStorage | None, cell_shape: tuple[int, ...], dtype: DTypeLike
+) -> tuple[int, int]:
+    """
+    How the channels of the cells of a column are tiled, from the hypercubes
+    of its tiled storage manager (``column_storage``): the hypercubes of the
+    cells of shape ``cell_shape`` (2-D, numpy order (chan, pol)) all have
+    tiles of the same number of channels T, fewer than the cell's channels.
+
+    Parameters
+    ----------
+    storage : ColumnStorage | None
+        How the column is stored (None: not known).
+    cell_shape : tuple[int, ...]
+        Cell shape of the partition (numpy order).
+    dtype : DTypeLike
+        dtype of the column's values (for the tile size if a hypercube does
+        not give its BucketSize).
+
+    Returns
+    -------
+    tuple[int, int]
+        (T, band_bytes): the channels of a tile, and the bytes of the tiles
+        that hold one band of T channels of all polarizations for the rows of
+        one tile (the largest among the hypercubes). (0, 0) if the channels
+        are not tiled that way: not a plain table, another storage manager,
+        no hypercube of that cell shape, hypercubes of other channel tiles,
+        tiles of all the channels, or the storage could not be described.
+    """
+    if (
+        storage is None
+        or storage.error
+        or not storage.plain
+        or storage.dm_type not in CHANNEL_TILED_DM_TYPES
+        or len(cell_shape) != 2
+    ):
+        return 0, 0
+    n_chan, n_pol = (int(n) for n in cell_shape)
+    dtype = np.dtype(dtype)
+    channels, band_bytes = set(), 0
+    try:
+        for cube in storage.hypercubes:
+            cube_shape = [int(n) for n in np.asarray(cube.get("CubeShape", []))]
+            cube_cell = cube.get("CellShape")
+            cube_cell = cube_shape[:-1] if cube_cell is None else cube_cell
+            if [int(n) for n in np.asarray(cube_cell)] != [n_pol, n_chan]:
+                continue  # (cells of another shape: Fortran order)
+            tile = [int(n) for n in np.asarray(cube.get("TileShape", []))]
+            if len(tile) != 3 or min(tile) < 1:
+                return 0, 0
+            channels.add(tile[1])
+            pol_tiles = -(-n_pol // tile[0])
+            band_bytes = max(band_bytes, pol_tiles * _tile_bytes(cube, tile, dtype))
+    except (TypeError, ValueError):
+        return 0, 0
+    if len(channels) != 1:
+        return 0, 0
+    tile_channels = channels.pop()
+    if tile_channels >= n_chan:
+        return 0, 0
+    return tile_channels, band_bytes
+
+
 class MSv2MainColumnArray(MSv2BackendArray):
     """
     One data variable of the main xds of an MSv4, read from a MAIN column of
     its partition, in the channel order of the MSv2 (a decreasing frequency
     axis is reversed by the caller, lazily).
+
+    Channel-sliced reads: the cells of a column of CHANNEL_SLICED_COLUMNS
+    (values as read: VISIBILITY*, SPECTRUM, FLAG, WEIGHT from WEIGHT_SPECTRUM)
+    whose 2-D (chan, pol) cells are stored in tiles of ``tile_channels``
+    channels (fewer than the cell's, ``channel_tiling``) are read, with
+    python-casacore, for the range of channels of a selection that does not
+    hold them all, rounded out to whole tiles (the tiles of a channel are read
+    whole); with casatools (no in-place reads), and for other columns, whole
+    cells. The selected channels and polarizations are taken in numpy
+    afterwards, as from whole cells, so the values are the same.
 
     Parameters
     ----------
@@ -1344,6 +1451,15 @@ class MSv2MainColumnArray(MSv2BackendArray):
         when the MS was opened (False: only a read can tell).
     node : str
         Name of the MSv4 node (for messages).
+    tile_channels : int, optional
+        Channels of the column's tiles (``channel_tiling``, when the MS was
+        opened), 0 (default) for whole-cell reads. Ignored (0) for a column
+        that is not in CHANNEL_SLICED_COLUMNS, cells that are not 2-D or a
+        converted cell shape that is not the cell shape.
+    tile_band_bytes : int, optional
+        Bytes of the tiles of one band of ``tile_channels`` channels
+        (``channel_tiling``), for the bound of the tile cache of a
+        channel-sliced read.
     """
 
     def __init__(
@@ -1358,6 +1474,8 @@ class MSv2MainColumnArray(MSv2BackendArray):
         transform: Callable[[np.ndarray], np.ndarray] | None = None,
         verified: bool = True,
         node: str = "",
+        tile_channels: int = 0,
+        tile_band_bytes: int = 0,
     ):
         super().__init__(shape, dtype)
         if self.shape[:2] != index.shape:
@@ -1373,6 +1491,14 @@ class MSv2MainColumnArray(MSv2BackendArray):
         self.transform = transform
         self.verified = bool(verified)
         self.node = str(node)
+        sliced = (
+            self.col in CHANNEL_SLICED_COLUMNS
+            and len(self.cell_shape) == 2
+            and self.shape[2:] == self.cell_shape
+            and 0 < int(tile_channels) < self.cell_shape[0]
+        )
+        self.tile_channels = int(tile_channels) if sliced else 0
+        self.tile_band_bytes = max(0, int(tile_band_bytes)) if sliced else 0
 
     @classmethod
     def from_spec(
@@ -1382,8 +1508,17 @@ class MSv2MainColumnArray(MSv2BackendArray):
         shape: tuple[int, ...],
         dtype: DTypeLike,
         node: str = "",
+        storage: ColumnStorage | None = None,
     ) -> "MSv2MainColumnArray":
-        """The array of a ``stream_write.DeferredVariable`` read from a column."""
+        """The array of a ``stream_write.DeferredVariable`` read from a column,
+        whose channel tiling (``channel_tiling``) is found from ``storage``
+        (``column_storage`` of the column when the MS is opened; None: whole
+        cells are read)."""
+        tile_channels, tile_band_bytes = 0, 0
+        if spec.col in CHANNEL_SLICED_COLUMNS:
+            tile_channels, tile_band_bytes = channel_tiling(
+                storage, spec.cell_shape, spec.grid_dtype
+            )
         return cls(
             index,
             spec.col,
@@ -1395,14 +1530,75 @@ class MSv2MainColumnArray(MSv2BackendArray):
             spec.transform,
             spec.verified,
             node,
+            tile_channels,
+            tile_band_bytes,
         )
 
-    def _cell_bytes(self) -> int:
+    def _cell_bytes(self, channels: int | None = None) -> int:
         """Bytes of one (time, baseline) cell of a sub-block: the read cell and
-        the converted one."""
+        the converted one (of ``channels`` channels for a channel-sliced
+        read, None: whole cells)."""
         read = int(np.prod(self.cell_shape, dtype=np.int64)) * self.grid_dtype.itemsize
         converted = int(np.prod(self.shape[2:], dtype=np.int64)) * self.dtype.itemsize
+        if channels is not None:
+            read = read // self.cell_shape[0] * channels
+            converted = converted // self.shape[2] * channels
         return max(1, read + converted)
+
+    def _channel_range(self, channels: np.ndarray) -> tuple[int, int] | None:
+        """
+        The channels [c0, c1) that a channel-sliced read of the selected
+        ``channels`` (sorted unique) reads: their range rounded out to whole
+        tiles of ``tile_channels`` channels, at most the cell's channels.
+        None (whole cells) if the column's channels are not tiled that way or
+        the range holds every channel.
+        """
+        width = self.tile_channels
+        if not width or channels.size == 0:
+            return None
+        n_chan = self.cell_shape[0]
+        c0 = int(channels[0]) // width * width
+        c1 = min(n_chan, -(-(int(channels[-1]) + 1) // width) * width)
+        if c0 == 0 and c1 == n_chan:
+            return None
+        return c0, c1
+
+    def _channel_cache_mib(self, c0: int, c1: int) -> int:
+        """
+        The bound (MiB) of the column's tile cache for a read of the channels
+        [c0, c1): twice the tiles of its bands of channels for the rows of a
+        tile (a row of tiles, and the next one), at least
+        CHANNEL_SLICE_MIN_CACHE_MIB. Without a bound casacore sizes the cache
+        from the host's memory (not the process's limits); a cache smaller
+        than a row of tiles reads tiles again. (The bound is kept by the
+        column's storage manager while the MAIN table is open in the
+        process: by other handles too.)
+        """
+        bands = -(-(c1 - c0) // self.tile_channels)
+        needed = -(-2 * bands * self.tile_band_bytes // 2**20)
+        return max(CHANNEL_SLICE_MIN_CACHE_MIB, needed)
+
+    def _read_channels(
+        self,
+        table: Any,
+        plan: Any,
+        grid_shape: tuple[int, int],
+        chan_range: tuple[int, int],
+    ) -> np.ndarray:
+        """The cells of the channels ``chan_range`` of the rows of ``plan`` on
+        the (time, baseline) grid of ``grid_shape``, as ``read_grid`` (padded
+        with get_pad_value; for duplicated cells the last row wins) but for
+        those channels only (the transform is the identity: the column is in
+        CHANNEL_SLICED_COLUMNS)."""
+        c0, c1 = chan_range
+        shape = tuple(grid_shape) + (c1 - c0, self.cell_shape[1])
+        if plan.grid_is_full:
+            grid = np.empty(shape, dtype=self.grid_dtype)
+        else:
+            grid = np.full(shape, get_pad_value(self.grid_dtype), dtype=self.grid_dtype)
+        if plan.rows.size:
+            read_rows_to_grid(table, self.col, plan, grid, chan=slice(c0, c1))
+        return grid
 
     def _message(self, key: tuple[slice, ...], exc: BaseException) -> str:
         block = ", ".join(f"{k.start}:{k.stop}" for k in key)
@@ -1441,7 +1637,8 @@ class MSv2MainColumnArray(MSv2BackendArray):
         The values of the selected times, baselines and cell elements: only
         the rows of the selected (time, baseline) cells are read, in time
         sub-blocks of at most SUB_BLOCK_BYTES of whole cells (the transform
-        applies to whole cells).
+        applies to whole cells), or of the cells' channels that a
+        channel-sliced read reads (``_read_with``).
 
         When MAIN's key columns or FIELD, STATE and SOURCE may have been
         written since the open (``PartitionIndex.check``), the whole
@@ -1482,11 +1679,16 @@ class MSv2MainColumnArray(MSv2BackendArray):
         key: tuple[slice, ...],
     ) -> tuple[np.ndarray | None, str]:
         """The values of a selection read with the index ``entry``, or
-        (None, why) if rows of the selection no longer have its keys."""
+        (None, why) if rows of the selection no longer have its keys. Of a
+        column whose channels are tiled (``tile_channels``), with
+        python-casacore, only the channels of the selection's range rounded
+        out to whole tiles are read (``_channel_range``)."""
         times, baselines, cell_selections = selections[0], selections[1], selections[2:]
         n_baselines = baselines.size
         out = np.empty(tuple(s.size for s in selections), dtype=self.dtype)
-        step = max(1, SUB_BLOCK_BYTES // (n_baselines * self._cell_bytes()))
+        chan_range = (
+            self._channel_range(cell_selections[0]) if self.tile_channels else None
+        )
         check_keys = True
         with casatools_serialized():
             table = None
@@ -1504,6 +1706,20 @@ class MSv2MainColumnArray(MSv2BackendArray):
                         # (the partition as when the MS was opened: rows not
                         # checked one by one)
                         check_keys = not self.index.check(table)
+                        if chan_range is not None:
+                            if has_in_place_reads(table):
+                                table.setmaxcachesize(
+                                    self.col, self._channel_cache_mib(*chan_range)
+                                )
+                            else:  # (casatools: whole cells)
+                                chan_range = None
+                    if chan_range is None:
+                        cell_bytes = self._cell_bytes()
+                        offsets = [0] * len(selections)
+                    else:
+                        cell_bytes = self._cell_bytes(chan_range[1] - chan_range[0])
+                        offsets = [0, 0, chan_range[0], 0]
+                    step = max(1, SUB_BLOCK_BYTES // (n_baselines * cell_bytes))
                     for p0 in range(0, times.size, step):
                         sub_times = times[p0 : p0 + step]
                         rows, cells, positions = self.index.select_outer(
@@ -1518,14 +1734,19 @@ class MSv2MainColumnArray(MSv2BackendArray):
                             rows, cells, sub_times.size * n_baselines
                         )
                         del rows, cells
-                        grid = read_grid(
-                            table,
-                            self.col,
-                            plan,
-                            (sub_times.size, n_baselines) + self.cell_shape,
-                            self.grid_dtype,
-                            transform=self.transform,
-                        )
+                        if chan_range is None:
+                            grid = read_grid(
+                                table,
+                                self.col,
+                                plan,
+                                (sub_times.size, n_baselines) + self.cell_shape,
+                                self.grid_dtype,
+                                transform=self.transform,
+                            )
+                        else:
+                            grid = self._read_channels(
+                                table, plan, (sub_times.size, n_baselines), chan_range
+                            )
                         del plan
                         out[p0 : p0 + sub_times.size] = take_from_block(
                             grid,
@@ -1534,7 +1755,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
                                 np.arange(n_baselines),
                             )
                             + tuple(cell_selections),
-                            [0] * grid.ndim,
+                            offsets,
                         )
                         del grid
             except MSv2ChangedError:

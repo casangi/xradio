@@ -32,12 +32,25 @@ BACKEND_MS_VARIANTS = (
     "wsp_partial",
     "no_weight",
     "single_dish",
+    "narrow_tiles",
 )
 # Rows per time and times per DDI of the generated MSs (5 antennas, 10
 # baselines, 300 rows per DDI)
 N_ANTENNAS = 5
 N_BASELINES = 10
 N_TIMES = 30
+# Channels of SPW 1 in the "narrow_tiles" variant (16 in SPW 0)
+N_CHANNELS_SPW1_NARROW = 24
+# Tile shapes (Fortran order: pol, chan, rows) of the TiledShapeStMan columns
+# of the "narrow_tiles" variant: tiles of fewer channels than the cells
+# (channel-sliced reads), but MODEL_DATA (tiles of all channels)
+NARROW_TILE_SHAPES = {
+    "DATA": (2, 3, 7),
+    "CORRECTED_DATA": (2, 5, 11),
+    "FLAG": (2, 4, 13),
+    "WEIGHT_SPECTRUM": (1, 4, 7),
+    "MODEL_DATA": (2, N_CHANNELS_SPW1_NARROW, 7),
+}
 
 
 def _add_tiled_shape_column(main_tb, col, values, tile_rows, rows=None):
@@ -73,6 +86,67 @@ def _add_tiled_shape_column(main_tb, col, values, tile_rows, rows=None):
         main_tb.putcell(col, int(row), values[row])
 
 
+def _add_narrow_tiled_column(main_tb, col, blocks, tile_shape):
+    """Add a TiledShapeStMan column of 2-D cells stored in tiles of
+    ``tile_shape`` (Fortran order) and write ``blocks``: (first row, values)
+    of consecutive rows, whose cells may have different shapes (one
+    hypercube per cell shape)."""
+    from casacore import tables
+
+    first = blocks[0][1]
+    valuetype = {"b": "boolean", "f": "float", "c": "complex"}[first.dtype.kind]
+    desc = tables.makearrcoldesc(
+        col,
+        first.flat[0],
+        ndim=2,
+        valuetype=valuetype,
+        datamanagertype="TiledShapeStMan",
+        datamanagergroup=f"TSM_{col}",
+    )
+    main_tb.addcols(
+        tables.maketabdesc([desc]),
+        dminfo={
+            "TYPE": "TiledShapeStMan",
+            "NAME": f"TSM_{col}",
+            "SPEC": {"DEFAULTTILESHAPE": np.array(tile_shape, np.int32)},
+        },
+    )
+    for row0, values in blocks:
+        main_tb.putcol(col, values, startrow=row0, nrow=len(values))
+
+
+def _write_narrow_tiles(msname: str, main_tb, ddi: np.ndarray, rng) -> None:
+    """
+    The MAIN columns of the "narrow_tiles" variant: DATA, CORRECTED_DATA,
+    FLAG, WEIGHT_SPECTRUM and MODEL_DATA in TiledShapeStMan columns with the
+    tiles of NARROW_TILE_SHAPES, the rows of SPW 1 with
+    N_CHANNELS_SPW1_NARROW channels (two hypercubes per column).
+    """
+    from casacore import tables
+
+    with tables.table(os.path.join(msname, "DATA_DESCRIPTION"), ack=False) as dd_tb:
+        spw_of_ddi = dd_tb.getcol("SPECTRAL_WINDOW_ID")
+    n_pol = main_tb.getcell("DATA", 0).shape[1]
+    n_chan = main_tb.getcell("DATA", 0).shape[0]
+    # (columns of a TiledColumnStMan cannot be removed one by one)
+    main_tb.removecols(["DATA", "CORRECTED_DATA"])
+    main_tb.removecols(["FLAG"])
+    blocks = {col: [] for col in NARROW_TILE_SHAPES}
+    for d in np.unique(ddi):
+        rows = np.flatnonzero(ddi == d)
+        row0, n_rows = int(rows[0]), rows.size
+        chans = N_CHANNELS_SPW1_NARROW if spw_of_ddi[d] == 1 else n_chan
+        shape = (n_rows, chans, n_pol)
+        for col in ("DATA", "CORRECTED_DATA", "MODEL_DATA"):
+            values = rng.normal(size=shape) + 1j * rng.normal(size=shape)
+            blocks[col].append((row0, values.astype(np.complex64)))
+        blocks["FLAG"].append((row0, rng.random(shape) < 0.3))
+        weights = rng.random(shape).astype(np.float32)
+        blocks["WEIGHT_SPECTRUM"].append((row0, weights))
+    for col, tile_shape in NARROW_TILE_SHAPES.items():
+        _add_narrow_tiled_column(main_tb, col, blocks[col], tile_shape)
+
+
 def _grid_indices(variant: str, pos: np.ndarray, ddi: np.ndarray, rng) -> tuple:
     """Time and baseline index of every row (``pos``: row index in its DDI)."""
     if variant == "single_dish":
@@ -88,7 +162,7 @@ def _grid_indices(variant: str, pos: np.ndarray, ddi: np.ndarray, rng) -> tuple:
             shuffled[in_ddi] = rng.permutation(pos[in_ddi])
         return shuffled // N_BASELINES, shuffled % N_BASELINES
     tidx, bidx = pos // N_BASELINES, pos % N_BASELINES
-    if variant == "sparse_dup":
+    if variant in ("sparse_dup", "narrow_tiles"):
         # 10% of the rows to 3 extra, sparsely filled times (empty cells), and
         # some rows on the (time, baseline) of the row before (duplicated cells)
         nrows = pos.size
@@ -154,6 +228,12 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
     - "no_weight": undefined WEIGHT cells (WEIGHT=1 fallback).
     - "single_dish": FLOAT_DATA (TiledShapeStMan), autocorrelations only, a
       POINTING row per antenna and second.
+    - "narrow_tiles": the grid of "sparse_dup" (padded and duplicated
+      cells), SPW 1 with N_CHANNELS_SPW1_NARROW channels, and DATA,
+      CORRECTED_DATA, FLAG, WEIGHT_SPECTRUM in TiledShapeStMan columns whose
+      tiles have fewer channels than the cells (NARROW_TILE_SHAPES; two
+      hypercubes per column, one per cell shape), MODEL_DATA in tiles of all
+      channels.
 
     Returns
     -------
@@ -227,6 +307,8 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
                 "STATE_ID",
                 np.select([scan == 1, scan == 2], [0, 1], -1).astype(np.int32),
             )
+        elif variant == "narrow_tiles":
+            _write_narrow_tiles(msname, main_tb, ddi, rng)
         else:
             for col, values in visibilities.items():
                 main_tb.putcol(col, values)
@@ -240,6 +322,14 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
         increasing = 1.0e9 + 1.0e6 * np.arange(n_chan)
         spw_tb.putcell("CHAN_FREQ", 0, increasing)
         spw_tb.putcell("CHAN_FREQ", 1, increasing[::-1] + 1.0e8)
+        if variant == "narrow_tiles":
+            n_chan1 = N_CHANNELS_SPW1_NARROW
+            widths = np.full(n_chan1, spw_tb.getcell("CHAN_WIDTH", 1)[0])
+            spw_tb.putcell("NUM_CHAN", 1, n_chan1)
+            spw_tb.putcell("CHAN_FREQ", 1, 1.1e9 - 1.0e6 * np.arange(n_chan1))
+            for col in ("CHAN_WIDTH", "EFFECTIVE_BW", "RESOLUTION"):
+                spw_tb.putcell(col, 1, widths)
+            spw_tb.putcell("TOTAL_BANDWIDTH", 1, float(widths.sum()))
     if variant == "rich":
         with tables.table(
             os.path.join(msname, "STATE"), readonly=False, ack=False

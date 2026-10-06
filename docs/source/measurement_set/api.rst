@@ -43,9 +43,12 @@ processing set, as the converter writes it. ``xr.open_dataset`` cannot open an M
 partition the coordinates and the sub-datasets (antenna, field and source, system calibration, ...) as the converter
 builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those of the other data groups, ``FLAG``,
 ``WEIGHT``, ``UVW``, ``TIME_CENTROID``, ``EFFECTIVE_INTEGRATION_TIME``) are read from the MAIN table only when they are
-indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time. Cells
-without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The ``pointing_xds`` is
-lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID`` columns, the shapes
+indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time. With
+python-casacore, a selection of some channels of ``VISIBILITY*``, ``SPECTRUM``, ``FLAG`` or ``WEIGHT`` (from
+``WEIGHT_SPECTRUM``) whose MAIN column is stored in tiles of fewer channels than a cell (tiled storage managers) reads
+only the tiles of those channels: their range rounded out to whole tiles. Cells without a MAIN row are NaN, and their
+``FLAG`` is False, as in the converted processing set. The ``pointing_xds`` is lazy too, whatever the size of the
+POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID`` columns, the shapes
 (not the values) of the cells of its array columns (stored in the MS by the first open, see below) and one cell of each
 data column, and a selection reads only the rows of its times and antennas. Only with ``pointing_interpolate=True`` is
 it read when the MS is opened, as by the converter. The converter reads the POINTING rows of every partition on their

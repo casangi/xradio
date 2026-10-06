@@ -1,6 +1,7 @@
 """Tests of the lazy arrays of the MSv2 xarray backend (backend_arrays.py)."""
 
 import contextlib
+import copy
 import os
 import pickle
 import re
@@ -14,6 +15,7 @@ import pytest
 import xarray as xr
 
 from xradio.measurement_set._utils._msv2 import backend_arrays, conversion, stream_write
+from xradio.measurement_set._utils._msv2._tables.read_rows import ColumnStorage
 from xradio.measurement_set._utils._msv2.backend_arrays import (
     INDEX_MEMO,
     MSv2BackendArray,
@@ -465,7 +467,8 @@ def lazy_and_reference(msname, idx=0, scheme=(), **kw):
     """
     The lazy data variables of a partition (MSv2MainColumnArray / OnesArray,
     reversed along frequency as the converter does) and the values the
-    converter reads for them (read_deferred_variables), by name.
+    converter reads for them (read_deferred_variables), by name. The arrays
+    know the channel tiling of their columns, as when the MS is opened.
     """
     keys = backend_arrays.keys_token(os.path.abspath(msname))
     partitions, _ = create_partitions_with_main_rows(msname, list(scheme))
@@ -484,7 +487,12 @@ def lazy_and_reference(msname, idx=0, scheme=(), **kw):
                 array = OnesArray(var.shape, index=index)
             else:
                 array = MSv2MainColumnArray.from_spec(
-                    index, spec, var.shape, var.dtype, node="node"
+                    index,
+                    spec,
+                    var.shape,
+                    var.dtype,
+                    node="node",
+                    storage=built.main_rows.column_storage(spec.col),
                 )
             variable = lazy_variable(array, var.dims)
             if (
@@ -635,6 +643,361 @@ def test_selections_read_only_their_times_and_baselines(backend_ms, monkeypatch)
         lazy["VISIBILITY"].isel(isel).values, reference["VISIBILITY"].isel(isel).values
     )
     assert reads == [((1, 10), 10)] * 4
+
+
+# --- channel-sliced reads (columns stored in tiles of fewer channels) ---------
+
+
+def _cube(cell, tile, bucket=None, with_cell=True):
+    """A hypercube description (Fortran order) as getdminfo gives it."""
+    cube = {"CubeShape": list(cell) + [100], "TileShape": list(tile)}
+    if with_cell:
+        cube["CellShape"] = list(cell)
+    if bucket is not None:
+        cube["BucketSize"] = bucket
+    return cube
+
+
+@pytest.mark.parametrize(
+    "storage, cell_shape, dtype, expected",
+    [
+        # (T, bytes of the tiles of a band of T channels: pol tiles x tile)
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 7, 146], 32704),)), (64, 4), np.complex64, (7, 32704)),
+        (ColumnStorage(True, "TiledColumnStMan", 0, (_cube([4, 64], [2, 8, 16]),)), (64, 4), np.complex64, (8, 2 * 2 * 8 * 16 * 8)),
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 8, 16]),)), (64, 4), np.bool_, (8, 4 * 8 * 16 // 8)),
+        (ColumnStorage(True, "TiledDataStMan", 0, (_cube([4, 64], [4, 8, 16], with_cell=False),)), (64, 4), np.float32, (8, 4 * 8 * 16 * 4)),
+        # hypercubes of other cell shapes are not looked at
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 8, 16], 10), _cube([4, 32], [4, 32, 16], 20))), (64, 4), np.complex64, (8, 10)),
+        # several hypercubes of the cell shape: one channel tiling, the largest tiles
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 8, 16], 10), _cube([4, 64], [4, 8, 32], 20))), (64, 4), np.complex64, (8, 20)),
+        # not one channel tiling, or tiles of all the channels: whole cells
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 8, 16], 10), _cube([4, 64], [4, 16, 16], 20))), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 64, 16]),)), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 128, 16]),)), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 32], [4, 8, 16]),)), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(True, "TiledShapeStMan", 0, ()), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(True, "TiledShapeStMan", 0, (_cube([4, 64], [4, 8]),)), (64, 4), np.complex64, (0, 0)),
+        # other storage, a reference table, an error, unknown, other cells
+        (ColumnStorage(True, "StandardStMan", 0, ()), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(True, "TiledCellStMan", 0, (_cube([4, 64], [4, 8, 16]),)), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(False, "TiledShapeStMan", 0, (_cube([4, 64], [4, 8, 16]),)), (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(False, error="RuntimeError: no"), (64, 4), np.complex64, (0, 0)),
+        (None, (64, 4), np.complex64, (0, 0)),
+        (ColumnStorage(True, "TiledColumnStMan", 0, (_cube([3], [3, 16]),)), (3,), np.float64, (0, 0)),
+    ],
+)  # fmt: skip
+def test_channel_tiling(storage, cell_shape, dtype, expected):
+    assert backend_arrays.channel_tiling(storage, cell_shape, dtype) == expected
+
+
+def test_channel_tiling_of_generated_columns(backend_ms):
+    """The channel tiling of the columns of the "narrow_tiles" MS (two
+    hypercubes per column, one per cell shape), as the arrays get it when
+    the MS is opened; whole cells for MODEL_DATA (tiles of all channels) and
+    for the columns of the other MSs."""
+    from casacore import tables
+
+    from xradio.measurement_set._utils._msv2._tables.read_rows import column_storage
+
+    expected = {
+        "DATA": (3, 336),  # 2 x 3 x 7 x 8 bytes
+        "CORRECTED_DATA": (5, 880),
+        "FLAG": (4, 13),  # booleans: 2 x 4 x 13 bits
+        "WEIGHT_SPECTRUM": (4, 2 * 112),  # tiles of 1 polarization
+        "MODEL_DATA": (0, 0),
+    }
+    with tables.table(backend_ms("narrow_tiles"), ack=False) as main_tb:
+        for col, tiling in expected.items():
+            storage = column_storage(main_tb, col)
+            assert len(storage.hypercubes) == 2, col
+            dtype = main_tb.getcell(col, 0).dtype
+            for cell_shape in ((16, 2), (24, 2)):
+                found = backend_arrays.channel_tiling(storage, cell_shape, dtype)
+                assert found == tiling, (col, cell_shape)
+    for variant, col in (("dense", "DATA"), ("rich", "DATA"), ("rich", "FLAG")):
+        with tables.table(backend_ms(variant), ack=False) as main_tb:
+            storage = column_storage(main_tb, col)
+            assert backend_arrays.channel_tiling(storage, (16, 2), np.complex64) == (
+                0,
+                0,
+            )
+
+
+def test_channel_sliced_columns_are_read_as_written():
+    """The converter writes the values of CHANNEL_SLICED_COLUMNS as it reads
+    them (postprocess_main_column is the identity for them), the condition
+    for reading a range of their channels alone."""
+    values = np.zeros((2, 3, 4, 2), dtype=np.complex64)
+    for col in backend_arrays.CHANNEL_SLICED_COLUMNS:
+        assert conversion.postprocess_main_column(col, values) is values
+    for col in ("WEIGHT", "TIME_CENTROID"):
+        assert col not in backend_arrays.CHANNEL_SLICED_COLUMNS
+
+
+@pytest.mark.parametrize(
+    "col, cell_shape, shape, tile_channels, expected",
+    [
+        ("DATA", (16, 2), (2, 3, 16, 2), 3, 3),
+        ("FLAG", (16, 2), (2, 3, 16, 2), 15, 15),
+        ("DATA", (16, 2), (2, 3, 16, 2), 16, 0),  # tiles of all channels
+        ("WEIGHT", (2,), (2, 3, 16, 2), 3, 0),  # repeated along frequency
+        ("UVW", (3,), (2, 3, 3), 1, 0),
+        ("TIME_CENTROID", (), (2, 3), 1, 0),
+        ("SIGMA_SPECTRUM", (16, 2), (2, 3, 16, 2), 3, 0),  # not a data variable
+    ],
+)
+def test_channel_sliced_arrays(col, cell_shape, shape, tile_channels, expected):
+    """Only arrays of CHANNEL_SLICED_COLUMNS with 2-D cells read slices of
+    channels; the tiling is kept in the pickled state."""
+    index = PartitionIndex("/x.ms", [0], [6], 6, shape[:2], "t" * 32)
+    array = MSv2MainColumnArray(
+        index,
+        col,
+        col,
+        shape,
+        np.float32,
+        np.float32,
+        cell_shape,
+        tile_channels=tile_channels,
+        tile_band_bytes=100,
+    )
+    assert array.tile_channels == expected
+    assert array.tile_band_bytes == (100 if expected else 0)
+    restored = pickle.loads(pickle.dumps(array))
+    assert (restored.tile_channels, restored.tile_band_bytes) == (
+        array.tile_channels,
+        array.tile_band_bytes,
+    )
+
+
+def _channel_selections(n_chan):
+    """Channel selections that start and end inside tiles, span several
+    tiles, hold one channel (the first, a middle one, the last, in the last
+    partial tile), lists, steps and reversed steps, and every channel."""
+    return [
+        {"frequency": slice(0, 1)},
+        {"frequency": slice(4, 5)},
+        {"frequency": slice(n_chan - 1, n_chan)},
+        {"frequency": slice(2, 7)},
+        {"frequency": slice(5, n_chan - 1)},
+        {"frequency": slice(1, n_chan - 1)},
+        {"frequency": slice(3, 13, 4)},
+        {"frequency": slice(n_chan - 2, 1, -5)},
+        {"frequency": [n_chan - 3, 4, 6, 4]},
+        {"frequency": 7, "polarization": 1},
+        {"frequency": slice(6, 9), "time": [5, 0, 31], "baseline_id": slice(2, 9, 3)},
+        {"frequency": slice(None, None, -1)},
+        {},
+    ]
+
+
+# (partitions of "narrow_tiles": 0 and 1 SPW 0, 16 channels; 2 and 3 SPW 1,
+# 24 decreasing channels)
+@pytest.mark.parametrize("idx", [0, 3])
+def test_channel_sliced_reads_equal_the_converter_reads(backend_ms, monkeypatch, idx):
+    """
+    Channel-sliced reads (tiles of 3, 5 and 4 channels, of one or two
+    polarizations, two hypercubes per column, a reversed SPW, padded and
+    duplicated cells) give the values the converter reads, bit for bit, for
+    channel ranges that straddle tiles, single channels, lists and steps,
+    also through dask chunks; MODEL_DATA (tiles of all channels) and a
+    selection of every channel are read in whole cells. The read channels
+    are the selection's range rounded out to whole tiles.
+    """
+    lazy, reference, _ = lazy_and_reference(backend_ms("narrow_tiles"), idx)
+    sliced = []
+    read_rows_to_grid = backend_arrays.read_rows_to_grid
+
+    def spy(table, col, plan, grid, *args, **kwargs):
+        sliced.append((col, kwargs.get("chan")))
+        return read_rows_to_grid(table, col, plan, grid, *args, **kwargs)
+
+    monkeypatch.setattr(backend_arrays, "read_rows_to_grid", spy)
+    tiles = {
+        "VISIBILITY": 3,
+        "VISIBILITY_CORRECTED": 5,
+        "FLAG": 4,
+        "WEIGHT": 4,
+        "VISIBILITY_MODEL": 0,
+    }
+    vis = reference["VISIBILITY"].values
+    assert np.isnan(vis).any()  # padded cells
+    for name, width in tiles.items():
+        variable = lazy[name]
+        array = variable._data.array
+        assert array.tile_channels == width, name
+        n_chan = variable.sizes["frequency"]
+        for sel in _channel_selections(n_chan):
+            sliced.clear()
+            got = variable.isel(sel).values
+            assert_same_values(got, reference[name].isel(sel).values, f"{name} {sel}")
+            channels = np.unique(
+                np.arange(n_chan)[sel.get("frequency", slice(None))]
+            ).reshape(-1)
+            if idx >= 2:  # (reversed: the MS's channel order)
+                channels = np.sort(n_chan - 1 - channels)
+            c0 = channels[0] // width * width if width else 0
+            c1 = min(n_chan, -(-(channels[-1] + 1) // width) * width) if width else 0
+            if width and (c0, c1) != (0, n_chan):
+                assert sliced and all(chan == slice(c0, c1) for _, chan in sliced), (
+                    name,
+                    sel,
+                    sliced,
+                )
+            else:
+                assert not sliced, (name, sel, sliced)
+        chunked = variable.isel(frequency=slice(2, 9)).chunk({"time": 7})
+        with dask.config.set(scheduler="threads"):
+            assert_same_values(
+                chunked.values,
+                reference[name].isel(frequency=slice(2, 9)).values,
+                f"{name} chunked",
+            )
+
+
+def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
+    """A channel-sliced read bounds the column's tile cache
+    (setmaxcachesize, MiB) to twice the tiles of its bands for the rows of a
+    tile, at least CHANNEL_SLICE_MIN_CACHE_MIB; its time sub-blocks are
+    sized on the read channels; with the casatools read API (no in-place
+    reads) whole cells are read."""
+    lazy, reference, _ = lazy_and_reference(backend_ms("narrow_tiles"), 0)
+    open_table_ro = backend_arrays.open_table_ro
+    calls = []
+
+    class Recording(GetcolOnlyTable):
+        hidden = ()
+
+        def __getattr__(self, name):
+            if name in self.hidden:
+                raise AttributeError(name)
+            if name == "setmaxcachesize":
+                return lambda col, size: calls.append((col, size))
+            return getattr(self._table, name)
+
+    @contextlib.contextmanager
+    def recording(path):
+        with open_table_ro(path) as table:
+            yield Recording(table)
+
+    monkeypatch.setattr(backend_arrays, "open_table_ro", recording)
+    variable, array = lazy["VISIBILITY"], lazy["VISIBILITY"]._data.array
+    sel = {"frequency": slice(2, 7)}  # tiles [0, 3) and [3, 6) and [6, 9)
+    assert_same_values(
+        variable.isel(sel).values, reference["VISIBILITY"].isel(sel).values
+    )
+    assert calls == [("DATA", backend_arrays.CHANNEL_SLICE_MIN_CACHE_MIB)]
+    array.tile_band_bytes = 7 * 2**20  # 3 bands: 2 x 3 x 7 MiB
+    calls.clear()
+    variable.isel(sel).values  # noqa: B018
+    assert calls == [("DATA", 42)]
+    assert array._channel_cache_mib(0, 3) == 16 and array._channel_cache_mib(0, 9) == 42
+    # sub-blocks of the read channels
+    assert (
+        array._cell_bytes(9) == 9 * 2 * 8 * 2 and array._cell_bytes() == 16 * 2 * 8 * 2
+    )
+    # without in-place reads (the casatools shim): whole cells
+    Recording.hidden = ("getcolnp", "getcolslicenp", "selectrows")
+    calls.clear()
+    sliced = []
+    read_rows_to_grid = backend_arrays.read_rows_to_grid
+
+    def spy(table, col, plan, grid, *args, **kwargs):
+        sliced.append(kwargs.get("chan"))
+        return read_rows_to_grid(table, col, plan, grid, *args, **kwargs)
+
+    monkeypatch.setattr(backend_arrays, "read_rows_to_grid", spy)
+    for name in ("VISIBILITY", "FLAG", "WEIGHT"):
+        assert_same_values(
+            lazy[name].isel(sel).values, reference[name].isel(sel).values, name
+        )
+    assert calls == [] and sliced == []
+
+
+@pytest.mark.skipif(
+    not os.path.exists("/proc/self/io"), reason="needs /proc/self/io (Linux)"
+)
+def test_channel_sliced_reads_read_fewer_bytes(backend_ms):
+    """
+    A one-channel read of a column stored in tiles of 3 channels reads the
+    tiles of one band of channels: the bytes the process reads
+    (/proc/self/io rchar) are fewer than with whole cells by the tiles of
+    the other bands of the partition's rows (SPW 1: 24 channels, 8 bands of
+    tiles of 2 x 3 channels x 7 rows, 336 bytes).
+    """
+    from casacore import tables
+
+    msname = backend_ms("narrow_tiles")
+    lazy, reference, index = lazy_and_reference(msname, 2)
+    variable = lazy["VISIBILITY"]
+    array = variable._data.array
+    whole = copy.copy(array)
+    whole.tile_channels = 0
+    whole_variable = lazy_variable(whole, variable.dims).isel(
+        frequency=slice(None, None, -1)
+    )
+
+    def rchar():
+        with open("/proc/self/io") as io:
+            return next(int(line.split()[1]) for line in io if line.startswith("rchar"))
+
+    def bytes_read(var):
+        before = rchar()
+        values = var.isel(frequency=slice(10, 11)).values
+        return rchar() - before, values
+
+    with tables.table(msname, ack=False) as main_tb:
+        ddi = main_tb.getcol("DATA_DESC_ID")
+    # the positions of the partition's rows in the 24-channel hypercube (the
+    # rows of DDIs 2 and 3, in row order), and the row tiles that hold them
+    rows = np.concatenate(
+        [np.arange(a, a + n) for a, n in zip(index.starts, index.lengths, strict=True)]
+    )
+    assert set(ddi[rows]) == {2}
+    cube_rows = np.searchsorted(np.flatnonzero(ddi >= 2), rows)
+    row_tiles = np.unique(cube_rows // 7).size
+    expected_saving = row_tiles * (8 - 1) * 336
+    bytes_read(variable)  # (the first read of the process may read more)
+    sliced_bytes, values = bytes_read(variable)
+    whole_bytes, whole_values = bytes_read(whole_variable)
+    assert_same_values(values, whole_values)
+    assert_same_values(
+        values, reference["VISIBILITY"].isel(frequency=slice(10, 11)).values
+    )
+    assert whole_bytes - sliced_bytes >= 0.9 * expected_saving, (
+        sliced_bytes,
+        whole_bytes,
+        expected_saving,
+    )
+
+
+def test_open_msv2_arrays_read_channel_slices(backend_ms):
+    """The arrays of an MS opened with the engine know the channel tiling
+    of their columns (found when it is opened) and give the values of whole
+    cells for channel selections."""
+    from xradio.measurement_set import open_msv2
+
+    tree = open_msv2(backend_ms("narrow_tiles"), array_backend="xarray")
+    seen = set()
+    for node in tree.children.values():
+        ds = node.to_dataset(inherit=False)
+        for name, width in (("VISIBILITY", 3), ("FLAG", 4), ("WEIGHT", 4)):
+            data = ds[name].variable._data
+            while not isinstance(data, MSv2BackendArray):
+                data = data.array
+            assert data.tile_channels == width, (node.name, name)
+            whole = copy.copy(data)
+            whole.tile_channels = 0
+            n_chan = ds.sizes["frequency"]
+            for sel in ({"frequency": slice(4, 5)}, {"frequency": [n_chan - 1, 2]}):
+                key = xr.core.indexing.OuterIndexer(
+                    (slice(None), slice(None))
+                    + (np.arange(n_chan)[sel["frequency"]],)
+                    + (slice(None),)
+                )
+                assert_same_values(data[key], whole[key], f"{node.name} {name} {sel}")
+            seen.add(n_chan)
+    assert seen == {16, 24}
 
 
 # The layouts of the ms_copy fixture (conftest.MS_COPY_LAYOUTS): MAIN's key

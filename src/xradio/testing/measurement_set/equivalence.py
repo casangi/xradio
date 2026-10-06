@@ -92,8 +92,9 @@ def assert_lazy_selections_equal(
 ) -> int:
     """
     Selections of the main data variables of every MSv4 (steps, reversed
-    steps, scalars, random baselines, a frequency slice) give bit-identical
-    values. Returns the number of selections compared.
+    steps, scalars, random baselines, a frequency slice or one channel in the
+    middle) give bit-identical values. Returns the number of selections
+    compared.
     """
     rng = np.random.default_rng(0) if rng is None else rng
     compared = 0
@@ -103,18 +104,24 @@ def assert_lazy_selections_equal(
         bdim = "baseline_id" if "baseline_id" in ds_r.dims else "antenna_name"
         nb = ds_r.sizes[bdim]
         baselines = sorted(rng.choice(nb, size=min(3, nb), replace=False).tolist())
+        nf = ds_r.sizes.get("frequency", 0)
+        # (one channel: a channel-sliced read where the MS's tiles hold fewer
+        # channels than a cell)
+        frequency_sels = (slice(1, None), slice(nf // 2, nf // 2 + 1))
         for var in main_data_variables(node):
-            for time_sel in (
-                slice(None),
-                slice(1, None, 3),
-                nt // 2,
-                slice(nt - 1, None, -2),
+            for k, time_sel in enumerate(
+                (
+                    slice(None),
+                    slice(1, None, 3),
+                    nt // 2,
+                    slice(nt - 1, None, -2),
+                )
             ):
                 sel = {"time": time_sel}
                 if bdim in ds_r[var].dims:
                     sel[bdim] = baselines
-                if "frequency" in ds_r[var].dims and ds_r.sizes["frequency"] > 2:
-                    sel["frequency"] = slice(1, None)
+                if "frequency" in ds_r[var].dims and nf > 2:
+                    sel["frequency"] = frequency_sels[k % 2]
                 assert _values_equal(
                     ds_e[var].isel(sel).values, ds_r[var].isel(sel).values
                 ), f"{name}/{var} {sel}"

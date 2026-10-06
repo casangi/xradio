@@ -7,12 +7,17 @@ import zarr.codecs
 
 from xradio._utils.logging import xradio_logger
 from xradio._utils.zarr.config import ZARR_FORMAT
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+    SubtableCache,
+    subtable_cache_supported,
+)
 from xradio.measurement_set._utils._msv2.conversion import (
     convert_and_write_partition,
     estimate_memory_and_cores_for_partitions,
+    warn_use_table_iter,
 )
 from xradio.measurement_set._utils._msv2.partition_queries import (
-    create_partitions,
+    create_partitions_with_main_rows,
 )
 
 
@@ -52,9 +57,11 @@ def estimate_conversion_memory_and_cores(
     if partition_scheme is None:
         partition_scheme = []
 
-    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    partitions, main_row_runs = create_partitions_with_main_rows(
+        in_file, partition_scheme=partition_scheme
+    )
 
-    return estimate_memory_and_cores_for_partitions(in_file, partitions)
+    return estimate_memory_and_cores_for_partitions(in_file, partitions, main_row_runs)
 
 
 def convert_msv2_to_processing_set(
@@ -105,11 +112,13 @@ def convert_msv2_to_processing_set(
         ...     and 6 in p["SCAN_NUMBER"]
         ... )
     main_chunksize : Union[Dict, float, None], optional
-        Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions, and acceptable keys are "time", "baseline_id", "antenna_id", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB. By default, None.
+        Defines the chunk size of the main dataset. If given as a dictionary, defines the sizes of several dimensions (the other dimensions are not chunked), and acceptable keys are "time", "baseline_id", "antenna_name", "frequency", "polarization". If given as a float, gives the size of a chunk in GiB.
+        By default (None) the data variables are chunked along time only, every other dimension whole: the time chunk length is chosen so that a chunk of the largest data variable holds about 128 MiB (uncompressed), at least one time step. Partitions with fewer time steps than one such chunk have one chunk per data variable. Only if one time step of a data variable is larger than 2 GiB (the largest chunk the Blosc compressor encodes) are the frequency axis, and then the baseline axis, chunked as well (with a warning: the data variables are still written by whole time steps, see below). Before this version None meant one chunk per data variable, which fails for data variables of more than 2 GiB with the default compressor; main_chunksize={} still gives that layout.
+        With parallel_mode "none" or "partition" (and "time" without a "time" chunk size), the data variables of the main dataset are read and written one at a time, in batches of whole time chunks of about 128 MiB together, at least one time chunk. The memory a batch takes is so about 128 MiB only if one time chunk of the data variable is at most that size, otherwise one time chunk: with the default chunks, one time step (also when the frequency or baseline axis is chunked, since a batch holds every chunk of its time steps). Row orders that would fragment the reads (baseline-major or interleaved partitions) are read in batches of up to 8 times that size. With several batches, a partition never holds a whole data variable in memory. Small partitions are read whole.
     with_pointing : bool, optional
         Whether to convert the POINTING subtable into pointing sub-datasets
     pointing_chunksize : Union[Dict, float, None], optional
-        Defines the chunk size of the pointing dataset. If given as a dictionary, defines the sizes of several dimensions, acceptable keys are "time" and "antenna_id". If given as a float, defines the size of a chunk in GiB. By default, None.
+        Defines the chunk size of the pointing dataset. If given as a dictionary, defines the sizes of several dimensions, acceptable keys are "time" and "antenna". If given as a float, defines the size of a chunk in GiB. By default, None: one chunk per variable.
     pointing_interpolate : bool, optional
         Whether to interpolate the time axis of the pointing sub-dataset to the time axis of the main dataset
     ephemeris_interpolate : bool, optional
@@ -119,7 +128,7 @@ def convert_msv2_to_processing_set(
     sys_cal_interpolate : bool, optional
         Whether to interpolate the time axis of the system calibration data variables (sys_cal_xds) to the time axis of the main dataset
     use_table_iter : bool, optional
-        Whether to use the table iterator to read the main table of the MS v2. This should be set to True when reading datasets with large number of rows and few partitions, by default False.
+        Deprecated, has no effect: the main table of the MS v2 is always read in bounded calls (this option selected reading it time by time with the table iterator). True emits a DeprecationWarning. By default False.
     compressor : zarr.abc.codec.BytesBytesCodec, optional
         The zarr v3 bytes-to-bytes codec to use when saving the converted data to disk using Zarr, by default zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle"). blosc-lz4 decompresses markedly faster than zstd for the high-entropy visibility data (faster reads/loads) at a small cost in compression ratio. None disables compression
     add_reshaping_indices : bool, optional
@@ -129,13 +138,21 @@ def convert_msv2_to_processing_set(
     parallel_mode : Literal["none", "partition", "time"], optional
         Choose whether to use Dask to execute conversion in parallel, by default "none" and conversion occurs serially.
         The option "partition", parallelises the conversion over partitions specified by `partition_scheme`. The option "time" can only be used for phased array interferometers where there are no partitions
-        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`.
+        in the MS v2; instead the MS v2 is parallelised along the time dimension and can be controlled by `main_chunksize`. Without a "time" chunk size in `main_chunksize` (for example with the default None), "time" converts the data as "none" does (the streamed write, see `main_chunksize`) and logs a warning: pass main_chunksize={"time": n} for Dask parallelism along time.
+        "time" gives the same output as "none" for any row order and also for missing or duplicated (time, baseline) rows
+        (cells without a row are padded as in "none", FLAG=False). Before this version, "time" required dense, time-ordered
+        rows (one row for every time and baseline).
+        As before this version, "time" (with a "time" chunk size) fails when the data is written if a MAIN data column has
+        undefined cells or cells of different shapes in the partition, whereas "none" and "partition" skip such a column
+        (WEIGHT_SPECTRUM then falls back to WEIGHT).
     persistence_mode : str, optional
         “w” means create (overwrite if exists);
         “w-” means create (fail if exists);
         “a” means override all existing variables including dimension coordinates (create if does not exist); Use this mode if you want to add to an existing Processing Set.
         The default is "w-".
     """
+
+    warn_use_table_iter(use_table_iter)
 
     # Create empty data tree
     import xarray as xr
@@ -159,13 +176,20 @@ def convert_msv2_to_processing_set(
     if partition_scheme is None:
         partition_scheme = []
 
-    partitions = create_partitions(in_file, partition_scheme=partition_scheme)
+    # The MAIN rows of every partition are computed with the partitions (no
+    # TaQL per partition); they are passed to every convert_and_write_partition
+    # with its description.
+    partitions, main_row_runs = create_partitions_with_main_rows(
+        in_file, partition_scheme=partition_scheme
+    )
     n_all_partitions = len(partitions)
+    selected = list(range(n_all_partitions))
 
     if partition_filter is not None:
-        partitions = [p for p in partitions if partition_filter(p)]
-        if not partitions:
+        selected = [idx for idx in selected if partition_filter(partitions[idx])]
+        if not selected:
             raise RuntimeError("No partitions selected by partition_filter")
+    partitions = [partitions[idx] for idx in selected]
     n_selected_partitions = len(partitions)
 
     xradio_logger().info(
@@ -177,41 +201,76 @@ def convert_msv2_to_processing_set(
         )
 
     delayed_list = []
+    # Sub-table data read once and shared by all partitions (python-casacore
+    # only). Whole-table values are built up front only if 2+ partitions share
+    # them.
+    subtable_cache = (
+        SubtableCache(n_partitions=len(partitions))
+        if subtable_cache_supported()
+        else None
+    )
 
-    for ms_v4_id, partition_info in enumerate(partitions):
-        xradio_logger().info(
-            "OBSERVATION_ID "
-            + str(partition_info["OBSERVATION_ID"])
-            + ", DDI "
-            + str(partition_info["DATA_DESC_ID"])
-            + ", STATE "
-            + str(partition_info["STATE_ID"])
-            + ", FIELD "
-            + str(partition_info["FIELD_ID"])
-            + ", SCAN "
-            + str(partition_info["SCAN_NUMBER"])
-            + (
-                ", EPHEMERIS " + str(partition_info["EPHEMERIS_ID"])
-                if "EPHEMERIS_ID" in partition_info
-                else ""
+    try:
+        for ms_v4_id, (partition_info, partition_idx) in enumerate(
+            zip(partitions, selected, strict=True)
+        ):
+            xradio_logger().info(
+                "OBSERVATION_ID "
+                + str(partition_info["OBSERVATION_ID"])
+                + ", DDI "
+                + str(partition_info["DATA_DESC_ID"])
+                + ", STATE "
+                + str(partition_info["STATE_ID"])
+                + ", FIELD "
+                + str(partition_info["FIELD_ID"])
+                + ", SCAN "
+                + str(partition_info["SCAN_NUMBER"])
+                + (
+                    ", EPHEMERIS " + str(partition_info["EPHEMERIS_ID"])
+                    if "EPHEMERIS_ID" in partition_info
+                    else ""
+                )
+                + (
+                    ", ANTENNA " + str(partition_info["ANTENNA1"])
+                    if "ANTENNA1" in partition_info
+                    else ""
+                )
             )
-            + (
-                ", ANTENNA " + str(partition_info["ANTENNA1"])
-                if "ANTENNA1" in partition_info
-                else ""
-            )
-        )
 
-        # prepend '0' to ms_v4_id as needed
-        ms_v4_id = f"{ms_v4_id:0>{len(str(len(partitions) - 1))}}"
-        if parallel_mode == "partition":
-            delayed_list.append(
-                dask.delayed(convert_and_write_partition)(
+            # prepend '0' to ms_v4_id as needed
+            ms_v4_id = f"{ms_v4_id:0>{len(str(len(partitions) - 1))}}"
+            if parallel_mode == "partition":
+                delayed_list.append(
+                    dask.delayed(convert_and_write_partition)(
+                        in_file,
+                        out_file,
+                        ms_v4_id,
+                        partition_info=partition_info,
+                        use_table_iter=False,  # deprecated, warned above
+                        partition_scheme=partition_scheme,
+                        main_chunksize=main_chunksize,
+                        with_pointing=with_pointing,
+                        pointing_chunksize=pointing_chunksize,
+                        pointing_interpolate=pointing_interpolate,
+                        ephemeris_interpolate=ephemeris_interpolate,
+                        phase_cal_interpolate=phase_cal_interpolate,
+                        sys_cal_interpolate=sys_cal_interpolate,
+                        add_reshaping_indices=add_reshaping_indices,
+                        compressor=compressor,
+                        parallel_mode=parallel_mode,
+                        persistence_mode=persistence_mode,
+                        subtable_cache=subtable_cache,
+                        main_row_runs=main_row_runs[partition_idx],
+                    )
+                )
+            else:
+                start_time = time.time()
+                convert_and_write_partition(
                     in_file,
                     out_file,
                     ms_v4_id,
                     partition_info=partition_info,
-                    use_table_iter=use_table_iter,
+                    use_table_iter=False,  # deprecated, warned above
                     partition_scheme=partition_scheme,
                     main_chunksize=main_chunksize,
                     with_pointing=with_pointing,
@@ -224,37 +283,22 @@ def convert_msv2_to_processing_set(
                     compressor=compressor,
                     parallel_mode=parallel_mode,
                     persistence_mode=persistence_mode,
+                    subtable_cache=subtable_cache,
+                    main_row_runs=main_row_runs[partition_idx],
                 )
-            )
-        else:
-            start_time = time.time()
-            convert_and_write_partition(
-                in_file,
-                out_file,
-                ms_v4_id,
-                partition_info=partition_info,
-                use_table_iter=use_table_iter,
-                partition_scheme=partition_scheme,
-                main_chunksize=main_chunksize,
-                with_pointing=with_pointing,
-                pointing_chunksize=pointing_chunksize,
-                pointing_interpolate=pointing_interpolate,
-                ephemeris_interpolate=ephemeris_interpolate,
-                phase_cal_interpolate=phase_cal_interpolate,
-                sys_cal_interpolate=sys_cal_interpolate,
-                add_reshaping_indices=add_reshaping_indices,
-                compressor=compressor,
-                parallel_mode=parallel_mode,
-                persistence_mode=persistence_mode,
-            )
-            end_time = time.time()
-            xradio_logger().debug(
-                f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f}"
-                " seconds"
-            )
+                end_time = time.time()
+                xradio_logger().debug(
+                    f"Time to convert partition {ms_v4_id}: {end_time - start_time:.2f}"
+                    " seconds"
+                )
 
-    if parallel_mode == "partition":
-        dask.compute(delayed_list)
+        if parallel_mode == "partition":
+            dask.compute(delayed_list)
+    finally:
+        # also after a failure: a kept traceback must not keep the cache alive
+        if subtable_cache is not None:
+            xradio_logger().debug(f"Sub-table cache: {dict(subtable_cache.stats)}")
+            subtable_cache.clear()
 
     import zarr
 

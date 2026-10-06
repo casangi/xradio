@@ -12,18 +12,29 @@ from xradio._utils.list_and_array import (
     pairing_function,
     unique_1d,
 )
-from xradio.measurement_set._utils._msv2._tables.table_query import open_query
 
 
-def get_utimes_tol(mtable: tables.table, taql_where: str) -> tuple[np.ndarray, float]:
-    taql_utimes = f"select DISTINCT TIME from $mtable {taql_where}"
-    with open_query(mtable, taql_utimes) as query_utimes:
-        utimes = unique_1d(query_utimes.getcol("TIME", 0, -1))
-        # add a tol around the time ranges returned by taql
-        if len(utimes) < 2:
-            tol = 1e-5
-        else:
-            tol = np.diff(utimes).min() / 4
+def utimes_tol_from_times(times: np.ndarray) -> tuple[np.ndarray, float]:
+    """
+    Unique times of a partition and a tolerance (a quarter of the smallest time
+    step, or 1e-5 for a single time) to use around them, from its TIME values.
+
+    Parameters
+    ----------
+    times : np.ndarray
+        TIME values (any order, possibly repeated).
+
+    Returns
+    -------
+    tuple[np.ndarray, float]
+        Sorted unique TIME values, tolerance.
+    """
+    utimes = unique_1d(times)
+    # add a tol around the time range
+    if len(utimes) < 2:
+        tol = 1e-5
+    else:
+        tol = np.diff(utimes).min() / 4
 
     return utimes, tol
 

@@ -1,26 +1,26 @@
 import datetime
+import functools
 import importlib
+import inspect
 import os
 import pathlib
 import time
 import traceback
+import warnings
 from collections import deque
-from collections.abc import Callable
+from collections.abc import Callable, Generator
+from contextlib import contextmanager
 
 import dask.array as da
 import numpy as np
 import xarray as xr
 import zarr.codecs
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
 from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_reference_dict
 from xradio._utils.list_and_array import check_if_consistent, unique_1d
 from xradio._utils.logging import xradio_logger
 from xradio._utils.schema import column_description_casacore_to_msv4_measure
+from xradio.measurement_set._utils._msv2 import stream_write
 from xradio.measurement_set._utils._msv2._tables.read import (
     convert_casacore_time,
     extract_table_attributes,
@@ -31,13 +31,18 @@ from xradio.measurement_set._utils._msv2._tables.read import (
 from xradio.measurement_set._utils._msv2._tables.read_main_table import (
     get_baseline_indices,
     get_baselines,
-    get_utimes_tol,
+    utimes_tol_from_times,
 )
-from xradio.measurement_set._utils._msv2._tables.table_query import (
-    TableManager,
-    open_query,
-    open_table_ro,
+from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    ColumnNotReadableError,
+    MainTableRows,
 )
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+    SubtableCache,
+    activate_subtable_cache,
+    resolve_subtable_cache,
+)
+from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 from xradio.measurement_set._utils._msv2.create_antenna_xds import (
     create_antenna_xds,
     create_gain_curve_xds,
@@ -58,15 +63,81 @@ from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
     create_system_calibration_xds,
     create_weather_xds,
 )
+from xradio.measurement_set._utils._msv2.partition_queries import (
+    MainRowRuns,
+    PartitionMainRows,
+    partition_main_rows,
+)
+from xradio.measurement_set._utils._msv2.stream_write import (
+    DeferredEncodingError,
+    DeferredReadError,
+    DeferredVariable,
+    check_deferred_variables,
+    consolidate_msv4,
+    deferred_encoding_problems,
+    deferred_main_column,
+    deferred_ones,
+    discard_msv4,
+    drop_consolidated_metadata,
+    fits_in_memory,
+    msv4_members,
+    read_deferred_variables,
+    write_deferred_variables,
+)
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 from xradio.measurement_set._utils._zarr.encoding import add_encoding
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 
 
+@contextmanager
+def open_partition_main_table(
+    in_file: str,
+    partition_info: dict,
+    main_row_runs: PartitionMainRows | None = None,
+) -> Generator[MainTableRows, None, None]:
+    """
+    Opens the MAIN rows of a partition for reading (no TaQL selection of the
+    MAIN table): the base MAIN table, opened here and closed on exit, and the
+    partition's row numbers.
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 path.
+    partition_info : dict
+        Partition description (create_partitions).
+    main_row_runs : PartitionMainRows | None, optional
+        The partition's MAIN rows from create_partitions_with_main_rows, used
+        if they belong to ``partition_info`` (see partition_main_rows).
+
+    Yields
+    ------
+    MainTableRows
+        The partition rows.
+    """
+    with open_table_ro(in_file) as main_tb:
+        main_rows = MainTableRows(
+            main_tb, partition_main_rows(main_tb, partition_info, main_row_runs)
+        )
+        try:
+            yield main_rows
+        finally:
+            main_rows.close()
+
+
+# Default chunks of the main xds (main_chunksize=None, see default_main_chunksize):
+# along time only, with time chunks of about this size (uncompressed) for the
+# largest data variable.
+DEFAULT_MAIN_CHUNK_BYTES = 128 * 2**20
+# Largest buffer the Blosc compressor encodes (numcodecs raises for larger ones),
+# i.e. the largest zarr chunk the default compressor can write.
+BLOSC_MAX_BUFFER_BYTES = 2**31 - 1
+
+
 def parse_chunksize(
     chunksize: dict | float | None, xds_type: str, xds: xr.Dataset
-) -> dict[str, int]:
+) -> dict[str, int] | None:
     """
     Parameters
     ----------
@@ -80,8 +151,10 @@ def parse_chunksize(
 
     Returns
     -------
-    Dict[str, int]
-        dictionary of chunk sizes (as dim->size)
+    Dict[str, int] | None
+        dictionary of chunk sizes (as dim->size), or None for None (the
+        defaults: one chunk per variable for pointing, default_main_chunksize
+        for main, which needs the data variables)
     """
     if isinstance(chunksize, dict):
         check_chunksize(chunksize, xds_type)
@@ -340,6 +413,89 @@ def mem_chunksize_to_dict_pointing(chunksize: float, xds: xr.Dataset) -> dict[st
     return result
 
 
+def _chunk_nbytes(var: xr.Variable, chunks: dict[str, int]) -> int:
+    """Bytes (uncompressed) of the largest chunk of a variable for the chunk
+    sizes ``chunks`` (dimensions not in ``chunks`` whole)."""
+    nbytes = int(var.dtype.itemsize)
+    for dim, size in zip(var.dims, var.shape, strict=True):
+        nbytes *= min(int(size), int(chunks.get(dim, size)))
+    return nbytes
+
+
+def default_main_chunksize(
+    xds: xr.Dataset, data_var_names: list[str] | None = None
+) -> dict[str, int]:
+    """
+    The chunk sizes of the main xds for main_chunksize=None: chunks along time
+    only (every other dimension whole), with a time chunk length that makes
+    the chunk of the largest data variable about DEFAULT_MAIN_CHUNK_BYTES
+    (uncompressed), at least one time step.
+
+    Only if one time step of the largest data variable is above the Blosc
+    limit (BLOSC_MAX_BUFFER_BYTES, the largest chunk the compressor encodes),
+    the frequency axis and then the baseline (antenna) axis are split too, to
+    chunks of about DEFAULT_MAIN_CHUNK_BYTES, and a warning is logged: the
+    streamed write reads and writes whole time steps (a batch holds every
+    chunk of at least one time step), so it then holds one time step of a
+    data variable, more than the Blosc limit, in memory.
+
+    The memory of the streamed write is so about DEFAULT_MAIN_CHUNK_BYTES per
+    batch only if a time step of the largest data variable is at most that
+    size; otherwise it is one time step.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        The main xds with its data variables (values, lazy or placeholders:
+        only their dimensions, shapes and dtypes are used).
+    data_var_names : list[str] | None, optional
+        The data variables to size the chunks by, by default all of them.
+
+    Returns
+    -------
+    dict[str, int]
+        Chunk sizes by dimension ({} if there is no data variable along time).
+    """
+    if data_var_names is None:
+        data_var_names = list(xds.data_vars)
+    variables = [
+        xds[name].variable
+        for name in data_var_names
+        if name in xds.data_vars and "time" in xds[name].dims
+    ]
+    if not variables:
+        return {}
+    n_times = int(xds.sizes["time"])
+    per_time = max(_chunk_nbytes(var, {"time": 1}) for var in variables)
+    chunks = {
+        "time": max(1, min(n_times, DEFAULT_MAIN_CHUNK_BYTES // max(1, per_time)))
+    }
+    for dim in ("frequency", "baseline_id", "antenna_name"):
+        if max(_chunk_nbytes(var, chunks) for var in variables) <= (
+            BLOSC_MAX_BUFFER_BYTES
+        ):
+            break
+        with_dim = [var for var in variables if dim in var.dims]
+        if not with_dim:
+            continue
+        per_element = max(_chunk_nbytes(var, chunks | {dim: 1}) for var in with_dim)
+        chunks[dim] = max(
+            1, min(int(xds.sizes[dim]), DEFAULT_MAIN_CHUNK_BYTES // per_element)
+        )
+    split = [dim for dim in chunks if dim != "time"]
+    if split:
+        xradio_logger().warning(
+            f"One time step of a main data variable is {per_time / 2**30:.2f} GiB, "
+            f"more than the {BLOSC_MAX_BUFFER_BYTES / 2**30:.0f} GiB the Blosc "
+            f"compressor encodes in one chunk: the default chunks also split "
+            f"{', '.join(split)} ({chunks}). The streamed write still reads and "
+            "writes whole time steps (one per batch here), so it holds one time "
+            f"step ({per_time / 2**30:.2f} GiB) of a data variable in memory. "
+            "Pass main_chunksize to choose the chunks."
+        )
+    return chunks
+
+
 def find_baseline_or_antenna_var(xds: xr.Dataset) -> str:
     if "baseline_id" in xds.coords:
         baseline_or_antenna_name = "baseline_id"
@@ -392,12 +548,25 @@ def calc_used_gb(
     )
 
 
-# TODO: if the didxs are not used in read_col_conversion, remove didxs from here (and convert_and_write_partition)
-def calc_indx_for_row_split(tb_tool, taql_where):
-    # Allow TableManager object to be used
-    if isinstance(tb_tool, TableManager):
-        tb_tool = tb_tool.get_table()
+def calc_indx_for_row_split(
+    tb_tool: MainTableRows,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Time and baseline index of every row of a partition, and its baselines and
+    unique times.
 
+    Parameters
+    ----------
+    tb_tool : MainTableRows
+        The partition rows.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]
+        tidxs, bidxs (time and baseline index of every row), ANTENNA1 and
+        ANTENNA2 of every baseline, and the unique times (seconds from the
+        Unix epoch).
+    """
     baselines = get_baselines(tb_tool)
     col_names = tb_tool.colnames()
     cshapes = [
@@ -406,10 +575,12 @@ def calc_indx_for_row_split(tb_tool, taql_where):
         if tb_tool.iscelldefined(col, 0)
     ]
 
+    # (raises if no column has 2-D cells in the first row)
     freq_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
-    utimes, tol = get_utimes_tol(tb_tool, taql_where)
-
-    tidxs = np.searchsorted(utimes, tb_tool.getcol("TIME"))
+    times = tb_tool.getcol("TIME")
+    utimes, tol = utimes_tol_from_times(times)
+    tidxs = np.searchsorted(utimes, times)
+    del times
 
     ts_ant1, ts_ant2 = (
         tb_tool.getcol("ANTENNA1"),
@@ -419,17 +590,12 @@ def calc_indx_for_row_split(tb_tool, taql_where):
     ts_bases = np.column_stack((ts_ant1, ts_ant2))
     bidxs = get_baseline_indices(baselines, ts_bases)
 
-    # some antenna 2"s will be out of bounds for this chunk, store rows that are in bounds
-
-    didxs = np.where((bidxs >= 0) & (bidxs < len(baselines)))[0]
-
     baseline_ant1_id = baselines[:, 0]
     baseline_ant2_id = baselines[:, 1]
 
     return (
         tidxs,
         bidxs,
-        didxs,
         baseline_ant1_id,
         baseline_ant2_id,
         convert_casacore_time(utimes, False),
@@ -590,56 +756,125 @@ def create_coordinates(
     return xds, spectral_window_id
 
 
-def find_min_max_times(tb_tool: tables.table, taql_where: str) -> tuple:
+def find_min_max_times(tb_tool: MainTableRows) -> tuple:
     """
     Find the min/max times in an MSv4, for constraining pointing.
 
     To avoid numerical comparison issues (leaving out some times at the edges),
     it substracts/adds a tolerance from/to the min and max values. The tolerance
     is a fraction of the difference between times / interval of the MS (see
-    get_utimes_tol()).
+    utimes_tol_from_times()).
 
     Parameters
     ----------
-    tb_tool : tables.table
-        table (query) opened with an MSv4 query
-
-    taql_where : str
-        TaQL where that defines the partition of this MSv4
+    tb_tool : MainTableRows
+        The rows of the partition of this MSv4
 
     Returns
     -------
     tuple
         min/max times (raw time values from the Msv2 table)
     """
-    utimes, tol = get_utimes_tol(tb_tool, taql_where)
+    utimes, tol = utimes_tol_from_times(tb_tool.getcol("TIME"))
     time_min = utimes.min() - tol
     time_max = utimes.max() + tol
     return (time_min, time_max)
 
 
-def create_data_variables(
-    in_file,
-    xds,
-    table_manager,
-    time_baseline_shape,
-    tidxs,
-    bidxs,
-    didxs,
-    use_table_iter,
-    parallel_mode,
-    main_chunksize,
-):
+def data_variables_parallel_mode(
+    parallel_mode: str, main_chunksize: dict | None
+) -> str:
+    """
+    The parallel_mode the MAIN columns are read with: "time" needs a time
+    chunk size in ``main_chunksize`` and is "none" without one.
+
+    Parameters
+    ----------
+    parallel_mode : str
+        The conversion's parallel_mode.
+    main_chunksize : dict | None
+        Chunk sizes of the main xds (as parsed by parse_chunksize).
+
+    Returns
+    -------
+    str
+        The parallel_mode of the column reads.
+    """
     time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
     if parallel_mode == "time" and time_chunksize is None:
+        return "none"
+    return parallel_mode
+
+
+def create_data_variables(
+    in_file: str,
+    xds: xr.Dataset,
+    main_rows: MainTableRows,
+    time_baseline_shape: tuple[int, int],
+    tidxs: np.ndarray,
+    bidxs: np.ndarray,
+    parallel_mode: str,
+    main_chunksize: dict | None,
+    deferred: dict[str, DeferredVariable] | None = None,
+    unreadable_columns: frozenset[str] = frozenset(),
+):
+    """
+    Reads the MAIN columns that become data variables of the main xds and adds
+    them to ``xds`` (in place). A column that fails to read is skipped (logged
+    at debug level); if WEIGHT_SPECTRUM fails, WEIGHT is tried instead.
+
+    With ``deferred`` (streamed write), the columns are not read here: every
+    data variable is a placeholder and its description is put in
+    ``deferred``; ``write_deferred_variables`` reads and writes the values
+    after the MSv4 metadata. A column is skipped here if its storage manager
+    tells that the read would fail (see ``check_partition_cells``); if the
+    read fails anyway, the partition is converted again with the column in
+    ``unreadable_columns``.
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 path.
+    xds : xr.Dataset
+        Main xds, with its coordinates already set.
+    main_rows : MainTableRows
+        The partition's MAIN rows.
+    time_baseline_shape : tuple[int, int]
+        (n_times, n_baselines) of the partition.
+    tidxs, bidxs : np.ndarray
+        Time and baseline index of every partition row.
+    parallel_mode : str
+        "time" gives lazy (dask) arrays for the large columns, when the time
+        chunk size is set in ``main_chunksize``.
+    main_chunksize : dict | None
+        Chunk sizes of the main xds.
+    deferred : dict[str, DeferredVariable] | None, optional
+        Streamed write (parallel_mode "none" or "partition", or "time" without
+        a time chunk size): filled with the descriptions of the placeholder
+        variables, by name. By default None: the columns are read into the
+        xds.
+    unreadable_columns : frozenset[str], optional
+        Columns skipped as if their read had failed (a read of a previous
+        attempt of the streamed write failed), by default none.
+    """
+    time_chunksize = main_chunksize.get("time", None) if main_chunksize else None
+    if parallel_mode != data_variables_parallel_mode(parallel_mode, main_chunksize):
+        given = (
+            "the default main_chunksize=None"
+            if main_chunksize is None
+            else f"main_chunksize={main_chunksize!r}"
+        )
+        how = " (streamed write)" if deferred is not None else ""
         xradio_logger().warning(
-            "'time' isn't specified in `main_chunksize`. Defaulting to `parallel_mode = 'none'`."
+            f"parallel_mode='time' needs a 'time' chunk size: with {given}, the "
+            f"data variables are converted as with parallel_mode='none'{how}, not "
+            "by dask tasks along time. Pass main_chunksize={'time': n} for dask "
+            "parallelism along time."
         )
         parallel_mode = "none"
 
     # Create Data Variables
-    with table_manager.get_table() as tb_tool:
-        col_names = tb_tool.colnames()
+    col_names = main_rows.colnames()
 
     target_cols = set(col_names) & set(col_to_data_variable_names.keys())
     if target_cols.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
@@ -649,32 +884,55 @@ def create_data_variables(
     main_column_descriptions = main_table_attrs["column_descriptions"]
 
     # Use a double-ended queue in case WEIGHT_SPECTRUM conversion fails, and
-    # we need to add WEIGHT to list of columns to convert during iteration
-    target_cols = deque(target_cols)
+    # we need to add WEIGHT to list of columns to convert during iteration.
+    # Sorted, so that the read order (and with it the data variable order and the
+    # memory peak, which depends on what is already held when each column is
+    # read) does not depend on the hash seed (set iteration order).
+    target_cols = deque(sorted(target_cols))
+
+    if deferred is not None and parallel_mode == "time":
+        raise ValueError(
+            "The streamed write needs parallel_mode 'none' or 'partition' (got "
+            f"{parallel_mode!r} with a time chunk size)"
+        )
 
     while target_cols:
         col = target_cols.popleft()
         datavar_name = col_to_data_variable_names[col]
-        read_col_conversion = get_read_col_conversion_function(col, parallel_mode)
+        if deferred is None:
+            read_col_conversion = get_read_col_conversion_function(col, parallel_mode)
 
         try:
             start = time.time()
-            col_data = read_col_conversion(
-                table_manager,
-                col,
-                time_baseline_shape,
-                tidxs,
-                bidxs,
-                use_table_iter,
-                time_chunksize,
-            )
-
-            if col == "TIME_CENTROID":
-                col_data = convert_casacore_time(col_data, False)
-
-            elif col == "WEIGHT":
-                col_data = repeat_weight_array(
-                    col_data, parallel_mode, xds.sizes, main_chunksize
+            if col in unreadable_columns:
+                raise ColumnNotReadableError(
+                    f"Column {col}: its read failed in a previous attempt"
+                )
+            if deferred is None:
+                read_args = (main_rows, col, time_baseline_shape, tidxs, bidxs)
+                if read_col_conversion is read_col_conversion_dask:
+                    read_args += (time_chunksize,)
+                col_data = read_col_conversion(*read_args)
+                col_data = postprocess_main_column(
+                    col, col_data, parallel_mode, xds.sizes, main_chunksize
+                )
+            else:
+                # The same conversion, applied to every batch when it is written
+                transform = functools.partial(
+                    postprocess_main_column,
+                    col,
+                    parallel_mode="none",
+                    main_sizes={"frequency": xds.sizes["frequency"]},
+                    main_chunksize=None,
+                )
+                col_data, spec = deferred_main_column(
+                    main_rows,
+                    col,
+                    datavar_name,
+                    time_baseline_shape,
+                    transform,
+                    # repeated along frequency: the same in either order
+                    frequency_constant=col == "WEIGHT",
                 )
 
             xds[datavar_name] = xr.DataArray(
@@ -682,6 +940,8 @@ def create_data_variables(
                 dims=col_dims[col],
                 attrs=create_attribute_metadata(col, main_column_descriptions),
             )
+            if deferred is not None:
+                deferred[datavar_name] = spec
             xradio_logger().debug(f"Time to read column {col} : {time.time() - start}")
 
         except Exception as exc:
@@ -695,13 +955,15 @@ def create_data_variables(
                 )
                 target_cols.append("WEIGHT")
 
+    # The grid plan and time-chunk rows (8-24 bytes per row) are not needed
+    # after the reads: do not keep them alive through to_zarr. The lazy
+    # (parallel_mode="time") blocks keep their own reference.
+    main_rows.release_plans()
 
-def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
-    """
-    Returns the appropriate read_col_conversion function: use the dask version
-    for large columns and parallel_mode="time", or the numpy version otherwise.
-    """
-    large_columns = {
+
+# The MAIN columns read lazily (dask) with parallel_mode="time"
+DASK_COLUMNS = frozenset(
+    {
         "DATA",
         "CORRECTED_DATA",
         "MODEL_DATA",
@@ -709,11 +971,17 @@ def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Calla
         "WEIGHT",
         "FLAG",
     }
-    return (
-        read_col_conversion_dask
-        if parallel_mode == "time" and col_name in large_columns
-        else read_col_conversion_numpy
-    )
+)
+
+
+def get_read_col_conversion_function(col_name: str, parallel_mode: str) -> Callable:
+    """
+    Returns the appropriate read_col_conversion function: use the dask version
+    for large columns and parallel_mode="time", or the numpy version otherwise.
+    """
+    if parallel_mode == "time" and col_name in DASK_COLUMNS:
+        return read_col_conversion_dask
+    return read_col_conversion_numpy
 
 
 def repeat_weight_array(
@@ -739,6 +1007,45 @@ def repeat_weight_array(
         return result.rechunk(chunksizes)
 
     return np.tile(reshaped_arr, repeats)
+
+
+def postprocess_main_column(
+    col: str,
+    col_data,
+    parallel_mode: str = "none",
+    main_sizes: dict[str, int] | None = None,
+    main_chunksize: dict[str, int] | None = None,
+):
+    """
+    The conversion applied to the values of a MAIN column after reading them
+    onto the (time, baseline) grid: TIME_CENTROID to seconds from the Unix
+    epoch, WEIGHT repeated along frequency (see repeat_weight_array); other
+    columns are returned as they are. Used for whole columns and for the
+    batches of the streamed write.
+
+    Parameters
+    ----------
+    col : str
+        MAIN column name.
+    col_data : np.ndarray | da.Array
+        Column values on the (time, baseline, ...) grid.
+    parallel_mode : str, optional
+        As for repeat_weight_array.
+    main_sizes : dict[str, int] | None, optional
+        Sizes of the main xds (WEIGHT only).
+    main_chunksize : dict[str, int] | None, optional
+        Chunk sizes of the main xds (WEIGHT with parallel_mode="time" only).
+
+    Returns
+    -------
+    np.ndarray | da.Array
+        The converted values.
+    """
+    if col == "TIME_CENTROID":
+        return convert_casacore_time(col_data, False)
+    if col == "WEIGHT":
+        return repeat_weight_array(col_data, parallel_mode, main_sizes, main_chunksize)
+    return col_data
 
 
 def add_missing_data_var_attrs(xds):
@@ -767,7 +1074,23 @@ def add_missing_data_var_attrs(xds):
     return xds
 
 
-def create_taql_query_where(partition_info: dict):
+def create_taql_query_where(partition_info: dict) -> str:
+    """
+    The TaQL WHERE clause of the MAIN rows of a partition, as recorded in the
+    partition_info of the MSv4 ("taql_where"). The rows are selected without
+    TaQL, by the numpy twin of this clause (partition_queries.select_main_rows)
+    or the row runs of create_partitions_with_main_rows.
+
+    Parameters
+    ----------
+    partition_info : dict
+        Partition description.
+
+    Returns
+    -------
+    str
+        The WHERE clause.
+    """
     main_par_table_cols = [
         "DATA_DESC_ID",
         "OBSERVATION_ID",
@@ -818,14 +1141,32 @@ def fix_uvw_frame(
     return xds
 
 
-def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
+def estimate_memory_for_partition(
+    in_file: str, partition: dict, main_row_runs: PartitionMainRows | None = None
+) -> float:
     """
     Aim: given a partition description, estimates a safe maximum memory value, but avoiding overestimation
     (at least not adding not well understood factors).
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 path.
+    partition : dict
+        Partition description (create_partitions).
+    main_row_runs : PartitionMainRows | None, optional
+        The partition's MAIN rows from create_partitions_with_main_rows, used
+        if they belong to ``partition`` (see partition_main_rows). Otherwise
+        the rows are selected from the MAIN key columns.
+
+    Returns
+    -------
+    float
+        Estimated memory in GiB.
     """
 
     def calculate_term_all_data(
-        tb_tool: tables.table, ntimes: float, nbaselines: float
+        tb_tool: MainTableRows, ntimes: float, nbaselines: float
     ) -> tuple[list[float], bool]:
         """
         Size that DATA vars from MS will have in the MSv4, whether this MS has FLOAT_DATA
@@ -834,12 +1175,13 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         col_names = tb_tool.colnames()
         for data_col in ["DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA"]:
             if data_col in col_names:
-                col_descr = tb_tool.getcoldesc(data_col)
+                col_descr = tb_tool.table.getcoldesc(data_col)
                 if "shape" in col_descr and isinstance(col_descr["shape"], np.ndarray):
                     # example: "shape": array([15,  4]) => gives pols x channels
                     cells_in_row = col_descr["shape"].prod()
                 else:
-                    first_row = np.array(tb_tool.col(data_col)[0])
+                    # the first row of the partition
+                    first_row = np.array(tb_tool.getcell(data_col, 0))
                     cells_in_row = np.prod(first_row.shape)
 
                 if col_descr["valueType"] == "complex":
@@ -891,8 +1233,8 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
     def calculate_term_calc_indx_for_row_split(msv2_nrows: int) -> float:
         """
-        Account for the indices produced in calc_indx_for_row_split():
-        the dominating ones are: tidxs, bidxs, didxs.
+        Account for the per-row indices of a partition: tidxs and bidxs
+        (calc_indx_for_row_split()) and the partition's MAIN row numbers.
 
         In terms of amount of memory represented by this term relative to the
         total, it becomes relevant proportionally to the ratio between
@@ -901,7 +1243,7 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         but its value is independent from # chans, pols.
         """
         item_size = 8
-        # 3 are: tidxs, bidxs, didxs
+        # 3 are: tidxs, bidxs, MAIN row numbers
         return msv2_nrows * 3 * item_size
 
     def calculate_term_other_msv2_indices(msv2_nrows: int) -> float:
@@ -944,24 +1286,20 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
         """
         return 0.05 * size_estimate_main_xds
 
-    taql_partition = create_taql_query_where(partition)
-    taql_main = f"select * from $mtable {taql_partition}"
+    with open_partition_main_table(in_file, partition, main_row_runs) as tb_tool:
+        # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
+        # For some EVN datasets that can easily underestimate by a 50%
+        utimes, _tol = utimes_tol_from_times(tb_tool.getcol("TIME"))
+        ntimes = len(utimes)
+        nbaselines = len(get_baselines(tb_tool))
 
-    with open_table_ro(in_file) as mtable:
-        with open_query(mtable, taql_main) as tb_tool:
-            # Do not feel tempted to rely on nrows. nrows tends to underestimate memory when baselines are missing.
-            # For some EVN datasets that can easily underestimate by a 50%
-            utimes, _tol = get_utimes_tol(mtable, taql_partition)
-            ntimes = len(utimes)
-            nbaselines = len(get_baselines(tb_tool))
+        # Still, use nrwos for estimations related to sizes of input (MSv2)
+        # columns, not sizes of output (MSv4) data vars
+        msv2_nrows = tb_tool.nrows()
 
-            # Still, use nrwos for estimations related to sizes of input (MSv2)
-            # columns, not sizes of output (MSv4) data vars
-            msv2_nrows = tb_tool.nrows()
-
-            sizes_all_data, is_float_data = calculate_term_all_data(
-                tb_tool, ntimes, nbaselines
-            )
+        sizes_all_data, is_float_data = calculate_term_all_data(
+            tb_tool, ntimes, nbaselines
+        )
 
     size_largest_data = np.max(sizes_all_data)
     sum_sizes_data = np.sum(sizes_all_data)
@@ -984,17 +1322,23 @@ def estimate_memory_for_partition(in_file: str, partition: dict) -> float:
 
 
 def estimate_memory_and_cores_for_partitions(
-    in_file: str, partitions: list
+    in_file: str, partitions: list, main_row_runs: MainRowRuns | None = None
 ) -> tuple[float, int, int]:
     """
     Estimates approximate memory required to convert an MSv2 to MSv4, given
-    a predefined set of partitions.
+    a predefined set of partitions (and optionally their MAIN rows,
+    ``main_row_runs[i]`` for ``partitions[i]``, from
+    create_partitions_with_main_rows).
     """
     max_cores = len(partitions)
 
     size_estimates = [
-        estimate_memory_for_partition(in_file, part_description)
-        for part_description in partitions
+        estimate_memory_for_partition(
+            in_file,
+            part_description,
+            None if main_row_runs is None else main_row_runs[idx],
+        )
+        for idx, part_description in enumerate(partitions)
     ]
     max_estimate = np.max(size_estimates) if size_estimates else 0.0
 
@@ -1003,7 +1347,87 @@ def estimate_memory_and_cores_for_partitions(
     return float(max_estimate), int(max_cores), int(recommended_cores)
 
 
-def convert_and_write_partition(
+USE_TABLE_ITER_DEPRECATION = (
+    "use_table_iter is deprecated and has no effect: the MAIN table is always read "
+    "in bounded calls, without the table iterator"
+)
+
+
+def warn_use_table_iter(use_table_iter: bool, stacklevel: int = 3) -> None:
+    """
+    Emit the DeprecationWarning of use_table_iter=True (a no-op since the MAIN
+    table is read in bounded calls).
+
+    Parameters
+    ----------
+    use_table_iter : bool
+        The value given.
+    stacklevel : int, optional
+        Stack level of the warning (the caller of the caller by default).
+    """
+    if use_table_iter:
+        warnings.warn(
+            USE_TABLE_ITER_DEPRECATION, DeprecationWarning, stacklevel=stacklevel
+        )
+
+
+def convert_and_write_partition(*args, **kwargs):
+    """
+    Converts one partition of an MSv2 into an MSv4 and writes it (see
+    ``_convert_and_write_partition`` for the parameters, the signature is
+    the same without its internal ones; use_table_iter is a deprecated no-op,
+    True emits a DeprecationWarning).
+
+    With the streamed write of the MAIN data variables, a column whose read
+    fails after the MSv4 metadata was written (see ``DeferredReadError``) makes
+    the partition be converted again without that column (the MSv4 written so
+    far is removed first): the result is that of the non-streamed path, which
+    skips a column whose read fails. If the zarr metadata declares an encoding
+    that the streamed write does not apply (``DeferredEncodingError``, raised
+    before any value is written), the partition is converted again without
+    the streamed write. When the failed attempt itself created the MSv4 store
+    (the error carries ``created_msv4``), the next attempt overwrites it:
+    persistence mode "w-" (the default, fail if the MSv4 exists) becomes "w",
+    so an MSv4 that ``discard_msv4`` could not remove does not make the next
+    attempt fail. A failure before the store was written (for example a read
+    of a partition that is read whole before its single to_zarr) keeps "w-",
+    so an MSv4 that existed before the conversion is never overwritten.
+    """
+    arguments = convert_and_write_partition.__signature__.bind(*args, **kwargs)
+    arguments = dict(arguments.arguments)
+    warn_use_table_iter(arguments.get("use_table_iter", False))
+    unreadable: set[str] = set()
+    allow_stream_write = True
+    for _ in range(len(col_to_data_variable_names) + 2):
+        try:
+            return _convert_and_write_partition(
+                **arguments,
+                unreadable_columns=frozenset(unreadable),
+                allow_stream_write=allow_stream_write,
+            )
+        except DeferredEncodingError as exc:
+            if not allow_stream_write:  # not streamed again: cannot happen
+                raise
+            xradio_logger().warning(
+                f"{exc}: converting the partition again without the streamed write"
+            )
+            allow_stream_write = False
+            created_msv4 = getattr(exc, "created_msv4", False)
+        except DeferredReadError as exc:
+            if exc.col in unreadable:  # not read again: cannot happen
+                raise
+            xradio_logger().info(
+                f"Column {exc.col} could not be read ({exc}: {exc.__cause__!r}): "
+                "converting the partition again without it"
+            )
+            unreadable.add(exc.col)
+            created_msv4 = getattr(exc, "created_msv4", False)
+        if created_msv4 and arguments.get("persistence_mode", "w-") == "w-":
+            arguments["persistence_mode"] = "w"
+    raise RuntimeError(f"Columns {sorted(unreadable)} could not be read")
+
+
+def _convert_and_write_partition(
     in_file: str,
     out_file: str,
     ms_v4_id: int | str,
@@ -1025,6 +1449,10 @@ def convert_and_write_partition(
     storage_backend="zarr",
     parallel_mode: str = "none",
     persistence_mode: str = "w-",
+    subtable_cache: SubtableCache | None = None,
+    main_row_runs: PartitionMainRows | None = None,
+    unreadable_columns: frozenset[str] = frozenset(),
+    allow_stream_write: bool = True,
 ):
     """_summary_
 
@@ -1034,6 +1462,8 @@ def convert_and_write_partition(
         _description_
     out_file : str
         _description_
+    use_table_iter : bool
+        Deprecated, has no effect (the MAIN table is read in bounded calls).
     scan_intents : str
         _description_
     ddi : int, optional
@@ -1043,7 +1473,8 @@ def convert_and_write_partition(
     field_id : int, optional
         _description_, by default None
     main_chunksize : Union[Dict, float, None], optional
-        _description_, by default None
+        Chunk sizes of the main xds (see convert_msv2_to_processing_set), by
+        default None: chunks along time only (default_main_chunksize).
     with_pointing: bool, optional
         _description_, by default True
     pointing_chunksize : Union[Dict, float, None], optional
@@ -1066,6 +1497,23 @@ def convert_and_write_partition(
         _description_
     persistence_mode: str = "w-",
         _description_, by default "w-"
+    subtable_cache : SubtableCache | None, optional
+        Sub-table data shared by the partitions of a conversion (see
+        _tables/subtable_cache.py), by default None: a cache for this partition
+        only.
+    main_row_runs : PartitionMainRows | None, optional
+        MAIN rows of the partition from create_partitions_with_main_rows, by
+        default None. Used only if they were computed for the same row
+        selection as ``partition_info``; otherwise the rows are selected from
+        the MAIN key columns (the rows create_taql_query_where describes).
+    unreadable_columns : frozenset[str], optional
+        MAIN columns skipped as if their read had failed (set by
+        convert_and_write_partition after a failed read of the streamed
+        write), by default none.
+    allow_stream_write : bool, optional
+        False disables the streamed write of the MAIN data variables (set by
+        convert_and_write_partition after a DeferredEncodingError), by
+        default True.
 
     Returns
     -------
@@ -1079,25 +1527,36 @@ def convert_and_write_partition(
     ms_xdt = xr.DataTree()  # MSv4 as a Data Tree
 
     taql_where = create_taql_query_where(partition_info)
-    table_manager = TableManager(in_file, taql_where)
+    # Streamed write of the MAIN data variables (see stream_write.py): they are
+    # written after the MSv4 metadata, one at a time, in batches of whole zarr
+    # chunks along time. parallel_mode="time" with a time chunk size already
+    # writes the large ones lazily (dask); without one it reads like "none"
+    # (decided below).
+    use_stream_write = (
+        allow_stream_write
+        and storage_backend == "zarr"
+        and parallel_mode in ("none", "partition", "time")
+    )
+    stream_batch_bytes = stream_write.STREAM_BATCH_BYTES
     ddi = partition_info["DATA_DESC_ID"][0]
     scan_intents = str(partition_info["OBS_MODE"][0]).split(",")
 
     start = time.time()
-    with table_manager.get_table() as tb_tool:
+    with (
+        activate_subtable_cache(resolve_subtable_cache(subtable_cache)),
+        open_partition_main_table(in_file, partition_info, main_row_runs) as tb_tool,
+    ):
         if tb_tool.nrows() == 0:
-            tb_tool.close()
             return xr.Dataset(), {}, {}
 
         xradio_logger().debug("Starting a real convert_and_write_partition")
         (
             tidxs,
             bidxs,
-            didxs,
             baseline_ant1_id,
             baseline_ant2_id,
             utime,
-        ) = calc_indx_for_row_split(tb_tool, taql_where)
+        ) = calc_indx_for_row_split(tb_tool)
         time_baseline_shape = (len(utime), len(baseline_ant1_id))
         xradio_logger().debug("Calc indx for row split " + str(time.time() - start))
 
@@ -1165,17 +1624,23 @@ def convert_and_write_partition(
 
         start = time.time()
         main_chunksize = parse_chunksize(main_chunksize, "main", xds)
+        deferred: dict[str, DeferredVariable] | None = (
+            {}
+            if use_stream_write
+            and data_variables_parallel_mode(parallel_mode, main_chunksize) != "time"
+            else None
+        )
         create_data_variables(
             in_file,
             xds,
-            table_manager,
+            tb_tool,
             time_baseline_shape,
             tidxs,
             bidxs,
-            didxs,
-            use_table_iter,
             parallel_mode,
             main_chunksize,
+            deferred=deferred,
+            unreadable_columns=unreadable_columns,
         )
 
         # Add data_groups
@@ -1185,7 +1650,11 @@ def convert_and_write_partition(
         if (
             "WEIGHT" not in xds.data_vars
         ):  # Some single dish datasets don't have WEIGHT.
-            if is_single_dish:
+            if deferred is not None:  # streamed write: written after the metadata
+                like = xds.SPECTRUM if is_single_dish else xds.VISIBILITY
+                ones, deferred["WEIGHT"] = deferred_ones("WEIGHT", like.shape)
+                xds["WEIGHT"] = xr.DataArray(ones, dims=like.dims)
+            elif is_single_dish:
                 xds["WEIGHT"] = xr.DataArray(
                     np.ones(xds.SPECTRUM.shape, dtype=np.float64),
                     dims=xds.SPECTRUM.dims,
@@ -1199,7 +1668,7 @@ def convert_and_write_partition(
         xradio_logger().debug("Time create data variables " + str(time.time() - start))
 
         # To constrain the time range to load (in pointing, ephemerides, phase_cal data_vars)
-        time_min_max = find_min_max_times(tb_tool, taql_where)
+        time_min_max = find_min_max_times(tb_tool)
 
         # Create ant_xds
         start = time.time()
@@ -1307,10 +1776,18 @@ def convert_and_write_partition(
         start = time.time()
 
         # Time and frequency should always be increasing
+        reverse_frequency = False
         if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
             xds = xds.sel(frequency=slice(None, None, -1))
+            reverse_frequency = True  # the streamed write reverses every batch
 
         if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
+            if deferred is not None:
+                # The times are sorted (np.unique), so this is not reached;
+                # the batches are not reversed along time.
+                raise RuntimeError(
+                    "The streamed write needs increasing times, got decreasing ones"
+                )
             xds = xds.sel(time=slice(None, None, -1))
 
         # Create field_and_source_xds (combines field, source and ephemeris data into one super dataset)
@@ -1368,6 +1845,16 @@ def convert_and_write_partition(
 
         # xds ready, prepare to write
         start = time.time()
+        if main_chunksize is None:
+            # (UVW is dropped from single dish xdss)
+            main_chunksize = default_main_chunksize(
+                xds,
+                [
+                    name
+                    for name in xds.data_vars
+                    if not (is_single_dish and name == "UVW")
+                ],
+            )
         add_encoding(xds, compressor=compressor, chunks=main_chunksize)
         xradio_logger().debug(
             "Time add compressor and chunk " + str(time.time() - start)
@@ -1393,6 +1880,24 @@ def convert_and_write_partition(
             xds["tidxs"] = tidxs
             xds["bidxs"] = bidxs
             xds["row_id"] = tb_tool.rownumbers()  # tb_tool.getcol("row_id")
+
+        if deferred is not None:
+            # Read the data variables whole and write the MSv4 with one to_zarr,
+            # as the non-streamed path, if they are small (a fraction of a batch
+            # together: the streamed write costs a few ms per variable) or if
+            # xarray's encoding of a variable would change its values (the
+            # streamed write writes them to the zarr arrays directly)
+            problems = deferred_encoding_problems(xds, deferred)
+            if problems:
+                xradio_logger().warning(
+                    "The MAIN data variables are not streamed (their encoding "
+                    f"changes the values): {'; '.join(problems)}"
+                )
+            if problems or fits_in_memory(xds, deferred, stream_batch_bytes):
+                read_deferred_variables(
+                    xds, deferred, tb_tool, tidxs, bidxs, reverse_frequency
+                )
+                deferred = None
 
         start = time.time()
         ms_v4_name = pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
@@ -1423,11 +1928,66 @@ def convert_and_write_partition(
         if storage_backend == "zarr":
             from xradio._utils.zarr.config import ZARR_FORMAT
 
-            ms_xdt.to_zarr(
-                store=os.path.join(out_file, ms_v4_name),
-                mode=persistence_mode,
-                zarr_format=ZARR_FORMAT,
-            )
+            store_path = os.path.join(out_file, ms_v4_name)
+            if deferred is None:
+                ms_xdt.to_zarr(
+                    store=store_path,
+                    mode=persistence_mode,
+                    zarr_format=ZARR_FORMAT,
+                )
+            else:
+                # Streamed write: all metadata (encodings), coordinates, small
+                # variables and sub-datasets now; the deferred (placeholder)
+                # variables are never computed but written next, one at a time,
+                # in batches of whole zarr chunks along time. The consolidated
+                # metadata is written last: until then (and after a hard kill)
+                # the MSv4 opens as incomplete, as one whose to_zarr was
+                # interrupted (see stream_write.py).
+                check_deferred_variables(xds, deferred)
+                members_before = msv4_members(store_path)
+                store_existed = members_before is not None
+                ms_xdt.to_zarr(
+                    store=store_path,
+                    mode=persistence_mode,
+                    zarr_format=ZARR_FORMAT,
+                    compute=False,
+                    consolidated=False,
+                )
+                try:
+                    drop_consolidated_metadata(store_path)
+                    write_deferred_variables(
+                        store_path,
+                        xds,
+                        deferred,
+                        tb_tool,
+                        tidxs,
+                        bidxs,
+                        time_baseline_shape[1],
+                        reverse_frequency,
+                        stream_batch_bytes,
+                    )
+                    consolidate_msv4(store_path)
+                except BaseException as exc:
+                    # No MSv4 with unwritten (fill value) data variables is left:
+                    # after a failed read the partition is converted again without
+                    # the column, after an encoding the streamed write does not
+                    # apply without the streamed write (convert_and_write_partition),
+                    # otherwise the error is raised.
+                    done = discard_msv4(
+                        store_path,
+                        set(deferred),
+                        remove_store=persistence_mode in ("w", "w-")
+                        or not store_existed,
+                        members_before=members_before,
+                    )
+                    # Lets convert_and_write_partition overwrite, on its next
+                    # attempt, only an MSv4 this attempt created.
+                    exc.created_msv4 = not store_existed
+                    log = xradio_logger().debug
+                    if not isinstance(exc, DeferredReadError | DeferredEncodingError):
+                        log = xradio_logger().error
+                    log(f"Writing the data variables of {store_path} failed: {done}")
+                    raise
         elif storage_backend == "netcdf":
             # xds.to_netcdf(path=file_name+"/MAIN", mode=mode) #Does not work
             raise
@@ -1439,6 +1999,20 @@ def convert_and_write_partition(
         # memory retained by Dask task graphs and large NumPy-backed arrays after writing.
         ms_xdt = None
         free_memory()
+
+
+# convert_and_write_partition has the signature of _convert_and_write_partition
+# (for help(), inspect and the binding of its arguments) without the parameters
+# it sets itself on every attempt
+_inner_signature = inspect.signature(_convert_and_write_partition)
+convert_and_write_partition.__signature__ = _inner_signature.replace(
+    parameters=[
+        param
+        for param in _inner_signature.parameters.values()
+        if param.name not in ("unreadable_columns", "allow_stream_write")
+    ]
+)
+del _inner_signature
 
 
 def antenna_ids_to_names(

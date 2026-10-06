@@ -1,5 +1,7 @@
+import contextlib
 import os
 import re
+import threading
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -17,13 +19,30 @@ except ImportError:
 
 from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
+from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    CASACORE_TO_NUMPY_DTYPE,
+    DEFAULT_MAX_ELEMS,
+    MainTableRows,
+    TimeChunkRows,
+    backend_has_in_place_reads,
+    getcol_chunks,
+    parse_shape_string,
+    read_column_rows,
+    read_grid,
+    read_time_chunk,
+)
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+    active_subtable_cache,
+    is_memoized_table,
+)
 from xradio.measurement_set._utils._msv2._tables.table_query import (
-    TableManager,
     open_query,
     open_table_ro,
 )
 
 CASACORE_TO_PD_TIME_CORRECTION = 3_506_716_800.0
+# Elements per read call of the vectorized sub-table loads (python-casacore #130)
+SUBTABLE_READ_MAX_ELEMS = DEFAULT_MAX_ELEMS
 SECS_IN_DAY = 86400
 MJD_DIF_UNIX = 40587
 
@@ -243,6 +262,23 @@ def find_projected_min_max_table(
     output_min_max : Union[Tuple[np.float64, np.float64], None]
         min/max values derived from the input min/max and the column values
     """
+    subtable_cache = active_subtable_cache()
+    if subtable_cache is not None:
+        table_path = os.path.join(path, table_name)
+        sorted_column = subtable_cache.get_or_build(
+            ("sorted_column", table_path, colname),
+            lambda: load_sorted_column(table_path, colname),
+            amortized=True,
+        )
+        # None: not cacheable (or not worth building yet), the uncached code
+        # below runs (and fails) as before
+        if sorted_column is not None:
+            sorted_array, tol = sorted_column
+            if sorted_array.size == 0:
+                return None
+            range_min, range_max = min_max
+            return project_min_max_sorted(range_min, range_max, sorted_array, tol)
+
     with open_table_ro(os.path.join(path, table_name)) as tb_tool:
         if tb_tool.nrows() == 0:
             return None
@@ -252,6 +288,61 @@ def find_projected_min_max_table(
     return out_min_max
 
 
+def load_sorted_column(
+    table_path: str, colname: str
+) -> tuple[np.ndarray, np.float64 | None] | None:
+    """
+    Reads and sorts a column once, for find_projected_min_max_table() with an
+    active sub-table cache.
+
+    Parameters
+    ----------
+    table_path : str
+        Path of the table.
+    colname : str
+        Name of the (sortable) column, for example TIME or MJD.
+
+    Returns
+    -------
+    tuple[np.ndarray, np.float64 | None] | None
+        The sorted column values and their projection tolerance (an empty array
+        and None if the table has no rows). None if anything fails: the caller
+        then reads the column itself, and fails the same way as without cache.
+        A MemoryError is raised.
+    """
+    try:
+        with open_table_ro(table_path) as tb_tool:
+            nrows = tb_tool.nrows()
+            if nrows == 0:
+                return np.empty(0), None
+            # bounded reads in the column's own dtype (no full-size temporary)
+            col = read_column_rows(
+                tb_tool, colname, np.arange(nrows), max_elems=SUBTABLE_READ_MAX_ELEMS
+            )
+        sorted_array = np.sort(col)
+        return sorted_array, projection_tolerance(sorted_array)
+    except MemoryError:
+        raise
+    except Exception as exc:
+        xradio_logger().debug(
+            f"Not caching the sorted column {colname} of {table_path}: {exc}"
+        )
+        return None
+
+
+def projection_tolerance(sorted_array: np.ndarray) -> np.float64:
+    """
+    The tolerance find_projected_min_max_array() adds to the projected min/max
+    of a sorted column: a quarter of the smallest difference between its
+    non-zero values (4 eps for fewer than two values).
+    """
+    if len(sorted_array) < 2:
+        tol = np.finfo(sorted_array.dtype).eps * 4
+    else:
+        tol = np.diff(sorted_array[np.nonzero(sorted_array)]).min() / 4
+    return tol
+
+
 def find_projected_min_max_array(
     min_max: tuple[np.float64, np.float64], array: np.array
 ) -> tuple[np.float64, np.float64]:
@@ -259,11 +350,20 @@ def find_projected_min_max_array(
 
     sorted_array = np.sort(array)
     range_min, range_max = min_max
-    if len(sorted_array) < 2:
-        tol = np.finfo(sorted_array.dtype).eps * 4
-    else:
-        tol = np.diff(sorted_array[np.nonzero(sorted_array)]).min() / 4
+    tol = projection_tolerance(sorted_array)
+    return project_min_max_sorted(range_min, range_max, sorted_array, tol)
 
+
+def project_min_max_sorted(
+    range_min: np.float64,
+    range_max: np.float64,
+    sorted_array: np.ndarray,
+    tol: np.float64,
+) -> tuple[np.float64, np.float64]:
+    """
+    The search of find_projected_min_max_array() on an already sorted, non-empty
+    array and its projection_tolerance().
+    """
     if range_max > sorted_array[-1]:
         projected_max = range_max + tol
     else:
@@ -543,6 +643,35 @@ def load_generic_table(
     if ignore is None:
         ignore = []
 
+    subtable_cache = active_subtable_cache()
+    if subtable_cache is not None and is_memoized_table(tname):
+        # Partitions load these sub-tables again and again with the same arguments
+        key = (
+            "load_generic_table",
+            str(Path(inpath, tname).expanduser()),
+            tuple(timecols),
+            tuple(ignore),
+            tuple(sorted(rename_ids.items())) if rename_ids else None,
+            taql_where,
+        )
+        return subtable_cache.memo_dataset(
+            key,
+            lambda: _load_generic_table(
+                inpath, tname, timecols, ignore, rename_ids, taql_where
+            ),
+        )
+    return _load_generic_table(inpath, tname, timecols, ignore, rename_ids, taql_where)
+
+
+def _load_generic_table(
+    inpath: str,
+    tname: str,
+    timecols: list[str],
+    ignore: list[str],
+    rename_ids: dict[str, str] | None,
+    taql_where: str | None,
+) -> xr.Dataset:
+    """load_generic_table() without the memo (timecols and ignore are lists)."""
     infile = Path(inpath, tname)
     infile = str(infile.expanduser())
     if not os.path.isdir(infile):
@@ -654,6 +783,9 @@ def load_cols_into_coords_data_vars(
         coordinates dictionary + variables dictionary
     """
     columns_loader = find_best_col_loader(inpath, tb_tool.nrows())
+    if columns_loader is load_generic_cols and active_subtable_cache() is not None:
+        # same result, without one row() dict per table row
+        columns_loader = load_generic_cols_vectorized
 
     mcoords, mvars = columns_loader(inpath, tb_tool, timecols, ignore)
 
@@ -737,34 +869,231 @@ def load_generic_cols(
     # Produce coords and data vars from MS columns
     mcoords, mvars = {}, {}
     for col in col_types.keys():
-        try:
+        data = stack_tablerow_column(inpath, col, col_types[col], trows)
+        if data is None or len(data) == 0:
+            continue
+
+        array_type, array_data = raw_col_data_to_coords_vars(
+            inpath, tb_tool, col, data, timecols
+        )
+        if array_type == "coord":
+            mcoords[col] = array_data
+        elif array_type == "data_var":
+            mvars[col] = array_data
+
+    return mcoords, mvars
+
+
+def stack_tablerow_column(
+    inpath: str, col: str, col_type: str, trows: list[dict]
+) -> np.ndarray | None:
+    """
+    The values of one column, from the per-row dicts returned by tables.row(),
+    stacked into one array (padded when the cells vary in shape), as
+    load_generic_cols() loads them.
+
+    Parameters
+    ----------
+    inpath : str
+        path name of the MS table
+    col : str
+        column name
+    col_type : str
+        value type of the column (as in the column description)
+    trows : list[dict]
+        rows from tables.row() (with at least the column ``col``)
+
+    Returns
+    -------
+    np.ndarray | None
+        column data, or None if the column cannot be loaded (mixed cell types)
+    """
+    try:
+        # TODO
+        # benchmark np.stack() performance
+        data = np.stack([row[col] for row in trows])  # .astype(col_cells[col].dtype)
+        if isinstance(trows[0][col], dict):
             # TODO
             # benchmark np.stack() performance
             data = np.stack(
-                [row[col] for row in trows]
-            )  # .astype(col_cells[col].dtype)
-            if isinstance(trows[0][col], dict):
-                # TODO
-                # benchmark np.stack() performance
-                data = np.stack(
-                    [
-                        (
-                            row[col]["array"].reshape(row[col]["shape"])
-                            if len(row[col]["array"]) > 0
-                            else np.array([""])
-                        )
-                        for row in trows
-                    ]
-                )
-        except Exception:
-            # sometimes the cols are variable, so we need to standardize to the largest sizes
+                [
+                    (
+                        row[col]["array"].reshape(row[col]["shape"])
+                        if len(row[col]["array"]) > 0
+                        else np.array([""])
+                    )
+                    for row in trows
+                ]
+            )
+    except Exception:
+        # sometimes the cols are variable, so we need to standardize to the largest sizes
 
-            if len({isinstance(row[col], dict) for row in trows}) > 1:
-                continue  # can't deal with this case
+        if len({isinstance(row[col], dict) for row in trows}) > 1:
+            return None  # can't deal with this case
 
-            data = handle_variable_col_issues(inpath, col, col_types[col], trows)
+        data = handle_variable_col_issues(inpath, col, col_type, trows)
 
-        if len(data) == 0:
+    return data
+
+
+# dtype of np.stack() of the Python scalars that tables.row() returns for the
+# cells of a scalar column, by column value type (strings are stacked as is).
+_TABLEROW_SCALAR_STACK_DTYPES = {
+    "boolean": np.dtype(np.bool_),
+    "uchar": np.asarray(0).dtype,
+    "short": np.asarray(0).dtype,
+    "ushort": np.asarray(0).dtype,
+    "int": np.asarray(0).dtype,
+    "uint": np.asarray(0).dtype,
+    "int64": np.asarray(0).dtype,
+    "float": np.dtype(np.float64),
+    "double": np.dtype(np.float64),
+    "complex": np.dtype(np.complex128),
+    "dcomplex": np.dtype(np.complex128),
+}
+# Storage managers whose array columns are read with one getcol() by
+# load_generic_cols_vectorized(): a getcol() on a cell that is not defined raises
+# there (tiled storage managers are left to tables.row(): a getcol() covering
+# their undefined cells can crash the process).
+_GETCOL_ARRAY_STORAGE_MANAGERS = ("StandardStMan", "IncrementalStMan")
+
+
+def getcol_as_tablerow_stack(
+    tb_tool: tables.table, col: str, col_type: str, storage_manager: str | None
+) -> np.ndarray | None:
+    """
+    Reads a column with bounded column reads into exactly the array that
+    stack_tablerow_column() builds from tables.row() (same values, shape and
+    dtype), when that is possible without reading the rows one by one.
+
+    - Scalar columns: tables.row() gives Python scalars, so np.stack() makes
+      int columns int64, float columns float64, complex columns complex128.
+    - Array columns of a StandardStMan / IncrementalStMan: the cells stacked
+      when they all have the same shape (reading raises when they differ or
+      are undefined, for which the caller uses tables.row()).
+
+    Every read call covers at most SUBTABLE_READ_MAX_ELEMS elements
+    (python-casacore #130) and, for the numeric value types, reads in place
+    into an array of the column dtype (no getcol full-size temporary).
+
+    Parameters
+    ----------
+    tb_tool : tables.table
+        table (or selection) to read
+    col : str
+        column name
+    col_type : str
+        value type of the column (as in the column description)
+    storage_manager : str | None
+        type of the storage manager of the column
+
+    Returns
+    -------
+    np.ndarray | None
+        column data, or None if the column has to be read row by row
+
+    Raises
+    ------
+    MemoryError
+        Not turned into a row-by-row read (that needs more memory).
+    """
+    max_elems = SUBTABLE_READ_MAX_ELEMS
+    try:
+        rows = np.arange(tb_tool.nrows())
+        if tb_tool.isscalarcol(col):
+            if col_type == "string":
+                values = []
+                for part in getcol_chunks(tb_tool, col, rows, (), max_elems):
+                    values.extend(part)
+                return np.stack(values)
+            dtype = _TABLEROW_SCALAR_STACK_DTYPES.get(col_type)
+            if dtype is None:
+                return None
+            if col_type in CASACORE_TO_NUMPY_DTYPE:
+                return read_column_rows(tb_tool, col, rows, max_elems).astype(dtype)
+            parts = getcol_chunks(tb_tool, col, rows, (), max_elems)
+            if not all(isinstance(part, np.ndarray) for part in parts):
+                return None
+            return np.concatenate(parts).astype(dtype)
+
+        if (
+            storage_manager not in _GETCOL_ARRAY_STORAGE_MANAGERS
+            or col_type not in _TABLEROW_SCALAR_STACK_DTYPES
+        ):
+            return None
+        if col_type in CASACORE_TO_NUMPY_DTYPE:
+            # raises on cells of another shape than the first or undefined cells
+            data = read_column_rows(tb_tool, col, rows, max_elems)
+        else:
+            cell_shape = parse_shape_string(tb_tool.getcolshapestring(col, 0, 1)[0])
+            parts = getcol_chunks(tb_tool, col, rows, cell_shape, max_elems)
+            if not all(
+                isinstance(part, np.ndarray) and part.shape[1:] == cell_shape
+                for part in parts
+            ):
+                return None
+            data = np.concatenate(parts)
+    except MemoryError:
+        raise
+    except Exception:
+        # undefined cells, cells of different shapes, ...
+        return None
+    if not isinstance(data, np.ndarray) or data.ndim < 2:
+        return None
+    return data
+
+
+def load_generic_cols_vectorized(
+    inpath: str,
+    tb_tool: tables.table,
+    timecols: list[str] | None,
+    ignore: list[str] | None,
+) -> tuple[dict[str, xr.Dataset], dict[str, xr.Dataset]]:
+    """
+    Same result as load_generic_cols(), but every column that can be is read
+    with one getcol() (see getcol_as_tablerow_stack()) instead of one row()
+    dict per table row. Only the remaining columns (variable-shape or undefined
+    cells, string arrays, tiled storage managers) are read with tables.row().
+
+    Parameters
+    ----------
+    inpath : str
+        path name of the MS table
+    tb_tool : tables.table
+        table to load the columns
+    timecols : Union[List[str], None]
+        column names to convert from casacore time format
+    ignore : Union[List[str], None]
+        list of column names to skip and not try to load.
+
+    Returns
+    -------
+    Tuple[Dict[str, xr.Dataset], Dict[str, xr.Dataset]]
+        dict of coordinates and dict of data vars.
+    """
+    col_types = find_loadable_cols(tb_tool, ignore)
+    storage_managers = {
+        col: dm_info["TYPE"]
+        for dm_info in tb_tool.getdminfo().values()
+        for col in dm_info["COLUMNS"]
+    }
+
+    col_data = {
+        col: getcol_as_tablerow_stack(tb_tool, col, col_type, storage_managers.get(col))
+        for col, col_type in col_types.items()
+    }
+    row_cols = [col for col, data in col_data.items() if data is None]
+    if row_cols:
+        trows = tb_tool.row(row_cols)[:]
+        for col in row_cols:
+            col_data[col] = stack_tablerow_column(inpath, col, col_types[col], trows)
+        del trows
+
+    # Produce coords and data vars from MS columns, in the same order as
+    # load_generic_cols()
+    mcoords, mvars = {}, {}
+    for col, data in col_data.items():
+        if data is None or len(data) == 0:
             continue
 
         array_type, array_data = raw_col_data_to_coords_vars(
@@ -1130,289 +1459,176 @@ def read_flat_col_chunk(infile, col, cshape, ridxs, cstart, pstart) -> np.ndarra
     return data
 
 
-def read_col_chunk(
-    infile: str,
-    ts_taql: str,
-    col: str,
-    cshape: tuple[int],
-    tidxs: np.ndarray,
-    bidxs: np.ndarray,
-    didxs: np.ndarray,
-    d1: tuple[int, int],
-    d2: tuple[int, int],
-) -> np.ndarray:
+def _partition_cell_shape_and_dtype(
+    main_rows: MainTableRows, col: str
+) -> tuple[tuple[int, ...], np.dtype]:
     """
-    Function to perform delayed reads from table columns.
-
-    Parameters
-    ----------
-    infile : str
-
-    ts_taql : str
-
-    col : str
-
-    cshape : Tuple[int]
-
-    tidxs : np.ndarray
-
-    bidxs : np.ndarray
-
-    didxs : np.ndarray
-
-    d1: Tuple[int, int]
-
-    d2: Tuple[int, int]
-
-    Returns
-    -------
-    np.ndarray
+    Cell shape and output dtype of a column, taken from the first row of the
+    partition (shape string of the first row, dtype of the first cell as the
+    casacore bindings return it: scalar cells come back as Python scalars, so
+    for example an int column gives int64). Raises if that cell is undefined.
     """
-    # TODO: consider calling load_col_chunk() from inside the withs
-    # for read_expanded_main_table
-    with open_table_ro(infile) as mtable:
-        with open_query(mtable, ts_taql) as query:
-            if (len(cshape) == 2) or (col == "UVW"):  # all the scalars and UVW
-                data = np.array(query.getcol(col, 0, -1))
-            elif len(cshape) == 3:  # WEIGHT, SIGMA
-                data = query.getcolslice(col, d1[0], d1[1], [], 0, -1)
-            elif len(cshape) == 4:  # DATA and FLAG
-                data = query.getcolslice(col, (d1[0], d2[0]), (d1[1], d2[1]), [], 0, -1)
-
-    fill_value = get_pad_value(data.dtype)
-    fulldata = np.full(cshape, fill_value, dtype=data.dtype)
-
-    if len(didxs) > 0:
-        fulldata[tidxs[didxs], bidxs[didxs]] = data[didxs]
-
-    return fulldata
+    table = main_rows.table
+    first_row = int(main_rows.rows[0])
+    if table.isscalarcol(col):
+        extra_dimensions = ()
+    else:
+        extra_dimensions = parse_shape_string(
+            table.getcolshapestring(col, first_row, 1)[0]
+        )
+    col_dtype = np.array(table.getcell(col, first_row)).dtype
+    return extra_dimensions, col_dtype
 
 
 def read_col_conversion_numpy(
-    table_manager: TableManager,
+    main_rows: MainTableRows,
     col: str,
-    cshape: tuple[int],
+    cshape: tuple[int, int],
     tidxs: np.ndarray,
     bidxs: np.ndarray,
-    use_table_iter: bool,
-    time_chunksize: int,
 ) -> np.ndarray:
     """
-    Function to perform delayed reads from table columns when converting
-    (no need for didxs)
+    Reads a column of the partition rows from the base MAIN table into the
+    dense (time, baseline, ...) grid, with bounded read calls of ascending
+    rows (straight into the grid where rows map to consecutive cells,
+    otherwise through a bounded temporary, see ``read_rows_to_grid``). No
+    TaQL selection of the MAIN table is made.
+
+    The grid has the dtype of the partition's first cell. Cells without a row
+    are padded with get_pad_value (NaN, FLAG=False, ...) and, for duplicated
+    (time, baseline) rows, the last row wins. A column that cannot be read
+    (undefined cells, varying cell shapes) raises.
 
     Parameters
     ----------
-    table_manager : TableManager
-
+    main_rows : MainTableRows
+        MAIN table and the partition rows.
     col : str
-
-    cshape : Tuple[int]
-
+        Column name.
+    cshape : tuple[int, int]
+        (n_times, n_baselines) of the grid.
     tidxs : np.ndarray
-
+        Time index of every partition row.
     bidxs : np.ndarray
-
-    use_table_iter : bool
+        Baseline index of every partition row.
 
     Returns
     -------
     np.ndarray
+        The column values on the (time, baseline, ...) grid.
     """
-
-    # Workaround for https://github.com/casacore/python-casacore/issues/130
-    # WARNING: Assumes tb_tool is a single measurement set not an MMS.
-    # WARNING: Assumes the num_frequencies * num_polarizations < 2**29. If false,
-    # https://github.com/casacore/python-casacore/issues/130 isn't mitigated.
-
-    with table_manager.get_table() as tb_tool:
-        # Use casacore to get the shape of a row for this column
-        #################################################################################
-
-        # getcolshapestring() only works for array-valued columns.
-        # For scalar columns (e.g., EXPOSURE, TIME_CENTROID), it raises a RuntimeError.
-        # So we first check if the column is scalar to avoid that.
-        if tb_tool.isscalarcol(col):
-            extra_dimensions = ()
-        else:
-            # Get the shape string for the first row of the column (e.g., "[4, 2]")
-            shape_string = tb_tool.getcolshapestring(col)[0]
-
-            # Convert the shape string into a tuple of integers (e.g., (4, 2)) that numpy
-            # understands.
-            extra_dimensions = tuple(
-                int(dim) for dim in shape_string.strip("[]").split(", ")
-            )
-
-        #################################################################################
-
-        # Get dtype of the column. Only read first row from disk
-        col_dtype = np.array(tb_tool.col(col)[0]).dtype
-        # Use a custom/safe fill value (https://github.com/casangi/xradio/issues/219)
-        fill_value = get_pad_value(col_dtype)
-
-        # Construct a numpy array to populate. `data` has shape (n_times, n_baselines, n_frequencies, n_polarizations)
-        data = np.full(cshape + extra_dimensions, fill_value, dtype=col_dtype)
-
-        # Use built-in casacore table iterator to populate the data column by unique times.
-        if use_table_iter:
-            start_row = 0
-            for ts in tb_tool.iter("TIME", sort=False):
-                num_rows = ts.nrows()
-
-                # Create small temporary array to store the partial column
-                tmp_arr = np.full(
-                    (num_rows,) + extra_dimensions, fill_value, dtype=col_dtype
-                )
-
-                # Note we don't use `getcol()` because it's less safe. See:
-                # https://github.com/casacore/python-casacore/issues/130#issuecomment-463202373
-                ts.getcolnp(col, tmp_arr)
-
-                # Get the slice of rows contained in `tmp_arr`.
-                # Used to get the relevant integer indexes from `tidxs` and `bidxs`
-                tmp_slice = slice(start_row, start_row + num_rows)
-
-                # Copy `tmp_arr` into correct elements of `tmp_arr`
-                data[tidxs[tmp_slice], bidxs[tmp_slice]] = tmp_arr
-                start_row += num_rows
-        else:
-            data[tidxs, bidxs] = tb_tool.getcol(col)
-
-    return data
+    extra_dimensions, col_dtype = _partition_cell_shape_and_dtype(main_rows, col)
+    plan = main_rows.grid_plan(tidxs, bidxs, cshape)
+    shape = tuple(cshape) + extra_dimensions
+    # padded with get_pad_value (https://github.com/casangi/xradio/issues/219)
+    return read_grid(
+        main_rows.table, col, plan, shape, col_dtype, max_elems=main_rows.max_elems
+    )
 
 
 def read_col_conversion_dask(
-    table_manager: TableManager,
+    main_rows: MainTableRows,
     col: str,
-    cshape: tuple[int],
+    cshape: tuple[int, int],
     tidxs: np.ndarray,
     bidxs: np.ndarray,
-    use_table_iter: bool,
     time_chunksize: int,
 ) -> da.Array:
     """
-    Function to perform delayed reads from table columns when converting
-    (no need for didxs)
+    The lazy version of read_col_conversion_numpy (parallel_mode="time"): a
+    dask array with one block per chunk of times, each block reading the rows
+    of its times from the base MAIN table (bounded reads, as
+    read_col_conversion_numpy).
+
+    Any row order and missing or duplicated (time, baseline) rows give the
+    values of read_col_conversion_numpy (cells without a row are padded with
+    get_pad_value, FLAG=False). With casatools (no python-casacore) the blocks
+    of a process are read one at a time (``_CASATOOLS_READ_LOCK``): casatools
+    tables cannot be read from several threads at once.
 
     Parameters
     ----------
-    tb_tool : tables.table
-
+    main_rows : MainTableRows
+        MAIN table and the partition rows.
     col : str
-
-    cshape : Tuple[int]
-
+        Column name.
+    cshape : tuple[int, int]
+        (n_times, n_baselines) of the grid.
     tidxs : np.ndarray
-
+        Time index of every partition row.
     bidxs : np.ndarray
+        Baseline index of every partition row.
+    time_chunksize : int
+        Number of times per block (as dask chunks along time).
 
     Returns
     -------
     da.Array
+        Lazy (time, baseline, ...) array; every block opens the MAIN table by
+        name when computed.
     """
+    import dask
 
-    # Use casacore to get the shape of a row for this column
-    #################################################################################
+    extra_dimensions, col_dtype = _partition_cell_shape_and_dtype(main_rows, col)
+    in_file = main_rows.name()
+    num_utimes, num_baselines = int(cshape[0]), int(cshape[1])
+    time_chunks = da.core.normalize_chunks(time_chunksize, (num_utimes,))[0]
 
-    with table_manager.get_table() as tb_tool:
-        first_row = tb_tool.row(col)[0][col]
+    # The rows of every time chunk, computed once per partition and shared by
+    # the blocks of every column: the graph references the partition's index
+    # arrays (one graph key, so a distributed scheduler sends it once per
+    # worker) instead of holding copies per block and column.
+    chunk_rows = main_rows.time_chunk_rows(tidxs, bidxs, time_chunks, num_baselines)
+    shared_rows = main_rows.time_chunk_rows_delayed(chunk_rows)
 
-    if isinstance(first_row, np.ndarray):
-        extra_dimensions = first_row.shape
+    blocks = []
+    for k, ntimes in enumerate(time_chunks):
+        block_shape = (int(ntimes), num_baselines) + extra_dimensions
+        block = dask.delayed(_load_rows_time_chunk, pure=False)(
+            in_file,
+            col,
+            shared_rows,
+            k,
+            block_shape,
+            col_dtype,
+            main_rows.max_elems,
+        )
+        blocks.append(da.from_delayed(block, shape=block_shape, dtype=col_dtype))
 
-    else:
-        extra_dimensions = ()
+    return da.concatenate(blocks, axis=0)
 
-    # Use dask primitives to lazily read chunks of data from the MeasurementSet
-    # Takes inspiration from dask_image https://image.dask.org/en/latest/
-    #################################################################################
 
-    # Get dtype of the column. Wrap in numpy array in case of scalar column
-    col_dtype = np.array(first_row).dtype
+# casatools tables (the shim, used where python-casacore is not installed) must
+# not be used from several threads at once: with dask's threaded scheduler the
+# concurrent block reads of read_col_conversion_dask crashed, hung or returned
+# wrong values (casatools 6.7.0.31). Those block reads open, read, close and
+# release their table holding this lock.
+_CASATOOLS_READ_LOCK = threading.Lock()
 
-    # Get the number of rows for a single TIME value
-    num_utimes = cshape[0]
-    rows_per_time = cshape[1]
 
-    # Calculate the chunks of unique times that gives the target chunk sizes
-    tmp_chunks = da.core.normalize_chunks(time_chunksize, (num_utimes,))[0]
-
-    sum = 0
-    arr_start_end_rows = []
-    for chunk in tmp_chunks:
-        start = (sum) * rows_per_time
-        end = (sum + chunk) * rows_per_time
-
-        arr_start_end_rows.append((start, end))
-        sum += chunk
-
-    # Store the start and end rows that should be read for the chunk
-    arr_start_end_rows = da.from_array(arr_start_end_rows, chunks=(1, 2))
-
-    # Specify the output shape `load_col_chunk`
-    output_chunkshape = (tmp_chunks, cshape[1]) + extra_dimensions
-
-    # Apply `load_col_chunk` to each chunk
-    data = arr_start_end_rows.map_blocks(
-        load_col_chunk,
-        table_manager=table_manager,
-        col_name=col,
-        col_dtype=col_dtype,
-        tidxs=tidxs,
-        bidxs=bidxs,
-        rows_per_time=rows_per_time,
-        cshape=cshape,
-        extra_dimensions=extra_dimensions,
-        drop_axis=[1],
-        new_axis=list(range(1, len(cshape + extra_dimensions))),
-        meta=np.array([], dtype=col_dtype),
-        chunks=output_chunkshape,
+def _load_rows_time_chunk(
+    in_file: str,
+    col: str,
+    chunk_rows: TimeChunkRows,
+    k: int,
+    shape: tuple[int, ...],
+    dtype: np.dtype,
+    max_elems: int,
+) -> np.ndarray:
+    """Read time chunk (block) ``k`` of read_col_conversion_dask."""
+    cell_shape = tuple(shape[2:])
+    if chunk_rows.chunk_n_rows(k) == 0:  # only padding: no table needed
+        return read_time_chunk(None, col, chunk_rows, k, cell_shape, dtype, max_elems)
+    one_thread_at_a_time = (
+        contextlib.nullcontext()
+        if backend_has_in_place_reads()  # python-casacore
+        else _CASATOOLS_READ_LOCK
     )
-
-    return data
-
-
-def load_col_chunk(
-    x,
-    table_manager,
-    col_name,
-    col_dtype,
-    tidxs,
-    bidxs,
-    rows_per_time,
-    cshape,
-    extra_dimensions,
-):
-    start_row = x[0][0]
-    end_row = x[0][1]
-    num_rows = end_row - start_row
-    assert (num_rows % rows_per_time) == 0
-    num_utimes = num_rows // rows_per_time
-
-    # Create memory buffer to populate with data from disk
-    row_data = np.full((num_rows,) + extra_dimensions, np.nan, dtype=col_dtype)
-
-    # Load data from the column
-    # Release the casacore table as soon as possible
-    with table_manager.get_table() as tb_tool:
-        tb_tool.getcolnp(col_name, row_data, startrow=start_row, nrow=num_rows)
-
-    # Initialise reshaped numpy array
-    reshaped_data = np.full(
-        (num_utimes, cshape[1]) + extra_dimensions, np.nan, dtype=col_dtype
-    )
-
-    # Create slice object for readability
-    slc = slice(start_row, end_row)
-    tidxs_slc = tidxs[slc]
-
-    tidxs_slc = (
-        tidxs_slc - tidxs_slc[0]
-    )  # Indices of reshaped_data along time differ from values in tidxs. Assumes first time is earliest time
-    bidxs_slc = bidxs[slc]
-
-    # Populate `reshaped_data` with `row_data`
-    reshaped_data[tidxs_slc, bidxs_slc] = row_data
-
-    return reshaped_data
+    with one_thread_at_a_time:
+        # Opened in the thread/process that computes the block
+        with open_table_ro(in_file) as tb_tool:
+            values = read_time_chunk(
+                tb_tool, col, chunk_rows, k, cell_shape, dtype, max_elems
+            )
+        del tb_tool  # the table object is destroyed holding the lock
+    return values

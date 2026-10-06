@@ -50,16 +50,30 @@ time_start = (
         ),
     ],
 )
-def test_get_utimes_tol(ms_minimal_required, where, expected_output):
+def test_utimes_tol_from_times_of_partitions(
+    ms_minimal_required, where, expected_output
+):
+    """Unique times and tolerance of the TIME values of a partition (the rows
+    of a TaQL selection), the same as TaQL's DISTINCT gives."""
+    from casacore import tables
+
     from xradio.measurement_set._utils._msv2._tables.read_main_table import (
-        get_utimes_tol,
+        utimes_tol_from_times,
     )
+    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 
     with open_table_ro(ms_minimal_required.fname) as mtable:
-        utimes, tol = get_utimes_tol(mtable, where)
-        assert all(utimes == expected_output[0])
-        assert tol == expected_output[1]
+        with tables.taql(f"select * from $1 {where}", tables=[mtable]) as query:
+            rows = np.asarray(query.rownumbers(), dtype=np.int64)
+        with tables.taql(
+            f"select DISTINCT TIME from $1 {where}", tables=[mtable]
+        ) as query:
+            distinct = np.sort(query.getcol("TIME", 0, -1)) if rows.size else []
+        utimes, tol = utimes_tol_from_times(MainTableRows(mtable, rows).getcol("TIME"))
+    assert all(utimes == expected_output[0])
+    assert tol == expected_output[1]
+    np.testing.assert_array_equal(utimes, distinct)
 
 
 baseline_set_5 = np.array(

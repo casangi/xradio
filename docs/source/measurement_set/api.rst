@@ -44,20 +44,24 @@ partition the coordinates and the sub-datasets (antenna, field and source, syste
 builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those of the other data groups, ``FLAG``,
 ``WEIGHT``, ``UVW``, ``TIME_CENTROID``, ``EFFECTIVE_INTEGRATION_TIME``) are read from the MAIN table only when they are
 indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time. With
-python-casacore, a selection of some channels of ``VISIBILITY*``, ``SPECTRUM``, ``FLAG`` or ``WEIGHT`` (from
+python-casacore, a selection of some channels of ``VISIBILITY*``, ``SPECTRUM*``, ``FLAG`` or ``WEIGHT`` (from
 ``WEIGHT_SPECTRUM``) whose MAIN column is stored in tiles of fewer channels than a cell (tiled storage managers) reads
-only the tiles of those channels: their range rounded out to whole tiles. Cells without a MAIN row are NaN, and their
-``FLAG`` is False, as in the converted processing set. The ``pointing_xds`` is lazy too, whatever the size of the
-POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID`` columns, the shapes
-(not the values) of the cells of its array columns (stored in the MS by the first open, see below) and one cell of each
-data column, and a selection reads only the rows of its times and antennas. Only with ``pointing_interpolate=True`` is
-it read when the MS is opened, as by the converter. The converter reads the POINTING rows of every partition on their
-own, and leaves out (1,000 rows or more) or pads (fewer) a column whose cells there have several shapes or no value: a
-partition whose POINTING rows have such cells gets the converter's ``pointing_xds`` from the shapes of its cells (no
-value is read at open), with variables read lazily as above (1,000 rows or more) or built by the converter's code when
-they are read (fewer, once for all of them). Every partition of a POINTING table that cannot be described without
-reading it (no ``DIRECTION`` column, unusual value types) has its ``pointing_xds`` built by the converter's code when
-the MS is opened (the values are not kept) and again when its variables are read.
+only the tiles of those channels: their range rounded out to whole tiles. While it reads, the tile cache of the column
+is bounded (casacore's ``setmaxcachesize``, at least 16 MiB; set back when the last such read of the column ends), which
+caps its memory (casacore would otherwise keep every tile of the last, partial band of channels it reads);
+python-casacore shares one table object per table in a process, so the bound also applies to the reads of other handles
+of MAIN open in the process at that time (with a smaller bound, a pattern of reads that reuses tiles may read them
+again). Cells without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The
+``pointing_xds`` is lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID``
+columns, the shapes (not the values) of the cells of its array columns (stored in the MS by the first open, see below)
+and one cell of each data column, and a selection reads only the rows of its times and antennas. Only with
+``pointing_interpolate=True`` is it read when the MS is opened, as by the converter. The converter reads the POINTING
+rows of every partition on their own, and leaves out (1,000 rows or more) or pads (fewer) a column whose cells there
+have several shapes or no value: a partition whose POINTING rows have such cells gets the converter's ``pointing_xds``
+from the shapes of its cells (no value is read at open), with variables read lazily as above (1,000 rows or more) or
+built by the converter's code when they are read (fewer, once for all of them). Every partition of a POINTING table that
+cannot be described without reading it (no ``DIRECTION`` column, unusual value types) has its ``pointing_xds`` built by
+the converter's code when the MS is opened (the values are not kept) and again when its variables are read.
 
 **Columns only a read can check.** The converter leaves out a MAIN column whose cells cannot be read (for
 ``WEIGHT_SPECTRUM`` it reads ``WEIGHT`` instead). For most storage managers the engine finds such cells when the MS is

@@ -858,9 +858,10 @@ def test_channel_sliced_reads_equal_the_converter_reads(backend_ms, monkeypatch,
 def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
     """A channel-sliced read bounds the column's tile cache
     (setmaxcachesize, MiB) to twice the tiles of its bands for the rows of a
-    tile, at least CHANNEL_SLICE_MIN_CACHE_MIB; its time sub-blocks are
-    sized on the read channels; with the casatools read API (no in-place
-    reads) whole cells are read."""
+    tile, at least CHANNEL_SLICE_MIN_CACHE_MIB, and sets the maximum before
+    (getdmprop) again when it ends; its time sub-blocks are sized on the
+    read channels; with the casatools read API (no in-place reads) whole
+    cells are read."""
     lazy, reference, _ = lazy_and_reference(backend_ms("narrow_tiles"), 0)
     open_table_ro = backend_arrays.open_table_ro
     calls = []
@@ -886,16 +887,37 @@ def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
     assert_same_values(
         variable.isel(sel).values, reference["VISIBILITY"].isel(sel).values
     )
-    assert calls == [("DATA", backend_arrays.CHANNEL_SLICE_MIN_CACHE_MIB)]
+    # (the maximum before: none, 0)
+    assert calls == [("DATA", backend_arrays.CHANNEL_SLICE_MIN_CACHE_MIB), ("DATA", 0)]
     array.tile_band_bytes = 7 * 2**20  # 3 bands: 2 x 3 x 7 MiB
     calls.clear()
     variable.isel(sel).values  # noqa: B018
-    assert calls == [("DATA", 42)]
+    assert calls == [("DATA", 42), ("DATA", 0)]
     assert array._channel_cache_mib(0, 3) == 16 and array._channel_cache_mib(0, 9) == 42
-    # sub-blocks of the read channels
+    assert len(backend_arrays.TILE_CACHE_BOUNDS) == 0
+    # sub-blocks of the read channels (9 of 16): 3 times of all baselines each,
+    # where whole cells would give 1
     assert (
         array._cell_bytes(9) == 9 * 2 * 8 * 2 and array._cell_bytes() == 16 * 2 * 8 * 2
     )
+    n_times, n_baselines = variable.sizes["time"], variable.sizes["baseline_id"]
+    monkeypatch.setattr(
+        backend_arrays, "SUB_BLOCK_BYTES", 3 * n_baselines * array._cell_bytes(9)
+    )
+    steps = []
+    select_outer = backend_arrays.PartitionIndex.select_outer
+
+    def spy_select(self, times, *args, **kwargs):
+        steps.append(times.size)
+        return select_outer(self, times, *args, **kwargs)
+
+    monkeypatch.setattr(backend_arrays.PartitionIndex, "select_outer", spy_select)
+    assert_same_values(
+        variable.isel(sel).values, reference["VISIBILITY"].isel(sel).values
+    )
+    assert steps == [3] * (n_times // 3) + [n_times % 3] * bool(n_times % 3)
+    monkeypatch.setattr(backend_arrays.PartitionIndex, "select_outer", select_outer)
+    monkeypatch.setattr(backend_arrays, "SUB_BLOCK_BYTES", 128 * 2**20)
     # without in-place reads (the casatools shim): whole cells
     Recording.hidden = ("getcolnp", "getcolslicenp", "selectrows")
     calls.clear()
@@ -912,6 +934,175 @@ def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
             lazy[name].isel(sel).values, reference[name].isel(sel).values, name
         )
     assert calls == [] and sliced == []
+
+
+def test_channel_sliced_reads_set_the_tile_cache_bound_back(backend_ms, monkeypatch):
+    """
+    A channel-sliced read bounds the column's tile cache only while it
+    reads. python-casacore shares one table object per table in a process:
+    a handle of MAIN held open (here with a maximum of its own, 3 MiB) sees
+    the bound during the read and its own maximum again after it. Reads of
+    a column under way at once (nested here) keep the largest of their
+    bounds until the last one ends, which sets the maximum before again.
+    """
+    from xradio.measurement_set._utils._msv2._tables.table_query import (
+        open_table_ro,
+    )
+
+    msname = backend_ms("narrow_tiles")
+    lazy, reference, _ = lazy_and_reference(msname, 0)
+    seen = []
+    read_rows_to_grid = backend_arrays.read_rows_to_grid
+
+    def spy(table, col, plan, grid, *args, **kwargs):
+        seen.append(table.getdmprop(col)["MaxCacheSize"])
+        return read_rows_to_grid(table, col, plan, grid, *args, **kwargs)
+
+    monkeypatch.setattr(backend_arrays, "read_rows_to_grid", spy)
+    bounds = backend_arrays.TILE_CACHE_BOUNDS
+    sel = {"frequency": slice(2, 7)}
+    with open_table_ro(msname) as handle:
+        handle.setmaxcachesize("DATA", 3)
+        assert_same_values(
+            lazy["VISIBILITY"].isel(sel).values,
+            reference["VISIBILITY"].isel(sel).values,
+        )
+        assert seen and set(seen) == {backend_arrays.CHANNEL_SLICE_MIN_CACHE_MIB}
+        assert handle.getdmprop("DATA")["MaxCacheSize"] == 3
+        assert len(bounds) == 0
+        with bounds.bounded(handle, msname, "DATA", 16):
+            with bounds.bounded(handle, msname, "DATA", 42):
+                assert handle.getdmprop("DATA")["MaxCacheSize"] == 42
+            assert handle.getdmprop("DATA")["MaxCacheSize"] == 16
+            with pytest.raises(ValueError):
+                with bounds.bounded(handle, msname, "DATA", 8):
+                    assert handle.getdmprop("DATA")["MaxCacheSize"] == 16
+                    raise ValueError("a read that fails")
+            assert handle.getdmprop("DATA")["MaxCacheSize"] == 16
+        assert handle.getdmprop("DATA")["MaxCacheSize"] == 3
+        assert len(bounds) == 0
+        handle.setmaxcachesize("DATA", 0)
+
+
+def _interleaved_order(first: list, second: list) -> np.ndarray:
+    """
+    An order of two lists of rows (each kept in its order) in which runs of
+    8 rows of one are separated by single rows of the other: 8 rows of
+    ``first`` and 1 of ``second`` for the first half of ``first`` (the gaps
+    of the runs of its first rows are bridgeable), then 8 of ``second`` and
+    1 of ``first``, then the rows left.
+    """
+    first, second = list(first), list(second)
+    half = len(first) // 2
+    order = []
+    while len(order) < half + half // 8 and first:
+        order += first[:8] + second[:1]
+        del first[:8], second[:1]
+    while second and first:
+        order += second[:8] + first[:1]
+        del second[:8], first[:1]
+    return np.array(order + first + second, dtype=np.int64)
+
+
+@pytest.fixture(scope="module")
+def interleaved_narrow_tiles(backend_ms, tmp_path_factory):
+    """
+    Deep copies of the "narrow_tiles" MS (the tiling of the copies is that
+    of the original) with their rows in an _interleaved_order:
+
+    - "two_shapes": the rows of SPW 0 (16 channels) and SPW 1 (24): the
+      rows of a partition interleave with rows of another cell shape;
+    - "one_shape": the rows of SPW 0 only (DDIs 0 and 1, other partitions
+      of cells of one shape), interleaved.
+    """
+    from casacore import tables
+
+    msname = backend_ms("narrow_tiles")
+    base = tmp_path_factory.mktemp("interleaved")
+    with (
+        tables.table(os.path.join(msname, "DATA_DESCRIPTION"), ack=False) as dd_tb,
+        tables.table(msname, ack=False) as main_tb,
+    ):
+        ddi = main_tb.getcol("DATA_DESC_ID")
+        spw = dd_tb.getcol("SPECTRAL_WINDOW_ID")[ddi]
+        orders = {
+            "two_shapes": _interleaved_order(
+                np.flatnonzero(spw == 0), np.flatnonzero(spw == 1)
+            ),
+            "one_shape": _interleaved_order(
+                np.flatnonzero(ddi == 0), np.flatnonzero(ddi == 1)
+            ),
+        }
+        paths = {}
+        for kind, order in orders.items():
+            paths[kind] = str(base / f"{kind}.ms")
+            ordered = main_tb.selectrows(order)
+            ordered.copy(paths[kind], deep=True, valuecopy=True).close()
+            ordered.close()
+    yield paths
+    shutil.rmtree(base, ignore_errors=True)
+
+
+@pytest.mark.parametrize(
+    "kind, idx",
+    [("two_shapes", 0), ("two_shapes", 1), ("two_shapes", 3), ("one_shape", 0)],
+)
+def test_channel_sliced_reads_of_interleaved_rows(
+    interleaved_narrow_tiles, monkeypatch, kind, idx
+):
+    """
+    Channel-sliced reads of partitions whose rows interleave with rows of
+    other partitions, in one time sub-block and in several (SUB_BLOCK_BYTES
+    lowered: one time each, and a few), give the values the converter
+    reads, bit for bit. In a column of one cell shape, read_rows_to_grid
+    bridges the gaps of single rows of other partitions; in a column with
+    cells of another shape (where casacore reads a range of channels beyond
+    a smaller cell without an error), it reads the partition's rows only
+    (runs, or selectrows).
+    """
+    msname = interleaved_narrow_tiles[kind]
+    lazy, reference, _ = lazy_and_reference(msname, idx)
+    stats = {}
+    read_rows_to_grid = backend_arrays.read_rows_to_grid
+
+    def spy(table, col, plan, grid, *args, **kwargs):
+        return read_rows_to_grid(table, col, plan, grid, *args, stats=stats, **kwargs)
+
+    monkeypatch.setattr(backend_arrays, "read_rows_to_grid", spy)
+    steps = []
+    select_outer = backend_arrays.PartitionIndex.select_outer
+
+    def spy_select(self, times, *args, **kwargs):
+        steps.append(times.size)
+        return select_outer(self, times, *args, **kwargs)
+
+    monkeypatch.setattr(backend_arrays.PartitionIndex, "select_outer", spy_select)
+    names = ("VISIBILITY", "VISIBILITY_CORRECTED", "FLAG", "WEIGHT")
+    for name in names:
+        array = lazy[name]._data.array
+        assert array.tile_channels and array.tile_bridge == (kind == "one_shape")
+    n_times = lazy["VISIBILITY"].sizes["time"]
+    for sub_block_bytes in (128 * 2**20, 1, 5000):
+        monkeypatch.setattr(backend_arrays, "SUB_BLOCK_BYTES", sub_block_bytes)
+        steps.clear()
+        for name in names:
+            variable = lazy[name]
+            n_chan = variable.sizes["frequency"]
+            for sel in _channel_selections(n_chan):
+                assert_same_values(
+                    variable.isel(sel).values,
+                    reference[name].isel(sel).values,
+                    f"{name} {sel} {sub_block_bytes}",
+                )
+        if sub_block_bytes == 1:
+            assert set(steps) == {1}
+        elif sub_block_bytes == 5000:
+            assert 1 < max(steps) < n_times
+    assert stats["calls"] and stats["selectrows_calls"]
+    if kind == "one_shape":
+        assert stats["gap_rows"]
+    else:
+        assert not stats.get("gap_rows") and not stats.get("bridge_fallbacks")
 
 
 @pytest.mark.skipif(

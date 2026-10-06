@@ -635,6 +635,83 @@ class _CheckMemo:
 CHECK_MEMO = _CheckMemo(CHECK_MEMO_MAX_ENTRIES)
 
 
+def _max_cache_mib(table: Any, col: str) -> int | None:
+    """The maximum tile cache size (MiB, 0: none) of the data manager of a
+    column as it is now in the process (its MaxCacheSize property), or None
+    if it cannot be told."""
+    try:
+        return int(table.getdmprop(col)["MaxCacheSize"])
+    except Exception:
+        return None
+
+
+class _TileCacheBounds:
+    """
+    The bounds (MiB) of the tile caches of the MAIN columns that
+    channel-sliced reads of this process set while they read
+    (``MSv2MainColumnArray._read_with``, see ``_channel_cache_mib``).
+    python-casacore shares one table object per table in a process, so a
+    bound (``setmaxcachesize``) applies to every handle of MAIN open in the
+    process while it is set, and stays set as long as one of them is open.
+    So the first of the reads of a column under way records the maximum
+    the column had before (``_max_cache_mib``; no bound is set if it cannot
+    be told), the largest bound of the reads under way is set, and the last
+    of them to end sets the maximum before again. Renewed (no read under
+    way) in a fork child.
+    """
+
+    def __init__(self):
+        self.reset_after_fork()
+
+    def reset_after_fork(self) -> None:
+        self._lock = threading.Lock()
+        # (MAIN path, column) -> (bounds of the reads under way, maximum before)
+        self._active: dict[tuple[str, str], tuple[list[int], int]] = {}
+
+    def __len__(self) -> int:
+        return len(self._active)
+
+    @contextlib.contextmanager
+    def bounded(self, table: Any, ms_path: str, col: str, mib: int):
+        """Bound the tile cache of ``col`` to ``mib`` (MiB, or the largest
+        bound of the other reads of the column under way) while the block
+        runs; the table must stay open until it ends."""
+        key = (os.path.realpath(ms_path), str(col))
+        mib = int(mib)
+        with self._lock:
+            entry = self._active.get(key)
+            if entry is None:
+                before = _max_cache_mib(table, col)
+                if before is None:
+                    entry = None
+                else:
+                    entry = ([], before)
+            if entry is not None:
+                bounds = entry[0] + [mib]
+                table.setmaxcachesize(col, max(bounds))
+                entry[0].append(mib)
+                self._active[key] = entry
+        try:
+            yield
+        finally:
+            if entry is not None:
+                with self._lock:
+                    bounds, before = entry
+                    bounds.remove(mib)
+                    if not bounds:
+                        del self._active[key]
+                    try:
+                        table.setmaxcachesize(col, max(bounds) if bounds else before)
+                    except Exception as exc:  # (the values are read)
+                        xradio_logger().debug(
+                            f"The tile cache bound of {col} of {ms_path} was not "
+                            f"reset: {exc}"
+                        )
+
+
+TILE_CACHE_BOUNDS = _TileCacheBounds()
+
+
 def _runs_mask(starts: np.ndarray, ends: np.ndarray, r0: int, r1: int) -> np.ndarray:
     """Which rows of [r0, r1) are in the runs [starts, ends) (ascending,
     disjoint)."""
@@ -835,6 +912,7 @@ INDEX_MEMO = _IndexMemo(INDEX_MEMO_MAX_BYTES)
 if hasattr(os, "register_at_fork"):
     os.register_at_fork(after_in_child=INDEX_MEMO.reset_after_fork)
     os.register_at_fork(after_in_child=CHECK_MEMO.reset_after_fork)
+    os.register_at_fork(after_in_child=TILE_CACHE_BOUNDS.reset_after_fork)
 
 
 def clear_index_memo() -> None:
@@ -1418,6 +1496,32 @@ def channel_tiling(
     return tile_channels, band_bytes
 
 
+def one_cell_shape(storage: ColumnStorage | None, cell_shape: tuple[int, ...]) -> bool:
+    """
+    Whether every cell of a column stored in hypercubes (``column_storage``)
+    has the shape ``cell_shape`` (numpy order): every hypercube of its tiled
+    storage manager has cells of that shape. False if that cannot be told.
+    A channel-sliced read bridges gaps of rows of other partitions only
+    then (``read_rows_to_grid(bridge=)``): casacore reads a range of
+    channels beyond a smaller cell without an error when the run starts
+    with a larger one.
+    """
+    if storage is None or storage.error or not storage.plain:
+        return False
+    expected = [int(n) for n in cell_shape][::-1]  # (Fortran order)
+    try:
+        cubes = list(storage.hypercubes)
+        for cube in cubes:
+            cube_cell = cube.get("CellShape")
+            if cube_cell is None:
+                cube_cell = np.asarray(cube.get("CubeShape", []))[:-1]
+            if [int(n) for n in np.asarray(cube_cell)] != expected:
+                return False
+    except (TypeError, ValueError):
+        return False
+    return bool(cubes)
+
+
 class MSv2MainColumnArray(MSv2BackendArray):
     """
     One data variable of the main xds of an MSv4, read from a MAIN column of
@@ -1425,7 +1529,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
     axis is reversed by the caller, lazily).
 
     Channel-sliced reads: the cells of a column of CHANNEL_SLICED_COLUMNS
-    (values as read: VISIBILITY*, SPECTRUM, FLAG, WEIGHT from WEIGHT_SPECTRUM)
+    (values as read: VISIBILITY*, SPECTRUM*, FLAG, WEIGHT from WEIGHT_SPECTRUM)
     whose 2-D (chan, pol) cells are stored in tiles of ``tile_channels``
     channels (fewer than the cell's, ``channel_tiling``) are read, with
     python-casacore, for the range of channels of a selection that does not
@@ -1470,6 +1574,10 @@ class MSv2MainColumnArray(MSv2BackendArray):
         Bytes of the tiles of one band of ``tile_channels`` channels
         (``channel_tiling``), for the bound of the tile cache of a
         channel-sliced read.
+    tile_bridge : bool, optional
+        Whether a channel-sliced read may bridge gaps of rows of other
+        partitions (``one_cell_shape`` of the column when the MS was
+        opened), by default False: the partition's rows only.
     """
 
     def __init__(
@@ -1486,6 +1594,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
         node: str = "",
         tile_channels: int = 0,
         tile_band_bytes: int = 0,
+        tile_bridge: bool = False,
     ):
         super().__init__(shape, dtype)
         if self.shape[:2] != index.shape:
@@ -1509,6 +1618,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
         )
         self.tile_channels = int(tile_channels) if sliced else 0
         self.tile_band_bytes = max(0, int(tile_band_bytes)) if sliced else 0
+        self.tile_bridge = bool(tile_bridge) and sliced
 
     @classmethod
     def from_spec(
@@ -1524,11 +1634,12 @@ class MSv2MainColumnArray(MSv2BackendArray):
         whose channel tiling (``channel_tiling``) is found from ``storage``
         (``column_storage`` of the column when the MS is opened; None: whole
         cells are read)."""
-        tile_channels, tile_band_bytes = 0, 0
+        tile_channels, tile_band_bytes, tile_bridge = 0, 0, False
         if spec.col in CHANNEL_SLICED_COLUMNS:
             tile_channels, tile_band_bytes = channel_tiling(
                 storage, spec.cell_shape, spec.grid_dtype
             )
+            tile_bridge = one_cell_shape(storage, spec.cell_shape)
         return cls(
             index,
             spec.col,
@@ -1542,6 +1653,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
             node,
             tile_channels,
             tile_band_bytes,
+            tile_bridge,
         )
 
     def _cell_bytes(self, channels: int | None = None) -> int:
@@ -1578,11 +1690,23 @@ class MSv2MainColumnArray(MSv2BackendArray):
         The bound (MiB) of the column's tile cache for a read of the channels
         [c0, c1): twice the tiles of its bands of channels for the rows of a
         tile (a row of tiles, and the next one), at least
-        CHANNEL_SLICE_MIN_CACHE_MIB. Without a bound casacore sizes the cache
-        from the host's memory (not the process's limits); a cache smaller
-        than a row of tiles reads tiles again. (The bound is kept by the
-        column's storage manager while the MAIN table is open in the
-        process: by other handles too.)
+        CHANNEL_SLICE_MIN_CACHE_MIB.
+
+        It caps memory, not the bytes read. casacore sizes the cache of every
+        access itself (TSMDataColumn::accessSlicedCells): one tile for a range
+        of whole tiles, but for a range that ends inside a tile (the last,
+        partial band of cells whose channels are not a multiple of
+        ``tile_channels``) every tile of the band in the hypercube, up to a
+        quarter of the host's memory (not the process's limits), kept until
+        the table is closed (the last channel of runs of rows spread over a
+        column of 200,000 rows of 100 channels, in tiles of 8 channels and 64
+        rows: the 25 MiB of tiles read were kept; nothing with the bound). The
+        bytes read are the same without a bound and with bounds of 16 MiB to
+        1 GiB:
+        the tiles that the rows of two runs share are read again either way,
+        as with whole cells. The bound is set while the read runs
+        (TILE_CACHE_BOUNDS), on the column's data manager: for every handle of
+        MAIN open in the process at that time.
         """
         bands = -(-(c1 - c0) // self.tile_channels)
         needed = -(-2 * bands * self.tile_band_bytes // 2**20)
@@ -1599,7 +1723,8 @@ class MSv2MainColumnArray(MSv2BackendArray):
         the (time, baseline) grid of ``grid_shape``, as ``read_grid`` (padded
         with get_pad_value; for duplicated cells the last row wins) but for
         those channels only (the transform is the identity: the column is in
-        CHANNEL_SLICED_COLUMNS)."""
+        CHANNEL_SLICED_COLUMNS). Gaps of rows of other partitions are bridged
+        only in a column of one cell shape (``tile_bridge``)."""
         c0, c1 = chan_range
         shape = tuple(grid_shape) + (c1 - c0, self.cell_shape[1])
         if plan.grid_is_full:
@@ -1607,7 +1732,14 @@ class MSv2MainColumnArray(MSv2BackendArray):
         else:
             grid = np.full(shape, get_pad_value(self.grid_dtype), dtype=self.grid_dtype)
         if plan.rows.size:
-            read_rows_to_grid(table, self.col, plan, grid, chan=slice(c0, c1))
+            read_rows_to_grid(
+                table,
+                self.col,
+                plan,
+                grid,
+                chan=slice(c0, c1),
+                bridge=self.tile_bridge,
+            )
         return grid
 
     def _message(self, key: tuple[slice, ...], exc: BaseException) -> str:
@@ -1755,8 +1887,15 @@ class MSv2MainColumnArray(MSv2BackendArray):
                             self._check_weight_spectrum_cells(table)
                         if chan_range is not None:
                             if has_in_place_reads(table):
-                                table.setmaxcachesize(
-                                    self.col, self._channel_cache_mib(*chan_range)
+                                # (set again when the read ends, before the
+                                # table is closed)
+                                stack.enter_context(
+                                    TILE_CACHE_BOUNDS.bounded(
+                                        table,
+                                        self.index.ms_path,
+                                        self.col,
+                                        self._channel_cache_mib(*chan_range),
+                                    )
                                 )
                             else:  # (casatools: whole cells)
                                 chan_range = None

@@ -7,8 +7,10 @@ main xds, attributes and every sub-dataset, exactly as
 ``convert_msv2_to_processing_set`` builds it), with the data variables read
 from MAIN columns left as placeholders. Those are then replaced by lazily
 indexed arrays (``backend_arrays``) that read the MAIN table when they are
-indexed. Opening reads no MAIN data column, and the MAIN table is closed
-before the node is returned. The data variables of the pointing_xds are
+indexed. Opening reads one cell of each of their MAIN columns, that of the
+partition's first row (its dtype, as in the converter's build:
+``_partition_cell_shape_and_dtype``), and the MAIN table is closed before
+the node is returned. The data variables of the pointing_xds are
 lazy too (``backend_pointing``): opening reads the POINTING index columns
 (TIME, ANTENNA_ID), not its values.
 """

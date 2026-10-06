@@ -41,7 +41,9 @@ def open_msv2(
     EFFECTIVE_INTEGRATION_TIME) and the data variables of the pointing_xds
     (POINTING_BEAM, POINTING_DISH_MEASURED, POINTING_OVER_THE_TOP) are read
     from the MS when they are indexed or computed (a selection reads only its
-    rows). For the pointing_xds, the POINTING TIME and ANTENNA_ID columns are
+    rows; opening reads one cell of each of their MAIN columns per partition,
+    that of its first row, for the dtype, as the converter does). For the
+    pointing_xds, the POINTING TIME and ANTENNA_ID columns are
     read at open (its time and antenna coordinates), the shapes of the cells
     of its array columns (stored in the MS by the first open, see
     partition_cache below), and one cell of each data column. Only with

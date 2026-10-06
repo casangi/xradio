@@ -166,7 +166,7 @@ def test_engine_equals_the_converted_processing_set(case, tmp_path, grid_reads):
     """
     On a copy of the MS, the engine's processing set equals the converted
     one: with chunks={} against array_backend="dask" (cold: the partitions
-    are computed and stored in the copy; nothing of MAIN's data is read at
+    are computed and stored in the copy; no grid of MAIN's data is read at
     open), and with chunks=None against array_backend="xarray" (warm: the
     stored partitions, checked against their rows). Same nodes, identical
     datasets (dates aside), the converter's dask chunks of the main data

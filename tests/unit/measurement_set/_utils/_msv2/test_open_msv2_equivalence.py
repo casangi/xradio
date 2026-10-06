@@ -501,7 +501,8 @@ def grid_reads(monkeypatch):
 
 
 def test_open_reads_no_main_data_and_a_selection_reads_its_rows(backend_ms, grid_reads):
-    """Opening reads no MAIN data column; a selection of 2 times and 1
+    """Opening reads no MAIN data column on the grid (only the first cell of
+    a partition per column, for its dtype); a selection of 2 times and 1
     channel under chunks={} reads the rows of those 2 times only."""
     tree = xr.open_datatree(
         backend_ms("dense"), engine=ENGINE, chunks={}, main_chunksize={"time": 10}

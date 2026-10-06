@@ -43,7 +43,9 @@ processing set, as the converter writes it. ``xr.open_dataset`` cannot open an M
 partition the coordinates and the sub-datasets (antenna, field and source, system calibration, ...) as the converter
 builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those of the other data groups, ``FLAG``,
 ``WEIGHT``, ``UVW``, ``TIME_CENTROID``, ``EFFECTIVE_INTEGRATION_TIME``) are read from the MAIN table only when they are
-indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time. With
+indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time.
+Opening reads one cell of each of their MAIN columns per partition, that of its first row, whose type gives the
+variable's dtype, as the converter does (for a column in tiled storage, this reads the tiles that hold that cell). With
 python-casacore, a selection of some channels of ``VISIBILITY*``, ``SPECTRUM*``, ``FLAG`` or ``WEIGHT`` (from
 ``WEIGHT_SPECTRUM``) whose MAIN column is stored in tiles of fewer channels than a cell (tiled storage managers) reads
 only the tiles of those channels: their range rounded out to whole tiles. While it reads, the tile cache of the

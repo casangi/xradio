@@ -171,9 +171,10 @@ def test_node_writes_the_converters_msv4(backend_ms, case, tmp_path):
 
 def test_every_main_data_variable_is_lazy_and_nothing_is_read(backend_ms, monkeypatch):
     """
-    Opening reads no MAIN data column: every data variable from a MAIN
-    column is a lazily indexed MSv2 array (no placeholder left), and no grid
-    read happens until the values are asked for.
+    Opening reads no MAIN data column on the grid: every data variable from
+    a MAIN column is a lazily indexed MSv2 array (no placeholder left), and
+    no grid read happens until the values are asked for (the one cell an
+    open reads per column: test_open_reads_the_first_cell_of_each_column).
     """
     reads = []
     read_grid = read_rows.read_rows_to_grid
@@ -197,6 +198,71 @@ def test_every_main_data_variable_is_lazy_and_nothing_is_read(backend_ms, monkey
         assert not any(map(backend_partition._is_placeholder, sub.variables.values()))
     xds.VISIBILITY.isel(time=0).values  # noqa: B018
     assert reads == ["DATA"]
+
+
+# The python-casacore table methods that read values
+VALUE_READ_METHODS = (
+    "getcell",
+    "getcellslice",
+    "getcol",
+    "getcolnp",
+    "getcolslice",
+    "getcolslicenp",
+    "getvarcol",
+)
+
+
+def test_open_reads_the_first_cell_of_each_column(backend_ms, monkeypatch):
+    """
+    Of the MAIN columns of the main data variables, opening an MS reads one
+    cell per partition, that of the partition's first row (the converter's
+    build takes the dtype from it: _partition_cell_shape_and_dtype), with
+    getcell, and no other value (api.rst, "What is read when").
+    """
+    from casacore import tables
+
+    from _xradio_xarray_backends import MSv2BackendEntrypoint
+
+    msname = os.path.realpath(backend_ms("rich"))
+    columns = {
+        "DATA",
+        "CORRECTED_DATA",
+        "MODEL_DATA",
+        "FLAG",
+        "WEIGHT",
+        "WEIGHT_SPECTRUM",
+        "UVW",
+        "TIME_CENTROID",
+        "EXPOSURE",
+    }
+    reads = []
+
+    def spying(method):
+        read = getattr(tables.table, method)
+
+        def spy(self, col, *args, **kwargs):
+            if col in columns and os.path.realpath(self.name()) == msname:
+                reads.append((method, col, args[:1]))
+            return read(self, col, *args, **kwargs)
+
+        return spy
+
+    for method in VALUE_READ_METHODS:
+        monkeypatch.setattr(tables.table, method, spying(method))
+    tree = xr.open_datatree(msname, engine=MSv2BackendEntrypoint, partition_cache="off")
+    opened = list(reads)
+    _, runs = create_partitions_with_main_rows(msname, [])
+    n_partitions = len(runs.bounds) - 1
+    assert len(tree.children) == n_partitions
+    first_rows = sorted(int(runs.starts[runs.bounds[i]]) for i in range(n_partitions))
+    assert {method for method, _, _ in opened} == {"getcell"}
+    rows = {}
+    for _, col, (row,) in opened:
+        rows.setdefault(col, []).append(int(row))
+    # (WEIGHT_SPECTRUM is read, so WEIGHT is not)
+    assert set(rows) == columns - {"WEIGHT"}
+    for col, found in rows.items():
+        assert sorted(found) == first_rows, col
 
 
 def test_placeholders_left_are_an_error():

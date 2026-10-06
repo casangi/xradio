@@ -1,7 +1,8 @@
 """
 The lazy variables of the ``xradio_msv2`` engine read in other processes and
 threads: a fork child (also one forked while other threads hold every lock of
-the backend), dask's processes scheduler (spawned workers, which unpickle the
+the backend, which opens an MS, or reads through every lock of the reads),
+dask's processes scheduler (spawned workers, which unpickle the
 arrays and rebuild their indices from the MS), a distributed LocalCluster
 with worker processes, 8 dask threads that rebuild the indices at once, and
 a pickled lazy selection computed in a spawned process. All give the values
@@ -121,6 +122,9 @@ def backend_locks(msname: str) -> list:
         CASATOOLS_LOCK,
         backend_arrays.INDEX_MEMO._lock,
         *backend_arrays.INDEX_MEMO._build_locks,
+        backend_arrays.CHECK_MEMO._lock,
+        *backend_arrays.CHECK_MEMO._check_locks,
+        backend_arrays.TILE_CACHE_BOUNDS._lock,
         partition_cache.PARTITIONS_MEMO._lock,
         partition_cache.PARTITIONS_MEMO.build_lock(key),
         partition_cache._NOTICES_LOCK,
@@ -130,6 +134,8 @@ def backend_locks(msname: str) -> list:
         *backend_pointing.POINTING_INDEX_MEMO._build_locks,
         backend_pointing.POINTING_SELECTION_MEMO._lock,
         *backend_pointing.POINTING_SELECTION_MEMO._build_locks,
+        backend_pointing.POINTING_BUILD_MEMO._lock,
+        *backend_pointing.POINTING_BUILD_MEMO._build_locks,
         subtable_cache._PROCESS_STATES.lock,
     ]
 
@@ -194,10 +200,10 @@ def test_fork_child_reads_the_values(opened):
 def test_fork_while_other_threads_hold_the_locks(opened, ms_copy):
     """
     A child forked while another thread holds every lock of the backend (the
-    casatools lock, the index, partition and pointing memos and their build
-    locks, the cache's write mutexes and notices, the sub-table cache state)
-    opens a copy of the MS (storing its partitions) and reads every lazy
-    variable, instead of deadlocking.
+    casatools lock, the index, check, partition and pointing memos and their
+    build locks, the tile cache bounds, the cache's write mutexes and
+    notices, the sub-table cache state) opens a copy of the MS (storing its
+    partitions) and reads every lazy variable, instead of deadlocking.
     """
     _, _, expected = opened
     msname = ms_copy("rich", name="rich.ms")
@@ -213,6 +219,63 @@ def test_fork_while_other_threads_hold_the_locks(opened, ms_copy):
         )
 
     with held_by_another_thread(backend_locks(msname)):
+        assert fork_and_check(child) == 0
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_fork_child_reads_through_every_lock(ms_copy, monkeypatch):
+    """
+    A child forked while another thread holds every lock of the backend
+    reads the lazy variables of trees the parent opened through the locks
+    that only some reads take, instead of deadlocking: channel-sliced reads
+    (TILE_CACHE_BOUNDS: a selection of a few channels of the "narrow_tiles"
+    MS, whose columns are in tiles of fewer channels), whole-partition
+    checks (CHECK_MEMO: MAIN's key columns written since the open, with the
+    same values) and pointing_xds variables built on read
+    (POINTING_BUILD_MEMO: a POINTING column the lazy reads cannot describe).
+    They give the values read in the parent.
+    """
+    from casacore import tables
+
+    narrow, rich = ms_copy("narrow_tiles"), ms_copy("rich")
+    with tables.table(os.path.join(rich, "POINTING"), readonly=False, ack=False) as tb:
+        tb.addcols(tables.makescacoldesc("OVER_THE_TOP", 0))
+        tb.putcol("OVER_THE_TOP", (np.arange(tb.nrows()) % 3).astype(np.int32))
+    narrow_tree = xr.open_datatree(narrow, engine=ENGINE, chunks={}, **OPTIONS)
+    rich_tree = xr.open_datatree(rich, engine=ENGINE, chunks={}, **OPTIONS)
+    with tables.table(narrow, readonly=False, ack=False) as main_tb:
+        main_tb.putcol("TIME", main_tb.getcol("TIME"))
+    arrays = {
+        name: var.isel(frequency=slice(4, 6)) if "frequency" in var.dims else var
+        for name, var in lazy_variables(narrow_tree).items()
+    }
+    arrays |= {
+        f"rich/{name}": var
+        for name, var in lazy_variables(rich_tree).items()
+        if "pointing_xds" in name
+    }
+    assert any(name.startswith("rich/") for name in arrays)
+    bounds = backend_arrays.TILE_CACHE_BOUNDS
+    bounded, bounded_columns = bounds.bounded, []
+
+    def spy(table, ms_path, col, *args, **kwargs):
+        bounded_columns.append(col)
+        return bounded(table, ms_path, col, *args, **kwargs)
+
+    monkeypatch.setattr(bounds, "bounded", spy)
+    clear_memos()
+    expected = digests(compute(arrays, scheduler="synchronous"))
+    # (the reads took these locks in the parent)
+    assert {"DATA", "CORRECTED_DATA", "FLAG", "WEIGHT_SPECTRUM"} <= set(bounded_columns)
+    assert len(backend_arrays.CHECK_MEMO) and len(backend_pointing.POINTING_BUILD_MEMO)
+
+    def child():
+        bounded_columns.clear()
+        values = compute(arrays, scheduler="synchronous")
+        return digests(values) == expected and bool(bounded_columns)
+
+    with held_by_another_thread(backend_locks(narrow)):
         assert fork_and_check(child) == 0
 
 

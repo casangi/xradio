@@ -1,5 +1,6 @@
 import os
 import time
+from collections.abc import Callable
 
 import numpy as np
 import xarray as xr
@@ -418,6 +419,7 @@ def create_pointing_xds(
     ant_xds_name_ids: xr.DataArray,
     time_min_max: tuple[np.float64, np.float64] | None,
     interp_time: xr.DataArray | None = None,
+    generic_loader: Callable | None = None,
 ) -> xr.Dataset:
     """
     Creates a Pointing Xarray Dataset from an MS v2 POINTING (sub)table.
@@ -435,6 +437,13 @@ def create_pointing_xds(
         min / max times values to constrain loading (from the TIME column)
     interp_time : Union[xr.DataArray, None] (Default value = None)
         interpolate time to this (presumably main dataset time)
+    generic_loader : Callable | None (Default value = None)
+        Without interp_time: ``generic_loader(in_file, time_min_max,
+        antenna_ids, data_columns)`` (data_columns: the POINTING data columns
+        and the data variables made from them, by column) gives the generic
+        pointing dataset instead of the reads below, or None to read POINTING
+        as usual (the MSv2 xarray backend's lazy pointing_xds, see
+        backend_pointing.py).
 
     Returns
     -------
@@ -451,14 +460,24 @@ def create_pointing_xds(
         "OVER_THE_TOP": ["POINTING_OVER_THE_TOP", time_ant_dims],
     }
 
-    # With an active sub-table cache, POINTING is read once per conversion and
-    # the rows of this partition are selected from it (None: read them here).
-    generic_pointing_xds = load_cached_pointing_generic_xds(
-        in_file,
-        time_min_max,
-        ant_xds_name_ids.antenna_id.values,
-        tuple(to_new_data_variables),
-    )
+    generic_pointing_xds = None
+    if generic_loader is not None and interp_time is None:
+        generic_pointing_xds = generic_loader(
+            in_file,
+            time_min_max,
+            ant_xds_name_ids.antenna_id.values,
+            {col: new[0] for col, new in to_new_data_variables.items()},
+        )
+    if generic_pointing_xds is None:
+        # With an active sub-table cache, POINTING is read once per conversion
+        # and the rows of this partition are selected from it (None: read them
+        # here).
+        generic_pointing_xds = load_cached_pointing_generic_xds(
+            in_file,
+            time_min_max,
+            ant_xds_name_ids.antenna_id.values,
+            tuple(to_new_data_variables),
+        )
     if generic_pointing_xds is None:
         taql_time_range = make_taql_where_between_min_max(
             time_min_max, in_file, "POINTING", "TIME"

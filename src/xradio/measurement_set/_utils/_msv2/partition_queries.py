@@ -1,6 +1,8 @@
+import dataclasses
 import gzip
 import hashlib
 import itertools
+import json
 import operator
 import os
 import pickle
@@ -23,6 +25,7 @@ from xradio.measurement_set._utils._msv2._tables.read_rows import (
     read_row_range,
     runs_to_rows,
 )
+from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 
 # Partition description keys that select MAIN rows, in the order used by
 # conversion.create_taql_query_where (which also lists STATE_ID twice). For
@@ -35,6 +38,272 @@ MAIN_ROW_SELECTION_KEYS = (
     "SCAN_NUMBER",
     "ANTENNA1",
 )
+
+
+# Partition keys every partition scheme starts with (when available in the MS)
+MANDATORY_PARTITION_KEYS = (
+    "DATA_DESC_ID",
+    "OBS_MODE",
+    "OBSERVATION_ID",
+    "EPHEMERIS_ID",
+)
+# Keys a partition scheme may add
+PARTITION_SCHEME_KEYS = (
+    "FIELD_ID",
+    "SCAN_NUMBER",
+    "STATE_ID",
+    "SOURCE_ID",
+    "SUB_SCAN_NUMBER",
+    "ANTENNA1",
+)
+# The axes of every partition description (create_partitions), in their order;
+# ANTENNA1 follows them when the scheme has it.
+PARTITION_AXIS_NAMES = (
+    "DATA_DESC_ID",
+    "OBSERVATION_ID",
+    "FIELD_ID",
+    "SCAN_NUMBER",
+    "STATE_ID",
+    "SOURCE_ID",
+    "OBS_MODE",
+    "SUB_SCAN_NUMBER",
+    "EPHEMERIS_ID",
+)
+# The MAIN columns the partitions are computed from
+PARTITION_MAIN_KEY_COLUMNS = (
+    "DATA_DESC_ID",
+    "FIELD_ID",
+    "SCAN_NUMBER",
+    "STATE_ID",
+    "OBSERVATION_ID",
+    "ANTENNA1",
+)
+# Version of the partitioning algorithm (create_partitions*): bump it whenever
+# their output changes for some MS (partitions, their order, descriptions or
+# rows). Partitions stored with another version are not used (the MSv2
+# backend's XRADIO_PARTITIONS cache). The tripwire test of
+# test_partition_queries.py pins digests of the output.
+PARTITION_ALGORITHM_VERSION = 1
+
+
+def validate_partition_scheme(partition_scheme: Iterable[str] | None) -> list[str]:
+    """
+    Check a partition scheme and return it normalized.
+
+    Parameters
+    ----------
+    partition_scheme : Iterable[str] | None
+        Keys of PARTITION_SCHEME_KEYS (in any order; duplicates and the
+        MANDATORY_PARTITION_KEYS, which every scheme has, are accepted and
+        dropped). None: [].
+
+    Returns
+    -------
+    list[str]
+        The keys of PARTITION_SCHEME_KEYS in the scheme, in their first order,
+        each once.
+
+    Raises
+    ------
+    TypeError
+        If the scheme is a string (not a list of keys), not iterable, or holds
+        a key that is not a string.
+    ValueError
+        If a key is not a partition key.
+    """
+    if partition_scheme is None:
+        return []
+    if isinstance(partition_scheme, str | bytes):
+        raise TypeError(
+            f"partition_scheme must be a list of keys, not the string "
+            f"{partition_scheme!r} (e.g. [{partition_scheme!r}])"
+        )
+    try:
+        keys = list(partition_scheme)
+    except TypeError:
+        raise TypeError(
+            f"partition_scheme must be a list of keys, got {partition_scheme!r}"
+        ) from None
+    scheme: list[str] = []
+    for key in keys:
+        if not isinstance(key, str):
+            raise TypeError(f"partition_scheme keys must be strings, got {key!r}")
+        if key in MANDATORY_PARTITION_KEYS or key in scheme:
+            continue
+        if key not in PARTITION_SCHEME_KEYS:
+            raise ValueError(
+                f"Unknown partition_scheme key {key!r}: the keys are "
+                f"{list(PARTITION_SCHEME_KEYS)} (every scheme also has "
+                f"{list(MANDATORY_PARTITION_KEYS)})"
+            )
+        scheme.append(key)
+    return scheme
+
+
+def canonical_scheme_key(partition_scheme: Iterable[str] | None) -> str:
+    """
+    A canonical string of a partition scheme: the JSON list of its sorted
+    keys (validate_partition_scheme). Schemes with the same key are the same
+    partitioning (the order of the keys does not change the partitions).
+    """
+    return json.dumps(sorted(validate_partition_scheme(partition_scheme)))
+
+
+def partition_axis_names(partition_scheme: Sequence[str]) -> list[str]:
+    """The axes of the partition descriptions of a scheme (PARTITION_AXIS_NAMES,
+    then ANTENNA1 if the scheme has it: it keeps the descriptions small)."""
+    names = list(PARTITION_AXIS_NAMES)
+    if "ANTENNA1" in partition_scheme:
+        names.append("ANTENNA1")
+    return names
+
+
+@dataclasses.dataclass
+class PartitionKeyMaps:
+    """
+    The sub-table columns that the partition keys derived from MAIN key
+    columns are looked up in (partition_key_maps).
+
+    Attributes
+    ----------
+    field_source : np.ndarray | None
+        FIELD SOURCE_ID (indexed by FIELD_ID), None if the MS has no SOURCE
+        table or an empty one (then no SOURCE_ID key).
+    field_ephemeris : np.ndarray | None
+        FIELD EPHEMERIS_ID, None if FIELD has no such column or no rows.
+    state_obs_mode, state_sub_scan : np.ndarray | None
+        STATE OBS_MODE and SUB_SCAN (indexed by STATE_ID; -1 is the last STATE
+        row, numpy negative indexing), None if the MS has no STATE table or an
+        empty one.
+    drop_state_id : bool
+        Whether the STATE table is empty: STATE_ID (and SUB_SCAN_NUMBER) then
+        partition nothing. A missing STATE table keeps STATE_ID.
+    """
+
+    field_source: np.ndarray | None
+    field_ephemeris: np.ndarray | None
+    state_obs_mode: np.ndarray | None
+    state_sub_scan: np.ndarray | None
+    drop_state_id: bool
+
+
+def partition_key_maps(in_file: str) -> PartitionKeyMaps:
+    """
+    Read the FIELD, SOURCE and STATE columns of the partition keys derived
+    from MAIN key columns (see _add_derived_columns). Every table is closed
+    on return, also when an exception is raised.
+
+    Parameters
+    ----------
+    in_file : str
+        Input MSv2 path.
+
+    Returns
+    -------
+    PartitionKeyMaps
+        The lookup columns.
+    """
+    t0 = time.time()
+    field_source = field_ephemeris = None
+    state_obs_mode = state_sub_scan = None
+    drop_state_id = False
+    with open_table_ro(os.path.join(in_file, "FIELD")) as field_tb:
+        if table_exists(os.path.join(in_file, "SOURCE")):
+            with open_table_ro(os.path.join(in_file, "SOURCE")) as source_tb:
+                source_rows = source_tb.nrows()
+            if source_rows != 0:
+                field_source = np.asarray(field_tb.getcol("SOURCE_ID"))
+        if "EPHEMERIS_ID" in field_tb.colnames() and field_tb.nrows() != 0:
+            field_ephemeris = np.asarray(field_tb.getcol("EPHEMERIS_ID"))
+    if table_exists(os.path.join(in_file, "STATE")):
+        with open_table_ro(os.path.join(in_file, "STATE")) as state_tb:
+            if state_tb.nrows() != 0:
+                state_obs_mode = np.asarray(state_tb.getcol("OBS_MODE"))
+                state_sub_scan = np.asarray(state_tb.getcol("SUB_SCAN"))
+            else:
+                drop_state_id = True
+    xradio_logger().debug(
+        f"Partition keys from FIELD/SOURCE/STATE read in {time.time() - t0:.2f}s "
+        f"(SOURCE_ID={field_source is not None}, "
+        f"EPHEMERIS_ID={field_ephemeris is not None}, "
+        f"OBS_MODE={state_obs_mode is not None})"
+    )
+    return PartitionKeyMaps(
+        field_source, field_ephemeris, state_obs_mode, state_sub_scan, drop_state_id
+    )
+
+
+def _add_derived_columns(frame: pd.DataFrame, maps: PartitionKeyMaps) -> None:
+    """
+    Add the partition keys derived from the MAIN key columns of a frame (in
+    place): SOURCE_ID and EPHEMERIS_ID (through FIELD_ID), OBS_MODE and
+    SUB_SCAN_NUMBER (through STATE_ID); drop STATE_ID if the STATE table is
+    empty.
+    """
+    if maps.field_source is not None:
+        frame["SOURCE_ID"] = maps.field_source[frame["FIELD_ID"]]
+    if maps.field_ephemeris is not None:
+        frame["EPHEMERIS_ID"] = maps.field_ephemeris[frame["FIELD_ID"]]
+    if maps.state_obs_mode is not None:
+        # Index by STATE_ID into STATE columns
+        frame["OBS_MODE"] = maps.state_obs_mode[frame["STATE_ID"]]
+        frame["SUB_SCAN_NUMBER"] = maps.state_sub_scan[frame["STATE_ID"]]
+    elif maps.drop_state_id:
+        # If STATE empty, drop STATE_ID (it cannot partition anything)
+        if "STATE_ID" in frame.columns:
+            frame.drop(columns=["STATE_ID"], inplace=True)
+        if "SUB_SCAN_NUMBER" in frame.columns:
+            frame.drop(columns=["SUB_SCAN_NUMBER"], inplace=True)
+
+
+def _describe(frame: pd.DataFrame, axis_names: Sequence[str]) -> dict[str, list]:
+    """
+    The partition description of the rows of a frame: for every axis the
+    sorted unique values (Python lists), [None] if the frame has no such
+    column.
+    """
+    part = {}
+    for name in axis_names:
+        if name in frame.columns:
+            part[name] = np.unique(frame[name].to_numpy()).tolist()
+        else:
+            part[name] = [None]
+    return part
+
+
+def describe_partition_rows(
+    key_columns: Mapping[str, np.ndarray],
+    maps: PartitionKeyMaps,
+    partition_scheme: Sequence[str],
+) -> dict[str, list]:
+    """
+    The description that create_partitions gives a partition holding exactly
+    the given MAIN rows (for checking stored partitions against their rows).
+
+    Parameters
+    ----------
+    key_columns : Mapping[str, np.ndarray]
+        The PARTITION_MAIN_KEY_COLUMNS of the rows (ANTENNA1 needed only if
+        the scheme has it).
+    maps : PartitionKeyMaps
+        partition_key_maps of the MS.
+    partition_scheme : Sequence[str]
+        The partition scheme.
+
+    Returns
+    -------
+    dict[str, list]
+        The description (keys and values as create_partitions).
+    """
+    frame = pd.DataFrame(
+        {
+            name: np.asarray(key_columns[name])
+            for name in PARTITION_MAIN_KEY_COLUMNS
+            if name in key_columns
+        }
+    )
+    _add_derived_columns(frame, maps)
+    return _describe(frame, partition_axis_names(partition_scheme))
 
 
 def enumerated_product(*args):
@@ -106,42 +375,22 @@ def _create_partitions(
 ) -> tuple[list[dict], "MainRowRuns | None"]:
     """create_partitions[_with_main_rows]: the row runs only if with_main_rows."""
 
-    ### Test new implementation without
     # Always start with these (if available); then extend with user scheme.
-    partition_scheme = [
-        "DATA_DESC_ID",
-        "OBS_MODE",
-        "OBSERVATION_ID",
-        "EPHEMERIS_ID",
-    ] + list(partition_scheme)
-
-    # partition_scheme = ["DATA_DESC_ID", "OBS_MODE"] + list(
-    #     partition_scheme
-    # )
+    partition_scheme = list(MANDATORY_PARTITION_KEYS) + list(partition_scheme)
 
     t0 = time.time()
     # --------- Load base columns from MAIN table ----------
-    main_tb = tables.table(
-        in_file, readonly=True, lockoptions={"option": "usernoread"}, ack=False
-    )
-
-    # Build minimal DF once. Pull only columns we may need.
-    # Add columns here if you expect to aggregate them per-partition.
-    base_cols = {
-        "DATA_DESC_ID": main_tb.getcol("DATA_DESC_ID"),
-        "FIELD_ID": main_tb.getcol("FIELD_ID"),
-        "SCAN_NUMBER": main_tb.getcol("SCAN_NUMBER"),
-        "STATE_ID": main_tb.getcol("STATE_ID"),
-        "OBSERVATION_ID": main_tb.getcol("OBSERVATION_ID"),
-        "ANTENNA1": main_tb.getcol("ANTENNA1"),
-    }
-    main_nrows = main_tb.nrows()
-    # ANTENNA2 is only needed for the row membership of ANTENNA1 partitions
-    antenna2 = (
-        main_tb.getcol("ANTENNA2")
-        if with_main_rows and "ANTENNA1" in partition_scheme
-        else None
-    )
+    with open_table_ro(in_file) as main_tb:
+        # Build minimal DF once. Pull only columns we may need.
+        # Add columns here if you expect to aggregate them per-partition.
+        base_cols = {name: main_tb.getcol(name) for name in PARTITION_MAIN_KEY_COLUMNS}
+        main_nrows = main_tb.nrows()
+        # ANTENNA2 is only needed for the row membership of ANTENNA1 partitions
+        antenna2 = (
+            main_tb.getcol("ANTENNA2")
+            if with_main_rows and "ANTENNA1" in partition_scheme
+            else None
+        )
 
     # Unique combinations of the key columns, in order of first appearance and
     # with the index labels of their first MAIN row (as drop_duplicates() gives
@@ -156,101 +405,16 @@ def _create_partitions(
         f"({len(par_df):,} unique MAIN rows)"
     )
 
-    # --------- Optional SOURCE/STATE derived columns ----------
-    # SOURCE_ID (via FIELD table)
-    t1 = time.time()
-    source_id_added = False
-    field_tb = tables.table(
-        os.path.join(in_file, "FIELD"),
-        readonly=True,
-        lockoptions={"option": "usernoread"},
-        ack=False,
-    )
-    if table_exists(os.path.join(in_file, "SOURCE")):
-        source_tb = tables.table(
-            os.path.join(in_file, "SOURCE"),
-            readonly=True,
-            lockoptions={"option": "usernoread"},
-            ack=False,
-        )
-        if source_tb.nrows() != 0:
-            # Map SOURCE_ID via FIELD_ID
-            field_source = np.asarray(field_tb.getcol("SOURCE_ID"))
-            par_df["SOURCE_ID"] = field_source[par_df["FIELD_ID"]]
-            source_id_added = True
-    xradio_logger().debug(
-        f"SOURCE processing in {time.time() - t1:.2f}s "
-        f"(added SOURCE_ID={source_id_added})"
-    )
-
-    if "EPHEMERIS_ID" in field_tb.colnames():
-        ephemeris_id_added = False
-        if field_tb.nrows() != 0:
-            # Map EPHEMERIS_ID via FIELD_ID
-            field_ephemeris = np.asarray(field_tb.getcol("EPHEMERIS_ID"))
-            par_df["EPHEMERIS_ID"] = field_ephemeris[par_df["FIELD_ID"]]
-            ephemeris_id_added = True
-        xradio_logger().debug(
-            f"EPHEMERIS processing in {time.time() - t1:.2f}s "
-            f"(added EPHEMERIS_ID={ephemeris_id_added})"
-        )
-
-    # OBS_MODE & SUB_SCAN_NUMBER (via STATE table)
-    t2 = time.time()
-    obs_mode_added = False
-    sub_scan_added = False
-    if table_exists(os.path.join(in_file, "STATE")):
-        state_tb = tables.table(
-            os.path.join(in_file, "STATE"),
-            readonly=True,
-            lockoptions={"option": "usernoread"},
-            ack=False,
-        )
-        if state_tb.nrows() != 0:
-            state_obs_mode = np.asarray(state_tb.getcol("OBS_MODE"))
-            state_sub_scan = np.asarray(state_tb.getcol("SUB_SCAN"))
-            # Index by STATE_ID into STATE columns
-            par_df["OBS_MODE"] = state_obs_mode[par_df["STATE_ID"]]
-            par_df["SUB_SCAN_NUMBER"] = state_sub_scan[par_df["STATE_ID"]]
-            obs_mode_added = True
-            sub_scan_added = True
-        else:
-            # If STATE empty, drop STATE_ID (it cannot partition anything)
-            if "STATE_ID" in par_df.columns:
-                par_df.drop(columns=["STATE_ID"], inplace=True)
-
-            if "SUB_SCAN_NUMBER" in par_df.columns:
-                par_df.drop(columns=["SUB_SCAN_NUMBER"], inplace=True)
-
-    xradio_logger().debug(
-        f"STATE processing in {time.time() - t2:.2f}s "
-        f"(OBS_MODE={obs_mode_added}, SUB_SCAN_NUMBER={sub_scan_added})"
-    )
+    # --------- SOURCE/EPHEMERIS/STATE derived columns ----------
+    _add_derived_columns(par_df, partition_key_maps(in_file))
 
     # --------- Decide which partition keys are actually available ----------
     t3 = time.time()
     partition_scheme_updated = [k for k in partition_scheme if k in par_df.columns]
     xradio_logger().info(f"Updated partition scheme used: {partition_scheme_updated}")
 
-    # If none of the requested keys exist, there is a single partition of "everything"
-    if not partition_scheme_updated:
-        partition_scheme_updated = []
-
     # These are the axes we report per partition (present => aggregate unique values)
-    partition_axis_names = [
-        "DATA_DESC_ID",
-        "OBSERVATION_ID",
-        "FIELD_ID",
-        "SCAN_NUMBER",
-        "STATE_ID",
-        "SOURCE_ID",
-        "OBS_MODE",
-        "SUB_SCAN_NUMBER",
-        "EPHEMERIS_ID",
-    ]
-    # Only include ANTENNA1 if user asked for it (keeps output size down)
-    if "ANTENNA1" in partition_scheme:
-        partition_axis_names.append("ANTENNA1")
+    axis_names = partition_axis_names(partition_scheme)
 
     # --------- Group only by realized partitions (no Cartesian product!) ----------
     # observed=True speeds up if categorical; here it’s harmless. sort=False keeps source order.
@@ -266,13 +430,7 @@ def _create_partitions(
     key_partition = np.full(len(first_rows), -1, dtype=np.int64)
     # Fast aggregation: use NumPy for uniques to avoid pandas overhead in the tight loop.
     for _, gdf in groups_iter:
-        part = {}
-        for name in partition_axis_names:
-            if name in gdf.columns:
-                # Return Python lists to match your prior structure (can be np.ndarray if preferred)
-                part[name] = np.unique(gdf[name].to_numpy()).tolist()
-            else:
-                part[name] = [None]
+        part = _describe(gdf, axis_names)
         # gdf.index holds the first MAIN row of each of the group's combinations
         key_partition[row_key[gdf.index.to_numpy()]] = len(partitions)
         partitions.append(part)

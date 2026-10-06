@@ -59,8 +59,25 @@ def get_baselines(tb_tool: tables.table) -> np.ndarray:
     """
     ant1, ant2 = tb_tool.getcol("ANTENNA1", 0, -1), tb_tool.getcol("ANTENNA2", 0, -1)
 
-    baselines = np.column_stack((ant1, ant2))
+    return unique_baselines(np.column_stack((ant1, ant2)))
 
+
+def unique_baselines(baselines: np.ndarray) -> np.ndarray:
+    """
+    The unique baselines of antenna pairs, sorted by ANTENNA1 then ANTENNA2
+    (``get_baselines`` of the rows of a table, from their ANTENNA1 and
+    ANTENNA2 values).
+
+    Parameters
+    ----------
+    baselines : np.ndarray
+        A 2D array of antenna pairs (ANTENNA1, ANTENNA2), one per row.
+
+    Returns
+    -------
+    unique_baselines : np.ndarray
+        a 2D array of unique antenna pairs (baselines).
+    """
     # Using pairing function to reduce the computation time of finding unique values.
     baselines_paired = pairing_function(baselines)
     unique_baselines_paired = pd.unique(baselines_paired)

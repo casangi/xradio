@@ -20,6 +20,19 @@ __all__ = [
 ]
 
 try:
+    from xradio.measurement_set._utils._msv2.open_msv2 import (
+        MSv2ChangedError as MSv2ChangedError,
+    )
+    from xradio.measurement_set._utils._msv2.open_msv2 import (
+        MSv2ReadError as MSv2ReadError,
+    )
+    from xradio.measurement_set._utils._msv2.open_msv2 import (
+        PartitionCacheWarning as PartitionCacheWarning,
+    )
+    from xradio.measurement_set._utils._msv2.open_msv2 import open_msv2 as open_msv2
+    from xradio.measurement_set._utils._msv2.open_msv2 import (
+        remove_msv2_partition_cache as remove_msv2_partition_cache,
+    )
     from xradio.measurement_set.convert_msv2_to_processing_set import (
         convert_msv2_to_processing_set as convert_msv2_to_processing_set,
     )
@@ -32,5 +45,13 @@ except ModuleNotFoundError:
     pass
 else:
     __all__.extend(
-        ["convert_msv2_to_processing_set", "estimate_conversion_memory_and_cores"]
+        [
+            "convert_msv2_to_processing_set",
+            "estimate_conversion_memory_and_cores",
+            "open_msv2",
+            "remove_msv2_partition_cache",
+            "MSv2ChangedError",
+            "MSv2ReadError",
+            "PartitionCacheWarning",
+        ]
     )

@@ -3,18 +3,24 @@ The lazy variables of the ``xradio_msv2`` engine read in other processes and
 threads: a fork child (also one forked while other threads hold every lock of
 the backend), dask's processes scheduler (spawned workers, which unpickle the
 arrays and rebuild their indices from the MS), a distributed LocalCluster
-with worker processes, and 8 dask threads that rebuild the indices at once.
-All give the values of a synchronous read in this process (which equal the
-converter's: test_open_msv2_equivalence.py).
+with worker processes, 8 dask threads that rebuild the indices at once, and
+a pickled lazy selection computed in a spawned process. All give the values
+of a synchronous read in this process (which equal the converter's:
+test_open_msv2_equivalence.py).
 """
 
 import contextlib
 import hashlib
+import io
 import os
+import pickle
+import subprocess
+import sys
 import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 
+import cloudpickle
 import dask
 import numpy as np
 import pytest
@@ -250,3 +256,132 @@ def test_eight_threads_rebuild_and_read(opened):
     n_main = sum(1 for name in arrays if "pointing_xds" not in name)
     assert 0 < backend_arrays.INDEX_MEMO.stats["rebuilds"] <= len(tree.children)
     assert n_main > len(tree.children)
+
+
+# --- a pickled lazy selection computed in a spawned process -------------------
+
+# The spawned process: unpickles the selection (argv[1]), records the files
+# under the MS (argv[2]) it has open then, computes it, records them again and
+# pickles the computed dataset and what it saw to argv[3].
+SPAWNED_CHILD = """
+import os, pickle, sys
+
+payload_path, ms_path, out_path = sys.argv[1:4]
+
+
+def open_files():
+    if not os.path.isdir("/proc/self/fd"):
+        return None
+    found = []
+    for fd in os.listdir("/proc/self/fd"):
+        try:
+            target = os.readlink(os.path.join("/proc/self/fd", fd))
+        except OSError:
+            continue
+        if target == ms_path or target.startswith(ms_path + os.sep):
+            found.append(target)
+    return found
+
+
+from xradio.measurement_set._utils._msv2 import backend_arrays
+
+with open(payload_path, "rb") as payload:
+    subset = pickle.load(payload)
+seen = {"open_after_load": open_files(), "memo_after_load": len(backend_arrays.INDEX_MEMO)}
+computed = subset.compute()
+seen["open_after_compute"] = open_files()
+seen["rebuilds"] = backend_arrays.INDEX_MEMO.stats["rebuilds"]
+with open(out_path, "wb") as out:
+    pickle.dump({"computed": computed, "seen": seen}, out)
+"""
+
+
+class _RecordingPickler(pickle.Pickler):
+    """A pickler that records the type of every object it pickles (but None,
+    booleans and exact ints, floats, bytes, strings, dicts, sets, lists and
+    tuples, which pickle never hands to reducer_override)."""
+
+    def __init__(self, file):
+        super().__init__(file, protocol=pickle.HIGHEST_PROTOCOL)
+        self.types = set()
+
+    def reducer_override(self, obj):
+        self.types.add(type(obj))
+        return NotImplemented
+
+
+def compute_in_spawned_process(payload: bytes, msname: str, tmp_path) -> dict:
+    """Unpickle and compute a pickled selection in a new Python process (the
+    import path of this one) and return what SPAWNED_CHILD pickled."""
+    paths = {name: str(tmp_path / name) for name in ("child.py", "in.pkl", "out.pkl")}
+    with open(paths["child.py"], "w") as script:
+        script.write(SPAWNED_CHILD)
+    with open(paths["in.pkl"], "wb") as payload_file:
+        payload_file.write(payload)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        path for path in sys.path if path and os.path.isdir(path)
+    )
+    done = subprocess.run(
+        [sys.executable, paths["child.py"], paths["in.pkl"], msname, paths["out.pkl"]],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert done.returncode == 0, done.stderr[-3000:]
+    with open(paths["out.pkl"], "rb") as out:
+        return pickle.load(out)
+
+
+# (nodes of "narrow_tiles": 0, SPW 0, 16 channels; 3, SPW 1, 24 decreasing
+# channels; both with padded and duplicated cells and channel-sliced reads)
+@pytest.mark.parametrize("pickler", ["pickle", "cloudpickle"])
+@pytest.mark.parametrize("node_idx", [0, 3])
+def test_pickled_lazy_selection_computed_in_a_spawned_process(
+    backend_ms, tmp_path, node_idx, pickler
+):
+    """
+    The contract AstroVIPER's skunk-works imaging relies on: the data-group
+    variables of an MSv4 of ``open_msv2(ms, array_backend="xarray")``, lazily
+    selected along frequency and polarization, pickle without any open table
+    (no casacore / casatools object in the pickle, no file of the MS open in
+    a process that unpickles them) and computed in a spawned process (which
+    rebuilds the index from the MS) equal the values computed here; the
+    selection itself stays lazy.
+    """
+    from xradio.measurement_set import open_msv2
+
+    msname = os.path.abspath(backend_ms("narrow_tiles"))
+    tree = open_msv2(msname, array_backend="xarray")
+    node = tree[sorted(tree.children)[node_idx]]
+    group = node.attrs["data_groups"]["base"]
+    names = [group[role] for role in ("correlated_data", "flag", "weight", "uvw")]
+    subset = node.to_dataset(inherit=False)[names].isel(
+        frequency=slice(5, 14), polarization=[1, 0]
+    )
+    if pickler == "pickle":
+        buffer = io.BytesIO()
+        recording = _RecordingPickler(buffer)
+        recording.dump(subset)
+        payload = buffer.getvalue()
+        packages = {t.__module__.split(".")[0] for t in recording.types}
+        assert not packages & {"casacore", "casatools"}, packages
+        assert backend_arrays.MSv2MainColumnArray in recording.types
+    else:
+        payload = cloudpickle.dumps(subset)
+
+    seen = compute_in_spawned_process(payload, msname, tmp_path)
+    computed, seen = seen["computed"], seen["seen"]
+    if seen["open_after_load"] is not None:  # (/proc/self/fd: Linux)
+        assert seen["open_after_load"] == [] and seen["open_after_compute"] == []
+    assert seen["memo_after_load"] == 0 and seen["rebuilds"] >= 1
+
+    expected = subset.compute()
+    xr.testing.assert_identical(computed, expected)
+    for name in names:
+        assert computed[name].dtype == expected[name].dtype, name
+        assert computed[name].values.tobytes() == expected[name].values.tobytes(), name
+    assert computed.sizes["frequency"] == 9 and computed.sizes["polarization"] == 2
+    assert np.isnan(expected[group["correlated_data"]].values).any()  # padded cells
+    assert not any(subset[name].variable._in_memory for name in names)

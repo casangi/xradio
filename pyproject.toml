@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "v1.2.2"
+version = "v1.2.5"
 
 description = " Xarray Radio Astronomy Data IO"
 authors = [
@@ -25,6 +25,10 @@ zarr = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    # numcodecs < 0.16 copies each Blosc-compressed chunk out of a full-size
+    # output buffer, so every zarr chunk write peaks at uncompressed plus
+    # compressed size. 0.16 resizes the buffer in place.
+    'numcodecs>=0.16',
     'pyarrow',
     'psutil' # psutil is needed so large FITS images are not loaded into memory
 ]
@@ -40,6 +44,7 @@ test = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'pytest',
@@ -57,6 +62,7 @@ casacore = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'arcae>=0.5.7'
@@ -69,6 +75,7 @@ interactive = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'matplotlib',
@@ -99,6 +106,7 @@ all = [
     'scipy',
     'xarray',
     'zarr>=3,<4',
+    'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
     'pytest',
@@ -122,6 +130,12 @@ all = [
     'pandoc',
     'pre-commit'
 ]
+
+[project.entry-points."xarray.backends"]
+# _xradio_xarray_backends is a top level module (src/_xradio_xarray_backends.py),
+# so that loading the entry points does not import the xradio package
+xradio_casa_image = "_xradio_xarray_backends:CasaImageBackendEntrypoint"
+xradio_fits_image = "_xradio_xarray_backends:FitsImageBackendEntrypoint"
 
 [tool.pytest.ini_options]
 addopts = [

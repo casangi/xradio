@@ -13,7 +13,7 @@ XRADIO (**X**array **Radio** Astronomy **D**ata **IO**) is a pure-Python library
 > **In THIS workspace** the package is editable-installed into the conda env named **`zinc`** (NOT `xradio`) from `/Users/jsteeb/Dropbox/viper_dev/xradio/src`. Run everything via `conda run -n zinc ...`.
 
 ```bash
-# Run the full test suite (523 tests collected)
+# Run the full test suite
 conda run -n zinc python -m pytest
 
 # Unit tests only / stakeholder (integration) tests only
@@ -23,9 +23,13 @@ conda run -n zinc python -m pytest tests/stakeholder
 # Confirm the active on-disk Zarr format (expect 3)
 conda run -n zinc python -c "from xradio._utils.zarr.config import ZARR_FORMAT; print(ZARR_FORMAT)"
 
-# Format all code with Black (the only enforced lint)
-make python-format     # == black --config pyproject.toml src/ tests/ docs/source/ scripts/
+# Lint and format with ruff (the version pinned in .pre-commit-config.yaml)
+uvx ruff@0.12.5 check --fix <files> && uvx ruff@0.12.5 format <files>
+pre-commit run --all-files   # every hook CI runs (ruff, pyupgrade, absolufy-imports, hygiene)
 ```
+
+Run tests and scripts that write CASA tables from a directory outside Dropbox
+(for example `$TMPDIR`), see Gotchas.
 
 ### Fresh install (general)
 
@@ -39,6 +43,7 @@ pip install "xradio[casacore]"   # MSv2->MSv4 conversion + CASA image IO (pulls 
 - Optional extras: `zarr`, `casacore`, `interactive`, `test`, `docs`, `all` (combinable, e.g. `[interactive,casacore,test]`).
 - **Primary CASA-table backend: [arcae](https://github.com/ska-sa/arcae)** (Arrow-based casacore table bindings with self-contained wheels for Linux and macOS). Backend selection lives in `src/xradio/_utils/_casacore/backend.py`: arcae first (via the `casacore_from_arcae` / `images_from_arcae` shims that emulate the python-casacore `tables`/`images` API — arcae has no image API, so CASA images are read/written through table access + TaQL), falling back to `python-casacore` if arcae is absent (undocumented backup only — no extra installs it, no workflow uses it). `casatools` is no longer supported.
 - `requires-python = ">=3.11, <3.14"` (3.11 / 3.12 / 3.13).
+- **Editable installs must be reinstalled** (`pip install -e . --no-deps`) after a change to `pyproject.toml` entry points (for example the xarray backends), because the installed `entry_points.txt` is only written at install time.
 
 ---
 
@@ -47,12 +52,17 @@ pip install "xradio[casacore]"   # MSv2->MSv4 conversion + CASA image IO (pulls 
 ```
 xradio/
 ├── pyproject.toml            # SOLE packaging/config file. NO [build-system] table (legacy setuptools fallback).
-│                             #   version = "v1.2.0"; base dep xarray; extras; [tool.pytest]; [tool.black]
-├── Makefile                  # python-format (black), schema-export
+│                             #   version = "v1.2.4"; base dep xarray; extras; xarray backend entry points;
+│                             #   [tool.pytest]; [tool.ruff]
+├── .pre-commit-config.yaml   # hooks CI runs (pre-commit.yml): ruff 0.12.5 check + format, pyupgrade, absolufy-imports, hygiene
+├── Makefile                  # python-format (legacy Black target), schema-export
 ├── MANIFEST.in               # sdist include list
 ├── .readthedocs.yaml         # RTD build (installs docs/sphinx.txt + .[casacore])
+├── schemas/                  # JSON exports of VisibilityXds, SpectrumXds, ImageXds (`make schema-export`)
 ├── src/xradio/
 │   ├── __init__.py           # ONLY suppresses Zarr v3 warnings (UnstableSpecificationWarning, consolidated-meta). No __version__.
+│   (src/_xradio_xarray_backends.py, a top level module next to xradio/: xarray backend
+│    entry points, imports only os + xarray.backends, so loading them never imports xradio)
 │   ├── measurement_set/      # PRIMARY subsystem: PS / MS v4 IO + MSv2->MSv4 conversion
 │   │   ├── __init__.py        #   public API (convert wrapped in try/except for missing casacore)
 │   │   ├── convert_msv2_to_processing_set.py
@@ -62,19 +72,28 @@ xradio/
 │   │   ├── schema.py                # VisibilityXds, SpectrumXds, sub-dataset & info schemas
 │   │   └── _utils/_msv2|_zarr|_utils # internal converters, casacore readers, zarr encoding
 │   ├── image/                # Image cube IO (CASA/FITS/Zarr), single Dataset (NOT DataTree)
-│   │   ├── __init__.py        #   open_image, load_image, write_image, make_empty_* , ImageXds
+│   │   ├── __init__.py        #   open_image, load_image, write_image, make_empty_*, check_image, ImageXds (accessor)
 │   │   ├── image.py           #   authoritative docstrings
 │   │   ├── image_xds.py       #   .xr_img accessor (ImageXds)
-│   │   ├── schema.py          #   DataGroupDict only (no full dataclass schema)
-│   │   └── _util/{_casacore,_fits,_zarr,...}
+│   │   ├── schema.py          #   IMAGE_SCHEMA_VERSION, ImageXds dataset schema, array/dict schemas, DataGroupDict, check_image
+│   │   ├── backends.py        #   xarray backends implementation (open_image_dataset, lazy BackendArray)
+│   │   └── _util/
+│   │       ├── conventions.py #     shared name tables: spectral frames, FITS Stokes codes, image types, time
+│   │       ├── _write_plan.py #     write_image output planning, naming (incl. .img.zarr) and staged (atomic) writes
+│   │       ├── legacy.py      #     upgrade of image zarr stores written by xradio <= 1.2.3 or of older schema versions
+│   │       ├── _blocks.py     #     RegionReader: batched dask computation of the writers' pixel regions
+│   │       └── _casacore/, _fits/, _zarr/, casacore.py, fits.py, zarr.py, image_factory.py, common.py
 │   ├── schema/               # Home-grown xarray-dataclasses reimpl (Data/Coord/Attr + decorators + check.py)
+│   │   └── measures.py        #   shared measure schemas (time, spectral, sky, location, ...), also
+│   │                          #   re-exported by xradio.measurement_set.schema for backward compatibility
 │   ├── _utils/               # zarr config (ZARR_FORMAT), logging, _casacore shim, xarray_helpers, dict_helpers
 │   └── testing/              # PUBLIC pytest-free test helpers (assertions, download_*) reused by benchviper
 ├── tests/
 │   ├── unit/                 # mirrors src/ tree; per-area conftest.py
-│   └── stakeholder/          # higher-level integration tests
+│   ├── stakeholder/          # higher-level integration tests
+│   └── casatools/            # MSv2 reads/conversions with real casatools (skipped with python-casacore)
 ├── docs/source/             # Sphinx docs (RTD); overview.rst, measurement_set/, image_data/, notebooks
-└── scripts/export_schema.py # CLI: export VisibilityXds/SpectrumXds to JSON (used by `make schema-export`)
+└── scripts/export_schema.py # CLI: export a dataset schema to JSON (used by `make schema-export`)
 ```
 
 ---
@@ -108,11 +127,16 @@ ps_xdt  (root, attrs["type"]=="processing_set")          # accessor: .xr_ps
 ```
 ms_v4_name = pathlib.Path(in_file).name.replace(".ms", "") + "_" + str(ms_v4_id)
 ```
-where `ms_v4_id` is the **zero-padded** partition index (`conversion.py:1392`; `convert_msv2_to_processing_set.py:197`). Embedding the input-MS basename is what lets you append several distinct MSs into one PS without overwriting. ⚠ `.replace(".ms", "")` strips **every** literal `.ms` substring, not just the suffix.
+where `ms_v4_id` is the **zero-padded** partition index (padded in `convert_msv2_to_processing_set`, joined in `conversion.py::_convert_and_write_partition`). Embedding the input-MS basename is what lets you append several distinct MSs into one PS without overwriting. ⚠ `.replace(".ms", "")` strips **every** literal `.ms` substring, not just the suffix.
 
 ### Image data model
 
-An image is a **single `xr.Dataset`** (no DataTree), `attrs["type"] == "image_dataset"`. Multiple products live as separate UPPERCASE data vars: `SKY`, `MODEL`, `RESIDUAL`, `POINT_SPREAD_FUNCTION`, `PRIMARY_BEAM`, `APERTURE`, `VISIBILITY`, ... Sky cubes use dims `(time, frequency, polarization, l, m)`; aperture/uv cubes `(time, frequency, polarization, u, v)`; `lmuv` images carry both. Beams: `BEAM_FIT_PARAMS_<TYPE>` with dim `beam_params_label = [major, minor, pa]`. Masks: boolean `FLAG_<TYPE>` (note: stored inverted, True = good pixel internally). Organized via `attrs["data_groups"]` (same mechanism as MS, own `DataGroupDict` in `image/schema.py`).
+An image is a **single `xr.Dataset`** (no DataTree), `attrs["type"] == "image_dataset"`. Multiple products live as separate UPPERCASE data vars: `SKY`, `POINT_SPREAD_FUNCTION`, `PRIMARY_BEAM`, `MASK`, `APERTURE`, `VISIBILITY`, ..., with versions named by suffix (`SKY_MODEL`, `SKY_RESIDUAL`, `FLAG_SKY_RESIDUAL`). Sky cubes use dims `(time, frequency, polarization, l, m)`; aperture/uv cubes `(time, frequency, polarization, u, v)`; `lmuv` images carry both. Beams: `BEAM_FIT_PARAMS_<TYPE>` with dim `beam_params_label = [major, minor, pa]`. Flags: boolean `FLAG_<TYPE>`, `True` = invalid pixel (CASA masks, where `True` = good, are inverted on read and write). Organized via `attrs["data_groups"]` (same mechanism as MS): each group maps roles (`sky`, `flag`, `point_spread_function`, `primary_beam`, `mask`, ...) to variable names.
+
+- **Schema version:** `IMAGE_SCHEMA_VERSION` (`image/schema.py`) is the image counterpart of `MSV4_SCHEMA_VERSION`: `ImageXds` requires the `schema_version` attr; the `make_empty_*` factories and the CASA/FITS readers (so also the xarray engines) set the current version, the zarr writer stores whatever the dataset has, and the upgrade on read (`image/_util/legacy.py`) gives zarr stores without a version (or with an empty one) or with an older one the current version, and normalizes the current version written differently (with surrounding spaces); a newer or malformed one is kept, with a warning. `docs/source/conf.py` imports the constant for the `|IMAGE_SCHEMA_VERSION|` substitution (overview table, index), so a version bump changes only the constant.
+- **Formal schema:** `xradio.image.schema.ImageXds` (dataset schema; not the `xradio.image.ImageXds` accessor class) with array and dict schemas, exported to `schemas/ImageXds.json`. `check_image(xds)` = `check_dataset` + data group roles + the `flag`/`beam_fit_params` references of images + beam labels; it does not check that a writer can store the dataset (non-uniform axes, icrs/hcrs/lsr spectral observers, polarization sets FITS cannot hold).
+- **Conventions** (one translation table each in `image/_util/conventions.py`, used by both readers, both writers and the factories): the frequency coordinate's `frame` holds the casacore name (`LSRK`, `BARY`, `TOPO`, `GEO`, `REST`, `LSRD`, `GALACTO`, `LGROUP`, `CMB`), `reference_frequency.attrs.observer` the schema vocabulary (`lsrk`, `BARY`, `gcrs`, ...), FITS `SPECSYS` its FITS name; polarization labels are kept in **canonical Jones order** (`I, Q, U, V`; `RR, RL, LR, LL`; `XX, XY, YX, YY`) in memory, so correlations map onto 2x2 Jones matrices: the FITS writer reorders the planes into a linear FITS `STOKES` axis, every reader (FITS, CASA, zarr) returns the canonical order (CASA images converted from FITS can store another one), the `make_empty_*` factories raise for another order and `check_image` reports it; `sub_type` uses casacore image types without spaces (`SpectralIndex`), written back in casacore's spelling; times are read through their `units`, `format` and `scale`.
+- `l`/`m` are projection plane coordinates (pixel offset x cdelt; direction cosines for SIN), `u`/`v` are in wavelengths (`units: "lambda"`). Frequencies are in Hz; `frequency.attrs.channel_width` (as in MSv4) gives the width of a single-channel axis.
 
 ---
 
@@ -123,15 +147,16 @@ An image is a **single `xr.Dataset`** (no DataTree), `attrs["type"] == "image_da
 ```python
 convert_msv2_to_processing_set(
     in_file: str, out_file: str,
-    partition_scheme: list = [],                      # extra keys beyond mandatory DDI/pol/obs-mode split:
+    partition_scheme: list | None = None,             # None = []; extra keys beyond mandatory DDI/pol/obs-mode split:
                                                       #   FIELD_ID, SCAN_NUMBER, STATE_ID, SOURCE_ID,
                                                       #   SUB_SCAN_NUMBER, ANTENNA1. [] = coarsest (use for OTF mosaics)
     partition_filter: Callable[[dict], bool] | None = None,  # predicate keeping matching partitions; RuntimeError if none
-    main_chunksize: dict | float | None = None,       # dim->size dict OR target GiB float OR None (one chunk per var)
+    main_chunksize: dict | float | None = None,       # dim->size dict OR target GiB float OR None: time-only chunks of
+                                                      #   ~128 MiB (largest data var, >= 1 time step); {} = one chunk per var
     with_pointing: bool = True,
     pointing_chunksize: dict | float | None = None,
     pointing_interpolate / ephemeris_interpolate / phase_cal_interpolate / sys_cal_interpolate: bool = False,
-    use_table_iter: bool = False,                     # set True for many-row MSv2 with few partitions
+    use_table_iter: bool = False,                     # DEPRECATED no-op (True emits a DeprecationWarning)
     compressor = zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle"),  # Zarr v3 BytesBytesCodec; blosc-lz4 default (reads ~1.6x faster than zstd)
     add_reshaping_indices: bool = False,
     storage_backend: Literal["zarr","netcdf"] = "zarr",   # "netcdf" is NOT implemented
@@ -139,7 +164,9 @@ convert_msv2_to_processing_set(
     persistence_mode: str = "w-",                     # "w" overwrite | "w-" fail-if-exists (default) | "a" append
 ) -> None                                             # writes to <out_file>.ps.zarr (.ps.zarr appended if missing)
 ```
-- `parallel_mode`: `none` serial/eager; `partition` wraps each partition in `dask.delayed` then `dask.compute`; `time` requires **exactly one** partition (phased arrays) and chunks along time (degrades to `none` if `main_chunksize` lacks a `time` key). Unrecognized values are coerced to `none` with a warning.
+- `parallel_mode`: `none` serial; `partition` wraps each partition in `dask.delayed` then `dask.compute`; `time` requires **exactly one** partition (phased arrays) and, only with a `time` key in `main_chunksize`, reads the large MAIN columns lazily (one dask block per time chunk; any row order, missing/duplicated `(time, baseline)` rows give the `none` output). Without a `time` key (also the default `None`) `time` converts as `none` (streamed write) and logs a warning saying to pass `main_chunksize={"time": n}`. `time` still fails at write time on a column with undefined or variable-shape cells, which `none`/`partition` skip. Unrecognized values are coerced to `none` with a warning.
+- **`main_chunksize=None`** (`conversion.py::default_main_chunksize`): chunks along time only, ~128 MiB (`DEFAULT_MAIN_CHUNK_BYTES`) of the largest data variable, at least one time step. Only a time step over the Blosc limit (2 GiB) also splits frequency, then baseline, with a WARNING (the streamed write still holds one whole time step per batch). `main_chunksize={}` gives the former default (one chunk per variable, fails over 2 GiB with Blosc).
+- **Streamed write** (`_utils/_msv2/stream_write.py`; `none`, `partition`, and `time` without a `time` key): the MAIN data variables are lazy placeholders (`deferred_placeholder`, raise if computed); `DataTree.to_zarr(compute=False, consolidated=False)` writes all metadata and the other variables, then `write_deferred_variables` fills one variable at a time in batches of whole time chunks (`STREAM_BATCH_BYTES` = 128 MiB, at least one time chunk, so one time step when a step is larger; up to 8x for fragmenting row orders), byte-identical to one `to_zarr`. The MSv4's consolidated metadata is written last (`consolidate_msv4`): an interrupted write leaves an MSv4 that opens with a warning (fails with `consolidated=True`) and that a new PS root (mode `w`/`w-`) does not list; in mode `a`, re-converting an existing MSv4 name, the PS root still lists it (as on main). Partitions whose data variables are <= 1/4 batch are read whole and written by one `to_zarr`. A column read failing mid-write (`DeferredReadError`) or zarr metadata the batch writer cannot apply (`DeferredEncodingError`) removes the MSv4 (`discard_msv4`, also URLs via fsspec) and `convert_and_write_partition` converts the partition again (without that column / without streaming; `w-` becomes `w` only when the failed attempt created the MSv4, so a pre-existing MSv4 is never overwritten).
 
 ```python
 estimate_conversion_memory_and_cores(in_file, partition_scheme=[]) -> (max_GiB, max_cores, suggested_cores)
@@ -180,26 +207,40 @@ ms_xdt.xr_ms.delete_data_variables(variables: list[str]) -> xr.DataTree
 ### `xradio.image`
 
 ```python
-open_image(store, chunks={}, verbose=False, do_sky_coords=True, selection={}, compute_mask=True) -> xr.Dataset
-#   LAZY (dask). Reads CASA / FITS / Zarr (or a dict {image_type: path}). chunks applies to CASA/FITS only.
-#   selection: zarr only.  compute_mask: FITS only.  NOTE: named open_image, not read_image.
-load_image(store, block_des=None, do_sky_coords=True) -> xr.Dataset    # EAGER; CASA & Zarr only (NOT FITS)
-write_image(xds, imagename, out_format="casa", overwrite=False) -> None  # "casa" | "zarr" (FITS write NOT supported)
+open_image(store, chunks=None, verbose=False, do_sky_coords=True, selection=None, compute_mask=True) -> xr.Dataset
+#   LAZY (dask). Reads CASA / FITS / Zarr; store is a path, a dict {image_type: path} or a list of paths
+#   (image types detected from the names: the last dot token when it names a role, else the role
+#   substrings xradio 1.2.4 used, e.g. target_psf.im; outputs of a multi data group write all end in
+#   .sky, so reopen them with a dict). chunks: CASA/FITS only. selection: zarr only (an int keeps
+#   the dim). compute_mask: FITS only. FITS and zarr need no casacore. Zarr stores written by
+#   xradio <= 1.2.3, or without schema_version or with an older one, are upgraded on read
+#   (image/_util/legacy.py). NOTE: open_image, not read_image.
+load_image(store, block_des=None, do_sky_coords=True) -> xr.Dataset    # CASA & Zarr only (NOT FITS); CASA pixels read EAGERLY, zarr stays LAZY (dask, like open_image(selection=...))
+write_image(xds, imagename, out_format="casa", overwrite=False) -> list[str]  # "casa" | "fits" | "zarr"; the paths written
 make_empty_sky_image(phase_center, image_size, cell_size, frequency_coords, pol_coords, time_coords, ...) -> xr.Dataset
 make_empty_aperture_image(...) -> xr.Dataset
 make_empty_lmuv_image(...) -> xr.Dataset      # carries BOTH lm and uv coords
+#   make_empty_* datasets have type "image_dataset", schema_version IMAGE_SCHEMA_VERSION and an empty "base" data group.
+check_image(xds) -> SchemaIssues               # image schema check (also xradio.image.schema.check_image)
 # accessor: img_xds.xr_img.sel(... data_group_name=...) / add_data_group / delete_data_variables /
 #           get_lm_cell_size / add_uv_coordinates / get_uv_in_lambda(freq) / get_reference_pixel_indices
+xr.open_dataset(path, engine="xradio_casa_image" | "xradio_fits_image", chunks=..., image_type=...,
+                image_chunks=..., drop_variables=...)   # engines also inferred from the path
 ```
+
+- **`write_image` outputs:** zarr writes the whole dataset to one store with the extension `.img.zarr` (as processing sets have `.ps.zarr`): a name ending in `.img.zarr` (any case) is kept, a bare `.zarr` is replaced (`out.zarr` gives `out.img.zarr`), any other name gets `.img.zarr` appended (only the end of the name counts: `out.ps.zarr` gives `out.ps.img.zarr`), and a changed name is logged (info, once the overwrite check passed) plus a warning when a path with the given name exists (it is never replaced, also not with `overwrite=True`, so code that still opens the given name would silently read a leftover old store). `write_image` returns the list of paths it wrote (zarr: the store; CASA/FITS: `imagename` or every output of a multi-image write; `~` expanded), so callers that write into a store after `write_image` (AstroVIPER's feather, image_cube_single_field and moments drivers) must use the returned path or pass `.img.zarr` names. CASA and FITS images hold one image each: every data variable that is an image of some data group is written once; a sky image carries its data group's flags and beam fit parameters, a point spread function its beam fit parameters (`_write_plan.COMPANION_ROLES`), and other variables (for example `FLAG_PRIMARY_BEAM`) are skipped with a warning. One image is written to `imagename`; several to `<imagename>.<g1>...<gn>.<role>`, where `g1..gn` are, in data group order, all data groups whose `<role>` refers to the variable (`out.base.sky`, `out.dirty.residual.primary_beam`); for FITS a `.fits` extension stays last (`img.fits` gives `img.base.sky.fits`). FITS holds only sky plane images; CASA skips the normalization images (no l/m or u/v) with a warning. The CASA and FITS writers raise for non-uniform frequency, l/m or u/v axes. Both compute the pixels region by region (whole dask chunks) through `image/_util/_blocks.py::RegionReader`, which materializes the task graph once and runs batches of regions (up to `BATCH_BYTES`) on the active dask scheduler from culled subgraphs: never call `dask.compute` per region (that culls the whole graph each time, quadratic in the number of chunks). Errors name the dataset variable, not the internal SKY/APERTURE (`_write_plan.naming_the_variable`).
+- **Staged writes** (`image/_util/_write_plan.py`): every output path (for zarr, the `.img.zarr` name) is planned first; with `overwrite=False` any existing output raises `FileExistsError` before anything is written. Outputs are written into a hidden sibling `.<name>.<random>.writing` directory and moved into place only after all succeeded (existing outputs replaced only with `overwrite=True`; other files, such as outputs of earlier writes with other names, are left alone). On failure the staging directory is removed and nothing at the target changes, so a lazily opened image can be written back onto its own path. `~` is expanded and missing parent directories are created.
+- **xarray backends:** the entry points live in the light top level module `_xradio_xarray_backends` (`src/_xradio_xarray_backends.py`, outside the `xradio` package: it imports only `os` and `xarray.backends`, so engine-less `xr.open_dataset` calls import neither xradio, whose `__init__` imports zarr and sets zarr warning filters, nor xradio.image); the FITS engine claims files whose primary HDU holds an image; the implementation is `xradio.image.backends.open_image_dataset`: lazily indexed `BackendArray`s that read only the needed planes (one-plane read blocks, `encoding["preferred_chunks"]`), plus `image_type`, `image_chunks` and `drop_variables` parameters. Each engine opens only its own format.
 
 ### `xradio.schema`
 ```python
 check_dataset(ds, schema, allow_superflous_dims=frozenset()) -> SchemaIssues   # .expect() raises iff issues
 check_array(arr, schema) -> SchemaIssues       # dims order-sensitive
 check_dict(d, schema) -> SchemaIssues
-check_datatree(dt) -> SchemaIssues             # dispatches per-node via attrs["type"]
+check_datatree(dt) -> SchemaIssues             # dispatches per-node via attrs["type"] (incl. "image_dataset")
 @schema_checked                                # validate annotated params/return
 # Define schemas with @xarray_dataarray_schema / @xarray_dataset_schema / @dict_schema + Data/Coord/Attr annotations.
+# Shared measure schemas (TimeArray, SpectralCoordArray, SkyCoordArray, ...) live in xradio.schema.measures.
 ```
 
 ---
@@ -259,25 +300,26 @@ ms_xdt.ds.VISIBILITY.max().compute()
 
 ## Conversion Internals (brief)
 
-- **Partitioning** (`_utils/_msv2/partition_queries.py::create_partitions`): reads MAIN + FIELD/SOURCE/STATE subtables once into a pandas DataFrame and groupby-aggregates into a list of partition dicts. **Mandatory split keys** are always prepended (`partition_queries.py:46-51`): `[DATA_DESC_ID, OBS_MODE, OBSERVATION_ID, EPHEMERIS_ID]` → data description (= spectral window + polarization setup) and observation mode are always split. User keys appended: `FIELD_ID, SCAN_NUMBER, STATE_ID, SOURCE_ID, SUB_SCAN_NUMBER, ANTENNA1`. Keys absent from the data are dropped before groupby.
-- **`parallel_mode` dispatch** (`convert_msv2_to_processing_set.py:198-248`): `partition` wraps each `convert_and_write_partition` in `dask.delayed`, then `dask.compute(delayed_list)`. `time` hard-asserts `len(partitions)==1` (`:164-167`).
-- **Per-partition conversion** (`_utils/_msv2/conversion.py::convert_and_write_partition`, `l.1001`): builds a TaQL `WHERE` (`create_taql_query_where`, `l.764`); reshapes flat MSv2 rows into the dense `(time, baseline_id, frequency, polarization)` grid via `tidxs`/`bidxs` (`calc_indx_for_row_split`, `l.390`); assembles `ms_xdt.ds` + sub-xds child nodes (`l.1393-1416`); applies chunking + `add_encoding`; writes via `to_zarr(..., zarr_format=ZARR_FORMAT)` to `out_file/<ms_v4_name>` (`l.1420-1424`).
-- **Finalize** (`convert_msv2_to_processing_set.py`): reopens root, sets `attrs["type"]="processing_set"` (`:254`), calls `zarr.consolidate_metadata(...)` (`:255`).
-- **casacore read path**: every table-touching module imports `tables` (and `images`/`coordinates` for image IO) from `xradio._utils._casacore.backend`, which selects arcae first and python-casacore as an undocumented fallback. The arcae shim (`_utils/_casacore/casacore_from_arcae.py`) emulates the python-casacore `tables` API: keywords come from `tabledesc()["_keywords_"]` (casacore JsonOut, full precision; NUL padding stripped), and TaQL (`Table.from_taql`, always bound to the open handle via `$1`) covers whole-cell tiled writes (helper-table `UPDATE ... SET col = t2.X`), `CREATE TABLE`, keyword writes (`SET KEYWORD` literals with a JSON `COPY KEYWORD` fallback for `*0`-style field names), table copies and column drops. Cell slices (`getcellslice`/`putcellslice`, including `TiledCellStMan` columns and strides) go through arcae's single-row `getcol`/`putcol` indexing (arcae>=0.5.7; ska-sa/arcae#233). ⚠ casacore errors inside `from_taql` abort the process (arcae issue), so avoid feeding it invalid TaQL. CASA images (`_utils/_casacore/images_from_arcae.py`) are plain tables: pixels in a single-cell `TiledCellStMan` `map` column, metadata in table keywords; lonpole/latpole are recomputed via astropy/wcslib like casacore's restore does. Tables open read-only (`lockoptions={"option":"usernoread"}`, `ack=False`). `load_generic_table` always injects a TaQL exclusion of `SOURCE_MODEL` (frequently corrupted). The MS test-data generator (`xradio.testing.measurement_set.msv2_io`) builds MSv2 files via arcae's `ms_from_descriptor`/`ms_descriptor` (exposed as `default_ms`/`required_ms_desc`/… on the backend module).
+- **Partitioning** (`_utils/_msv2/partition_queries.py::create_partitions_with_main_rows`): reads the MAIN key columns + FIELD/SOURCE/STATE subtables once into a pandas DataFrame and groupby-aggregates into a list of partition dicts; it also returns every partition's MAIN rows as row runs (`MainRowRuns`, one vectorized group-by: the rows `create_taql_query_where` would select), passed to each `convert_and_write_partition`. **Mandatory split keys** are always prepended (`_create_partitions`): `[DATA_DESC_ID, OBS_MODE, OBSERVATION_ID, EPHEMERIS_ID]` → data description (= spectral window + polarization setup) and observation mode are always split. User keys appended: `FIELD_ID, SCAN_NUMBER, STATE_ID, SOURCE_ID, SUB_SCAN_NUMBER, ANTENNA1`. Keys absent from the data are dropped before groupby.
+- **`parallel_mode` dispatch** (`convert_msv2_to_processing_set.py`): `partition` wraps each `convert_and_write_partition` in `dask.delayed`, then `dask.compute(delayed_list)`. `time` hard-asserts `len(partitions)==1`.
+- **Per-partition conversion** (`_utils/_msv2/conversion.py::convert_and_write_partition`, a retrying wrapper with the signature of `_convert_and_write_partition`): **no TaQL per partition on MAIN** (`create_taql_query_where` only builds the `taql_where` string kept in `partition_info`): opens the base MAIN table with the partition's row runs (`open_partition_main_table` → `_tables/read_rows.py::MainTableRows`); reshapes the rows into the dense `(time, baseline_id, frequency, polarization)` grid via `tidxs`/`bidxs` (`calc_indx_for_row_split`); reads every column with `read_rows_to_grid` (ascending rows in one pass, bounded `getcolnp`/`getcolslicenp` calls of <= 2**26 elements and >= a few MiB each, scattered rows through a <= 16 MiB temporary, never the whole column; the arcae shim has no `getcolslicenp`/`selectrows`, so it reads with bounded `getcol` calls); assembles `ms_xdt.ds` + sub-xds child nodes; applies `default_main_chunksize` (or `main_chunksize`) + `add_encoding`; writes `out_file/<ms_v4_name>` (streamed write, or one `to_zarr`, see above).
+- **Sub-table cache** (`_tables/subtable_cache.py`, python-casacore only): one `SubtableCache` per conversion, shared by its partitions: POINTING read once and selected per partition in numpy (`_tables/read_pointing.py`), sorted time columns for the time-range projections, memoized `load_generic_table` results of sub-tables loaded with identical arguments (bounded LRU, deep copies). Pickled to dask workers as a token: the copies in one process share one state, kept 30 s after the last task (at most 2). Output identical to the uncached reads; the MS must not change during a conversion.
+- **Finalize** (`convert_msv2_to_processing_set.py`): reopens root, sets `attrs["type"]="processing_set"`, calls `zarr.consolidate_metadata(...)`, after the last partition: the PS root of an interrupted conversion lists none of its new MSv4s.
+- **casacore read path**: every table-touching module imports `tables` (and `images`/`coordinates` for image IO) from `xradio._utils._casacore.backend`, which selects arcae first and python-casacore as an undocumented fallback. The arcae shim (`_utils/_casacore/casacore_from_arcae.py`) emulates the python-casacore `tables` API: keywords come from `tabledesc()["_keywords_"]` (casacore JsonOut, full precision; NUL padding stripped), and TaQL (`Table.from_taql`, always bound to the open handle via `$1`) covers whole-cell tiled writes (helper-table `UPDATE ... SET col = t2.X`), `CREATE TABLE`, keyword writes (`SET KEYWORD` literals with a JSON `COPY KEYWORD` fallback for `*0`-style field names), table copies and column drops. Cell slices (`getcellslice`/`putcellslice`, including `TiledCellStMan` columns and strides) go through arcae's single-row `getcol`/`putcol` indexing (arcae>=0.5.7; ska-sa/arcae#233). ⚠ casacore errors inside `from_taql` abort the process (arcae issue), so avoid feeding it invalid TaQL. CASA images (`_utils/_casacore/images_from_arcae.py`) are plain tables: pixels in a single-cell `TiledCellStMan` `map` column, metadata in table keywords; lonpole/latpole are recomputed via astropy/wcslib like casacore's restore does. Backends without in-place reads (the arcae shim) serialize the lazy `parallel_mode="time"` block reads with `_tables/read.py::_CASATOOLS_READ_LOCK` and do not use the sub-table cache. Tables open read-only (`lockoptions={"option":"usernoread"}`, `ack=False`). `load_generic_table` always injects a TaQL exclusion of `SOURCE_MODEL` (frequently corrupted). The MS test-data generator (`xradio.testing.measurement_set.msv2_io`) builds MSv2 files via arcae's `ms_from_descriptor`/`ms_descriptor` (exposed as `default_ms`/`required_ms_desc`/… on the backend module).
 
 ---
 
 ## Zarr v3 / Storage
 
 - **`ZARR_FORMAT = 3`** — single source of truth at `src/xradio/_utils/zarr/config.py`. There is **no per-call override and no env var**; it is threaded as `zarr_format=ZARR_FORMAT` into every `to_zarr` / `zarr.open` call. Set it to `2` to revert all writes to Zarr v2 (e.g. for A/B perf comparison).
-- **Default compressor / codec:** `zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle")` (a v3 `BytesBytesCodec`), set as the converter default at `convert_msv2_to_processing_set.py:69` and `_utils/_msv2/conversion.py:1015`. Chosen over the former `ZstdCodec(level=2)` because blosc-lz4 decompresses ~1.6× faster on high-entropy visibility data (faster loads) for a small ratio cost; `shuffle`/higher levels gave no benefit here (see `dev/LOAD_PERF_FINDINGS.md`). Encoding key is the **plural** `"compressors": (compressor,)` (v3), not v2's singular `"compressor"`.
-- **Consolidated metadata:** not part of the v3 spec, but XRADIO still writes (`zarr.consolidate_metadata`) and reads it; `src/xradio/__init__.py` silences the resulting `ZarrUserWarning` and `UnstableSpecificationWarning`.
+- **Default compressor / codec:** `zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle")` (a v3 `BytesBytesCodec`), the default `compressor` of `convert_msv2_to_processing_set` and `_utils/_msv2/conversion.py::_convert_and_write_partition`. Chosen over the former `ZstdCodec(level=2)` because blosc-lz4 decompresses ~1.6× faster on high-entropy visibility data (faster loads) for a small ratio cost; `shuffle`/higher levels gave no benefit here (see `dev/LOAD_PERF_FINDINGS.md`). Encoding key is the **plural** `"compressors": (compressor,)` (v3), not v2's singular `"compressor"`.
+- **Consolidated metadata:** not part of the v3 spec, but XRADIO still writes (`zarr.consolidate_metadata`) and reads it; `src/xradio/__init__.py` silences the resulting `ZarrUserWarning` and `UnstableSpecificationWarning`. The streamed write consolidates an MSv4 only after its last value: an MSv4 without consolidated metadata is incomplete (interrupted conversion), and xarray warns `Failed to open Zarr store with consolidated metadata` when opening it.
 - `storage_backend="netcdf"` is **not implemented** (only `zarr` works).
 
 ### Performance debugging (this repo recently moved to Zarr v3; read/write got slow)
 
 Most likely culprits, in order:
-1. **Chunking** — `add_encoding()` (`_utils/_msv2/_zarr/encoding.py`) defaults `chunks` to the **full dim sizes (one chunk per array)** when no chunksize is passed → kills parallel/compressed I/O. Pass `main_chunksize` / `pointing_chunksize`. The image writer (`image/_util/_zarr/xds_to_zarr.py`) additionally enforces a 0.95 GiB max-chunk guard that raises `ValueError`.
+1. **Chunking** — `add_encoding()` (`_utils/_zarr/encoding.py`) defaults `chunks` to the **full dim sizes (one chunk per array)** when no chunksize is passed → kills parallel/compressed I/O. The converter's `main_chunksize=None` now gives time-only chunks of ~128 MiB (`default_main_chunksize`; `{}` = one chunk per variable), but `pointing_chunksize=None` and the other sub-xds are still one chunk per array. The image writer (`image/_util/_zarr/xds_to_zarr.py`) additionally enforces a 0.95 GiB max-chunk guard that raises `ValueError`.
 2. **Consolidated-metadata asymmetry** in `load_processing_set`: `consolidated=False` on the `sel_parms` path (forces many small per-array metadata reads — slow over S3 / many-file stores) but defaults (attempts consolidated) on the full-store path.
 3. **Codec** — flip `ZARR_FORMAT` to `2` to compare against the v2 `numcodecs` path.
 4. **File count** — Zarr v3 stores each chunk under a per-array `c/` directory, increasing file count vs v2. (`image/_util/_zarr/xds_from_zarr.py` hard-codes `elif d.name != "c"` to skip these dirs when walking sub-datasets — a v3 assumption.)
@@ -292,10 +334,12 @@ grep -rn "zarr_format=ZARR_FORMAT\|consolidate_metadata\|consolidated=" src/xrad
 ## Testing & Schema
 
 ```bash
-conda run -n zinc python -m pytest                 # full suite (523 tests; testpaths=[tests], --strict-markers, --import-mode=importlib)
+conda run -n zinc python -m pytest                 # full suite (testpaths=[tests], --strict-markers, --import-mode=importlib)
 conda run -n zinc python -m pytest tests/unit      # unit only
-make schema-export                                 # regenerate schemas/VisibilityXds.json + SpectrumXds.json (PYTHONPATH=src)
+PATH=<env>/bin:$PATH PYTHONPATH=src make schema-export   # regenerate schemas/{VisibilityXds,SpectrumXds,ImageXds}.json
 ```
+
+- `make schema-export` uses the `python` on `PATH`. Re-run it after any change to a schema class or schema docstring (image, MS and `schema/measures.py`): `tests/unit/schema/test_export.py` fails when `schemas/*.json` are out of date.
 
 - **Public testing helpers** live in `xradio.testing` (pytest-free, reused by external projects / benchviper ASV benchmarks):
   - `assert_xarray_datasets_equal(test, true, *, rtol=1e-7, atol=0.0, check_attrs=True, check_encoding=False)`
@@ -304,7 +348,7 @@ make schema-export                                 # regenerate schemas/Visibili
   - `xradio.testing.image`: `download_image`, `download_and_open_image`, `create_empty_test_image`, `assert_image_block_equal`, `remove_path`
 - **Test data** downloads via `toolviper.utils.data.download` (default to `/tmp` for MS assets — avoids Dropbox table-locking issues).
 - **Schema checking:** validate data with `check_dataset` / `check_array` / `check_dict` / `check_datatree`; call `.expect()` on the returned `SchemaIssues` to raise.
-- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, integration, basic-schema-install, run-ipynb) plus a Black formatting check (`black.yml`). `cov_project="xradio"`, test path `tests/`.
+- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, integration, basic-schema-install, run-ipynb) plus `pre-commit.yml`, which runs every hook of `.pre-commit-config.yaml` on all files (ruff 0.12.5 check + format, pyupgrade, absolufy-imports, hygiene hooks). `cov_project="xradio"`, test path `tests/`.
 
 ---
 
@@ -318,41 +362,47 @@ numpy array in it — until a full garbage-collection pass. In the VIPER imaging
 pipeline this pinned 1.5–2.5 GB *per mapping task* (superseded image datasets
 died mid-task with their accessor cycles attached), ratcheting worker RSS until
 nodes ran out of memory. Reference-counted (cycle-free) death is a hard
-requirement for XRADIO objects. Reference implementations of the rules below:
-`image_xds.py` (`ImageXds`), `measurement_set_xdt.py` (`MeasurementSetXdt`),
-`processing_set_xdt.py` (`ProcessingSetXdt`).
+requirement for XRADIO objects. XRADIO uses two cycle-free designs:
 
-1. **Never register an accessor class directly** (no `@xr.register_dataset_accessor("name")`
-   on the class). Register a module-level **factory** that constructs the
-   instance and immediately weakens its back-reference:
-   `xr.register_dataset_accessor("xr_x")(lambda ds: XAccessor(ds)._weaken())`.
-2. **Hybrid strong/weak back-reference.** `__init__` stores the object
-   strongly (`self._xds_strong = ds; self._xds_ref = None`) so direct
-   construction (`XAccessor(ds)` as a standalone wrapper, used in tests and
-   templates) keeps wrapper semantics. `_weaken()` — called only by the
-   factory — swaps to `weakref.ref`. On the accessor path
-   (`ds.xr_x.method()`), `ds` itself keeps the object alive for the duration
-   of the call, so the weak reference is always valid when it matters.
-3. **Access the object only through the `_xds`/`_xdt` property**, which
-   returns the strong reference if set, else dereferences the weakref and
-   raises `ReferenceError` with usage guidance if the object is gone. Never
-   touch `_xds_strong`/`_xds_ref` from method bodies.
-4. **Rebinding must go through a strong local.** Under a weak back-reference,
-   `self._xds = self._xds.assign_coords(...)` followed by `return self._xds`
-   can lose the new object *between the two statements* (nothing else holds
-   it). Always: `xds = self._xds.assign_coords(...); self._xds = xds; return xds`.
-   The `_xds` setter preserves the current mode (weak stays weak, strong
-   stays strong).
-5. **Never store accessor instances** in attributes, containers, or module
-   state — use them inline (`ds.xr_x.method()`) and let them die. An accessor
-   kept beyond its object's life raises `ReferenceError` by design.
-6. **Prove cycle-free death in a unit test** for every new accessor:
+1. **Non-cached, strong accessors (`xr_img`, `xr_ms`; the default for new
+   accessors).** Register the class with
+   `xradio._utils.xarray_helpers.register_uncached_accessor(name, xr.Dataset | xr.DataTree)(Cls)`,
+   never with `xr.register_dataset_accessor` / `register_datatree_accessor`.
+   The descriptor builds a new accessor on every attribute access and never
+   stores it on the object, so the accessor holds its object strongly
+   (`self._xds` / `self._xdt`) without forming a cycle. Chained calls on
+   temporaries (`ds.isel(...).xr_img.get_lm_cell_size()`,
+   `open_datatree(...).xr_ms.sel(...)`) are fine. Because every access is a
+   new instance, accessors must keep **no state between calls**. References:
+   `image_xds.py` (`ImageXds`), `measurement_set_xdt.py` (`MeasurementSetXdt`).
+2. **Cached, weak accessor (`xr_ps` only, because it caches `summary()`).**
+   `processing_set_xdt.py` registers a module-level factory that builds the
+   accessor and swaps its back-reference to a `weakref` (`_weaken()`); the
+   object is reached only through the `_xdt` property, which raises
+   `ReferenceError` once the tree is gone, and rebinding goes through a strong
+   local (`xdt = self._xdt.assign(...); self._xdt = xdt; return xdt`). A
+   temporary tree has nothing keeping it alive during the call: bind it to a
+   local first (`xdt = f(...); xdt.xr_ps.summary()`).
+3. **Never store accessor instances** in attributes, containers, or module
+   state; use them inline (`ds.xr_x.method()`). A stored non-cached accessor
+   keeps its object alive; a stored `xr_ps` raises `ReferenceError` once its
+   tree is gone.
+4. **Prove cycle-free death in a unit test** for every new accessor
+   (`tests/unit/test_accessor_lifecycle.py`):
    ```python
-   ds = make_dataset(); ds.xr_x  # populate the accessor cache
+   ds = make_dataset(); ds.xr_x  # touch the accessor
    wr = weakref.ref(ds); del ds
    assert wr() is None            # died by refcount, NO gc.collect() needed
    ```
-7. **DataTree caveat (related, not accessor-specific):** `xarray.DataTree`
+5. **Never mutate `attrs["data_groups"]` or a group dict in place.** `isel`,
+   `sel` and `load` return datasets that share the attrs dict itself;
+   `copy(deep=False)`, `compute`, `where`, `chunk` and `drop_vars` share the
+   nested group dicts. Build new mappings and assign them with
+   `replace_data_groups`, `remove_variables_from_data_groups`,
+   `delete_data_variables` or `remove_variable_references` from
+   `xradio._utils.xarray_helpers` (the last two also drop the `flag` /
+   `beam_fit_params` attributes that name a deleted variable).
+6. **DataTree caveat (related, not accessor-specific):** `xarray.DataTree`
    parent↔child links are themselves strong reference cycles — any dropped
    tree is cyclic garbage. Consumers that drop task-owned trees must sever
    them (see `astroviper.utils.data_tree.release_data_tree`); XRADIO code
@@ -362,19 +412,21 @@ requirement for XRADIO objects. Reference implementations of the rules below:
 
 ## Gotchas
 
-- **Accessors require importing their SUBPACKAGE, not just `xradio`.** Bare `import xradio` registers nothing; `import xradio.measurement_set` registers `.xr_ps`/`.xr_ms` and `import xradio.image` registers `.xr_img` (registration is a side effect of the defining module's import). Without it they raise `AttributeError`. Calling a method on the wrong node type raises `InvalidAccessorLocation` (a `ValueError` subclass). `make_empty_*` images set `attrs["type"]="image"` (singular) and the `.xr_img` accessor rejects them until they become an `"image_dataset"`.
-- **casacore is optional (but no longer macOS-gated).** `convert_msv2_to_processing_set` / `estimate_conversion_memory_and_cores` are imported inside a `try/except` — if `arcae` is missing (and no python-casacore fallback is present) they emit a `UserWarning` and are simply **absent** from the namespace. `arcae` installs from PyPI on Linux and macOS alike.
+- **Accessors require importing their SUBPACKAGE, not just `xradio`.** Bare `import xradio` registers nothing; `import xradio.measurement_set` registers `.xr_ps`/`.xr_ms` and `import xradio.image` registers `.xr_img` (registration is a side effect of the defining module's import). Without it they raise `AttributeError`. Calling a method on the wrong node type raises `InvalidAccessorLocation` (a `ValueError` subclass). Image zarr stores written by xradio <= 1.2.3 (for example AstroVIPER outputs and test truths) have `attrs["type"]="image"`; `open_image`/`load_image` upgrade them to `"image_dataset"` (and the other schema attributes, including `schema_version`) on read.
+- **casacore is optional (but no longer macOS-gated).** `convert_msv2_to_processing_set` / `estimate_conversion_memory_and_cores` are imported inside a `try/except ModuleNotFoundError`: if no CASA-table backend is importable (arcae, or the python-casacore fallback) they are silently **absent** from the namespace (no warning). `arcae` installs from PyPI on Linux and macOS alike. Image I/O imports the CASA readers and writer only for CASA images: FITS and zarr images open and write without them (keep FITS code astropy-only), and reading or writing a CASA image raises `ModuleNotFoundError` naming the packages.
+- **MAIN data variables are placeholders during a streamed conversion.** Between `create_data_variables` and the write, `xds.VISIBILITY` etc. are one-chunk dask arrays that raise if computed: use only their shapes, dtypes and attributes there (`check_deferred_variables` checks every lazy variable has a deferred description). Never read MAIN with TaQL or whole-column `getcol` in the conversion: go through `_tables/read_rows.py` (its module docstring lists the python-casacore traps it avoids).
+- **`use_table_iter` is a deprecated no-op** (`convert_msv2_to_processing_set`, `convert_and_write_partition`): `True` only emits a `DeprecationWarning`.
 - **casacore table locking breaks on Dropbox-backed paths.** Run any casacore/CASA table operations (conversion, CASA-image read/write, related tests) in `$TMPDIR`, not in the Dropbox tree.
 - **`storage_backend="netcdf"` is documented but NOT implemented.** Only `zarr` works.
-- **No `[build-system]` table** in `pyproject.toml` (legacy setuptools fallback); no `setup.py`/`setup.cfg`. If you add entry points / dynamic version / explicit package discovery, add `[build-system]` first.
-- **No `xradio.__version__`.** Version is hardcoded `version = "v1.2.0"` in `pyproject.toml` (note leading `v`; pip normalizes to `1.2.0`).
+- **No `[build-system]` table** in `pyproject.toml` (pip then builds with setuptools' legacy `__legacy__` backend); no `setup.py`/`setup.cfg`. The `[project.entry-points]` (xarray backends) work through that fallback: built wheels contain `entry_points.txt`, and setuptools' automatic src-layout discovery packages `src/xradio` and the top level module `src/_xradio_xarray_backends.py`. Add `[build-system]` before anything the legacy backend cannot express (dynamic version, explicit package discovery).
+- **No `xradio.__version__`.** Version is hardcoded `version = "v1.2.4"` in `pyproject.toml` (note leading `v`; pip normalizes to `1.2.4`).
 - **`persistence_mode` defaults to `"w-"`** (fail if `.ps.zarr` exists). Use `"a"` to append, `"w"` to overwrite.
-- **Only Black is configured** (line-length 88, target py312) — no ruff/flake8/isort/mypy/pre-commit/tox.
+- **Lint and format with ruff, through pre-commit** (`[tool.ruff]` in `pyproject.toml`, ruff pinned to 0.12.5 in `.pre-commit-config.yaml`; notebooks are linted too). CI runs every hook on all files. `make python-format` still calls Black and is not what CI checks.
 - **`--strict-markers` is on but no custom markers are registered** — `@pytest.mark.<custom>` without registration will error.
 - **Two divergent docs dep lists**: the pyproject `docs` extra vs `docs/sphinx.txt` (the latter, pinned `Sphinx==7.2.6` etc., is what RTD actually installs — and RTD installs the `casacore` extra, not `docs`).
 - **Notebooks under `docs/source/**/guides` and tutorials are executed by `run-ipynb` CI** — breaking the public API can fail notebook CI even when pytest passes.
-- **Image schema is conventional, not formally validated** — `image/schema.py` defines only `DataGroupDict`; image cubes rely on UPPERCASE var names + canonical dims + `attrs["type"]`, with no full dataclass schema.
-- **FITS is read-only** (`open_image` reads it; `load_image`/`write_image` do not). Compressed (`CompImageHDU`) or scaled (`BSCALE != 1.0` / `BZERO != 0.0`) FITS are incompatible with memmap and raise `RuntimeError`.
+- **Image datasets have a formal schema** (`xradio.image.schema.ImageXds`, `check_image`), but no I/O path calls the checker: validation is opt-in.
+- **FITS:** `open_image` and the `xradio_fits_image` engine read FITS and `write_image(..., out_format="fits")` writes it; `load_image` does not read FITS. Compressed (`CompImageHDU`) or scaled (`BSCALE != 1.0` / `BZERO != 0.0`) FITS are incompatible with memmap and raise `RuntimeError`.
 - **`open_processing_set` ≠ `read_image`**; the image reader is `open_image`. No `read_image` exists anywhere.
 - **Stray `.DS_Store` files** are committed throughout the tree — ignore them.
 - **Two different "schema" things:** the typed dataclass framework in `src/xradio/schema/` vs the unrelated runtime mapper `src/xradio/_utils/schema.py` (`convert_generic_xds_to_xradio_schema`). Don't confuse them.

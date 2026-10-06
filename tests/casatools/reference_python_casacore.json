@@ -1,0 +1,10182 @@
+{
+"conversions": {
+"alma": {
+"attempts": [
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_00": {
+".": "825c11bf0023de47",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "0b45cb9971820ebf",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_01": {
+".": "8f0eed751dd639b2",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "3adca86d9e9a86e7",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_02": {
+".": "5201b912b56bb4c5",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "e57a3cc195918c73",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_03": {
+".": "d00078de40c7408e",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "f838a0dccaab2fb7",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_04": {
+".": "d31e0710e48c9559",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "f5c3d1703ce44038",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_05": {
+".": "45b2fbbda5ff55b7",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "1aa5217571cd326f",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_06": {
+".": "bc21eb1986ab5006",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "5c8f58dfa109c14b",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_07": {
+".": "a0756207576440c0",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "7485e03d55fd1f0a",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_08": {
+".": "8fccab296a042892",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "3442cc7cb37c3221",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_09": {
+".": "87ecba8b29b7bffc",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "0c7f8f683262abb8",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_10": {
+".": "93cae4b18c8e2db6",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "0c7f8f683262abb8",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_11": {
+".": "e9a34878c0c533a4",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "82be312379425cff",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_12": {
+".": "47b272975df84e98",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "b55c306d9157036d",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_13": {
+".": "8050247cb4b2581e",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "a2e1458d10a1eb50",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_14": {
+".": "43adc613e896c582",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "fb2d0eb0b7523925",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_15": {
+".": "445817031b61eaee",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "c07d1b0eb12936c4",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_16": {
+".": "466921c8b16b2412",
+"antenna_xds": "33af1527e286b25d",
+"field_and_source_base_xds": "d250ce3c4631a947",
+"weather_xds": "c809236ae0cc09c5"
+},
+"ALMA_uid___A002_X1003af4_X75a3.split.avg_17": {
+".": "e8b7483baf04e74b",
+"antenna_xds": "347b518cd178a1cb",
+"field_and_source_base_xds": "b701bfed67d03325",
+"system_calibration_xds": "537ec7b446002db3",
+"weather_xds": "c809236ae0cc09c5"
+}
+}
+},
+"lofar": {
+"attempts": [
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"small_lofar_0": {
+".": "4772aac0303e42c3",
+"antenna_xds": "2f5f8c435cd2d621",
+"field_and_source_base_xds": "507c45d2e039000b",
+"pointing_xds": "e42d4153d83d10a6"
+}
+}
+},
+"sd_no_weight": {
+"attempts": [
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"uid___A002_Xe3a5fd_Xe38e.small_00": {
+".": "86e82bac328b65d6",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "27349da7f536f607",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_01": {
+".": "a8576557f39a59fc",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "4fc130002ced922c",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_02": {
+".": "95dc9c818e13962e",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "2e6c5049c480688c",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_03": {
+".": "e8e02325d28f1b22",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b3a5c3a34c9e6096",
+"pointing_xds": "e19972165733bfc5",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_04": {
+".": "5ad02c3ab885eb34",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "27349da7f536f607",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_05": {
+".": "1423e9150c6ecdef",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "4fc130002ced922c",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_06": {
+".": "38117757c8ecda74",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "2e6c5049c480688c",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_07": {
+".": "b927b995a16c88ef",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b3a5c3a34c9e6096",
+"pointing_xds": "def60ac7eab9a3c5",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_08": {
+".": "8e0459892d1ccae8",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "27349da7f536f607",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_09": {
+".": "5b5688243bc23820",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "4fc130002ced922c",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_10": {
+".": "1bc500b8ffedd51f",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "2e6c5049c480688c",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_11": {
+".": "2a6a34dbed4c9a22",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b3a5c3a34c9e6096",
+"pointing_xds": "6af948ec588fcb88",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_12": {
+".": "fde8c3c5684a2ce2",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "70892126114c71f5",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_13": {
+".": "f579033bc7834628",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "384d94442dbffd1d",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_14": {
+".": "43d4b43a9bc27f93",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "dd0796ed4deaa0aa",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_15": {
+".": "f71319089e2d0d60",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "31d14bbba8939d89",
+"pointing_xds": "9208cdcad75d4b74",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_16": {
+".": "2b01fda042b54ed4",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "c0279d0343b597f5",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "096be996822a9bdd",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_17": {
+".": "6fb73b227b2497c7",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "f3e3af2051e59edb",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "2b6f706a81183ced",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_18": {
+".": "00d3ee503b51d659",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "89e35ff49706acd2",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "8c256b5a803d9d18",
+"weather_xds": "42bfba3902acb074"
+},
+"uid___A002_Xe3a5fd_Xe38e.small_19": {
+".": "d095dc3bdf103496",
+"antenna_xds": "00ad02f482b12a2a",
+"field_and_source_base_xds": "b59daf249a26a3b9",
+"pointing_xds": "741c861e8b386f5e",
+"system_calibration_xds": "0e1c1b43e71789cb",
+"weather_xds": "42bfba3902acb074"
+}
+}
+},
+"sd_standard": {
+"attempts": [
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"sdimaging_0": {
+".": "e77346127fd5d550",
+"antenna_xds": "7dedbca240169172",
+"field_and_source_base_xds": "7eaae464de29bba1",
+"pointing_xds": "1ae1a43dff2da05b",
+"system_calibration_xds": "0fa1219981d6b1c4",
+"weather_xds": "b686558d0a4c1343"
+}
+}
+},
+"vlass": {
+"attempts": [
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_00": {
+".": "5506cdb1125dd3e6",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_01": {
+".": "4f6d3ddc717e3534",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_02": {
+".": "b6b212b93555ab1e",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_03": {
+".": "eb09107c4dd9c0a3",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "192d8980c58257b9",
+"pointing_xds": "77fc4c642d82b47b",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_04": {
+".": "f6861debf7273282",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_05": {
+".": "13b66edce8f99e5c",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_06": {
+".": "65777ee921789c50",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_07": {
+".": "895950b41d1ba4b0",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "c811e8f6a5dd3b17",
+"pointing_xds": "1c73fd18d7ee9239",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_08": {
+".": "7a6a219f58c93a8f",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_09": {
+".": "56671ad62b46e3fb",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_10": {
+".": "cb7dc5451c645483",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_11": {
+".": "f631fa989728ea0b",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "45ffe9d185ad5035",
+"pointing_xds": "6ff23d321a0ff3bc",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_12": {
+".": "25b7b291ff1a8e95",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_13": {
+".": "04ee009d626d6582",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_14": {
+".": "ae868c7c6e6db1f0",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_15": {
+".": "2c631e51df2deb74",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "52ed1fc141784e33",
+"pointing_xds": "7690fca8eb57b285",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_16": {
+".": "425cc33b18114428",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_17": {
+".": "e1601c936b31bfbb",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_18": {
+".": "e54ec871424d0b10",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+},
+"VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_19": {
+".": "3a5654ccb1de67c5",
+"antenna_xds": "d276c3c6a076a4f0",
+"field_and_source_base_xds": "438160dc95d4ec9e",
+"pointing_xds": "50f22aac7098c629",
+"weather_xds": "b1306cce2f87a3a6"
+}
+}
+},
+"vlbi": {
+"attempts": [
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"global_vlbi_gg084b_reduced_0": {
+".": "05780c38a42054f0",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "34109cb48932c407",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "036852907f38b7b5"
+},
+"global_vlbi_gg084b_reduced_1": {
+".": "b985bb2b119df115",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "34109cb48932c407",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "eaee5ef56fbc1f2f"
+}
+}
+},
+"vlbi_field_id": {
+"attempts": [
+[],
+[],
+[],
+[]
+],
+"attrs": "59c0d18f895abfda",
+"msv4": {
+"global_vlbi_gg084b_reduced_0": {
+".": "7c136acbdfdb7229",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "c9b04f90ff13c4a3",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "036852907f38b7b5"
+},
+"global_vlbi_gg084b_reduced_1": {
+".": "27e94ad461e6085b",
+"antenna_xds": "89e4aaedae868794",
+"field_and_source_base_xds": "c9b04f90ff13c4a3",
+"gain_curve_xds": "9b68dcea59d0fae0",
+"system_calibration_xds": "eaee5ef56fbc1f2f"
+},
+"global_vlbi_gg084b_reduced_2": {
+".": "828a618d99eea329",
+"antenna_xds": "383d2108157f09c6",
+"field_and_source_base_xds": "6f6ba85b868eca53",
+"gain_curve_xds": "671f4ba8a02ce74e",
+"system_calibration_xds": "44a5961651bef110"
+},
+"global_vlbi_gg084b_reduced_3": {
+".": "9cb8f6c6efbc6c66",
+"antenna_xds": "383d2108157f09c6",
+"field_and_source_base_xds": "6f6ba85b868eca53",
+"gain_curve_xds": "671f4ba8a02ce74e",
+"system_calibration_xds": "f288dfdd116bec03"
+}
+}
+}
+},
+"generated_with": {
+"numpy": "2.5.3",
+"python-casacore": "3.8.1"
+},
+"nodes": {
+"00ad02f482b12a2a": {
+"meta": "53b7ae1815345f54",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|09dc87c04b28a9d9",
+"ANTENNA_POSITION": "float64|0770044787ba7677",
+"ANTENNA_RECEPTOR_ANGLE": "float64|c02ddf5a2efdb4f6",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298"
+}
+},
+"00d3ee503b51d659": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|b266522c7e7373ab",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"036852907f38b7b5": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|699d96c97419e1ea",
+"antenna_id": "int32|070ef04e1d4b830e",
+"antenna_name": "str|d932545359e6bcac",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2",
+"time_system_cal": "float64|764be60b16736bce"
+}
+},
+"04ee009d626d6582": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|84eab75303ee002c",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"05780c38a42054f0": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
+"FLAG": "bool|a6b5ff97e7fa23f3",
+"TIME_CENTROID": "float64|f93b61b455a3995e",
+"UVW": "float64|a8d770ac30fb2e2c",
+"VISIBILITY": "complex64|1d12dc2bb0748792",
+"WEIGHT": "float32|6f6ca328fea3c9d5",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|f4dfd6dbc9c91114",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|651ad15bc4808c79",
+"time": "float64|975534bd36e1b231",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"096be996822a9bdd": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|460d3eb604b9d97b",
+"TRX": "float64|02624abd67403788",
+"TSKY": "float64|eff92db886888aeb",
+"TSYS": "float64|234e3a85c1ec02cf",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|84caaf99de65d0a9",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"0b45cb9971820ebf": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.624279159975771,
+-0.21117126815481235
+],
+[
+-2.624278773510585,
+-0.2111714074862241
+],
+[
+-2.6242785771863106,
+-0.21117147826656701
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766014348.9355
+],
+[
+148766013406.35358
+],
+[
+148766012927.5221
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|1f399a00588c3f97",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|de3cf1d16016a4f2",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|74f3fb05e408dfa5",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|74f3fb05e408dfa5",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"0c7f8f683262abb8": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|580b585f40f60769",
+"SOURCE_DIRECTION": "float64|b175e5e3764b9bf9",
+"field_name": "str|b1826d48c7eccbc1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|b1826d48c7eccbc1"
+}
+},
+"0e1c1b43e71789cb": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|9ae0b6a40dc98af4",
+"TRX": "float64|3db23cbf71c00993",
+"TSKY": "float64|1d0e457bcd8386c6",
+"TSYS": "float64|78f47bbe31f60012",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|e338e8d734ee5415",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"0fa1219981d6b1c4": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|e7f34810783e4fa5",
+"TSYS": "float64|27e5b8fd1849a6bd",
+"antenna_id": "int32|f5f9b2f2b3e08458",
+"frequency_system_cal": "int64|a087efd2808b5254",
+"mount": "str|c6332f09eb6db277",
+"polarization_type": "str|56a43ec41056739e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|7bb8316eed14e6bc",
+"telescope_name": "str|bef33037b8af9f0d",
+"time_system_cal": "float64|e027a4925b3841d1"
+}
+},
+"13b66edce8f99e5c": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|35afb25a775356da",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"1423e9150c6ecdef": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|6fde4f1cc93e346b",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"192d8980c58257b9": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|33b38232ccd42be0",
+"SOURCE_DIRECTION": "float64|33b38232ccd42be0",
+"field_name": "str|0a13393a918b9ca0",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|c0479efce94ec700"
+}
+},
+"1aa5217571cd326f": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.624277960387799,
+-0.2111717006395275
+],
+[
+-2.624277570830931,
+-0.21117184108557652
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766011423.1612
+],
+[
+148766010473.03876
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|d607c0b8d00b486a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|05d8139f52d5b7d7",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|dc05a260f0931059",
+"LINE_SYSTEMIC_VELOCITY": "float64|174028f1cae49bd7",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|14d3734a5e4fa0e7",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"1ae1a43dff2da05b": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|a9a1be1d24c9063c",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d55a4e0ffd4d2bbd"
+}
+},
+"1bc500b8ffedd51f": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|a9f612551d08234a",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"1c73fd18d7ee9239": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|2c668a5721012d33",
+"POINTING_DISH_MEASURED": "float64|bdc9c79d729dfb00",
+"POINTING_OVER_THE_TOP": "bool|86ddc006fb8b832d",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|57b701b3312eb052"
+}
+},
+"25b7b291ff1a8e95": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|428a2a4aa62b2040",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"27349da7f536f607": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|9e2126ddd579fd27",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|de3f483035e4578b",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"27e94ad461e6085b": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
+"FLAG": "bool|d1c7eec62aa9defe",
+"TIME_CENTROID": "float64|72a8a07e7199f4d4",
+"UVW": "float64|60f74c9923935ec0",
+"VISIBILITY": "complex64|ad7f9ab8dff31bf8",
+"WEIGHT": "float32|efcb17bdcaab4cb8",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|4ee82efb69a0394a",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|28f601a9f56bd3b3",
+"time": "float64|71386ff4b71e4098",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"2a6a34dbed4c9a22": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|e15bc36b48f24ead",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"2b01fda042b54ed4": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|5e0977412cac52d4",
+"SPECTRUM": "float32|feb1760a81ac9ee1",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|d5474176fb276954",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"2b6f706a81183ced": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|6e345839a6bc2a22",
+"TRX": "float64|ebf326546f9eaa54",
+"TSKY": "float64|15f6bfed0e89d40a",
+"TSYS": "float64|f10539d5297355d0",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|e338e8d734ee5415",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"2c631e51df2deb74": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|5fe32a53be0f974f",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"2e6c5049c480688c": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|02156e1352c9a2ba",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|7e56cd1066f8e137",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"2f5f8c435cd2d621": {
+"meta": "b0c8b6a64a677796",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|687d38e3bfc5cfd8",
+"ANTENNA_POSITION": "float64|b64b6617b35f269e",
+"ANTENNA_RECEPTOR_ANGLE": "float64|953da50afd0e5650",
+"antenna_name": "str|8f40dda2ae4d288e",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|4aa7b0c759bd493e",
+"polarization_type": "str|93c76d17cde42d4c",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|5a9239c645f80181",
+"telescope_name": "str|5a9239c645f80181"
+}
+},
+"31d14bbba8939d89": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|a9082a64adfa7539",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|783ffd5aa9e7216e",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"33af1527e286b25d": {
+"meta": "dccb3f090e8e4b2d",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|9bae036a0f264399",
+"ANTENNA_POSITION": "float64|cf7f90d26bfda38d",
+"antenna_name": "str|b14c1c82b505f5cf",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|762fb7ac81915d94",
+"polarization_type": "str|acd2fa2bcb981c08",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8f0ab511f575f703",
+"telescope_name": "str|024ccd754dfd6efe"
+}
+},
+"34109cb48932c407": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|6fd59d74fc73388a",
+"field_name": "str|e160007db0297ab1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|b25978eca0049711"
+}
+},
+"3442cc7cb37c3221": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.624276791717012,
+-0.21117212197774027
+],
+[
+-2.624276402160329,
+-0.21117226242372267
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766008572.79343
+],
+[
+148766007622.67145
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|d607c0b8d00b486a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|05d8139f52d5b7d7",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|dc05a260f0931059",
+"LINE_SYSTEMIC_VELOCITY": "float64|174028f1cae49bd7",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|14d3734a5e4fa0e7",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"347b518cd178a1cb": {
+"meta": "dccb3f090e8e4b2d",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|9bae036a0f264399",
+"ANTENNA_POSITION": "float64|cf7f90d26bfda38d",
+"ANTENNA_RECEPTOR_ANGLE": "float64|51632dc1556b5631",
+"antenna_name": "str|b14c1c82b505f5cf",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|762fb7ac81915d94",
+"polarization_type": "str|33908c17d8ff3f5e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8f0ab511f575f703",
+"telescope_name": "str|024ccd754dfd6efe"
+}
+},
+"38117757c8ecda74": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|8c9cbd7b35dfcfc5",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"383d2108157f09c6": {
+"meta": "ee49155e11923344",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|4953f02b70b646e0",
+"ANTENNA_POSITION": "float64|693ebf4964003c64",
+"ANTENNA_RECEPTOR_ANGLE": "float64|2f912b970d67f9b7",
+"antenna_name": "str|8e914099787ca431",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960"
+}
+},
+"384d94442dbffd1d": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|d9d0af543bee8b29",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|435ae6fec466140a",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"3a5654ccb1de67c5": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|5a2f6a2ef528de86",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"3adca86d9e9a86e7": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.6242792218101414,
+-0.21117124586180758
+],
+[
+-2.624278887904282,
+-0.2111713662441259
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766014499.74844
+],
+[
+148766013685.35785
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|d607c0b8d00b486a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|05d8139f52d5b7d7",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"425cc33b18114428": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|fb41f9618f869f86",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"42bfba3902acb074": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"DEW_POINT": "float64|99518a54b78d7fcb",
+"PRESSURE": "float64|65b035b62118a1b8",
+"REL_HUMIDITY": "float64|37eb9d9eb3d40975",
+"STATION_POSITION": "float64|ca00112f9e916c8c",
+"TEMPERATURE": "float64|5e6c00dd3a298347",
+"WIND_DIRECTION": "float64|741b69976b8d67bd",
+"WIND_SPEED": "float64|3d15d6fb2b90c131",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|a479039a7d603551",
+"time_weather": "float64|a7fae903030fef94"
+}
+},
+"438160dc95d4ec9e": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|13f6234a0d8a88ea",
+"SOURCE_DIRECTION": "float64|05149764af5be8a8",
+"field_name": "str|554a583600311c94",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|836c12704620ed37"
+}
+},
+"43adc613e896c582": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|62556081a0c9a0e2",
+"FLAG": "bool|98afc746487a5c5b",
+"TIME_CENTROID": "float64|25abed22b7ebaf08",
+"UVW": "float64|e92abe6222eb89ac",
+"VISIBILITY": "complex64|cb2c2a09094e1946",
+"WEIGHT": "float32|48cedaf785ffa3ba",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|e24a4253873525d1",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|baa570831c7bda2c",
+"time": "float64|473f5df8f7ec3073",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"43d4b43a9bc27f93": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|a212c55360769acb",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"445817031b61eaee": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|edeb9d5590952591",
+"FLAG": "bool|ec031ca0866f31ab",
+"TIME_CENTROID": "float64|5f840ba9536e9a26",
+"UVW": "float64|3aff8af0fac9022b",
+"VISIBILITY": "complex64|17011cc9c4dd1406",
+"WEIGHT": "float32|894f03e221319932",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|ddde70841c2722de",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|2b1982149d109fd6",
+"time": "float64|7acf91a9f1027f0b",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"44a5961651bef110": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|a7c5080965487983",
+"antenna_id": "int32|3a7a07edc82b0a41",
+"antenna_name": "str|8e914099787ca431",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960",
+"time_system_cal": "float64|28c14d9ae447d111"
+}
+},
+"45b2fbbda5ff55b7": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|3d54d347c1497f86",
+"UVW": "float64|292a02f72563dd4f",
+"VISIBILITY": "complex64|8effbadb0602e065",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|bde28f4ab6aeca9b",
+"time": "float64|4644ead4b7fd5433",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"45ffe9d185ad5035": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|a90913a64ef61529",
+"SOURCE_DIRECTION": "float64|a90913a64ef61529",
+"field_name": "str|c2b5d98b11f47a85",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|c2b5d98b11f47a85"
+}
+},
+"466921c8b16b2412": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|e0459e9572f25a97",
+"FLAG": "bool|eda0475525a63273",
+"TIME_CENTROID": "float64|2adb8bc369c78ab6",
+"UVW": "float64|e1aca2d880cd57fe",
+"VISIBILITY": "complex64|b6d822a22e40e558",
+"WEIGHT": "float32|2b0fb59721f5442c",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|b3dba8afe66266ce",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|e46386c092385ddd",
+"time": "float64|a0839375df612fb8",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"4772aac0303e42c3": {
+"meta": "e34afaeeffeba776",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|5578c3fd17be2d4a",
+"FLAG": "bool|b5a25589198f12b7",
+"TIME_CENTROID": "float64|c2f75e27cafa9e39",
+"UVW": "float64|49b442b02cb2c74e",
+"VISIBILITY": "complex64|e549fa4ca5b1748e",
+"WEIGHT": "float32|b1a63887c73d4e13",
+"baseline_antenna1_name": "str|7524c535ee3f4eb6",
+"baseline_antenna2_name": "str|ccb4ff05f828b0c8",
+"baseline_id": "int64|d5d93955be9e2d0f",
+"field_name": "str|79bda58fe77b87f3",
+"frequency": "float64|402a869f2ba74192",
+"polarization": "str|2e23cfa7e9460a01",
+"scan_name": "str|2c84fde9e77b30f0",
+"time": "float64|ab90064ed983ede2",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"47b272975df84e98": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|c85d2e2fb960ed6e",
+"FLAG": "bool|55cdd5c405f5c9f3",
+"TIME_CENTROID": "float64|fc1f6e6c43ddf662",
+"UVW": "float64|d9f117d3664a26ab",
+"VISIBILITY": "complex64|04ca9b990b068cfb",
+"WEIGHT": "float32|7ccfa968e9e000f0",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|e058c221b0fba2a9",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|7b65b2b9ee11632a",
+"time": "float64|700a49953d6dce08",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"4f6d3ddc717e3534": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|80ca940ab8b6e796",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"4fc130002ced922c": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|0b90578cc0ee894e",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|2b9568eaae33a63d",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"507c45d2e039000b": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|3d47e2163259499c",
+"field_name": "str|b92092e5a8027931",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2816a2abe85d208a"
+}
+},
+"50f22aac7098c629": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|488bd6ae267e9597",
+"POINTING_DISH_MEASURED": "float64|43d1beeb4969c805",
+"POINTING_OVER_THE_TOP": "bool|c561ac17527d113e",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|1bb3ead517529dbe"
+}
+},
+"5201b912b56bb4c5": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|2f5f718162eea5be",
+"UVW": "float64|552c0a7976011cd2",
+"VISIBILITY": "complex64|f2c1a6504b6b13a3",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|8f4534924973590b",
+"time": "float64|69de1413d707a9be",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"52ed1fc141784e33": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|e77bbbfc2d993a7b",
+"SOURCE_DIRECTION": "float64|e77bbbfc2d993a7b",
+"field_name": "str|2f40892d25bd6611",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2f40892d25bd6611"
+}
+},
+"537ec7b446002db3": {
+"meta": "bcff645622573b86",
+"vars": {
+"TCAL": "float64|0b4a9005d90c477f",
+"TRX": "float64|ac22d56708eb01f7",
+"TSKY": "float64|e9ef26815532af32",
+"TSYS": "float64|7b0df3bf4a4296de",
+"antenna_id": "int32|07097d2ec42fd5df",
+"antenna_name": "str|b14c1c82b505f5cf",
+"frequency_system_cal": "int64|ba30d52e32b245e5",
+"mount": "str|762fb7ac81915d94",
+"polarization_type": "str|33908c17d8ff3f5e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8f0ab511f575f703",
+"telescope_name": "str|024ccd754dfd6efe",
+"time_system_cal": "float64|4987ba9860e868eb"
+}
+},
+"5506cdb1125dd3e6": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|447167082a044f27",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"56671ad62b46e3fb": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|c3fc7f4d4331e635",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"5ad02c3ab885eb34": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|55f1123a2285a74c",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"5b5688243bc23820": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|bbe289e43e04e12e",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"5c8f58dfa109c14b": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.6242768226341973,
+-0.21117211083123788
+],
+[
+-2.624276436169012,
+-0.21117225016264962
+],
+[
+-2.6242762398449218,
+-0.21117232094292637
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766008648.1999
+],
+[
+148766007705.618
+],
+[
+148766007226.78696
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|1f399a00588c3f97",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|de3cf1d16016a4f2",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|74f3fb05e408dfa5",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|74f3fb05e408dfa5",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"65777ee921789c50": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|6c0c0aa2c7d087ed",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"671f4ba8a02ce74e": {
+"meta": "e91863e50a034210",
+"vars": {
+"GAIN_CURVE": "float64|5a9a2f896d6acd88",
+"GAIN_CURVE_INTERVAL": "float64|3fd4c6e3078a19ff",
+"GAIN_CURVE_SENSITIVITY": "float64|b7e85fead074ded2",
+"antenna_id": "int32|3a7a07edc82b0a41",
+"antenna_name": "str|8e914099787ca431",
+"gain_curve_type": "str|7bc4195b24f927af",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960"
+}
+},
+"6af948ec588fcb88": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|8aa7ad443c0f3df8",
+"POINTING_DISH_MEASURED": "float64|739e4e2115a2a2fd",
+"POINTING_OVER_THE_TOP": "bool|5617991cd233c673",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|a2ad2d337206b01a"
+}
+},
+"6f6ba85b868eca53": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|0f1aaed80a73f20b",
+"field_name": "str|e5c54da6631066db",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2816a2abe85d208a"
+}
+},
+"6fb73b227b2497c7": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|4f10923197e293c0",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"6ff23d321a0ff3bc": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|965b63f2f59ff168",
+"POINTING_DISH_MEASURED": "float64|c635e0670d547b04",
+"POINTING_OVER_THE_TOP": "bool|2932d6438a52bcf8",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|51cff3dcbc120ad6"
+}
+},
+"70892126114c71f5": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|77cadca77f0fb84f",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|1422217eac1f91e1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"741c861e8b386f5e": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|c61958f3f3242ae3",
+"POINTING_DISH_MEASURED": "float64|04b4463159320edd",
+"POINTING_OVER_THE_TOP": "bool|bd0d2b6dc2fe517a",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|41043141403fcda9"
+}
+},
+"7485e03d55fd1f0a": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.6242769957705825,
+-0.21117204841077175
+],
+[
+-2.624276550562893,
+-0.21117220892048483
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766009070.47656
+],
+[
+148766007984.6227
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|d607c0b8d00b486a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|05d8139f52d5b7d7",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"7690fca8eb57b285": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|8afa7199c95c121e",
+"POINTING_DISH_MEASURED": "float64|130a7cdd8317c429",
+"POINTING_OVER_THE_TOP": "bool|c1c89802c412cdf0",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d793c8d10daaab93"
+}
+},
+"77fc4c642d82b47b": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|400bdff5ce50b50a",
+"POINTING_DISH_MEASURED": "float64|5842ad0f48d4bf15",
+"POINTING_OVER_THE_TOP": "bool|74b2f3982c081911",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d19c6a0492ce3ecf"
+}
+},
+"7a6a219f58c93a8f": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|ebd523116e190dd4",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"7c136acbdfdb7229": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
+"FLAG": "bool|d1c7eec62aa9defe",
+"TIME_CENTROID": "float64|72a8a07e7199f4d4",
+"UVW": "float64|60f74c9923935ec0",
+"VISIBILITY": "complex64|dbf7323c0e4b6104",
+"WEIGHT": "float32|3c0d2afa36f69ad3",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|4ee82efb69a0394a",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|28f601a9f56bd3b3",
+"time": "float64|71386ff4b71e4098",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"7dedbca240169172": {
+"meta": "cfe8cadd5d1b724d",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|896be61f13eec119",
+"ANTENNA_POSITION": "float64|3f42f07611ed2952",
+"ANTENNA_RECEPTOR_ANGLE": "float64|2b9a666e337806f5",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|c6332f09eb6db277",
+"polarization_type": "str|56a43ec41056739e",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|7bb8316eed14e6bc",
+"telescope_name": "str|bef33037b8af9f0d"
+}
+},
+"7eaae464de29bba1": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|064016c672a6092e",
+"LINE_REST_FREQUENCY": "float64|83fb766dd86f11b9",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|064016c672a6092e",
+"field_name": "str|9bc1eebab9fd2685",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|746293fac4bb5b7d",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|9bc1eebab9fd2685"
+}
+},
+"8050247cb4b2581e": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|766826bab3d65568",
+"FLAG": "bool|ba46d8ca5e10007d",
+"TIME_CENTROID": "float64|68e57f19355db8a0",
+"UVW": "float64|3df5844db2274090",
+"VISIBILITY": "complex64|fce9d619cb5bfaf5",
+"WEIGHT": "float32|155f8932c9a5a6be",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|bdeb1ebca538098b",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|985a577dfaade5d4",
+"time": "float64|00cf4dd874458d70",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"825c11bf0023de47": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|403fed1ea058e4e5",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|9e051e72545da3a0",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|70243450326e0856",
+"time": "float64|735bb8e3ff7525c4",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"828a618d99eea329": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|9d7e433950c20bf8",
+"FLAG": "bool|8c6474474fd16224",
+"TIME_CENTROID": "float64|6d1b4ff737389b6a",
+"UVW": "float64|80144b496cd2bcc1",
+"VISIBILITY": "complex64|ec6c54894834fc34",
+"WEIGHT": "float32|33fc800daf798abf",
+"baseline_antenna1_name": "str|ff8a50ea6a463e99",
+"baseline_antenna2_name": "str|667091b60d0be1c7",
+"baseline_id": "int64|6517990b6720fc39",
+"field_name": "str|a9256e141b67ea29",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|7922f94fe0e07e53",
+"time": "float64|3033b0087844da2c",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"82be312379425cff": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|580b585f40f60769",
+"LINE_REST_FREQUENCY": "float64|44e2a1e97ee20172",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|b175e5e3764b9bf9",
+"field_name": "str|b1826d48c7eccbc1",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|803630d1f16f263d",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|b1826d48c7eccbc1"
+}
+},
+"86e82bac328b65d6": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|42647dcd5c5937ba",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"87ecba8b29b7bffc": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|d88f4ad99f8bcfd2",
+"FLAG": "bool|6169f1b9634c5bda",
+"TIME_CENTROID": "float64|7190d6f737ba19df",
+"UVW": "float64|c9a80b7bd6fbaa95",
+"VISIBILITY": "complex64|c6bc403c369dd680",
+"WEIGHT": "float32|f757b324daec253d",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|18995002f48f8b78",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|17f2cd32467ce3de",
+"time": "float64|7c99118139755981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"895950b41d1ba4b0": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|5204db460aa63fcf",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"89e35ff49706acd2": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|b78cead9de177424",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|f4ae344979ccfea3",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"89e4aaedae868794": {
+"meta": "ee49155e11923344",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|0d854b99b8b859e0",
+"ANTENNA_POSITION": "float64|4d86515218d24970",
+"ANTENNA_RECEPTOR_ANGLE": "float64|c4fc9db7bbd8dd97",
+"antenna_name": "str|d932545359e6bcac",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2"
+}
+},
+"8c256b5a803d9d18": {
+"meta": "ef0d618091e53996",
+"vars": {
+"TCAL": "float64|d71cf837cc835538",
+"TRX": "float64|605345ec9ef72f2f",
+"TSKY": "float64|e3ec6691d23c5564",
+"TSYS": "float64|b025c7e1af88ad58",
+"antenna_id": "int32|122ce33d67e2649b",
+"frequency_system_cal": "int64|e338e8d734ee5415",
+"mount": "str|bea1550915cb8296",
+"polarization_type": "str|1cbccd7699300c16",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|46564abece9058e9",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"8e0459892d1ccae8": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|a4ca620552eab21e",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"8f0eed751dd639b2": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|064afa4d23ae285e",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|41f26f121f2f1f14",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|3f1ecb96c22a9e6d",
+"WEIGHT": "float32|a11dab08dea5dea0",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|8f4534924973590b",
+"time": "float64|1e42c8daea7f33ba",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"8fccab296a042892": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|964508fad6015757",
+"UVW": "float64|2f039710ead54504",
+"VISIBILITY": "complex64|19ad67b58a6eb588",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|c348ec3dcf53effe",
+"time": "float64|e1326a794fa85df2",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"9208cdcad75d4b74": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|d27f67814e65d774",
+"POINTING_DISH_MEASURED": "float64|0fdc08d11180bb9d",
+"POINTING_OVER_THE_TOP": "bool|1b81c845dfe2d1ca",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|6099a8ff351c659a"
+}
+},
+"93cae4b18c8e2db6": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|d2529848e59aace9",
+"FLAG": "bool|19d6a161aae5a7e1",
+"TIME_CENTROID": "float64|975fa0fe825b055f",
+"UVW": "float64|7b8ba44c5a0e0b26",
+"VISIBILITY": "complex64|463f7f961593f5ec",
+"WEIGHT": "float32|174892d393435ff3",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|6f0a7ee1f9f37706",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|30d515ad9f7aa9d0",
+"time": "float64|0c00ad388a4ead9c",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"95dc9c818e13962e": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|12f3ff10e9a37e9f",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"9b68dcea59d0fae0": {
+"meta": "e91863e50a034210",
+"vars": {
+"GAIN_CURVE": "float64|c639fa54167bc2e0",
+"GAIN_CURVE_INTERVAL": "float64|27b7f54afa556a30",
+"GAIN_CURVE_SENSITIVITY": "float64|0b5fc9cc207b8fb1",
+"antenna_id": "int32|070ef04e1d4b830e",
+"antenna_name": "str|d932545359e6bcac",
+"gain_curve_type": "str|9aa3178ad477fea0",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2"
+}
+},
+"9cb8f6c6efbc6c66": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|9d7e433950c20bf8",
+"FLAG": "bool|8c6474474fd16224",
+"TIME_CENTROID": "float64|6d1b4ff737389b6a",
+"UVW": "float64|80144b496cd2bcc1",
+"VISIBILITY": "complex64|54db45baeaf87502",
+"WEIGHT": "float32|33fc800daf798abf",
+"baseline_antenna1_name": "str|ff8a50ea6a463e99",
+"baseline_antenna2_name": "str|667091b60d0be1c7",
+"baseline_id": "int64|6517990b6720fc39",
+"field_name": "str|a9256e141b67ea29",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|7922f94fe0e07e53",
+"time": "float64|3033b0087844da2c",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"a0756207576440c0": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|da2871a5eba4f722",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|230ede82783961e6",
+"WEIGHT": "float32|c22fa756269e8346",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|c348ec3dcf53effe",
+"time": "float64|3d810aab8c6ffeab",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"a2e1458d10a1eb50": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.6242665333852475,
+-0.21117582039069038
+],
+[
+-2.6242660881773734,
+-0.21117598090047007
+],
+[
+-2.6242656429694975,
+-0.21117614141024932
+],
+[
+-2.6242651977614386,
+-0.21117630192009518
+],
+[
+-2.6242647525537484,
+-0.21117646242980825
+],
+[
+-2.6242644186477033,
+-0.21117658281219276
+],
+[
+-2.624143656006628,
+-0.21122012109170019
+],
+[
+-2.624143210798568,
+-0.21122028160154604
+],
+[
+-2.624142765590509,
+-0.2112204421113919
+],
+[
+-2.624142320382818,
+-0.21122060262110498
+],
+[
+-2.624141875174944,
+-0.21122076313088467
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148765983552.9001
+],
+[
+148765982467.04578
+],
+[
+148765981381.19153
+],
+[
+148765980295.33676
+],
+[
+148765979209.4829
+],
+[
+148765978395.09186
+],
+[
+148765683857.10373
+],
+[
+148765682771.249
+],
+[
+148765681685.39423
+],
+[
+148765680599.5404
+],
+[
+148765679513.68613
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|731a6c46082eea6d",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|84f28fd63b768acc",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|bdeb1ebca538098b",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|bdeb1ebca538098b",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"a8576557f39a59fc": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|bbf266fecfeaad1a",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"ae868c7c6e6db1f0": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|9c804fdc1bc0a8e3",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"b1306cce2f87a3a6": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"DEW_POINT": "float64|92ce4555a776002d",
+"PRESSURE": "float64|ed2ca37cf6f9fe99",
+"REL_HUMIDITY": "float64|fc5669116e998c2f",
+"STATION_POSITION": "float64|435d124e1d62aa9c",
+"TEMPERATURE": "float64|cfdfe8c1f1b25ab2",
+"WIND_DIRECTION": "float64|1596d1ab5e966d7c",
+"WIND_SPEED": "float64|2b4b791fc02d90fc",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|3e5b5c4632f7bd9b",
+"time_weather": "float64|25dcac473f927723"
+}
+},
+"b3a5c3a34c9e6096": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|0842dd3458cb77ff",
+"LINE_REST_FREQUENCY": "float64|ef0fa4859f798f11",
+"LINE_SYSTEMIC_VELOCITY": "float64|91e2df4d8fb22eb1",
+"SOURCE_DIRECTION": "float64|0842dd3458cb77ff",
+"field_name": "str|a538226f81b2b438",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|d7fa744f662f4ed9",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|a538226f81b2b438"
+}
+},
+"b55c306d9157036d": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.62426640662464,
+-0.21117586609140293
+],
+[
+-2.624266020159454,
+-0.21117600542281467
+],
+[
+-2.624265633694268,
+-0.21117614475422686
+],
+[
+-2.624265247229083,
+-0.2111762840856386
+],
+[
+-2.6242648607638968,
+-0.21117642341705034
+],
+[
+-2.6242644742987107,
+-0.21117656274846208
+],
+[
+-2.6242642717908886,
+-0.21117663575814527
+],
+[
+-2.624143686923813,
+-0.2112201099451978
+],
+[
+-2.624143300458443,
+-0.2112202492766757
+],
+[
+-2.624142913993441,
+-0.21122038860802128
+],
+[
+-2.624142527528255,
+-0.21122052793943302
+],
+[
+-2.6241421410630696,
+-0.21122066727084476
+],
+[
+-2.6241417545976997,
+-0.21122080660232312
+],
+[
+-2.6241415520900615,
+-0.21122087961194014
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148765983243.73315
+],
+[
+148765982301.15128
+],
+[
+148765981358.5694
+],
+[
+148765980415.9875
+],
+[
+148765979473.4056
+],
+[
+148765978530.82373
+],
+[
+148765978036.91064
+],
+[
+148765683932.5102
+],
+[
+148765682989.92786
+],
+[
+148765682047.34644
+],
+[
+148765681104.76456
+],
+[
+148765680162.18265
+],
+[
+148765679219.60034
+],
+[
+148765678725.6877
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|155ee325e10a5457",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|7d7f6ebf6158c0ae",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|e058c221b0fba2a9",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|e058c221b0fba2a9",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"b59daf249a26a3b9": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|a9082a64adfa7539",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|783ffd5aa9e7216e",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"b686558d0a4c1343": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"PRESSURE": "float64|83f1531c4d02e0fc",
+"REL_HUMIDITY": "float64|8bd6c4d397dac515",
+"STATION_POSITION": "float64|f2d819d95ad20040",
+"TEMPERATURE": "float64|f887bed0154039f6",
+"WIND_DIRECTION": "float64|d3037d60b7cbe7c9",
+"WIND_SPEED": "float64|a91720b850521491",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|c672e11048655ed6",
+"time_weather": "float64|d1d98d6ba3bd92f1"
+}
+},
+"b6b212b93555ab1e": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|0e3b9a44997f4e1a",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"b701bfed67d03325": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.624350620381975,
+-0.21130287822628668
+],
+[
+-2.6243502308249242,
+-0.21130301867240187
+],
+[
+-2.6243498412680566,
+-0.21130315911845088
+],
+[
+-2.624290929611436,
+-0.2113034299786829
+],
+[
+-2.6242905400543837,
+-0.21130357042479808
+],
+[
+-2.624290150497517,
+-0.2113037108708471
+],
+[
+-2.6242312388408955,
+-0.21130398173107912
+],
+[
+-2.624230849283844,
+-0.2113041221771943
+],
+[
+-2.6242304597269754,
+-0.2113042626232433
+],
+[
+-2.624171548070171,
+-0.21130453348354195
+],
+[
+-2.6241711585133034,
+-0.21130467392959051
+],
+[
+-2.6241707689566205,
+-0.2113048143755729
+],
+[
+-2.6243735789575684,
+-0.2112547168793526
+],
+[
+-2.6243731894007016,
+-0.2112548573254016
+],
+[
+-2.62437279984365,
+-0.2112549977715168
+],
+[
+-2.6243138881870287,
+-0.21125526863174882
+],
+[
+-2.624313498630162,
+-0.21125540907779783
+],
+[
+-2.6243131090731087,
+-0.211255549523913
+],
+[
+-2.624254197416489,
+-0.21125582038414503
+],
+[
+-2.6242538078596205,
+-0.21125596083019405
+],
+[
+-2.624253418302569,
+-0.21125610127630923
+],
+[
+-2.6241945066459484,
+-0.21125637213654125
+],
+[
+-2.624194117089081,
+-0.21125651258259026
+],
+[
+-2.624193727532214,
+-0.21125665302863883
+],
+[
+-2.6241348158754088,
+-0.21125692388893746
+],
+[
+-2.624134426318541,
+-0.21125706433498603
+],
+[
+-2.6241340367616734,
+-0.21125720478103505
+],
+[
+-2.6243368467626222,
+-0.21120710728481473
+],
+[
+-2.6243364572057546,
+-0.21120724773086375
+],
+[
+-2.624336067648887,
+-0.21120738817691231
+],
+[
+-2.6242771559920817,
+-0.21120765903721095
+],
+[
+-2.624276766435214,
+-0.21120779948325996
+],
+[
+-2.6242763768783472,
+-0.21120793992930853
+],
+[
+-2.624217465221726,
+-0.21120821078954055
+],
+[
+-2.6242170756646743,
+-0.21120835123565573
+],
+[
+-2.6242166861078067,
+-0.21120849168170475
+],
+[
+-2.624157774451186,
+-0.21120876254193677
+],
+[
+-2.6241573848941337,
+-0.2112089029880524
+],
+[
+-2.624156995337266,
+-0.21120904343410096
+],
+[
+-2.624359805338214,
+-0.21115894593788065
+],
+[
+-2.6243594157813472,
+-0.21115908638392966
+],
+[
+-2.6243590262244796,
+-0.21115922682997823
+],
+[
+-2.6243001145676743,
+-0.21115949769027687
+],
+[
+-2.6242997250108075,
+-0.21115963813632588
+],
+[
+-2.62429933545394,
+-0.21115977858237445
+],
+[
+-2.6242404237973194,
+-0.2111600494426069
+],
+[
+-2.624240034240451,
+-0.21116018988865548
+],
+[
+-2.6242396446833993,
+-0.21116033033477066
+],
+[
+-2.624180733026779,
+-0.21116060119500268
+],
+[
+-2.624180343469911,
+-0.2111607416410517
+],
+[
+-2.6241799539128596,
+-0.21116088208716688
+],
+[
+-2.624121042256238,
+-0.2111611529473989
+],
+[
+-2.6241206526993714,
+-0.2111612933934479
+],
+[
+-2.62412026314232,
+-0.2111614338395631
+],
+[
+-2.6243230731434517,
+-0.2111113363432766
+],
+[
+-2.6243226835863993,
+-0.2111114767893918
+],
+[
+-2.6243222940297164,
+-0.21111161723537375
+],
+[
+-2.624263382372912,
+-0.21111188809567283
+],
+[
+-2.6242629928160444,
+-0.2111120285417214
+],
+[
+-2.6242626032591776,
+-0.21111216898776997
+],
+[
+-2.6242036916023714,
+-0.2111124398480686
+],
+[
+-2.6242033020455047,
+-0.2111125802941176
+],
+[
+-2.624202912488636,
+-0.21111272074016618
+],
+[
+-2.6241440008318317,
+-0.21111299160046482
+],
+[
+-2.624143611274964,
+-0.21111313204651383
+],
+[
+-2.6241432217180973,
+-0.2111132724925624
+],
+[
+-2.6243460317190452,
+-0.21106317499634253
+],
+[
+-2.6243456421621776,
+-0.2110633154423911
+],
+[
+-2.624345252605309,
+-0.2110634558884401
+],
+[
+-2.6242863409486894,
+-0.21106372674867213
+],
+[
+-2.624285951391638,
+-0.2110638671947873
+],
+[
+-2.6242855618347694,
+-0.21106400764083633
+],
+[
+-2.624226650177965,
+-0.21106427850113496
+],
+[
+-2.6242262606210973,
+-0.21106441894718353
+],
+[
+-2.6242258710642297,
+-0.21106455939323254
+],
+[
+-2.6241669594074244,
+-0.21106483025353118
+],
+[
+-2.6241665698505567,
+-0.21106497069957975
+],
+[
+-2.62416618029369,
+-0.21106511114562831
+],
+[
+-2.6241072686370686,
+-0.21106538200586078
+],
+[
+-2.624106879080202,
+-0.21106552245190935
+],
+[
+-2.6241064895231494,
+-0.21106566289802453
+],
+[
+-2.624309299524282,
+-0.21131777554085085
+],
+[
+-2.6243089099674144,
+-0.21131791598689986
+],
+[
+-2.624308520410363,
+-0.21131805643301504
+],
+[
+-2.6242496087537424,
+-0.21131832729324707
+],
+[
+-2.624249219196691,
+-0.21131846773936225
+],
+[
+-2.624248829639823,
+-0.21131860818541126
+],
+[
+-2.624189917983202,
+-0.21131887904564328
+],
+[
+-2.6241895284261503,
+-0.21131901949175846
+],
+[
+-2.6241891388692835,
+-0.21131915993780748
+],
+[
+-2.624130227212662,
+-0.2113194307980395
+],
+[
+-2.6241298376557944,
+-0.21131957124408807
+],
+[
+-2.624129448098927,
+-0.21131971169013708
+],
+[
+-2.6243322580998747,
+-0.21126961419391677
+],
+[
+-2.624331868543008,
+-0.21126975463996578
+],
+[
+-2.624331478986141,
+-0.21126989508601435
+],
+[
+-2.624272567329335,
+-0.21127016594631298
+],
+[
+-2.6242721777724682,
+-0.211270306392362
+],
+[
+-2.624271788215416,
+-0.21127044683847718
+],
+[
+-2.6242128765587953,
+-0.2112707176987092
+],
+[
+-2.6242124870019277,
+-0.2112708581447582
+],
+[
+-2.62421209744506,
+-0.21127099859080678
+],
+[
+-2.6241531857882556,
+-0.21127126945110541
+],
+[
+-2.624152796231387,
+-0.21127140989715443
+],
+[
+-2.6241524066745203,
+-0.211271550343203
+],
+[
+-2.624093495017715,
+-0.21127182120350163
+],
+[
+-2.6240931054608474,
+-0.21127196164955064
+],
+[
+-2.6240927159039797,
+-0.2112721020955992
+],
+[
+-2.6242955259049285,
+-0.2112220045993789
+],
+[
+-2.62429513634806,
+-0.2112221450454279
+],
+[
+-2.6242947467911932,
+-0.21122228549147648
+],
+[
+-2.624235835134388,
+-0.21122255635177511
+],
+[
+-2.624235445577705,
+-0.21122269679775751
+],
+[
+-2.6242350560206535,
+-0.2112228372438727
+],
+[
+-2.624176144364032,
+-0.21122310810410516
+],
+[
+-2.6241757548069806,
+-0.21122324855022034
+],
+[
+-2.624175365250114,
+-0.2112233889962689
+],
+[
+-2.6241164535934924,
+-0.21122365985650138
+],
+[
+-2.624116064036441,
+-0.21122380030261656
+],
+[
+-2.6241156744795733,
+-0.21122394074866513
+],
+[
+-2.624318484480705,
+-0.21117384325237865
+],
+[
+-2.6243180949236535,
+-0.21117398369849383
+],
+[
+-2.6243177053667868,
+-0.2111741241445424
+],
+[
+-2.6242587937099806,
+-0.21117439500484103
+],
+[
+-2.6242584041532986,
+-0.21117453545082343
+],
+[
+-2.62425801459643,
+-0.21117467589687244
+],
+[
+-2.6241991029396257,
+-0.21117494675717108
+],
+[
+-2.624198713382757,
+-0.21117508720321965
+],
+[
+-2.6241983238257056,
+-0.21117522764933483
+],
+[
+-2.624139412169086,
+-0.2111754985095673
+],
+[
+-2.6241390226122174,
+-0.21117563895561586
+],
+[
+-2.624138633055166,
+-0.21117577940173105
+],
+[
+-2.6240797213985454,
+-0.2111760502619635
+],
+[
+-2.6240793318416777,
+-0.21117619070801208
+],
+[
+-2.6240789422846262,
+-0.21117633115412726
+],
+[
+-2.624281752285759,
+-0.21112623365784078
+],
+[
+-2.6242813627288903,
+-0.21112637410388935
+],
+[
+-2.6242809731720236,
+-0.21112651454993836
+],
+[
+-2.624222061515219,
+-0.211126785410237
+],
+[
+-2.6242216719583507,
+-0.21112692585628556
+],
+[
+-2.624221282401484,
+-0.21112706630233458
+],
+[
+-2.6241623707446777,
+-0.2111273371626332
+],
+[
+-2.624161981187811,
+-0.21112747760868178
+],
+[
+-2.6241615916309433,
+-0.2111276180547308
+],
+[
+-2.624102679974138,
+-0.21112788891502943
+],
+[
+-2.6241022904172713,
+-0.211128029361078
+],
+[
+-2.6241019008604027,
+-0.211128169807127
+],
+[
+-2.6243047108615354,
+-0.21107807231084008
+],
+[
+-2.624304321304484,
+-0.21107821275695526
+],
+[
+-2.624303931747617,
+-0.21107835320300428
+],
+[
+-2.6242450200909957,
+-0.2110786240632363
+],
+[
+-2.624244630533944,
+-0.21107876450935148
+],
+[
+-2.6242442409770774,
+-0.2110789049554005
+],
+[
+-2.6241853293202713,
+-0.21107917581569913
+],
+[
+-2.6241849397634045,
+-0.2110793162617477
+],
+[
+-2.624184550206537,
+-0.2110794567077967
+],
+[
+-2.6241256385497316,
+-0.21107972756809534
+],
+[
+-2.624125248992863,
+-0.2110798680141439
+],
+[
+-2.624124859436181,
+-0.2110800084601263
+],
+[
+-2.6240659477793757,
+-0.21108027932042495
+],
+[
+-2.624065558222508,
+-0.21108041976647351
+],
+[
+-2.6240651686654566,
+-0.2110805602125887
+],
+[
+-2.6242679786665892,
+-0.21133267285541502
+],
+[
+-2.6242675891097216,
+-0.21133281330146403
+],
+[
+-2.624267199552669,
+-0.2113329537475792
+],
+[
+-2.6242082878960495,
+-0.21133322460781123
+],
+[
+-2.624207898338998,
+-0.21133336505392641
+],
+[
+-2.6242075087821304,
+-0.21133350549997543
+],
+[
+-2.624148597125509,
+-0.21133377636020745
+],
+[
+-2.6241482075686413,
+-0.21133391680625646
+],
+[
+-2.6241478180117728,
+-0.21133405725230503
+],
+[
+-2.6240889063549684,
+-0.21133432811260366
+],
+[
+-2.6240885167981016,
+-0.21133446855865268
+],
+[
+-2.624088127241234,
+-0.21133460900470125
+],
+[
+-2.624290937242182,
+-0.21128451150848093
+],
+[
+-2.6242905476853142,
+-0.21128465195452995
+],
+[
+-2.6242901581284475,
+-0.2112847924005785
+],
+[
+-2.6242312464716413,
+-0.2112850632608776
+],
+[
+-2.6242308569147745,
+-0.21128520370692616
+],
+[
+-2.624230467357906,
+-0.21128534415297473
+],
+[
+-2.6241715557012864,
+-0.2112856150132072
+],
+[
+-2.624171166144235,
+-0.21128575545932238
+],
+[
+-2.6241707765873663,
+-0.21128589590537095
+],
+[
+-2.6241118649307458,
+-0.2112861667656034
+],
+[
+-2.624111475373695,
+-0.2112863072117186
+],
+[
+-2.6241110858168266,
+-0.21128644765776716
+],
+[
+-2.6240521741600213,
+-0.2112867185180658
+],
+[
+-2.6240517846031537,
+-0.2112868589641148
+],
+[
+-2.624051395046287,
+-0.21128699941016338
+],
+[
+-2.624254205047235,
+-0.21123690191394306
+],
+[
+-2.624253815490368,
+-0.21123704235999208
+],
+[
+-2.6242534259334995,
+-0.21123718280604065
+],
+[
+-2.624194514276879,
+-0.2112374536662731
+],
+[
+-2.6241941247200113,
+-0.21123759411232168
+],
+[
+-2.62419373516296,
+-0.21123773455843686
+],
+[
+-2.6241348235063393,
+-0.21123800541866933
+],
+[
+-2.6241344339494717,
+-0.2112381458647179
+],
+[
+-2.62413404439242,
+-0.21123828631083308
+],
+[
+-2.6240751327357996,
+-0.21123855717106554
+],
+[
+-2.6240747431787472,
+-0.21123869761718073
+],
+[
+-2.6240743536218796,
+-0.2112388380632293
+],
+[
+-2.624277163623012,
+-0.2111887405669428
+],
+[
+-2.62427677406596,
+-0.211188881013058
+],
+[
+-2.624276384509277,
+-0.2111890214590404
+],
+[
+-2.6242174728524716,
+-0.21118929231933903
+],
+[
+-2.624217083295605,
+-0.2111894327653876
+],
+[
+-2.6242166937387372,
+-0.2111895732114366
+],
+[
+-2.624157782081932,
+-0.21118984407173524
+],
+[
+-2.6241573925250634,
+-0.2111899845177838
+],
+[
+-2.6241570029681967,
+-0.21119012496383283
+],
+[
+-2.6240980913113923,
+-0.21119039582413146
+],
+[
+-2.6240977017545246,
+-0.21119053627018003
+],
+[
+-2.624097312197473,
+-0.2111906767162952
+],
+[
+-2.6240384005408526,
+-0.21119094757652768
+],
+[
+-2.624038010983984,
+-0.21119108802257625
+],
+[
+-2.6240376214271173,
+-0.21119122846862526
+],
+[
+-2.6242404314280643,
+-0.21114113097240494
+],
+[
+-2.6242400418711975,
+-0.2111412714184535
+],
+[
+-2.62423965231433,
+-0.21114141186450253
+],
+[
+-2.6241807406575255,
+-0.21114168272480116
+],
+[
+-2.624180351100657,
+-0.21114182317084973
+],
+[
+-2.62417996154379,
+-0.21114196361689874
+],
+[
+-2.624121049886985,
+-0.21114223447719738
+],
+[
+-2.6241206603301173,
+-0.21114237492324595
+],
+[
+-2.6241202707732505,
+-0.21114251536929496
+],
+[
+-2.6240613591164452,
+-0.2111427862295936
+],
+[
+-2.6240609695597614,
+-0.211142926675576
+],
+[
+-2.624060580002711,
+-0.21114306712169117
+],
+[
+-2.6242633900038435,
+-0.21109296962540425
+],
+[
+-2.624263000446792,
+-0.21109311007151943
+],
+[
+-2.6242626108899234,
+-0.21109325051756844
+],
+[
+-2.624203699233303,
+-0.21109352137780046
+],
+[
+-2.6242033096762505,
+-0.21109366182391565
+],
+[
+-2.6242029201193837,
+-0.21109380226996466
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148765975861.432
+],
+[
+148765974911.3091
+],
+[
+148765973961.18668
+],
+[
+148765972128.8077
+],
+[
+148765971178.6848
+],
+[
+148765970228.56235
+],
+[
+148765968396.18338
+],
+[
+148765967446.0605
+],
+[
+148765966495.93805
+],
+[
+148765964663.55862
+],
+[
+148765963713.4362
+],
+[
+148765962763.31418
+],
+[
+148765960930.93475
+],
+[
+148765959980.81232
+],
+[
+148765959030.68942
+],
+[
+148765957198.31042
+],
+[
+148765956248.188
+],
+[
+148765955298.0651
+],
+[
+148765953465.68613
+],
+[
+148765952515.5637
+],
+[
+148765951565.4408
+],
+[
+148765949733.0618
+],
+[
+148765948782.93936
+],
+[
+148765947832.81693
+],
+[
+148765946000.43747
+],
+[
+148765945050.31506
+],
+[
+148765944100.1926
+],
+[
+148765942267.81317
+],
+[
+148765941317.69073
+],
+[
+148765940367.5683
+],
+[
+148765938535.18887
+],
+[
+148765937585.06644
+],
+[
+148765936634.94397
+],
+[
+148765934802.565
+],
+[
+148765933852.4421
+],
+[
+148765932902.31967
+],
+[
+148765931069.94067
+],
+[
+148765930119.81778
+],
+[
+148765929169.69534
+],
+[
+148765927337.31592
+],
+[
+148765926387.19348
+],
+[
+148765925437.071
+],
+[
+148765923604.6916
+],
+[
+148765922654.56915
+],
+[
+148765921704.4467
+],
+[
+148765919872.06775
+],
+[
+148765918921.94528
+],
+[
+148765917971.8224
+],
+[
+148765916139.44342
+],
+[
+148765915189.32098
+],
+[
+148765914239.19806
+],
+[
+148765912406.8191
+],
+[
+148765911456.69666
+],
+[
+148765910506.57376
+],
+[
+148765908674.1948
+],
+[
+148765907724.0719
+],
+[
+148765906773.9499
+],
+[
+148765904941.57047
+],
+[
+148765903991.44803
+],
+[
+148765903041.32556
+],
+[
+148765901208.94617
+],
+[
+148765900258.8237
+],
+[
+148765899308.70126
+],
+[
+148765897476.32184
+],
+[
+148765896526.1994
+],
+[
+148765895576.07693
+],
+[
+148765893743.69754
+],
+[
+148765892793.57507
+],
+[
+148765891843.45264
+],
+[
+148765890011.07367
+],
+[
+148765889060.95078
+],
+[
+148765888110.82834
+],
+[
+148765886278.4489
+],
+[
+148765885328.32645
+],
+[
+148765884378.204
+],
+[
+148765882545.8246
+],
+[
+148765881595.70215
+],
+[
+148765880645.57968
+],
+[
+148765878813.20074
+],
+[
+148765877863.07825
+],
+[
+148765876912.95538
+],
+[
+148765875080.57642
+],
+[
+148765874130.45395
+],
+[
+148765873180.33105
+],
+[
+148765871347.9521
+],
+[
+148765870397.8292
+],
+[
+148765869447.70673
+],
+[
+148765867615.32776
+],
+[
+148765866665.2049
+],
+[
+148765865715.08243
+],
+[
+148765863882.70346
+],
+[
+148765862932.581
+],
+[
+148765861982.45856
+],
+[
+148765860150.07916
+],
+[
+148765859199.9567
+],
+[
+148765858249.83423
+],
+[
+148765856417.45483
+],
+[
+148765855467.3324
+],
+[
+148765854517.2095
+],
+[
+148765852684.8305
+],
+[
+148765851734.70807
+],
+[
+148765850784.58563
+],
+[
+148765848952.20618
+],
+[
+148765848002.08374
+],
+[
+148765847051.9613
+],
+[
+148765845219.58188
+],
+[
+148765844269.4594
+],
+[
+148765843319.337
+],
+[
+148765841486.95758
+],
+[
+148765840536.83514
+],
+[
+148765839586.71268
+],
+[
+148765837754.33325
+],
+[
+148765836804.21124
+],
+[
+148765835854.08838
+],
+[
+148765834021.7094
+],
+[
+148765833071.5865
+],
+[
+148765832121.46405
+],
+[
+148765830289.08508
+],
+[
+148765829338.96216
+],
+[
+148765828388.83972
+],
+[
+148765826556.46075
+],
+[
+148765825606.3379
+],
+[
+148765824656.2154
+],
+[
+148765822823.836
+],
+[
+148765821873.714
+],
+[
+148765820923.59155
+],
+[
+148765819091.21213
+],
+[
+148765818141.0897
+],
+[
+148765817190.9668
+],
+[
+148765815358.58783
+],
+[
+148765814408.4654
+],
+[
+148765813458.34247
+],
+[
+148765811625.9635
+],
+[
+148765810675.84106
+],
+[
+148765809725.71814
+],
+[
+148765807893.33917
+],
+[
+148765806943.21674
+],
+[
+148765805993.0943
+],
+[
+148765804160.71487
+],
+[
+148765803210.5924
+],
+[
+148765802260.46997
+],
+[
+148765800428.09058
+],
+[
+148765799477.9681
+],
+[
+148765798527.84564
+],
+[
+148765796695.46625
+],
+[
+148765795745.34378
+],
+[
+148765794795.22134
+],
+[
+148765792962.84238
+],
+[
+148765792012.71948
+],
+[
+148765791062.59702
+],
+[
+148765789230.21808
+],
+[
+148765788280.09515
+],
+[
+148765787329.97272
+],
+[
+148765785497.5933
+],
+[
+148765784547.47086
+],
+[
+148765783597.3484
+],
+[
+148765781764.969
+],
+[
+148765780814.84653
+],
+[
+148765779864.72452
+],
+[
+148765778032.34512
+],
+[
+148765777082.22266
+],
+[
+148765776132.0998
+],
+[
+148765774299.7208
+],
+[
+148765773349.59836
+],
+[
+148765772399.47546
+],
+[
+148765770567.0965
+],
+[
+148765769616.9736
+],
+[
+148765768666.85114
+],
+[
+148765766834.47217
+],
+[
+148765765884.34973
+],
+[
+148765764934.2273
+],
+[
+148765763101.84787
+],
+[
+148765762151.7254
+],
+[
+148765761201.60297
+],
+[
+148765759369.22354
+],
+[
+148765758419.1011
+],
+[
+148765757468.97864
+],
+[
+148765755636.59924
+],
+[
+148765754686.47678
+],
+[
+148765753736.35434
+],
+[
+148765751903.97534
+],
+[
+148765750953.85245
+],
+[
+148765750003.73
+],
+[
+148765748171.35104
+],
+[
+148765747221.22815
+],
+[
+148765746271.10568
+],
+[
+148765744438.7263
+],
+[
+148765743488.60382
+],
+[
+148765742538.48138
+],
+[
+148765740706.10196
+],
+[
+148765739755.97952
+],
+[
+148765738805.8571
+],
+[
+148765736973.4781
+],
+[
+148765736023.35565
+],
+[
+148765735073.23276
+],
+[
+148765733240.8538
+],
+[
+148765732290.73132
+],
+[
+148765731340.60846
+],
+[
+148765729508.22946
+],
+[
+148765728558.10657
+],
+[
+148765727607.98413
+],
+[
+148765725775.60513
+],
+[
+148765724825.48224
+],
+[
+148765723875.36026
+],
+[
+148765722042.98083
+],
+[
+148765721092.8584
+],
+[
+148765720142.73593
+],
+[
+148765718310.3565
+],
+[
+148765717360.23407
+],
+[
+148765716410.11163
+],
+[
+148765714577.7322
+],
+[
+148765713627.60977
+],
+[
+148765712677.48685
+],
+[
+148765710845.10788
+],
+[
+148765709894.98544
+],
+[
+148765708944.863
+],
+[
+148765707112.48358
+],
+[
+148765706162.36115
+],
+[
+148765705212.23868
+],
+[
+148765703379.85925
+],
+[
+148765702429.73682
+],
+[
+148765701479.61435
+],
+[
+148765699647.23495
+],
+[
+148765698697.1125
+],
+[
+148765697746.99005
+],
+[
+148765695914.61063
+],
+[
+148765694964.48865
+],
+[
+148765694014.36572
+],
+[
+148765692181.98676
+],
+[
+148765691231.86386
+],
+[
+148765690281.74142
+],
+[
+148765688449.36246
+],
+[
+148765687499.23956
+],
+[
+148765686549.1171
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|b284ee552c82b7d3",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|b71f024ff2c0d49c",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|df756ee23a4af73a",
+"LINE_SYSTEMIC_VELOCITY": "float64|71cc52c5b2bd7258",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|b3dba8afe66266ce",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|51c2e0a36953fe23",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|d8fc1ea9aa570d84",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"b927b995a16c88ef": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|b946c67242b337ed",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"b985bb2b119df115": {
+"meta": "56d38b8d1b5644ad",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
+"FLAG": "bool|a6b5ff97e7fa23f3",
+"TIME_CENTROID": "float64|f93b61b455a3995e",
+"UVW": "float64|a8d770ac30fb2e2c",
+"VISIBILITY": "complex64|39a02a8af088db64",
+"WEIGHT": "float32|4d44e2e82c4ce55a",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|f4dfd6dbc9c91114",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|651ad15bc4808c79",
+"time": "float64|975534bd36e1b231",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"bc21eb1986ab5006": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|aaff9885541822ea",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|2efe457800e2a554",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|904086c2fc1b094e",
+"time": "float64|11c52e6e8db929ec",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"c0279d0343b597f5": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|77cadca77f0fb84f",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|1422217eac1f91e1",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"c07d1b0eb12936c4": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.6243506234734735,
+-0.21130287711171647
+],
+[
+-2.6243502370082865,
+-0.2113030164431282
+],
+[
+-2.6243498505431013,
+-0.21130315577453995
+],
+[
+-2.6243496526730787,
+-0.2113032271121682
+],
+[
+-2.6242909327031176,
+-0.21130342886404607
+],
+[
+-2.6242905462377477,
+-0.21130356819552443
+],
+[
+-2.6242901597725616,
+-0.21130370752693617
+],
+[
+-2.624289961902539,
+-0.21130377886456442
+],
+[
+-2.624231241932577,
+-0.2113039806164423
+],
+[
+-2.624230855467392,
+-0.21130411994785403
+],
+[
+-2.624230469002021,
+-0.21130425927933238
+],
+[
+-2.6242302711319976,
+-0.2113043306169602
+],
+[
+-2.6241715511618526,
+-0.21130453236890467
+],
+[
+-2.624171164697036,
+-0.21130467170018363
+],
+[
+-2.624170778231666,
+-0.211304811031662
+],
+[
+-2.624170580361458,
+-0.2113048823693564
+],
+[
+-2.62437358204925,
+-0.21125471576471577
+],
+[
+-2.624373195584065,
+-0.21125485509612751
+],
+[
+-2.6243728091190635,
+-0.2112549944274731
+],
+[
+-2.6243726112486705,
+-0.21125506576523412
+],
+[
+-2.6243138912787103,
+-0.211255267517112
+],
+[
+-2.624313504813524,
+-0.21125540684852373
+],
+[
+-2.624313118348523,
+-0.2112555461798693
+],
+[
+-2.6243129204783155,
+-0.21125561751756372
+],
+[
+-2.6242542005083536,
+-0.2112558192694416
+],
+[
+-2.6242538140429836,
+-0.21125595860091995
+],
+[
+-2.6242534275777984,
+-0.2112560979323317
+],
+[
+-2.624253229707776,
+-0.21125616926995994
+],
+[
+-2.6241945097378148,
+-0.2112563710218378
+],
+[
+-2.6241941232726287,
+-0.21125651035324955
+],
+[
+-2.6241937368072588,
+-0.2112566496847279
+],
+[
+-2.6241935389372353,
+-0.21125672102235615
+],
+[
+-2.624134818967274,
+-0.21125692277423402
+],
+[
+-2.624134432502089,
+-0.21125706210564577
+],
+[
+-2.624134046036903,
+-0.21125720143705795
+],
+[
+-2.624133848166511,
+-0.21125727277481854
+],
+[
+-2.6243368498544877,
+-0.2112071061701113
+],
+[
+-2.6243364633893016,
+-0.21120724550152348
+],
+[
+-2.6243360769241164,
+-0.21120738483293522
+],
+[
+-2.624335879053909,
+-0.21120745617062964
+],
+[
+-2.624277159083947,
+-0.2112076579225075
+],
+[
+-2.624276772618762,
+-0.2112077972539197
+],
+[
+-2.6242763861535767,
+-0.21120793658533143
+],
+[
+-2.6242761882833676,
+-0.21120800792302585
+],
+[
+-2.6242174683134074,
+-0.21120820967490372
+],
+[
+-2.624217081848222,
+-0.21120834900631547
+],
+[
+-2.624216695383036,
+-0.21120848833772765
+],
+[
+-2.624216497512829,
+-0.21120855967542207
+],
+[
+-2.6241577775428677,
+-0.21120876142729994
+],
+[
+-2.6241573910776816,
+-0.21120890075871168
+],
+[
+-2.6241570046124956,
+-0.21120904009012387
+],
+[
+-2.6241568067422882,
+-0.21120911142781829
+],
+[
+-2.6243598084300803,
+-0.2111589448231772
+],
+[
+-2.624359421964895,
+-0.2111590841545894
+],
+[
+-2.624359035499709,
+-0.21115922348600114
+],
+[
+-2.624358837629501,
+-0.21115929482369555
+],
+[
+-2.6243001176595406,
+-0.21115949657557342
+],
+[
+-2.6242997311943554,
+-0.2111596359069856
+],
+[
+-2.6242993447291694,
+-0.21115977523839735
+],
+[
+-2.624299146858961,
+-0.21115984657609177
+],
+[
+-2.624240426889001,
+-0.21116004832796964
+],
+[
+-2.624240040423815,
+-0.21116018765938183
+],
+[
+-2.624239653958629,
+-0.21116032699079357
+],
+[
+-2.6242394560884215,
+-0.21116039832848799
+],
+[
+-2.6241807361184604,
+-0.21116060008036586
+],
+[
+-2.6241803496532743,
+-0.2111607394117776
+],
+[
+-2.624179963188089,
+-0.21116087874318978
+],
+[
+-2.6241797653178818,
+-0.2111609500808842
+],
+[
+-2.62412104534792,
+-0.21116115183276207
+],
+[
+-2.6241206588827346,
+-0.21116129116417381
+],
+[
+-2.6241202724175485,
+-0.21116143049558556
+],
+[
+-2.624120074547341,
+-0.21116150183328042
+],
+[
+-2.6243230762351333,
+-0.21111133522863934
+],
+[
+-2.624322689769947,
+-0.21111147456005153
+],
+[
+-2.624322303304762,
+-0.21111161389146327
+],
+[
+-2.624322105434554,
+-0.2111116852291577
+],
+[
+-2.6242633854645936,
+-0.21111188698103556
+],
+[
+-2.6242629989994075,
+-0.2111120263124473
+],
+[
+-2.6242626125342223,
+-0.21111216564385948
+],
+[
+-2.624262414664015,
+-0.2111122369815539
+],
+[
+-2.624203694694053,
+-0.21111243873343177
+],
+[
+-2.624203308228868,
+-0.21111257806484351
+],
+[
+-2.6242029217636818,
+-0.2111127173962557
+],
+[
+-2.6242027238934735,
+-0.21111278873395012
+],
+[
+-2.6241440039235133,
+-0.211112990485828
+],
+[
+-2.624143617458328,
+-0.21111312981723973
+],
+[
+-2.624143230993142,
+-0.21111326914865192
+],
+[
+-2.6241430331231186,
+-0.21111334048627972
+],
+[
+-2.6243460348107277,
+-0.21106317388170526
+],
+[
+-2.6243456483455407,
+-0.21106331321311744
+],
+[
+-2.6243452618803556,
+-0.21106345254452918
+],
+[
+-2.624345064010332,
+-0.21106352388215743
+],
+[
+-2.6242863440401862,
+-0.21106372563410147
+],
+[
+-2.624285957575001,
+-0.21106386496551366
+],
+[
+-2.624285571109816,
+-0.2110640042969254
+],
+[
+-2.6242853732396068,
+-0.21106407563461982
+],
+[
+-2.6242266532696465,
+-0.2110642773864977
+],
+[
+-2.6242262668046443,
+-0.21106441671784326
+],
+[
+-2.6242258803392744,
+-0.21106455604932162
+],
+[
+-2.624225682469067,
+-0.21106462738701603
+],
+[
+-2.624166962499105,
+-0.2110648291388939
+],
+[
+-2.62416657603392,
+-0.21106496847030565
+],
+[
+-2.6241661895689194,
+-0.21106510780165122
+],
+[
+-2.6241659916987103,
+-0.21106517913934564
+],
+[
+-2.6241072717285663,
+-0.21106538089129012
+],
+[
+-2.62410688526338,
+-0.21106552022270186
+],
+[
+-2.624106498798195,
+-0.21106565955411405
+],
+[
+-2.6241063009281715,
+-0.21106573089174185
+],
+[
+-2.6243093026159636,
+-0.21131777442621402
+],
+[
+-2.6243089161505946,
+-0.21131791375769238
+],
+[
+-2.6243085296854076,
+-0.21131805308910412
+],
+[
+-2.624308331815385,
+-0.21131812442673237
+],
+[
+-2.624249611845424,
+-0.21131832617861024
+],
+[
+-2.6242492253802387,
+-0.21131846551002198
+],
+[
+-2.624248838914868,
+-0.21131860484150033
+],
+[
+-2.624248641045029,
+-0.21131867617906197
+],
+[
+-2.624189921075068,
+-0.21131887793093984
+],
+[
+-2.624189534609698,
+-0.2113190172624182
+],
+[
+-2.624189148144512,
+-0.21131915659382994
+],
+[
+-2.624188950274304,
+-0.2113192279315248
+],
+[
+-2.62413023030416,
+-0.21131942968346884
+],
+[
+-2.6241298438393423,
+-0.2113195690147478
+],
+[
+-2.6241294573741563,
+-0.21131970834615998
+],
+[
+-2.624129259503764,
+-0.21131977968392057
+],
+[
+-2.6243322611915563,
+-0.21126961307927994
+],
+[
+-2.624331874726556,
+-0.2112697524106255
+],
+[
+-2.6243314882613706,
+-0.21126989174203725
+],
+[
+-2.6243312903911615,
+-0.21126996307973167
+],
+[
+-2.6242725704212013,
+-0.21127016483160954
+],
+[
+-2.6242721839558314,
+-0.2112703041630879
+],
+[
+-2.624271797490829,
+-0.21127044349443347
+],
+[
+-2.624271599620622,
+-0.2112705148321279
+],
+[
+-2.6242128796506616,
+-0.21127071658400576
+],
+[
+-2.6242124931854747,
+-0.21127085591541794
+],
+[
+-2.6242121067202895,
+-0.21127099524682968
+],
+[
+-2.624211908850082,
+-0.2112710665845241
+],
+[
+-2.624153188880121,
+-0.21127126833640197
+],
+[
+-2.624152802414936,
+-0.21127140766781416
+],
+[
+-2.62415241594975,
+-0.2112715469992259
+],
+[
+-2.6241522180795425,
+-0.21127161833692032
+],
+[
+-2.6240934981095814,
+-0.2112718200887982
+],
+[
+-2.6240931116443953,
+-0.21127195942020993
+],
+[
+-2.624092725179209,
+-0.21127209875162212
+],
+[
+-2.624092527309002,
+-0.21127217008931654
+],
+[
+-2.624295528996795,
+-0.2112220034846759
+],
+[
+-2.624295142531609,
+-0.21122214281608764
+],
+[
+-2.6242947560664227,
+-0.21122228214749939
+],
+[
+-2.6242945581962154,
+-0.2112223534851938
+],
+[
+-2.624235838226255,
+-0.21122255523707167
+],
+[
+-2.624235451761068,
+-0.21122269456848386
+],
+[
+-2.624235065295883,
+-0.2112228338998956
+],
+[
+-2.624234867425675,
+-0.21122290523759002
+],
+[
+-2.6241761474557137,
+-0.2112231069894679
+],
+[
+-2.6241757609905285,
+-0.21122324632087963
+],
+[
+-2.6241753745253433,
+-0.21122338565229182
+],
+[
+-2.624175176655135,
+-0.21122345698998624
+],
+[
+-2.624116456685174,
+-0.2112236587418641
+],
+[
+-2.624116070219989,
+-0.2112237980732763
+],
+[
+-2.624115683754802,
+-0.21122393740468803
+],
+[
+-2.6241154858845954,
+-0.21122400874238245
+],
+[
+-2.6243184875723866,
+-0.21117384213774137
+],
+[
+-2.6243181011072014,
+-0.21117398146915356
+],
+[
+-2.6243177146420154,
+-0.2111741208005653
+],
+[
+-2.624317516771807,
+-0.21117419213825972
+],
+[
+-2.624258796801847,
+-0.2111743938901376
+],
+[
+-2.6242584103366617,
+-0.21117453322154978
+],
+[
+-2.6242580238714748,
+-0.21117467255296152
+],
+[
+-2.6242578260012674,
+-0.21117474389065594
+],
+[
+-2.6241991060313072,
+-0.2111749456425338
+],
+[
+-2.624198719566121,
+-0.211175084973946
+],
+[
+-2.624198333100935,
+-0.21117522430535773
+],
+[
+-2.6241981352307278,
+-0.21117529564305215
+],
+[
+-2.6241394152607675,
+-0.21117549739493002
+],
+[
+-2.6241390287955815,
+-0.2111756367263422
+],
+[
+-2.6241386423303954,
+-0.21117577605775395
+],
+[
+-2.624138444460188,
+-0.21117584739544837
+],
+[
+-2.624079724490227,
+-0.21117604914732624
+],
+[
+-2.624079338025041,
+-0.21117618847873798
+],
+[
+-2.6240789515598557,
+-0.21117632781015017
+],
+[
+-2.6240787536896475,
+-0.21117639914784458
+],
+[
+-2.6242817553774405,
+-0.2111262325432035
+],
+[
+-2.6242813689122544,
+-0.2111263718746157
+],
+[
+-2.6242809824470683,
+-0.21112651120602743
+],
+[
+-2.624280784576861,
+-0.21112658254372185
+],
+[
+-2.6242220646069008,
+-0.21112678429559972
+],
+[
+-2.624221678141714,
+-0.2111269236270119
+],
+[
+-2.6242212916765286,
+-0.21112706295842365
+],
+[
+-2.6242210938063213,
+-0.21112713429611807
+],
+[
+-2.6241623738363593,
+-0.21112733604799594
+],
+[
+-2.624161987371174,
+-0.21112747537940812
+],
+[
+-2.624161600905989,
+-0.21112761471081987
+],
+[
+-2.6241614030357816,
+-0.21112768604851428
+],
+[
+-2.6241026830658196,
+-0.21112788780039216
+],
+[
+-2.6241022966006344,
+-0.21112802713180434
+],
+[
+-2.6241019101354484,
+-0.21112816646321608
+],
+[
+-2.624101712265425,
+-0.2111282378008439
+],
+[
+-2.624304713953034,
+-0.21107807119626987
+],
+[
+-2.624304327487847,
+-0.2110782105276816
+],
+[
+-2.624303941022662,
+-0.21107834985909335
+],
+[
+-2.6243037431526393,
+-0.2110784211967216
+],
+[
+-2.6242450231824934,
+-0.21107862294866564
+],
+[
+-2.6242446367173073,
+-0.21107876228007783
+],
+[
+-2.6242442502521213,
+-0.21107890161148957
+],
+[
+-2.6242440523820987,
+-0.21107897294911782
+],
+[
+-2.624185332411953,
+-0.21107917470106186
+],
+[
+-2.6241849459469506,
+-0.21107931403240743
+],
+[
+-2.6241845594815807,
+-0.21107945336388578
+],
+[
+-2.6241843616113742,
+-0.2110795247015802
+],
+[
+-2.624125641641413,
+-0.21107972645345807
+],
+[
+-2.624125255176411,
+-0.21107986578480364
+],
+[
+-2.6241248687112257,
+-0.21108000511621539
+],
+[
+-2.6241246708410184,
+-0.2110800764539098
+],
+[
+-2.6240659508710573,
+-0.21108027820578812
+],
+[
+-2.6240655644056874,
+-0.21108041753726603
+],
+[
+-2.62406517794087,
+-0.211080556868545
+],
+[
+-2.6240649800704787,
+-0.21108062820630602
+],
+[
+-2.624267981758271,
+-0.2113326717407782
+],
+[
+-2.6242675952930856,
+-0.21133281107218993
+],
+[
+-2.6242672088278987,
+-0.21133295040360212
+],
+[
+-2.624267010957876,
+-0.21133302174122992
+],
+[
+-2.624208290987915,
+-0.21133322349310824
+],
+[
+-2.624207904522545,
+-0.21133336282458615
+],
+[
+-2.62420751805736,
+-0.21133350215599833
+],
+[
+-2.6242073201873364,
+-0.21133357349362614
+],
+[
+-2.6241486002173744,
+-0.211333775245504
+],
+[
+-2.624148213752189,
+-0.2113339145769162
+],
+[
+-2.6241478272868193,
+-0.2113340539083941
+],
+[
+-2.624147629416612,
+-0.21133412524608897
+],
+[
+-2.6240889094468347,
+-0.21133432699790022
+],
+[
+-2.6240885229816486,
+-0.2113344663293124
+],
+[
+-2.6240881365164634,
+-0.21133460566072415
+],
+[
+-2.6240879386460714,
+-0.21133467699848518
+],
+[
+-2.6242909403338643,
+-0.2112845103938441
+],
+[
+-2.624290553868862,
+-0.21128464972518968
+],
+[
+-2.624290167403677,
+-0.21128478905660142
+],
+[
+-2.6242899695334696,
+-0.21128486039429584
+],
+[
+-2.6242312495635076,
+-0.21128506214617415
+],
+[
+-2.6242308630983224,
+-0.2112852014775859
+],
+[
+-2.6242304766331355,
+-0.21128534080899763
+],
+[
+-2.624230278762928,
+-0.21128541214669205
+],
+[
+-2.624171558792968,
+-0.21128561389857037
+],
+[
+-2.6241711723277827,
+-0.2112857532299821
+],
+[
+-2.624170785862596,
+-0.21128589256139385
+],
+[
+-2.6241705879923884,
+-0.21128596389908827
+],
+[
+-2.6241118680224274,
+-0.21128616565096614
+],
+[
+-2.6241114815572413,
+-0.21128630498237833
+],
+[
+-2.624111095092056,
+-0.21128644431379007
+],
+[
+-2.6241108972218488,
+-0.21128651565148449
+],
+[
+-2.6240521772518877,
+-0.21128671740336236
+],
+[
+-2.6240517907867016,
+-0.21128685673477454
+],
+[
+-2.6240514043215164,
+-0.21128699606618628
+],
+[
+-2.624051206451308,
+-0.2112870674038807
+],
+[
+-2.624254208139101,
+-0.21123690079924007
+],
+[
+-2.624253821673915,
+-0.2112370401306518
+],
+[
+-2.624253435208729,
+-0.21123717946206355
+],
+[
+-2.6242532373385217,
+-0.21123725079975797
+],
+[
+-2.6241945173685606,
+-0.21123745255163628
+],
+[
+-2.6241941309033745,
+-0.21123759188304803
+],
+[
+-2.6241937444381893,
+-0.21123773121445977
+],
+[
+-2.624193546567982,
+-0.21123780255215419
+],
+[
+-2.624134826598021,
+-0.2112380043040325
+],
+[
+-2.624134440132835,
+-0.21123814363544424
+],
+[
+-2.6241340536676496,
+-0.21123828296685598
+],
+[
+-2.6241338557974423,
+-0.2112383543045504
+],
+[
+-2.6240751358274803,
+-0.21123855605642827
+],
+[
+-2.624074749362295,
+-0.21123869538784046
+],
+[
+-2.62407436289711,
+-0.2112388347192522
+],
+[
+-2.6240741650269017,
+-0.21123890605694662
+],
+[
+-2.624277166714694,
+-0.21118873945230598
+],
+[
+-2.6242767802495077,
+-0.21118887878371773
+],
+[
+-2.6242763937843216,
+-0.21118901811512947
+],
+[
+-2.624276195914115,
+-0.21118908945282389
+],
+[
+-2.624217475944153,
+-0.2111892912047022
+],
+[
+-2.624217089478968,
+-0.21118943053611394
+],
+[
+-2.624216703013783,
+-0.21118956986752568
+],
+[
+-2.6242165051435746,
+-0.2111896412052201
+],
+[
+-2.6241577851736135,
+-0.21118984295709842
+],
+[
+-2.6241573987084283,
+-0.21118998228851016
+],
+[
+-2.6241570122432423,
+-0.2111901216199219
+],
+[
+-2.624156814373034,
+-0.21119019295761632
+],
+[
+-2.624098094403074,
+-0.21119039470949463
+],
+[
+-2.6240977079378878,
+-0.21119053404090637
+],
+[
+-2.6240973214727026,
+-0.21119067337231812
+],
+[
+-2.624097123602679,
+-0.21119074470994637
+],
+[
+-2.624038403632534,
+-0.2111909464618904
+],
+[
+-2.624038017167347,
+-0.2111910857933026
+],
+[
+-2.624037630702162,
+-0.21119122512471433
+],
+[
+-2.6240374328319547,
+-0.21119129646240875
+],
+[
+-2.6242404345197468,
+-0.21114112985776812
+],
+[
+-2.6242400480545607,
+-0.21114126918917986
+],
+[
+-2.6242396615893746,
+-0.2111414085205916
+],
+[
+-2.6242394637191673,
+-0.21114147985828602
+],
+[
+-2.624180743749207,
+-0.21114168161016433
+],
+[
+-2.624180357284022,
+-0.21114182094157607
+],
+[
+-2.624179970818835,
+-0.21114196027298782
+],
+[
+-2.6241797729486276,
+-0.21114203161068223
+],
+[
+-2.6241210529786665,
+-0.2111422333625601
+],
+[
+-2.6241206665134804,
+-0.2111423726939723
+],
+[
+-2.624120280048478,
+-0.21114251202531742
+],
+[
+-2.6241200821782718,
+-0.21114258336301228
+],
+[
+-2.624061362208127,
+-0.21114278511495632
+],
+[
+-2.6240609757429407,
+-0.2111429244463685
+],
+[
+-2.6240605892777555,
+-0.21114306377778025
+],
+[
+-2.624060391407732,
+-0.2111431351154085
+],
+[
+-2.624263393095525,
+-0.21109296851076742
+],
+[
+-2.624263006630155,
+-0.21109310784224578
+],
+[
+-2.624262620164968,
+-0.21109324717365752
+],
+[
+-2.6242624222949456,
+-0.21109331851128577
+],
+[
+-2.6242037023249836,
+-0.21109352026316364
+],
+[
+-2.6242033158597984,
+-0.21109365959457538
+],
+[
+-2.6242029293944285,
+-0.21109379892605373
+],
+[
+-2.624202731524405,
+-0.21109387026368198
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148765975868.9721
+],
+[
+148765974926.39026
+],
+[
+148765973983.80835
+],
+[
+148765973501.2068
+],
+[
+148765972136.34827
+],
+[
+148765971193.76593
+],
+[
+148765970251.18402
+],
+[
+148765969768.58246
+],
+[
+148765968403.72394
+],
+[
+148765967461.14206
+],
+[
+148765966518.55972
+],
+[
+148765966035.95813
+],
+[
+148765964671.09918
+],
+[
+148765963728.5182
+],
+[
+148765962785.93582
+],
+[
+148765962303.33386
+],
+[
+148765960938.4753
+],
+[
+148765959995.89343
+],
+[
+148765959053.31198
+],
+[
+148765958570.70953
+],
+[
+148765957205.851
+],
+[
+148765956263.2691
+],
+[
+148765955320.68765
+],
+[
+148765954838.08566
+],
+[
+148765953473.22714
+],
+[
+148765952530.64478
+],
+[
+148765951588.0629
+],
+[
+148765951105.46133
+],
+[
+148765949740.6028
+],
+[
+148765948798.02094
+],
+[
+148765947855.4386
+],
+[
+148765947372.83704
+],
+[
+148765946007.97852
+],
+[
+148765945065.3966
+],
+[
+148765944122.81473
+],
+[
+148765943640.21228
+],
+[
+148765942275.3542
+],
+[
+148765941332.7723
+],
+[
+148765940390.19043
+],
+[
+148765939907.5884
+],
+[
+148765938542.72986
+],
+[
+148765937600.14798
+],
+[
+148765936657.5661
+],
+[
+148765936174.9641
+],
+[
+148765934810.10553
+],
+[
+148765933867.52368
+],
+[
+148765932924.94177
+],
+[
+148765932442.33978
+],
+[
+148765931077.48126
+],
+[
+148765930134.89935
+],
+[
+148765929192.31747
+],
+[
+148765928709.71545
+],
+[
+148765927344.85693
+],
+[
+148765926402.27502
+],
+[
+148765925459.69315
+],
+[
+148765924977.09113
+],
+[
+148765923612.2326
+],
+[
+148765922669.65073
+],
+[
+148765921727.06882
+],
+[
+148765921244.46683
+],
+[
+148765919879.60828
+],
+[
+148765918937.0264
+],
+[
+148765917994.44452
+],
+[
+148765917511.8425
+],
+[
+148765916146.98398
+],
+[
+148765915204.4021
+],
+[
+148765914261.8202
+],
+[
+148765913779.2182
+],
+[
+148765912414.35965
+],
+[
+148765911471.77777
+],
+[
+148765910529.1959
+],
+[
+148765910046.59387
+],
+[
+148765908681.73535
+],
+[
+148765907739.15347
+],
+[
+148765906796.57156
+],
+[
+148765906313.96957
+],
+[
+148765904949.11102
+],
+[
+148765904006.52914
+],
+[
+148765903063.94727
+],
+[
+148765902581.34525
+],
+[
+148765901216.4867
+],
+[
+148765900273.90485
+],
+[
+148765899331.32294
+],
+[
+148765898848.72095
+],
+[
+148765897483.86243
+],
+[
+148765896541.28052
+],
+[
+148765895598.69864
+],
+[
+148765895116.09708
+],
+[
+148765893751.2381
+],
+[
+148765892808.6562
+],
+[
+148765891866.0743
+],
+[
+148765891383.47275
+],
+[
+148765890018.61377
+],
+[
+148765889076.0319
+],
+[
+148765888133.44998
+],
+[
+148765887650.848
+],
+[
+148765886285.98944
+],
+[
+148765885343.40802
+],
+[
+148765884400.82568
+],
+[
+148765883918.22366
+],
+[
+148765882553.36514
+],
+[
+148765881610.78323
+],
+[
+148765880668.2018
+],
+[
+148765880185.59982
+],
+[
+148765878820.7408
+],
+[
+148765877878.15894
+],
+[
+148765876935.57706
+],
+[
+148765876452.9755
+],
+[
+148765875088.11697
+],
+[
+148765874145.5346
+],
+[
+148765873202.95273
+],
+[
+148765872720.35117
+],
+[
+148765871355.49265
+],
+[
+148765870412.91074
+],
+[
+148765869470.32843
+],
+[
+148765868987.72733
+],
+[
+148765867622.86877
+],
+[
+148765866680.28644
+],
+[
+148765865737.70453
+],
+[
+148765865255.10254
+],
+[
+148765863890.2436
+],
+[
+148765862947.66257
+],
+[
+148765862005.0807
+],
+[
+148765861522.47824
+],
+[
+148765860157.61972
+],
+[
+148765859215.03827
+],
+[
+148765858272.45636
+],
+[
+148765857789.85437
+],
+[
+148765856424.99585
+],
+[
+148765855482.4135
+],
+[
+148765854539.83203
+],
+[
+148765854057.23004
+],
+[
+148765852692.37152
+],
+[
+148765851749.7896
+],
+[
+148765850807.20776
+],
+[
+148765850324.60574
+],
+[
+148765848959.74722
+],
+[
+148765848017.1653
+],
+[
+148765847074.58344
+],
+[
+148765846591.9814
+],
+[
+148765845227.1229
+],
+[
+148765844284.54102
+],
+[
+148765843341.9591
+],
+[
+148765842859.35712
+],
+[
+148765841494.4986
+],
+[
+148765840551.9167
+],
+[
+148765839609.33478
+],
+[
+148765839126.73282
+],
+[
+148765837761.87427
+],
+[
+148765836819.2924
+],
+[
+148765835876.7105
+],
+[
+148765835394.1085
+],
+[
+148765834029.24994
+],
+[
+148765833086.66806
+],
+[
+148765832144.08618
+],
+[
+148765831661.48416
+],
+[
+148765830296.62564
+],
+[
+148765829354.04373
+],
+[
+148765828411.46185
+],
+[
+148765827928.85986
+],
+[
+148765826564.0013
+],
+[
+148765825621.41943
+],
+[
+148765824678.83752
+],
+[
+148765824196.23553
+],
+[
+148765822831.37698
+],
+[
+148765821888.7951
+],
+[
+148765820946.21323
+],
+[
+148765820463.6112
+],
+[
+148765819098.7527
+],
+[
+148765818156.17078
+],
+[
+148765817213.58893
+],
+[
+148765816730.9869
+],
+[
+148765815366.12836
+],
+[
+148765814423.54648
+],
+[
+148765813480.9646
+],
+[
+148765812998.36258
+],
+[
+148765811633.50406
+],
+[
+148765810690.92218
+],
+[
+148765809748.34027
+],
+[
+148765809265.73828
+],
+[
+148765807900.87973
+],
+[
+148765806958.29785
+],
+[
+148765806015.71597
+],
+[
+148765805533.11395
+],
+[
+148765804168.25543
+],
+[
+148765803225.67355
+],
+[
+148765802283.09164
+],
+[
+148765801800.48965
+],
+[
+148765800435.6311
+],
+[
+148765799493.04922
+],
+[
+148765798550.46735
+],
+[
+148765798067.86533
+],
+[
+148765796703.0068
+],
+[
+148765795760.42493
+],
+[
+148765794817.84302
+],
+[
+148765794335.24146
+],
+[
+148765792970.38248
+],
+[
+148765792027.8006
+],
+[
+148765791085.2187
+],
+[
+148765790602.61716
+],
+[
+148765789237.75815
+],
+[
+148765788295.17627
+],
+[
+148765787352.5944
+],
+[
+148765786869.99283
+],
+[
+148765785505.13385
+],
+[
+148765784562.5524
+],
+[
+148765783619.9701
+],
+[
+148765783137.36807
+],
+[
+148765781772.50952
+],
+[
+148765780829.9281
+],
+[
+148765779887.34622
+],
+[
+148765779404.7442
+],
+[
+148765778039.88568
+],
+[
+148765777097.30334
+],
+[
+148765776154.72232
+],
+[
+148765775672.11987
+],
+[
+148765774307.26135
+],
+[
+148765773364.67944
+],
+[
+148765772422.0976
+],
+[
+148765771939.49603
+],
+[
+148765770574.6375
+],
+[
+148765769632.05518
+],
+[
+148765768689.47327
+],
+[
+148765768206.8717
+],
+[
+148765766842.01318
+],
+[
+148765765899.43127
+],
+[
+148765764956.84894
+],
+[
+148765764474.24695
+],
+[
+148765763109.38885
+],
+[
+148765762166.80698
+],
+[
+148765761224.22507
+],
+[
+148765760741.62262
+],
+[
+148765759376.7641
+],
+[
+148765758434.18268
+],
+[
+148765757491.60077
+],
+[
+148765757008.99878
+],
+[
+148765755644.14023
+],
+[
+148765754701.55835
+],
+[
+148765753758.97647
+],
+[
+148765753276.37445
+],
+[
+148765751911.51593
+],
+[
+148765750968.93402
+],
+[
+148765750026.35214
+],
+[
+148765749543.75012
+],
+[
+148765748178.8916
+],
+[
+148765747236.30972
+],
+[
+148765746293.7278
+],
+[
+148765745811.12582
+],
+[
+148765744446.26727
+],
+[
+148765743503.6854
+],
+[
+148765742561.1035
+],
+[
+148765742078.5015
+],
+[
+148765740713.64297
+],
+[
+148765739771.06107
+],
+[
+148765738828.4792
+],
+[
+148765738345.8772
+],
+[
+148765736981.01868
+],
+[
+148765736038.43677
+],
+[
+148765735095.85486
+],
+[
+148765734613.25287
+],
+[
+148765733248.39435
+],
+[
+148765732305.81247
+],
+[
+148765731363.23056
+],
+[
+148765730880.62854
+],
+[
+148765729515.77002
+],
+[
+148765728573.18814
+],
+[
+148765727630.60623
+],
+[
+148765727148.00427
+],
+[
+148765725783.1457
+],
+[
+148765724840.56384
+],
+[
+148765723897.98193
+],
+[
+148765723415.37994
+],
+[
+148765722050.52142
+],
+[
+148765721107.9395
+],
+[
+148765720165.3576
+],
+[
+148765719682.7556
+],
+[
+148765718317.8971
+],
+[
+148765717375.3152
+],
+[
+148765716432.7333
+],
+[
+148765715950.1313
+],
+[
+148765714585.27277
+],
+[
+148765713642.6909
+],
+[
+148765712700.10898
+],
+[
+148765712217.50745
+],
+[
+148765710852.64844
+],
+[
+148765709910.06656
+],
+[
+148765708967.48468
+],
+[
+148765708484.88266
+],
+[
+148765707120.02414
+],
+[
+148765706177.44223
+],
+[
+148765705234.86035
+],
+[
+148765704752.25836
+],
+[
+148765703387.39984
+],
+[
+148765702444.81793
+],
+[
+148765701502.23602
+],
+[
+148765701019.63403
+],
+[
+148765699654.7755
+],
+[
+148765698712.19363
+],
+[
+148765697769.61218
+],
+[
+148765697287.01016
+],
+[
+148765695922.15118
+],
+[
+148765694979.5693
+],
+[
+148765694036.9874
+],
+[
+148765693554.38586
+],
+[
+148765692189.5273
+],
+[
+148765691246.945
+],
+[
+148765690304.3631
+],
+[
+148765689821.76154
+],
+[
+148765688456.903
+],
+[
+148765687514.3211
+],
+[
+148765686571.73877
+],
+[
+148765686089.13724
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|f7324538bd1a264a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|14714a51619e9119",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|ddde70841c2722de",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|8caf358e197a14ec",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"c809236ae0cc09c5": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"DEW_POINT": "float64|43797c8f46ef47cb",
+"PRESSURE": "float64|4bd128ae103abbe7",
+"REL_HUMIDITY": "float64|98ed799ea154792c",
+"STATION_POSITION": "float64|bf85b470c5f1301e",
+"TEMPERATURE": "float64|7183c0662e529e27",
+"WIND_DIRECTION": "float64|db88d53a39a3d1b9",
+"WIND_SPEED": "float64|d9454f33237a430d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|7b7ce13f0e4aa093",
+"time_weather": "float64|69fa6b951a996ba0"
+}
+},
+"c811e8f6a5dd3b17": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|43c3b36a8ebf27ec",
+"SOURCE_DIRECTION": "float64|43c3b36a8ebf27ec",
+"field_name": "str|2d926d6517520ae6",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2d926d6517520ae6"
+}
+},
+"c9b04f90ff13c4a3": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|a0713cc26e27f3de",
+"field_name": "str|704663f96e72527e",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|2816a2abe85d208a"
+}
+},
+"cb7dc5451c645483": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|dee7de2058b272b6",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"d00078de40c7408e": {
+"meta": "536d7ca0ca2c2f59",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|b0a299f953e89268",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|f9ee77ad8e9cde34",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|b3442ebf682c6db0",
+"time": "float64|55d1fa73bc17cf6f",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"d095dc3bdf103496": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|fd71a666e840b364",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
+}
+},
+"d250ce3c4631a947": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.624350657482525,
+-0.21130286485051064
+],
+[
+-2.6243502122744644,
+-0.2113030253603565
+],
+[
+-2.6243498783687897,
+-0.21130314574260822
+],
+[
+-2.6242909388864817,
+-0.21130342663477197
+],
+[
+-2.624290493678606,
+-0.21130358714455166
+],
+[
+-2.6242901597727464,
+-0.21130370752686956
+],
+[
+-2.6242312202904365,
+-0.21130398841903375
+],
+[
+-2.6242307750827454,
+-0.21130414892874683
+],
+[
+-2.6242304411767012,
+-0.21130426931113133
+],
+[
+-2.6241717242984226,
+-0.21130446994837238
+],
+[
+-2.6241712790905476,
+-0.21130463045815162
+],
+[
+-2.6241708338826726,
+-0.2113047909679313
+],
+[
+-2.6243737273601315,
+-0.2112546633761152
+],
+[
+-2.6243732821522574,
+-0.21125482388589445
+],
+[
+-2.6243728369443833,
+-0.21125498439567414
+],
+[
+-2.624314008764273,
+-0.21125522516031037
+],
+[
+-2.624313563556214,
+-0.21125538567015623
+],
+[
+-2.624313229650353,
+-0.21125550605247412
+],
+[
+-2.624254290168045,
+-0.2112557869446383
+],
+[
+-2.62425384496017,
+-0.21125594745441756
+],
+[
+-2.6242535110543095,
+-0.2112560678367359
+],
+[
+-2.6241945715721853,
+-0.21125634872883303
+],
+[
+-2.6241941263641264,
+-0.21125650923867934
+],
+[
+-2.624193792458266,
+-0.21125662962099723
+],
+[
+-2.624134852975957,
+-0.21125691051316142
+],
+[
+-2.624134407768266,
+-0.2112570710228745
+],
+[
+-2.6241340738622227,
+-0.211257191405259
+],
+[
+-2.62433685603785,
+-0.21120710394083764
+],
+[
+-2.624336410829976,
+-0.21120726445061688
+],
+[
+-2.6243360769239317,
+-0.2112073848330014
+],
+[
+-2.6242771374418075,
+-0.21120766572509897
+],
+[
+-2.6242766922339325,
+-0.21120782623487866
+],
+[
+-2.6242763583278883,
+-0.21120794661726316
+],
+[
+-2.6242176414497935,
+-0.2112081472544376
+],
+[
+-2.6242171962417338,
+-0.21120830776428345
+],
+[
+-2.6242167510340435,
+-0.21120846827399653
+],
+[
+-2.6241579228537493,
+-0.21120870903869937
+],
+[
+-2.6241574776458743,
+-0.21120886954847862
+],
+[
+-2.6241570324379992,
+-0.2112090300582583
+],
+[
+-2.624359925915458,
+-0.2111589024664422
+],
+[
+-2.624359480707584,
+-0.21115906297622145
+],
+[
+-2.6243591468017238,
+-0.21115918335853934
+],
+[
+-2.624300207319415,
+-0.21115946425070353
+],
+[
+-2.6242997621115407,
+-0.21115962476048322
+],
+[
+-2.6242994282056795,
+-0.21115974514280111
+],
+[
+-2.6242404887233715,
+-0.2111600260349653
+],
+[
+-2.6242400435154964,
+-0.21116018654474455
+],
+[
+-2.624239709609636,
+-0.2111603069270629
+],
+[
+-2.624180770127512,
+-0.21116058781916003
+],
+[
+-2.624180324919453,
+-0.21116074832900633
+],
+[
+-2.624179991013593,
+-0.21116086871132422
+],
+[
+-2.624121051531284,
+-0.21116114960348842
+],
+[
+-2.6241206063235936,
+-0.2111613101132015
+],
+[
+-2.6241202724175485,
+-0.21116143049558556
+],
+[
+-2.6243230545931766,
+-0.21111134303116463
+],
+[
+-2.6243226093851177,
+-0.2111115035410105
+],
+[
+-2.6243222754792583,
+-0.21111162392332838
+],
+[
+-2.6242635586009797,
+-0.21111182456056943
+],
+[
+-2.6242631133932885,
+-0.2111119850702825
+],
+[
+-2.6242626681852297,
+-0.2111121455801288
+],
+[
+-2.6242038400051193,
+-0.2111123863447646
+],
+[
+-2.6242033947970604,
+-0.21111254685461045
+],
+[
+-2.6242029495891854,
+-0.21111270736439014
+],
+[
+-2.624144121409076,
+-0.21111294812902637
+],
+[
+-2.624143676201017,
+-0.21111310863887223
+],
+[
+-2.6241433422951568,
+-0.21111322902119012
+],
+[
+-2.6243461244707857,
+-0.2110631415567692
+],
+[
+-2.624345679262726,
+-0.21106330206661505
+],
+[
+-2.6243453453568666,
+-0.21106342244893295
+],
+[
+-2.6242864058745567,
+-0.21106370334109714
+],
+[
+-2.6242859606668674,
+-0.21106386385081022
+],
+[
+-2.624285626761006,
+-0.2110639842331281
+],
+[
+-2.624226687278698,
+-0.2110642651252923
+],
+[
+-2.6242262420708222,
+-0.21106442563507155
+],
+[
+-2.624225908164963,
+-0.2110645460173899
+],
+[
+-2.6241669686828377,
+-0.21106482690948702
+],
+[
+-2.624166523474779,
+-0.21106498741933333
+],
+[
+-2.6241661895687347,
+-0.21106510780171783
+],
+[
+-2.6241072500866096,
+-0.21106538869381541
+],
+[
+-2.6241068048787355,
+-0.21106554920359466
+],
+[
+-2.624106470972875,
+-0.21106566958591255
+],
+[
+-2.6243094757523497,
+-0.2113177120057479
+],
+[
+-2.6243090305444747,
+-0.21131787251552758
+],
+[
+-2.624308585336415,
+-0.21131803302537344
+],
+[
+-2.6242497571563064,
+-0.21131827379000967
+],
+[
+-2.6242493119484314,
+-0.21131843429978892
+],
+[
+-2.6242488667405564,
+-0.2113185948095686
+],
+[
+-2.6241900385602612,
+-0.211318835574271
+],
+[
+-2.624189593352387,
+-0.2113189960840507
+],
+[
+-2.624189259446526,
+-0.21131911646636858
+],
+[
+-2.624130319964218,
+-0.21131939735853278
+],
+[
+-2.6241298747565276,
+-0.21131955786824586
+],
+[
+-2.6241295408504826,
+-0.21131967825063036
+],
+[
+-2.6243323230261115,
+-0.211269590786209
+],
+[
+-2.6243318778180527,
+-0.21126975129605485
+],
+[
+-2.6243315439121933,
+-0.21126987167837274
+],
+[
+-2.624272604430068,
+-0.21127015257047033
+],
+[
+-2.624272159222194,
+-0.21127031308025002
+],
+[
+-2.624271825316148,
+-0.21127043346263452
+],
+[
+-2.624212885834025,
+-0.2112707143547321
+],
+[
+-2.624212440625966,
+-0.21127087486457796
+],
+[
+-2.6242121067202895,
+-0.21127099524682968
+],
+[
+-2.6241531672377967,
+-0.21127127613906005
+],
+[
+-2.6241527220301055,
+-0.21127143664877313
+],
+[
+-2.624152388124246,
+-0.21127155703109102
+],
+[
+-2.6240936712459666,
+-0.21127175766833206
+],
+[
+-2.6240932260379077,
+-0.21127191817817792
+],
+[
+-2.6240927808300327,
+-0.2112720786879576
+],
+[
+-2.6242956743074917,
+-0.2112219510961415
+],
+[
+-2.6242952290998014,
+-0.21122211160585458
+],
+[
+-2.6242947838917416,
+-0.21122227211570044
+],
+[
+-2.624235955711633,
+-0.21122251288033667
+],
+[
+-2.624235510503757,
+-0.2112226733901159
+],
+[
+-2.624235176597713,
+-0.21122279377250042
+],
+[
+-2.624176237115589,
+-0.211223074664598
+],
+[
+-2.6241757919077138,
+-0.2112232351743777
+],
+[
+-2.6241754580018535,
+-0.21122335555669558
+],
+[
+-2.6241165185195445,
+-0.21122363644885978
+],
+[
+-2.6241160733116704,
+-0.21122379695863902
+],
+[
+-2.62411573940581,
+-0.21122391734095736
+],
+[
+-2.6243185215812543,
+-0.21117382987660216
+],
+[
+-2.6243180763733793,
+-0.21117399038638185
+],
+[
+-2.624317742467519,
+-0.21117411076869974
+],
+[
+-2.62425880298521,
+-0.21117439166086394
+],
+[
+-2.6242583577775207,
+-0.211174552170577
+],
+[
+-2.6242580238714748,
+-0.21117467255296152
+],
+[
+-2.6241990843893515,
+-0.2111749534450591
+],
+[
+-2.6241986391812926,
+-0.21117511395490496
+],
+[
+-2.6241983052754314,
+-0.21117523433722285
+],
+[
+-2.624139588397153,
+-0.2111754349744639
+],
+[
+-2.6241391431892787,
+-0.21117559548424358
+],
+[
+-2.6241386979814028,
+-0.21117575599402327
+],
+[
+-2.6240798698011094,
+-0.21117599675872567
+],
+[
+-2.6240794245932335,
+-0.21117615726850492
+],
+[
+-2.6240789793855432,
+-0.211176317778218
+],
+[
+-2.6242818728628183,
+-0.2111261901864685
+],
+[
+-2.624281427655128,
+-0.21112635069618158
+],
+[
+-2.624281093749083,
+-0.21112647107856608
+],
+[
+-2.624222154266959,
+-0.21112675197066366
+],
+[
+-2.624221709058899,
+-0.21112691248050952
+],
+[
+-2.6242213751530397,
+-0.2111270328628274
+],
+[
+-2.6241624356709146,
+-0.211127313754925
+],
+[
+-2.6241619904630404,
+-0.21112747426470468
+],
+[
+-2.6241616565569963,
+-0.2111275946470892
+],
+[
+-2.624102717074871,
+-0.21112787553918677
+],
+[
+-2.6241022718668123,
+-0.21112803604903263
+],
+[
+-2.624101937960952,
+-0.21112815643135052
+],
+[
+-2.624304720136582,
+-0.21107806896692916
+],
+[
+-2.624304274928706,
+-0.21107822947670885
+],
+[
+-2.6243039410228466,
+-0.21107834985902674
+],
+[
+-2.6242450015405367,
+-0.21107863075119093
+],
+[
+-2.6242445563326626,
+-0.21107879126097062
+],
+[
+-2.6242442224268014,
+-0.2110789116432885
+],
+[
+-2.624185505548338,
+-0.21107911228059617
+],
+[
+-2.624185060340648,
+-0.2110792727903088
+],
+[
+-2.624184615132773,
+-0.2110794333000885
+],
+[
+-2.6241257869524794,
+-0.2110796740647909
+],
+[
+-2.6241253417446044,
+-0.21107983457457058
+],
+[
+-2.6241248965367294,
+-0.21107999508435027
+],
+[
+-2.624066068356619,
+-0.21108023584898605
+],
+[
+-2.62406562314856,
+-0.2110803963588319
+],
+[
+-2.624065289242516,
+-0.21108051674121642
+],
+[
+-2.624268071418145,
+-0.2113326394159083
+],
+[
+-2.624267626210271,
+-0.211332799925688
+],
+[
+-2.6242672923044097,
+-0.21133292030800588
+],
+[
+-2.6242083528221016,
+-0.21133320120016963
+],
+[
+-2.6242079076142266,
+-0.21133336170994932
+],
+[
+-2.624207573708367,
+-0.2113334820922672
+],
+[
+-2.6241486342260565,
+-0.2113337629844314
+],
+[
+-2.624148189018367,
+-0.21133392349414448
+],
+[
+-2.624147855112323,
+-0.211334043876529
+],
+[
+-2.624088915630198,
+-0.21133432476862657
+],
+[
+-2.6240884704223237,
+-0.21133448527840581
+],
+[
+-2.6240881365162787,
+-0.21133460566079032
+],
+[
+-2.6242909186919077,
+-0.2112845181963694
+],
+[
+-2.6242904734840327,
+-0.21128467870614864
+],
+[
+-2.6242901395779885,
+-0.21128479908853315
+],
+[
+-2.6242314226998937,
+-0.21128499972570802
+],
+[
+-2.624230977491834,
+-0.21128516023555388
+],
+[
+-2.6242305322841446,
+-0.21128532074526696
+],
+[
+-2.6241717041038495,
+-0.21128556150996936
+],
+[
+-2.6241712588959754,
+-0.21128572201974904
+],
+[
+-2.6241708136879156,
+-0.2112858825295949
+],
+[
+-2.624111985507806,
+-0.21128612329423113
+],
+[
+-2.6241115402997472,
+-0.211286283804077
+],
+[
+-2.624111206394071,
+-0.2112864041863287
+],
+[
+-2.624052266911578,
+-0.21128668507855908
+],
+[
+-2.624051821703887,
+-0.21128684558827215
+],
+[
+-2.6240514877980274,
+-0.21128696597059005
+],
+[
+-2.6242542699734717,
+-0.2112368785062353
+],
+[
+-2.6242538247655967,
+-0.21123703901601498
+],
+[
+-2.6242534908595534,
+-0.21123715939839904
+],
+[
+-2.624194551377613,
+-0.21123744029043046
+],
+[
+-2.6241941061695524,
+-0.21123760080027632
+],
+[
+-2.624193772263693,
+-0.2112377211825942
+],
+[
+-2.624134832781384,
+-0.2112380020747584
+],
+[
+-2.624134387573509,
+-0.2112381625845381
+],
+[
+-2.6241340536676496,
+-0.21123828296685598
+],
+[
+-2.6240751141853407,
+-0.21123856385901973
+],
+[
+-2.6240746689774657,
+-0.21123872436879942
+],
+[
+-2.6240743350716054,
+-0.21123884475111732
+],
+[
+-2.62427733985108,
+-0.21118867703183986
+],
+[
+-2.624276894643204,
+-0.2111888375416191
+],
+[
+-2.62427644943533,
+-0.2111889980513988
+],
+[
+-2.6242176212552195,
+-0.21118923881603502
+],
+[
+-2.6242171760471606,
+-0.21118939932588088
+],
+[
+-2.6242167308392865,
+-0.21118955983566012
+],
+[
+-2.6241579026589914,
+-0.21118980060036296
+],
+[
+-2.6241574574511173,
+-0.2111899611101422
+],
+[
+-2.624157123545257,
+-0.21119008149246055
+],
+[
+-2.6240981840631328,
+-0.21119036238455813
+],
+[
+-2.624097738855074,
+-0.211190522894404
+],
+[
+-2.6240974049492136,
+-0.21119064327672188
+],
+[
+-2.6240384654670885,
+-0.21119092416881946
+],
+[
+-2.6240380202592135,
+-0.21119108467859915
+],
+[
+-2.6240376863531694,
+-0.21119120506098366
+],
+[
+-2.6242404685287983,
+-0.2111411175965623
+],
+[
+-2.6242400233209233,
+-0.21114127810634198
+],
+[
+-2.624239689415063,
+-0.21114139848865987
+],
+[
+-2.624180749932755,
+-0.21114167938082362
+],
+[
+-2.624180304724879,
+-0.2111418398906033
+],
+[
+-2.624179970818835,
+-0.21114196027298782
+],
+[
+-2.62412103133671,
+-0.2111422411650854
+],
+[
+-2.6241205861288357,
+-0.2111424016748651
+],
+[
+-2.6241202522227915,
+-0.2111425220572496
+],
+[
+-2.624061535344696,
+-0.21114272269442402
+],
+[
+-2.6240610901368218,
+-0.21114288320420327
+],
+[
+-2.624060644928763,
+-0.21114304371404957
+],
+[
+-2.6242635384064066,
+-0.21109291612216685
+],
+[
+-2.624263093198347,
+-0.2110930766320127
+],
+[
+-2.6242626479906566,
+-0.2110932371417258
+],
+[
+-2.6242038198103623,
+-0.21109347790642818
+],
+[
+-2.6242033746024873,
+-0.21109363841620787
+],
+[
+-2.624203040696628,
+-0.21109375879852577
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148765975951.91962
+],
+[
+148765974866.06488
+],
+[
+148765974051.6747
+],
+[
+148765972151.42938
+],
+[
+148765971065.57507
+],
+[
+148765970251.18448
+],
+[
+148765968350.93915
+],
+[
+148765967265.0853
+],
+[
+148765966450.69424
+],
+[
+148765965093.37628
+],
+[
+148765964007.52197
+],
+[
+148765962921.6677
+],
+[
+148765961292.88605
+],
+[
+148765960207.03174
+],
+[
+148765959121.17746
+],
+[
+148765957492.39624
+],
+[
+148765956406.5415
+],
+[
+148765955592.1509
+],
+[
+148765953691.90555
+],
+[
+148765952606.05127
+],
+[
+148765951791.66068
+],
+[
+148765949891.41577
+],
+[
+148765948805.56104
+],
+[
+148765947991.1704
+],
+[
+148765946090.92508
+],
+[
+148765945005.07126
+],
+[
+148765944190.68018
+],
+[
+148765942290.4353
+],
+[
+148765941204.581
+],
+[
+148765940390.18997
+],
+[
+148765938489.94507
+],
+[
+148765937404.09076
+],
+[
+148765936589.6997
+],
+[
+148765935232.3822
+],
+[
+148765934146.52747
+],
+[
+148765933060.6736
+],
+[
+148765931431.89197
+],
+[
+148765930346.0377
+],
+[
+148765929260.18338
+],
+[
+148765927631.40173
+],
+[
+148765926545.54742
+],
+[
+148765925731.15683
+],
+[
+148765923830.91147
+],
+[
+148765922745.0572
+],
+[
+148765921930.6666
+],
+[
+148765920030.42126
+],
+[
+148765918944.56696
+],
+[
+148765918130.1764
+],
+[
+148765916229.93146
+],
+[
+148765915144.07672
+],
+[
+148765914329.68613
+],
+[
+148765912429.44077
+],
+[
+148765911343.58694
+],
+[
+148765910529.1959
+],
+[
+148765908628.951
+],
+[
+148765907543.09625
+],
+[
+148765906728.70566
+],
+[
+148765905371.3877
+],
+[
+148765904285.5338
+],
+[
+148765903199.6791
+],
+[
+148765901570.8979
+],
+[
+148765900485.04315
+],
+[
+148765899399.18884
+],
+[
+148765897770.40765
+],
+[
+148765896684.55292
+],
+[
+148765895870.16232
+],
+[
+148765893969.91742
+],
+[
+148765892884.06268
+],
+[
+148765892069.67206
+],
+[
+148765890169.42673
+],
+[
+148765889083.5729
+],
+[
+148765888269.18228
+],
+[
+148765886368.93695
+],
+[
+148765885283.08264
+],
+[
+148765884468.69208
+],
+[
+148765882568.44714
+],
+[
+148765881482.5924
+],
+[
+148765880668.20135
+],
+[
+148765878767.95648
+],
+[
+148765877682.10217
+],
+[
+148765876867.71158
+],
+[
+148765875510.39362
+],
+[
+148765874424.5393
+],
+[
+148765873338.68457
+],
+[
+148765871709.90338
+],
+[
+148765870624.04907
+],
+[
+148765869538.1948
+],
+[
+148765867909.41315
+],
+[
+148765866823.55884
+],
+[
+148765866009.16824
+],
+[
+148765864108.9229
+],
+[
+148765863023.06906
+],
+[
+148765862208.678
+],
+[
+148765860308.4331
+],
+[
+148765859222.57837
+],
+[
+148765858408.18777
+],
+[
+148765856507.94287
+],
+[
+148765855422.0886
+],
+[
+148765854607.69754
+],
+[
+148765852707.45264
+],
+[
+148765851621.5979
+],
+[
+148765850807.20776
+],
+[
+148765848906.96194
+],
+[
+148765847821.10812
+],
+[
+148765847006.7175
+],
+[
+148765845649.39954
+],
+[
+148765844563.5448
+],
+[
+148765843477.6905
+],
+[
+148765841848.90887
+],
+[
+148765840763.055
+],
+[
+148765839677.2003
+],
+[
+148765838048.41907
+],
+[
+148765836962.56476
+],
+[
+148765836148.1737
+],
+[
+148765834247.92883
+],
+[
+148765833162.07455
+],
+[
+148765832347.68393
+],
+[
+148765830447.4386
+],
+[
+148765829361.5843
+],
+[
+148765828547.1937
+],
+[
+148765826646.94836
+],
+[
+148765825561.09406
+],
+[
+148765824746.70346
+],
+[
+148765822846.45813
+],
+[
+148765821760.60428
+],
+[
+148765820946.21323
+],
+[
+148765819045.96832
+],
+[
+148765817960.1136
+],
+[
+148765817145.723
+],
+[
+148765815788.40503
+],
+[
+148765814702.55072
+],
+[
+148765813616.69644
+],
+[
+148765811987.91476
+],
+[
+148765810902.0605
+],
+[
+148765809816.20663
+],
+[
+148765808187.42456
+],
+[
+148765807101.57068
+],
+[
+148765806287.17966
+],
+[
+148765804386.93475
+],
+[
+148765803301.08002
+],
+[
+148765802486.6894
+],
+[
+148765800586.44452
+],
+[
+148765799500.59024
+],
+[
+148765798686.19916
+],
+[
+148765796785.95428
+],
+[
+148765795700.09955
+],
+[
+148765794885.70895
+],
+[
+148765792985.46405
+],
+[
+148765791899.60974
+],
+[
+148765791085.21915
+],
+[
+148765789184.97382
+],
+[
+148765788099.11954
+],
+[
+148765787284.7289
+],
+[
+148765785927.41052
+],
+[
+148765784841.55664
+],
+[
+148765783755.70236
+],
+[
+148765782126.92072
+],
+[
+148765781041.0664
+],
+[
+148765779955.21213
+],
+[
+148765778326.4309
+],
+[
+148765777240.57617
+],
+[
+148765776426.18512
+],
+[
+148765774525.94025
+],
+[
+148765773440.08594
+],
+[
+148765772625.69534
+],
+[
+148765770725.45
+],
+[
+148765769639.59573
+],
+[
+148765768825.20508
+],
+[
+148765766924.95978
+],
+[
+148765765839.10593
+],
+[
+148765765024.71487
+],
+[
+148765763124.46997
+],
+[
+148765762038.61566
+],
+[
+148765761224.22464
+],
+[
+148765759323.97974
+],
+[
+148765758238.12543
+],
+[
+148765757423.73438
+],
+[
+148765756066.41687
+],
+[
+148765754980.56213
+],
+[
+148765753894.7083
+],
+[
+148765752265.92664
+],
+[
+148765751180.07233
+],
+[
+148765750094.21762
+],
+[
+148765748465.4364
+],
+[
+148765747379.58167
+],
+[
+148765746565.1915
+],
+[
+148765744664.9457
+],
+[
+148765743579.09186
+],
+[
+148765742764.7013
+],
+[
+148765740864.45593
+],
+[
+148765739778.60162
+],
+[
+148765738964.21057
+],
+[
+148765737063.96613
+],
+[
+148765735978.11142
+],
+[
+148765735163.7208
+],
+[
+148765733263.47546
+],
+[
+148765732177.62115
+],
+[
+148765731363.23056
+],
+[
+148765729462.98523
+],
+[
+148765728377.13092
+],
+[
+148765727562.74033
+],
+[
+148765726205.42233
+],
+[
+148765725119.56805
+],
+[
+148765724033.71378
+],
+[
+148765722404.93256
+],
+[
+148765721319.07782
+],
+[
+148765720233.2235
+],
+[
+148765718604.4419
+],
+[
+148765717518.5876
+],
+[
+148765716704.197
+],
+[
+148765714803.9521
+],
+[
+148765713718.09735
+],
+[
+148765712903.70676
+],
+[
+148765711003.46185
+],
+[
+148765709917.60757
+],
+[
+148765709103.21652
+],
+[
+148765707202.97162
+],
+[
+148765706117.1173
+],
+[
+148765705302.72675
+],
+[
+148765703402.48138
+],
+[
+148765702316.6271
+],
+[
+148765701502.23602
+],
+[
+148765699601.99115
+],
+[
+148765698516.13684
+],
+[
+148765697701.7458
+],
+[
+148765696344.42828
+],
+[
+148765695258.57397
+],
+[
+148765694172.71927
+],
+[
+148765692543.93805
+],
+[
+148765691458.0833
+],
+[
+148765690372.22946
+],
+[
+148765688743.4478
+],
+[
+148765687657.59354
+],
+[
+148765686843.20294
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|b284ee552c82b7d3",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|b71f024ff2c0d49c",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|b3dba8afe66266ce",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|d8fc1ea9aa570d84",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"d276c3c6a076a4f0": {
+"meta": "cb3b4eb7b2c820df",
+"vars": {
+"ANTENNA_DISH_DIAMETER": "float64|9c3ccc32f9dfd603",
+"ANTENNA_POSITION": "float64|c5142d3b87dbba50",
+"ANTENNA_RECEPTOR_ANGLE": "float64|6fad309a19b6c649",
+"antenna_name": "str|332b14ff22152bf2",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"mount": "str|a708801072984342",
+"polarization_type": "str|231e1e9064eff2e5",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|e6e8cd57d6a05cf2",
+"telescope_name": "str|a712ed10b00530c1"
+}
+},
+"d31e0710e48c9559": {
+"meta": "007427d3b50c628d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|1a6de25d3098b1e7",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|6b92c69d1efdcfa8",
+"WEIGHT": "float32|c22fa756269e8346",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|bde28f4ab6aeca9b",
+"time": "float64|10c465ebd37a947b",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"dd0796ed4deaa0aa": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|86cc02b9718ba5c8",
+"LINE_REST_FREQUENCY": "float64|b78cead9de177424",
+"LINE_SYSTEMIC_VELOCITY": "float64|1484fedce09ce24a",
+"SOURCE_DIRECTION": "float64|86cc02b9718ba5c8",
+"field_name": "str|33f2d18af653cb92",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|f4ae344979ccfea3",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|33f2d18af653cb92"
+}
+},
+"def60ac7eab9a3c5": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|06d86c40e7951742",
+"POINTING_DISH_MEASURED": "float64|942bb78169730f30",
+"POINTING_OVER_THE_TOP": "bool|5617991cd233c673",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|54a910f6b4a9cac8"
+}
+},
+"e1601c936b31bfbb": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|f20feab29f7c87cc",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"e19972165733bfc5": {
+"meta": "2f88d7ff37e2c655",
+"vars": {
+"POINTING_BEAM": "float64|f93024b43fadaa5e",
+"POINTING_DISH_MEASURED": "float64|53f5d703b93fd57c",
+"POINTING_OVER_THE_TOP": "bool|5617991cd233c673",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d0f3c6d99518cb1e"
+}
+},
+"e42d4153d83d10a6": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|05b1afdb934ee052",
+"antenna_name": "str|8f40dda2ae4d288e",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|f126b2444863f17b"
+}
+},
+"e54ec871424d0b10": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|c4cbf2ad7ef5429d",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"e57a3cc195918c73": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.6242791290585856,
+-0.21117127930131474
+],
+[
+-2.624278739501534,
+-0.21117141974742992
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766014273.529
+],
+[
+148766013323.4061
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|d607c0b8d00b486a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|05d8139f52d5b7d7",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|dc05a260f0931059",
+"LINE_SYSTEMIC_VELOCITY": "float64|174028f1cae49bd7",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|14d3734a5e4fa0e7",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"e77346127fd5d550": {
+"meta": "bd5463db83a2a40e",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|8c10daa0179ef7fd",
+"FLAG": "bool|7d0c46c0bb0fae67",
+"SPECTRUM": "float32|bccba1de4f45ade6",
+"TIME_CENTROID": "float64|f5588eb14b82abdc",
+"WEIGHT": "float32|c49581a327197ebf",
+"antenna_name": "str|bef33037b8af9f0d",
+"field_name": "str|8a946c344d3881ee",
+"frequency": "float64|03da57ad844b538e",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|27f8bf29df9bea41",
+"telescope_name": "str|bef33037b8af9f0d",
+"time": "float64|96faa2d5ab289959"
+}
+},
+"e8b7483baf04e74b": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|c8ee9cf2c740d161",
+"FLAG": "bool|550f7bfe960efc47",
+"TIME_CENTROID": "float64|61f1c1154e5af654",
+"UVW": "float64|dc2838f8a8e2f9e2",
+"VISIBILITY": "complex64|b3952a318acdacec",
+"WEIGHT": "float32|5960ff03f5edd4f5",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|b3dba8afe66266ce",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e46386c092385ddd",
+"time": "float64|cc6c554e37f24b48",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"e8e02325d28f1b22": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|3f5f80ca6f0227ab",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
+}
+},
+"e9a34878c0c533a4": {
+"meta": "e42438558e1b4117",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|5de4ce5bd7cd249f",
+"FLAG": "bool|2a6c452e0ce18df3",
+"TIME_CENTROID": "float64|180e372cd7724518",
+"UVW": "float64|d6f42af0763d22a3",
+"VISIBILITY": "complex64|ab8566d5d62997fd",
+"WEIGHT": "float32|b3c2aed70cf61968",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|3894c3f80140df45",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|884a3b7d671d798d",
+"time": "float64|6ecb938597bab199",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"eaee5ef56fbc1f2f": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|2606b6ceccadda89",
+"antenna_id": "int32|070ef04e1d4b830e",
+"antenna_name": "str|d932545359e6bcac",
+"mount": "str|ed5963546e5bd34c",
+"polarization_type": "str|88f4d1c707d49944",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|d932545359e6bcac",
+"telescope_name": "str|95cf71caa5ac58d2",
+"time_system_cal": "float64|764be60b16736bce"
+}
+},
+"eb09107c4dd9c0a3": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|b4a3bd1e24a6c15d",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"f288dfdd116bec03": {
+"meta": "5fb958c3a3c7a330",
+"vars": {
+"TSYS": "float64|fb184b30780db9e1",
+"antenna_id": "int32|3a7a07edc82b0a41",
+"antenna_name": "str|8e914099787ca431",
+"mount": "str|67f94131458ba57a",
+"polarization_type": "str|24d18b140e5c94e1",
+"receptor_label": "str|b03c9add01112cd4",
+"station_name": "str|8e914099787ca431",
+"telescope_name": "str|8a326d96aaab8960",
+"time_system_cal": "float64|28c14d9ae447d111"
+}
+},
+"f3e3af2051e59edb": {
+"meta": "363efa992bc3c9a0",
+"vars": {
+"FIELD_REFERENCE_CENTER_DIRECTION": "float64|f8ee035453f06061",
+"LINE_REST_FREQUENCY": "float64|d9d0af543bee8b29",
+"LINE_SYSTEMIC_VELOCITY": "float64|16193fb4dfd4a3a9",
+"SOURCE_DIRECTION": "float64|f8ee035453f06061",
+"field_name": "str|fb240727a2c17627",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|435ae6fec466140a",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|fb240727a2c17627"
+}
+},
+"f579033bc7834628": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|57d6a5dba8ec8df3",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"f5c3d1703ce44038": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.624278108790363,
+-0.21117164713628966
+],
+[
+-2.6242776635826726,
+-0.21117180764600274
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766011785.1125
+],
+[
+148766010699.25864
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|d607c0b8d00b486a",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|05d8139f52d5b7d7",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|1a3a8cc77a17c627",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|1a3a8cc77a17c627",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"f631fa989728ea0b": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|4d6c2e7d8b5433b6",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"f6861debf7273282": {
+"meta": "9a6dc971cadbfb7b",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|20573229ff561b51",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"f71319089e2d0d60": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|a8eacbf319fbd4f9",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"f838a0dccaab2fb7": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.624277991304984,
+-0.21117168949302512
+],
+[
+-2.624277604839799,
+-0.21117182882443686
+],
+[
+-2.624277408515524,
+-0.21117189960477978
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148766011498.5677
+],
+[
+148766010555.9858
+],
+[
+148766010077.1543
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "7db1016d638b02a2",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|1f399a00588c3f97",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|de3cf1d16016a4f2",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|74f3fb05e408dfa5",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|74f3fb05e408dfa5",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"fb2d0eb0b7523925": {
+"approx": {
+"FIELD_PHASE_CENTER_DIRECTION": [
+[
+-2.6242664035329586,
+-0.21117586720603976
+],
+[
+-2.624266013975907,
+-0.21117600765215538
+],
+[
+-2.6242656244190394,
+-0.21117614809820395
+],
+[
+-2.624265234862172,
+-0.21117628854425252
+],
+[
+-2.624264845305304,
+-0.21117642899030153
+],
+[
+-2.6242644557484365,
+-0.2111765694363501
+],
+[
+-2.6241436838319467,
+-0.2112201110599008
+],
+[
+-2.624143294275079,
+-0.2112202515059498
+],
+[
+-2.6241429047180276,
+-0.211220391952065
+],
+[
+-2.62414251516116,
+-0.211220532398114
+],
+[
+-2.6241421256042923,
+-0.21122067284416257
+],
+[
+-2.6241417360474255,
+-0.21122081329021114
+]
+],
+"FIELD_PHASE_CENTER_DISTANCE": [
+[
+148765983236.1926
+],
+[
+148765982286.0697
+],
+[
+148765981335.94727
+],
+[
+148765980385.8248
+],
+[
+148765979435.70236
+],
+[
+148765978485.5799
+],
+[
+148765683924.9692
+],
+[
+148765682974.84677
+],
+[
+148765682024.72385
+],
+[
+148765681074.6014
+],
+[
+148765680124.47897
+],
+[
+148765679174.3565
+]
+],
+"OBSERVER_POSITION": [
+6378137.0,
+0.0,
+0.0
+]
+},
+"meta": "ecfcbbb91b77afad",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|355f000c000f4543",
+"FIELD_PHASE_CENTER_DISTANCE": "float64|60ed334e6fd71d28",
+"HELIOCENTRIC_RADIAL_VELOCITY": "float64|8124cdc624ca1c33",
+"LINE_REST_FREQUENCY": "float64|172b2b09a6d2dce7",
+"LINE_SYSTEMIC_VELOCITY": "float64|dd768966f1415b2f",
+"NORTH_POLE_ANGULAR_DISTANCE": "float64|511abe4545af2507",
+"NORTH_POLE_POSITION_ANGLE": "float64|6ce574bb5249b4b5",
+"OBSERVER_PHASE_ANGLE": "float64|2bfcfac9aeb9c7e7",
+"OBSERVER_POSITION": "float64|c44a205f503f599e",
+"SOURCE_DIRECTION": "float64|567ecc042c91eda4",
+"SOURCE_DISTANCE": "float64|2102b1f40682f5ec",
+"SOURCE_RADIAL_VELOCITY": "float64|f7df2a00df08cd1b",
+"SUB_OBSERVER_DIRECTION": "float64|8fddf7274385a52d",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"ellipsoid_dir_label": "str|47f792429c597e79",
+"ellipsoid_dis_label": "str|e35e2b43c635f0b9",
+"field_name": "str|e24a4253873525d1",
+"line_label": "str|a66b46b6d2fd08fe",
+"line_name": "str|84db3cf7043add88",
+"sky_dir_label": "str|ce909f0f69f37958",
+"sky_dis_label": "str|776805481a83cba0",
+"source_name": "str|e24a4253873525d1",
+"time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"fde8c3c5684a2ce2": {
+"meta": "e89edcbe557b62cf",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|32921cd9a94ec7ab",
+"SPECTRUM": "float32|d1d7ac8849bceea7",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|c55a6eb09e45b739",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+}
+},
+"reads": {
+"alma": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|153|be55fa70a7309867",
+"int64|3x51|be55fa70a7309867"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|153|be55fa70a7309867",
+"int64|3x51|be55fa70a7309867"
+],
+"DATA": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"1428004 rows/tile",
+"complex64|153x1x2|27e49bd474b4d058",
+"complex64|3x51x1x2|27e49bd474b4d058"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|9c60e77160eeee32",
+"float64|3x51|9c60e77160eeee32"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"11424035 rows/tile",
+"bool|153x1x2|2cd6bf5abe2561de",
+"bool|3x51x1x2|2cd6bf5abe2561de"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|153|f1663cceeb67ba35",
+"bool|3x51|f1663cceeb67ba35"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|01ed87e68a3efd5a",
+"float64|3x51|01ed87e68a3efd5a"
+],
+"SIGMA": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"67894 rows/tile",
+"float32|153x2|c69f0671cc57fcfc",
+"float32|3x51x2|c69f0671cc57fcfc"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|6136a5c708bc632c",
+"float64|3x51|6136a5c708bc632c"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|153|6136a5c708bc632c",
+"float64|3x51|6136a5c708bc632c"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|153x3|2bb0e8aa6b1aeebb",
+"float64|3x51x3|2bb0e8aa6b1aeebb"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan: cell shapes of 153 rows compared",
+"67894 rows/tile",
+"float32|153x2|0de595ab7ee8eb6c",
+"float32|3x51x2|0de595ab7ee8eb6c"
+]
+},
+"1": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|102|f570871938aef083",
+"int64|2x51|f570871938aef083"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|102|f570871938aef083",
+"int64|2x51|f570871938aef083"
+],
+"DATA": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"943411 rows/tile",
+"complex64|102x4x1|cf2f9cc4bdb95bbe",
+"complex64|2x51x4x1|cf2f9cc4bdb95bbe"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|96bb79c01ab17f07",
+"float64|2x51|96bb79c01ab17f07"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"7547287 rows/tile",
+"bool|102x4x1|bdcad460f2e51432",
+"bool|2x51x4x1|bdcad460f2e51432"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|102|c419a92c7dce5225",
+"bool|2x51|c419a92c7dce5225"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|e63fc5f58ad42a9c",
+"float64|2x51|e63fc5f58ad42a9c"
+],
+"SIGMA": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"1886822 rows/tile",
+"float32|102x1|f2cb85d3eac52f0c",
+"float32|2x51x1|f2cb85d3eac52f0c"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|683201985d0b7caf",
+"float64|2x51|683201985d0b7caf"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|102|683201985d0b7caf",
+"float64|2x51|683201985d0b7caf"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|102x3|b950d7a5a24da82f",
+"float64|2x51x3|b950d7a5a24da82f"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan: cell shapes of 102 rows compared",
+"1886822 rows/tile",
+"float32|102x1|c07f6f78c7a5b499",
+"float32|2x51x1|c07f6f78c7a5b499"
+]
+},
+"2": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|2652|7a18f292383064a5",
+"int64|2x1326|e2531f2b95cf82e0"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|2652|d709cf81a0943c05",
+"int64|2x1326|d709cf81a0943c05"
+],
+"DATA": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"10183 rows/tile",
+"complex64|2652x7x2|eb357d846bd5dad6",
+"complex64|2x1326x7x2|696c4f7ceebd77cd"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|fefb173b6d63e9be",
+"float64|2x1326|fefb173b6d63e9be"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"81466 rows/tile",
+"bool|2652x7x2|9b7ac7e7b889a96f",
+"bool|2x1326x7x2|9b7ac7e7b889a96f"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|2652|6749d730b3a80055",
+"bool|2x1326|6749d730b3a80055"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|27bec23a57628d1e",
+"float64|2x1326|27bec23a57628d1e"
+],
+"SIGMA": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"67894 rows/tile",
+"float32|2652x2|484f57481fbf5735",
+"float32|2x1326x2|2fa0a57d974ffa93"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|bf745ca6be391dcd",
+"float64|2x1326|bf745ca6be391dcd"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|2652|e89d86acbd2fcca4",
+"float64|2x1326|e89d86acbd2fcca4"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|2652x3|c510b924b6763e23",
+"float64|2x1326x3|afbfd014e52f34bc"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan: cell shapes of 2652 rows compared",
+"67894 rows/tile",
+"float32|2652x2|550da51c81cd10d6",
+"float32|2x1326x2|d7e225ae77168d52"
+]
+}
+},
+"n_partitions": 18,
+"partitions": "ae2d270ed366f8b8",
+"rows": [
+"153|b3541d56e2d9d90a",
+"102|4abe1bb42d9d924b",
+"2652|c13d60804a0038b0",
+"153|297f884eb98a5c56",
+"102|43d1dabae0ec0dff",
+"2652|0663d4d18cef85d2",
+"153|efc95491f1065aff",
+"102|35c8ccd9cfcf8549",
+"2652|5722cf6b6b75a4ed",
+"1581|0472cd36f0e1f5a5",
+"1326|f3f7479ec19a19f6",
+"39780|c31b124bd905fe73",
+"714|0bd7a069e55f0123",
+"561|18bdf31205badc65",
+"15912|f2d6a883bef2992e",
+"15912|a8fb6dd6c185575b",
+"11934|359a6dca5e678ed4",
+"310284|3cbd5da14146f439"
+]
+},
+"alma_field_id": {
+"n_partitions": 96,
+"partitions": "35b5faed2757aabf",
+"rows": [
+"153|b3541d56e2d9d90a",
+"102|4abe1bb42d9d924b",
+"2652|c13d60804a0038b0",
+"153|297f884eb98a5c56",
+"102|43d1dabae0ec0dff",
+"2652|0663d4d18cef85d2",
+"153|efc95491f1065aff",
+"102|35c8ccd9cfcf8549",
+"2652|5722cf6b6b75a4ed",
+"1581|0472cd36f0e1f5a5",
+"1326|f3f7479ec19a19f6",
+"39780|c31b124bd905fe73",
+"714|0bd7a069e55f0123",
+"561|18bdf31205badc65",
+"15912|f2d6a883bef2992e",
+"612|2526492b2858b58d",
+"459|5795a273ecd66da6",
+"11934|2da23870b60300e9",
+"612|d28595c404f424a0",
+"459|bbea44d388b0d43a",
+"11934|3fe868e499d0288a",
+"612|951cae6fa0c93b3f",
+"459|e34ab6f684e0df8d",
+"11934|7de7d0c02547cfad",
+"612|148be111b39537df",
+"459|89e20c83ddbdf0f6",
+"11934|da4df8b744c3ba88",
+"612|e1d35511f61c9f78",
+"459|8df9c4a602579929",
+"11934|079f3914100ad896",
+"612|6a81e5b90a6f1e6a",
+"459|74ceef443617f869",
+"11934|be885685fb21ffcf",
+"612|e539f57192352ee3",
+"459|de256b12b702551e",
+"11934|7b5c8e13c0457e59",
+"612|0e998f87e8952973",
+"459|0cb6c09364ed2a8a",
+"11934|9a0f1038b795a01b",
+"612|c9348cffeba19fea",
+"459|3902063a540d6e04",
+"11934|555aa5b0023ecb24",
+"612|2c43186c6da3bc32",
+"459|aa158c36e8809b80",
+"11934|d78b52af0293e93b",
+"612|d4d3df2199471d19",
+"459|9f18fb270fea1cab",
+"11934|669ef90cf26b2f73",
+"612|d6c45005cef06c1f",
+"459|4d9ad29a7e168366",
+"11934|361876ab2a31504a",
+"612|59892b84a7402e7e",
+"459|2cf27f4f71ffdca7",
+"11934|6c40ba28d2f94584",
+"612|3db64ce31a90e276",
+"459|4057720eba35a403",
+"11934|347407ef913f0d71",
+"612|1a92fe96156baa04",
+"459|42a8ecb626c90330",
+"11934|9bf4598fda173b21",
+"612|6b0b14b7cde06c5f",
+"459|3ff3d8779e0665ce",
+"11934|0a41cb51bceced62",
+"612|44aa7410412685ec",
+"459|38f434ec94db5238",
+"11934|9a726ce8b3391535",
+"612|1e4c1a9f010daf20",
+"459|823dccdd52eb8524",
+"11934|94c5121f65c79063",
+"612|ca81d859afa4985c",
+"459|75e736bca3d5b6d4",
+"11934|0a85fa790f4bb528",
+"612|abea8fbe2add0b00",
+"459|709e4f5b11457e18",
+"11934|901b89c3d8dbf6a8",
+"612|173ece9facd750ca",
+"459|a465f364622a42c1",
+"11934|255a25d639f03abc",
+"612|007c248dabf2b4cf",
+"459|bbb75d8916a1a9a3",
+"11934|0bb77472c7643483",
+"612|b5df6110dea3bd17",
+"459|54b0838de097eeef",
+"11934|d0805bfa50117215",
+"612|147632ea5515c00d",
+"459|26a9e0cb529dca99",
+"11934|c1b01278bfb516fa",
+"408|3e144e6f0ac64e52",
+"306|12486e5d3719b75a",
+"7956|550039ddfb996daa",
+"408|9c1f24a1a5daf75a",
+"306|1cdac6d98aeece13",
+"7956|7858d590c260f670",
+"408|f4586b78ec3a9fa9",
+"306|f2591c7e9f5e4288",
+"7956|46584047ecf8ac6b"
+]
+},
+"lofar": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|13875|cf4f32ae0a25ebb7",
+"int64|5x2775|36262abb10bafdcd"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|13875|0f48180b855b2499",
+"int64|5x2775|ce91e4d95627e965"
+],
+"DATA": [
+"verified: TiledColumnStMan (fixed shape)",
+"2184 rows/tile",
+"complex64|13875x15x4|bb13fbeefda2a194",
+"complex64|5x2775x15x4|c8e523285cdfcdab"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|e955f5bf3cd56222",
+"float64|5x2775|e955f5bf3cd56222"
+],
+"FLAG": [
+"verified: TiledColumnStMan (fixed shape)",
+"17472 rows/tile",
+"bool|13875x15x4|3095f2c4a68ce5b7",
+"bool|5x2775x15x4|cc5ad3f645999861"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|13875|f2fab5abaf12ab31",
+"bool|5x2775|5a0cc34120b4a91b"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|e955f5bf3cd56222",
+"float64|5x2775|e955f5bf3cd56222"
+],
+"SIGMA": [
+"verified: IncrementalStMan direct array (fixed shape)",
+"65536 rows/nominal",
+"float32|13875x4|48d41b7e4a2ce2c3",
+"float32|5x2775x4|48d41b7e4a2ce2c3"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|ff24ce83a7a8254f",
+"float64|5x2775|ff24ce83a7a8254f"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|13875|ff24ce83a7a8254f",
+"float64|5x2775|ff24ce83a7a8254f"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"2184 rows/tile",
+"float64|13875x3|ec382d990cac63f2",
+"float64|5x2775x3|4fffd5661d5e134b"
+],
+"WEIGHT": [
+"verified: IncrementalStMan direct array (fixed shape)",
+"65536 rows/nominal",
+"float32|13875x4|48d41b7e4a2ce2c3",
+"float32|5x2775x4|48d41b7e4a2ce2c3"
+],
+"WEIGHT_SPECTRUM": [
+"verified: TiledColumnStMan (fixed shape)",
+"2184 rows/tile",
+"float32|13875x15x4|9cb7d450c141d40e",
+"float32|5x2775x15x4|d4db8bccfd7e4796"
+]
+}
+},
+"n_partitions": 1,
+"partitions": "f70e79826e1ef17d",
+"rows": [
+"13875|cfbed03c4f53e933"
+]
+},
+"ngeht": {
+"n_partitions": 2,
+"partitions": "50f23df1a00fe6fd",
+"rows": [
+"30000|7146f11166efda28",
+"30000|c4ef5c155d98acdb"
+]
+},
+"sd_no_weight": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"58252 rows/tile",
+"bool|126x36x2|8f23754a0b5b965d",
+"bool|42x3x36x2|8f23754a0b5b965d"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"14560 rows/tile",
+"float32|126x36x2|37949c676e297c06",
+"float32|42x3x36x2|37949c676e297c06"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+},
+"1": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"69904 rows/tile",
+"bool|126x10x2|1c71ec6b184ef378",
+"bool|42x3x10x2|1c71ec6b184ef378"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"17476 rows/tile",
+"float32|126x10x2|05b278a3ffbaa557",
+"float32|42x3x10x2|05b278a3ffbaa557"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+},
+"2": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"69904 rows/tile",
+"bool|126x10x2|1c71ec6b184ef378",
+"bool|42x3x10x2|1c71ec6b184ef378"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"17476 rows/tile",
+"float32|126x10x2|7c320290fc292bd3",
+"float32|42x3x10x2|7c320290fc292bd3"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+},
+"3": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|126|ab00a4dc292621aa",
+"int64|42x3|ab00a4dc292621aa"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"FLAG": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"69904 rows/tile",
+"bool|126x10x2|1c71ec6b184ef378",
+"bool|42x3x10x2|1c71ec6b184ef378"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|126|ebc47d1683f1e8b6",
+"bool|42x3|ebc47d1683f1e8b6"
+],
+"FLOAT_DATA": [
+"verified: TiledShapeStMan: cell shapes of 126 rows compared",
+"17476 rows/tile",
+"float32|126x10x2|4dd84e2f1ff4289f",
+"float32|42x3x10x2|4dd84e2f1ff4289f"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|63eaca92f4911acf",
+"float64|42x3|63eaca92f4911acf"
+],
+"SIGMA": [
+"not readable: Column SIGMA: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|126|f9dc9379ea7112ec",
+"float64|42x3|f9dc9379ea7112ec"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43680 rows/tile",
+"float64|126x3|d44e6f5df89071a2",
+"float64|42x3x3|d44e6f5df89071a2"
+],
+"WEIGHT": [
+"not readable: Column WEIGHT: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+]
+}
+},
+"n_partitions": 20,
+"partitions": "36e30e1d7cd6baf7",
+"rows": [
+"126|2338f98ba0ec5fd9",
+"126|a099cc5efe08328a",
+"126|1aad2e91ea21dc60",
+"126|551c9d06449e21aa",
+"126|0356677b0434bb9a",
+"126|d4c9cd934e7b0154",
+"126|7315283fe89b0cfb",
+"126|933f306bd116225d",
+"126|d9b31a2206ce097f",
+"126|99bdfb2542f4dbbb",
+"126|4f94221855d968e1",
+"126|f9c389d7ea996b7d",
+"3120|b5b260f61bf48f23",
+"3120|d1c5269852b3120b",
+"3120|f3370081b8bd6e01",
+"3120|6a3017eb482b9490",
+"4950|c2cf0f2545fd33fd",
+"4950|60a45889ba874dfa",
+"4950|8c61cbdefb564401",
+"4950|202fe9330ba318c3"
+]
+},
+"sd_standard": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|3843|abd8d986e2631397",
+"int64|3843x1|abd8d986e2631397"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|3843|abd8d986e2631397",
+"int64|3843x1|abd8d986e2631397"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|aa3e02954b4e2fb5",
+"float64|3843x1|aa3e02954b4e2fb5"
+],
+"FLAG": [
+"unverified: StandardStMan indirect array: read decides",
+"512 rows/nominal",
+"bool|3843x1024x2|a90056eadad38000",
+"bool|3843x1x1024x2|a90056eadad38000"
+],
+"FLAG_CATEGORY": [
+"unverified: StandardStMan indirect array: read decides",
+"512 rows/nominal",
+"bool|3843x1x1024x2|a90056eadad38000",
+"bool|3843x1x1x1024x2|a90056eadad38000"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|3843|3cb38a58052e6f9c",
+"bool|3843x1|3cb38a58052e6f9c"
+],
+"FLOAT_DATA": [
+"unverified: StandardStMan indirect array: read decides",
+"128 rows/nominal",
+"float32|3843x1024x2|8b8ccfa22b056f1c",
+"float32|3843x1x1024x2|8b8ccfa22b056f1c"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|aa3e02954b4e2fb5",
+"float64|3843x1|aa3e02954b4e2fb5"
+],
+"SIGMA": [
+"unverified: StandardStMan indirect array: read decides",
+"131072 rows/nominal",
+"float32|3843x2|b41a9ab71b458354",
+"float32|3843x1x2|b41a9ab71b458354"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|60005fa8f19e2339",
+"float64|3843x1|60005fa8f19e2339"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|3843|60005fa8f19e2339",
+"float64|3843x1|60005fa8f19e2339"
+],
+"UVW": [
+"verified: StandardStMan direct array (fixed shape)",
+"43690 rows/nominal",
+"float64|3843x3|2a8f2797c5257a1b",
+"float64|3843x1x3|2a8f2797c5257a1b"
+],
+"WEIGHT": [
+"unverified: StandardStMan indirect array: read decides",
+"131072 rows/nominal",
+"float32|3843x2|b41a9ab71b458354",
+"float32|3843x1x2|b41a9ab71b458354"
+]
+}
+},
+"n_partitions": 1,
+"partitions": "c87b2054782b8498",
+"rows": [
+"3843|ecd76725cd8ccf12"
+]
+},
+"vlass": {
+"n_partitions": 20,
+"partitions": "5690c3b3e92e81e0",
+"rows": [
+"804|459fc6704da501a9",
+"804|5309c087a9ae96e4",
+"804|5bf366af65808a82",
+"804|2268e1451c890ee8",
+"60|15ef3aaf279203d1",
+"60|a39c6e21c569871d",
+"60|7bb3ec8c4b52b3b2",
+"60|aef28e1131611973",
+"48|0f745a081690a9b0",
+"48|8029f2174ebffdbb",
+"48|e22ab3f82f33da8c",
+"48|9130ce3094ac6846",
+"204|f8905c20e64cdcbb",
+"204|a7f824ea642530b8",
+"204|b9258c328698ca77",
+"204|d8f574ab504b8315",
+"72420|959f868d2d55958e",
+"72420|216493b35e03fce2",
+"72420|4de7fe254e9ab257",
+"72420|ea98efdda4351891"
+]
+},
+"vlbi": {
+"n_partitions": 2,
+"partitions": "81d3152d87efcb08",
+"rows": [
+"11190|328f51872ca6b1fa",
+"11190|54b065f284047d9c"
+]
+},
+"vlbi_field_id": {
+"columns": {
+"0": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|b83de1261710c7ca",
+"int64|330x57|1135493a77cefefc"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|a63f25c181ca2944",
+"int64|330x57|6316e6442c3635e6"
+],
+"DATA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"1024 rows/tile",
+"complex64|6990x32x4|058dd877cf9a5995",
+"complex64|330x57x32x4|21304801c8c11715"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"FLAG": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"8192 rows/tile",
+"bool|6990x32x4|82dbbb7cffcba5c4",
+"bool|330x57x32x4|3656bc54b769a38f"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|6990|15e4c0608f021b24",
+"bool|330x57|9f63ebcc2d40219f"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"SIGMA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|53068c3ab71c9077",
+"float32|330x57x4|dfd8d4a2c068f39d"
+],
+"SIGMA_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|b980c715d3efd4cf",
+"float32|330x57x32x4|fdc84c368c3da21f"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|bbf821425c76a84f",
+"float64|330x57|e3ab03803c018fca"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|8e5d1984b6e83098",
+"float64|330x57|5eb858c8a03a7378"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|6990x3|a7cc4ee0ecd18364",
+"float64|330x57x3|538296cc59bfef69"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|733a4ec30c281e93",
+"float32|330x57x4|b5d6f5859c07cf0d"
+],
+"WEIGHT_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|f2d4af160b17aab2",
+"float32|330x57x32x4|dd65de1b615a381c"
+]
+},
+"1": {
+"ANTENNA1": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|b83de1261710c7ca",
+"int64|330x57|1135493a77cefefc"
+],
+"ANTENNA2": [
+"verified: scalar column",
+"262144 rows/nominal",
+"int32|6990|a63f25c181ca2944",
+"int64|330x57|6316e6442c3635e6"
+],
+"DATA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"1024 rows/tile",
+"complex64|6990x32x4|1f08cb71e0fe0792",
+"complex64|330x57x32x4|ece4690a86327d8e"
+],
+"EXPOSURE": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"FLAG": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"8192 rows/tile",
+"bool|6990x32x4|82dbbb7cffcba5c4",
+"bool|330x57x32x4|3656bc54b769a38f"
+],
+"FLAG_CATEGORY": [
+"not readable: Column FLAG_CATEGORY: the first cell of the partition is undefined",
+"-",
+"raises RuntimeError",
+"-"
+],
+"FLAG_ROW": [
+"verified: scalar column",
+"1048576 rows/nominal",
+"bool|6990|15e4c0608f021b24",
+"bool|330x57|9f63ebcc2d40219f"
+],
+"INTERVAL": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|54052f88b83223c7",
+"float64|330x57|bb9b4b9214f50762"
+],
+"SIGMA": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|7e7b7861f41eb30f",
+"float32|330x57x4|cd5badca5e439ea7"
+],
+"SIGMA_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|23b0a91af8872d51",
+"float32|330x57x32x4|d736e01138e4006b"
+],
+"TIME": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|bbf821425c76a84f",
+"float64|330x57|e3ab03803c018fca"
+],
+"TIME_CENTROID": [
+"verified: scalar column",
+"131072 rows/nominal",
+"float64|6990|8e5d1984b6e83098",
+"float64|330x57|5eb858c8a03a7378"
+],
+"UVW": [
+"verified: TiledColumnStMan (fixed shape)",
+"43690 rows/tile",
+"float64|6990x3|a7cc4ee0ecd18364",
+"float64|330x57x3|538296cc59bfef69"
+],
+"WEIGHT": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"32768 rows/tile",
+"float32|6990x4|e732a0da8382f3e1",
+"float32|330x57x4|9e8b84c3cd10e0c0"
+],
+"WEIGHT_SPECTRUM": [
+"verified: TiledShapeStMan, all rows in hypercubes of one cell shape",
+"2048 rows/tile",
+"float32|6990x32x4|b9072fb2c2ff2a3d",
+"float32|330x57x32x4|1250a18ca2b8bfc7"
+]
+}
+},
+"n_partitions": 4,
+"partitions": "4de5eea9cd7e8b96",
+"rows": [
+"6990|520084ace8d05294",
+"6990|8d53cfb4c93e3e78",
+"4200|99f41fc06ee6ffd1",
+"4200|8935d54d0d079e22"
+]
+}
+}
+}

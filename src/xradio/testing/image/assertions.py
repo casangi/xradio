@@ -72,8 +72,10 @@ def assert_image_block_equal(
 
     Workflow
     --------
-    1. Write *xds* to *output_path*.
-    2. Load the region specified by *selection* from the written image via
+    1. Write *xds* to *output_path* (a zarr store gets the ``.img.zarr``
+       extension, see :func:`~xradio.image.write_image`).
+    2. Load the region specified by *selection* from the written image (the
+       path :func:`~xradio.image.write_image` returns) via
        :func:`~xradio.image.load_image`.
     3. Compute the equivalent slice of *xds* with ``isel``.
     4. Assert equality using
@@ -87,7 +89,8 @@ def assert_image_block_equal(
         this function if you want them included in the comparison.
     output_path : str
         Destination path for the written image.  The path is overwritten if
-        it already exists.
+        it already exists.  With *zarr*, the store is written with the
+        ``.img.zarr`` extension (``out`` becomes ``out.img.zarr``).
     selection : dict of str to slice
         Mapping of dimension name to ``slice`` that defines the block to load
         and compare.  Every slice end must not exceed the corresponding
@@ -103,7 +106,9 @@ def assert_image_block_equal(
     ------
     ValueError
         If any slice in *selection* exceeds the size of the corresponding
-        dimension in *xds*.
+        dimension in *xds* (raised before anything is written), or if *xds*
+        is written as several CASA images (without *zarr*, when its data
+        groups hold more than one image).
     """
     from xradio.image import load_image, write_image
     from xradio.testing import assert_xarray_datasets_equal
@@ -116,12 +121,22 @@ def assert_image_block_equal(
             bad_dims.append(f"{dim}: slice stop {stop} > size {size}")
     if bad_dims:
         raise ValueError(
-            "assert_image_block_equal: selection exceeds dataset dimensions — "
+            "assert_image_block_equal: selection exceeds dataset dimensions: "
             + ", ".join(bad_dims)
         )
 
-    write_image(xds, output_path, out_format="zarr" if zarr else "casa", overwrite=True)
+    # write_image returns the paths it wrote (zarr stores get the .img.zarr
+    # extension)
+    written = write_image(
+        xds, output_path, out_format="zarr" if zarr else "casa", overwrite=True
+    )
+    if len(written) != 1:
+        raise ValueError(
+            "assert_image_block_equal compares a single image, but xds was "
+            f"written as {len(written)} CASA images ({', '.join(written)}): "
+            "pass a dataset with a single image, or zarr=True"
+        )
 
-    loaded = load_image(output_path, selection, do_sky_coords=do_sky_coords)
+    loaded = load_image(written[0], selection, do_sky_coords=do_sky_coords)
     true_xds = xds.isel(**selection)
     assert_xarray_datasets_equal(loaded, true_xds)

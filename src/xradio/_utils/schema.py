@@ -195,6 +195,9 @@ casacore_to_msv4_measure_type = {
             "BARY": "BARY",
             "GEO": "gcrs",
             "TOPO": "TOPO",
+            "GALACTO": "GALACTO",
+            "LGROUP": "LGROUP",
+            "CMB": "CMB",
         },  # The frames/observer we are not sure if/how to translate to astropy are uppercase
     },
     "position": {

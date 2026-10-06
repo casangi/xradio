@@ -13,7 +13,9 @@ installed: the casatools test workflow), on copies of the test MSs:
   casatools: "casatools only", logged once);
 - partitions stored in the MS (the sub-table built here with casatools, as
   python-casacore's writer builds it) are read and used, empty run arrays
-  included, and remove_msv2_partition_cache removes them.
+  included, and remove_msv2_partition_cache removes them;
+- selections of some channels read whole cells (no channel-sliced reads:
+  the shim has no in-place reads).
 
 Skipped where python-casacore is installed (the Linux and macOS workflows).
 """
@@ -528,3 +530,50 @@ def test_stored_pointing_cell_shapes_are_read(tmp_path, monkeypatch):
             actual = trees[mode][name]["pointing_xds"].to_dataset().compute()
             assert actual.identical(expected)
     assert file_digests(msname) == before
+
+
+def test_channel_selections_read_whole_cells(tmp_path, monkeypatch):
+    """
+    casatools has no in-place reads: an array whose column python-casacore
+    would read in slices of channels (its channel tiling set here: the
+    columns of the test MSs have tiles of all channels) reads whole cells,
+    sets no tile cache bound, and gives the values of whole cells for
+    selections of channels (slices across tiles, one channel, a list).
+    """
+    import copy
+
+    import xarray as xr
+
+    from xradio.measurement_set import open_msv2
+    from xradio.measurement_set._utils._msv2 import backend_arrays
+
+    msname = copy_ms(ref.VLBI, tmp_path)
+    tree = open_msv2(msname, array_backend="xarray", partition_cache="off")
+    node = tree[sorted(tree.children)[0]].to_dataset(inherit=False)
+    data = node["VISIBILITY"].variable._data
+    while not isinstance(data, backend_arrays.MSv2BackendArray):
+        data = data.array
+    assert data.col == "DATA" and data.tile_channels == 0
+    tiled = copy.copy(data)
+    tiled.tile_channels, tiled.tile_band_bytes = 4, 2**20
+    assert tiled._channel_range(np.array([5, 6])) == (4, 8)
+    sliced = []
+
+    def no_channel_slices(*args, **kwargs):
+        sliced.append(kwargs.get("chan"))
+        raise AssertionError("read_rows_to_grid called by a lazy array")
+
+    monkeypatch.setattr(backend_arrays, "read_rows_to_grid", no_channel_slices)
+    dims = node["VISIBILITY"].dims
+    whole = xr.Variable(dims, xr.core.indexing.LazilyIndexedArray(data))
+    variable = xr.Variable(dims, xr.core.indexing.LazilyIndexedArray(tiled))
+    n_chan = variable.sizes["frequency"]
+    assert n_chan == 32
+    for sel in (
+        {"frequency": slice(5, 13)},
+        {"frequency": n_chan - 1},
+        {"frequency": [9, 2], "time": slice(0, 4)},
+    ):
+        got, expected = variable.isel(sel).values, whole.isel(sel).values
+        assert got.dtype == expected.dtype and got.tobytes() == expected.tobytes()
+    assert sliced == []

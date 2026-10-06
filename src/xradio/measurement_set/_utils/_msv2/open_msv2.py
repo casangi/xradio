@@ -119,8 +119,10 @@ def open_msv2(
           is left out, with the data group (and field_and_source_xds) it
           makes; for WEIGHT_SPECTRUM, WEIGHT is read from the WEIGHT column.
           Some columns can only be checked by reading them (e.g. cells of
-          several shapes in a StandardStMan column): their read then raises
-          an MSv2ReadError that names this remedy.
+          several shapes in a StandardStMan column): a read of their cells
+          that cannot be read then raises an MSv2ReadError that names this
+          remedy (for WEIGHT from WEIGHT_SPECTRUM, every read of a partition
+          with such a cell; see the API documentation).
 
     Returns
     -------

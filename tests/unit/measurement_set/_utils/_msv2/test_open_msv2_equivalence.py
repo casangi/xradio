@@ -381,6 +381,72 @@ def test_skip_columns_gives_the_converters_tree(
         xr.open_datatree(msname, engine=ENGINE, skip_columns=[1])
 
 
+@pytest.mark.parametrize("kind", ["standard_stman", "reference"])
+def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, kind):
+    """WEIGHT from a WEIGHT_SPECTRUM column whose cells only a read can
+    check: a selection of WEIGHT that avoids the cells that cannot be read
+    raises MSv2ReadError too (the converter reads WEIGHT from the WEIGHT
+    column for the whole partition), and in a partition whose cells can all
+    be read it gives the converter's values; the cells of such a partition
+    are checked once in a process.
+
+    - "standard_stman": a StandardStMan WEIGHT_SPECTRUM with a cell of half
+      the channels in the first DDI only (time 0);
+    - "reference": a reference table of an MS whose TiledShapeStMan
+      WEIGHT_SPECTRUM has undefined cells in the middle of every DDI (time
+      10).
+    """
+    from casacore import tables
+
+    from xradio.measurement_set import MSv2ReadError
+    from xradio.measurement_set._utils._msv2 import backend_arrays
+
+    if kind == "standard_stman":
+        msname = ms_copy("dense")
+        _bad_cells(msname, "WEIGHT_SPECTRUM", [7])
+    else:
+        msname = str(tmp_path / "reference.ms")
+        parent = ms_copy("wsp_partial")
+        with tables.table(parent, ack=False) as main_tb:
+            main_tb.query("ANTENNA1 >= 0", name=msname).close()
+        for name in os.listdir(parent):
+            if os.path.isfile(os.path.join(parent, name, "table.dat")):
+                shutil.copytree(os.path.join(parent, name), os.path.join(msname, name))
+    options = {"with_pointing": False}
+    out = str(tmp_path / "reference.ps.zarr")
+    convert_msv2_to_processing_set(msname, out, **options)
+    reference = open_processing_set(out, array_backend="xarray")
+    scans = []
+    scan = backend_arrays._scan_cell_shapes
+
+    def spy(table, col, rows, expected):
+        scans.append(col)
+        return scan(table, col, rows, expected)
+
+    monkeypatch.setattr(backend_arrays, "_scan_cell_shapes", spy)
+    engine = xr.open_datatree(msname, engine=ENGINE, **options)
+    names = sorted(engine.children)
+    assert names == sorted(reference.children)
+    bad = names[:1] if kind == "standard_stman" else names
+    selection = {"time": slice(12, None)}  # (none of the cells that cannot be read)
+    for name in names:
+        weight = engine[name]["WEIGHT"].isel(selection)
+        if name in bad:
+            for _ in range(2):
+                with pytest.raises(
+                    MSv2ReadError, match=r"skip_columns=\['WEIGHT_SPECTRUM'\]"
+                ):
+                    weight.values  # noqa: B018
+            continue
+        expected = reference[name]["WEIGHT"].isel(selection).values
+        for _ in range(2):
+            values = weight.values
+            assert values.dtype == expected.dtype
+            assert values.tobytes() == expected.tobytes()
+    # (once per partition that can be read, on every read of one that cannot)
+    assert scans == ["WEIGHT_SPECTRUM"] * (len(names) + len(bad))
+
+
 def test_relative_path_and_chdir(backend_ms, tmp_path, monkeypatch):
     """The lazy arrays read the MS by its absolute path: a relative path
     opened before a chdir still reads."""

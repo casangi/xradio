@@ -79,8 +79,10 @@ from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
+    ColumnNotReadableError,
     ColumnStorage,
     MainTableRows,
+    _scan_cell_shapes,
     has_in_place_reads,
     make_row_grid_plan,
     read_column_rows,
@@ -146,6 +148,11 @@ ROW_KEY_COLUMNS = GRID_KEY_COLUMNS + PARTITION_KEY_COLUMNS
 CHECK_WINDOW_ROWS = 2**20
 # Bound of the per-process memo of partition checks (entries)
 CHECK_MEMO_MAX_ENTRIES = 4096
+# The partitions (INDEX_MEMO keys) whose WEIGHT_SPECTRUM cells a read of
+# WEIGHT found all readable in this process (MSv2MainColumnArray.
+# _check_weight_spectrum_cells), and the bound of their number
+WEIGHT_SPECTRUM_CHECKED: set = set()
+WEIGHT_SPECTRUM_CHECKED_MAX_ENTRIES = 4096
 # The MAIN key column of every partition key, and the PartitionKeyMaps lookup
 # of the keys derived from it (create_partitions' _add_derived_columns)
 _KEY_COLUMN = {
@@ -835,6 +842,7 @@ def clear_index_memo() -> None:
     tests: as in another process)."""
     INDEX_MEMO.clear()
     CHECK_MEMO.clear()
+    WEIGHT_SPECTRUM_CHECKED.clear()
 
 
 class PartitionIndex:
@@ -1448,7 +1456,9 @@ class MSv2MainColumnArray(MSv2BackendArray):
         picklable function.
     verified : bool
         Whether the storage manager vouched for every cell of the partition
-        when the MS was opened (False: only a read can tell).
+        when the MS was opened (False: only a read can tell; a read of
+        WEIGHT_SPECTRUM first checks the shapes of the cells of the whole
+        partition, ``_check_weight_spectrum_cells``).
     node : str
         Name of the MSv4 node (for messages).
     tile_channels : int, optional
@@ -1627,6 +1637,41 @@ class MSv2MainColumnArray(MSv2BackendArray):
             )
         return message
 
+    def _check_weight_spectrum_cells(self, table: Any) -> None:
+        """
+        WEIGHT read from a WEIGHT_SPECTRUM column whose cells could not be
+        checked when the MS was opened: raise ColumnNotReadableError if a
+        cell of the partition, selected or not, has no value or another
+        shape. The converter reads the whole partition, and where a cell of
+        WEIGHT_SPECTRUM cannot be read it takes WEIGHT from the WEIGHT
+        column, other values: a selection that avoids such cells must not
+        return those of WEIGHT_SPECTRUM. Only the shapes of the cells are
+        read (``_scan_cell_shapes``; of a StandardStMan column, that reads
+        its file), once per partition in a process while they can all be
+        read (WEIGHT_SPECTRUM_CHECKED); a partition with a cell that cannot
+        be read is checked again on every read, which raises.
+        """
+        key = self.index.memo_key()
+        if key in WEIGHT_SPECTRUM_CHECKED:
+            return
+        rows = runs_to_rows(self.index.starts, self.index.lengths)
+        expected = str(list(self.cell_shape))
+        try:
+            first = table.getcolshapestring(self.col, int(rows[0]), 1)[0]
+        except RuntimeError as exc:
+            raise ColumnNotReadableError(
+                f"Column {self.col}: the first cell of the partition is undefined"
+            ) from exc
+        if first != expected:
+            raise ColumnNotReadableError(
+                f"Column {self.col}: the first cell of the partition has the shape "
+                f"{first}, {expected} when the MS was opened"
+            )
+        _scan_cell_shapes(table, self.col, rows, expected)
+        if len(WEIGHT_SPECTRUM_CHECKED) >= WEIGHT_SPECTRUM_CHECKED_MAX_ENTRIES:
+            WEIGHT_SPECTRUM_CHECKED.clear()
+        WEIGHT_SPECTRUM_CHECKED.add(key)
+
     def _raw_indexing_method(self, key: tuple[slice, ...]) -> np.ndarray:
         return self._read_selection(
             tuple(np.arange(k.start, k.stop, dtype=np.int64) for k in key)
@@ -1706,6 +1751,8 @@ class MSv2MainColumnArray(MSv2BackendArray):
                         # (the partition as when the MS was opened: rows not
                         # checked one by one)
                         check_keys = not self.index.check(table)
+                        if self.col == "WEIGHT_SPECTRUM" and not self.verified:
+                            self._check_weight_spectrum_cells(table)
                         if chan_range is not None:
                             if has_in_place_reads(table):
                                 table.setmaxcachesize(

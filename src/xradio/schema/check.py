@@ -2,6 +2,7 @@ import builtins
 import dataclasses
 import functools
 import inspect
+import re
 import typing
 import warnings
 
@@ -722,6 +723,44 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
 _DATASET_TYPES = {}
 
 
+class ExtensionTypeWarning(UserWarning):
+    """
+    Warning issued by :py:func:`check_datatree` when it skips a dataset with
+    an unregistered extension type (see :py:func:`is_extension_type`)
+    """
+
+
+# Prefix of dataset ``type`` attributes that denote extension datasets
+EXTENSION_TYPE_PREFIX = "extension:"
+
+_EXTENSION_TYPE_RE = re.compile(r"^extension:[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
+
+
+def is_extension_type(typ: typing.Any) -> bool:
+    """
+    Check whether a dataset ``type`` attribute denotes a well-formed
+    extension dataset type
+
+    Extension types allow applications to store their own datasets
+    alongside xradio datasets. They have the form
+    ``extension:<type>.<namespace>``, with the most specific component
+    first, for example ``extension:gains.quartical``. ``<type>`` may have
+    sub-kinds (``extension:delay.gains.quartical``), and ``<namespace>``
+    should be a name controlled by the producer, normally its package
+    name, optionally followed by a domain in normal DNS order
+    (``extension:gains.quartical.sarao.ac.za``).
+
+    Components consist of lower-case letters, digits and underscores,
+    must start with a letter and are separated by ``.``. At least two
+    components are required. Versions should not be part of the type, but
+    given in a separate ``schema_version`` attribute.
+
+    :param typ: Value of the ``type`` attribute
+    :returns: Whether ``typ`` is a well-formed extension type
+    """
+    return isinstance(typ, str) and _EXTENSION_TYPE_RE.match(typ) is not None
+
+
 def register_dataset_type(schema: metamodel.DatasetSchema):
     """
     Registers the given schema for usage with :py:meth:`check_datatree`
@@ -769,6 +808,11 @@ def check_datatree(
     must have a :py:class:`typing.Literal` type annotation specifying
     the name of the dataset schema.
 
+    Datasets with an extension type (see :py:func:`is_extension_type`) are
+    checked if a schema has been registered for that type, and skipped
+    with an :py:class:`ExtensionTypeWarning` otherwise. Malformed extension
+    types are reported as issues.
+
     :param datatree: Data to check for schema conformance
     """
 
@@ -783,6 +827,29 @@ def check_datatree(
         # Look up schema
         typ = node.attrs.get("type")
         schema = _DATASET_TYPES.get(typ)
+        if schema is None and is_extension_type(typ):
+            # Unregistered extension dataset: not ours to check
+            warnings.warn(
+                f"Skipping schema check of {xds_name}: "
+                f"no schema registered for extension type {typ!r}",
+                ExtensionTypeWarning,
+                stacklevel=2,
+            )
+            continue
+        if (
+            schema is None
+            and isinstance(typ, str)
+            and typ.startswith(EXTENSION_TYPE_PREFIX)
+        ):
+            issues.add(
+                SchemaIssue(
+                    [("", xds_name)],
+                    message="Malformed extension dataset type!",
+                    found=typ,
+                    expected=["extension:<type>.<namespace>"],
+                )
+            )
+            continue
         if schema is None:
             issues.add(
                 SchemaIssue(

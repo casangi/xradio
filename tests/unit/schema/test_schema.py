@@ -1,6 +1,7 @@
 import dataclasses
 import inspect
 import json
+import warnings
 from typing import Literal
 
 import dask.array
@@ -14,6 +15,7 @@ from xradio.schema.bases import (
     xarray_dataset_schema,
 )
 from xradio.schema.check import (
+    ExtensionTypeWarning,
     SchemaIssue,
     SchemaIssues,
     _check_value,
@@ -22,6 +24,7 @@ from xradio.schema.check import (
     check_datatree,
     check_dict,
     check_dimensions,
+    is_extension_type,
     register_dataset_type,
     schema_checked,
 )
@@ -1867,6 +1870,128 @@ def test_check_datatree_with_parent_dims():
     assert len(root_issues) == 1
     assert "Unknown dataset type" in root_issues[0].message
     assert not child_issues
+
+
+@pytest.mark.parametrize(
+    "typ",
+    [
+        "extension:gains.quartical",
+        "extension:delay.gains.quartical",
+        "extension:gains.quartical.sarao.ac.za",
+        "extension:gains_v2.quartical2",
+    ],
+)
+def test_is_extension_type_valid(typ):
+    assert is_extension_type(typ)
+
+
+@pytest.mark.parametrize(
+    "typ",
+    [
+        None,
+        42,
+        "visibility",
+        "gains.quartical",
+        "extension:",
+        "extension:gains",
+        "extension:Gains.quartical",
+        "extension:gains-v2.quartical",
+        "extension:gains..quartical",
+        "extension:gains.quartical.",
+        "extension:.gains.quartical",
+        "extension:2gains.quartical",
+        "extension:gains/quartical",
+        "extension: gains.quartical",
+    ],
+)
+def test_is_extension_type_invalid(typ):
+    assert not is_extension_type(typ)
+
+
+def test_check_datatree_unregistered_extension_skipped():
+    dataset = xarray.Dataset(
+        {"x": ("coord", numpy.arange(5))},
+        attrs={"type": "extension:gains.quartical"},
+    )
+    with pytest.warns(ExtensionTypeWarning, match="extension:gains.quartical"):
+        assert not check_datatree(xarray.DataTree(dataset=dataset))
+
+
+def test_check_datatree_registered_extension_no_warning():
+    dataset = xarray.Dataset(
+        attrs={"type": "extension:registered.xradio_tests"},
+        coords={"coord": numpy.arange(5, dtype=float)},
+    )
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", ExtensionTypeWarning)
+        assert not check_datatree(xarray.DataTree(dataset=dataset))
+
+
+def test_check_datatree_malformed_extension():
+    dataset = xarray.Dataset(
+        {"x": ("coord", numpy.arange(5))},
+        attrs={"type": "extension:Gains"},
+    )
+    issues = check_datatree(xarray.DataTree(dataset=dataset))
+    assert len(issues) == 1
+    assert "Malformed extension dataset type" in issues[0].message
+    assert issues[0].found == "extension:Gains"
+
+
+@xarray_dataset_schema
+class _TestExtensionDatasetSchema:
+    """Schema of a registered extension dataset type"""
+
+    coord: Coord[Dim1, float]
+    """Coordinate"""
+    type: Attr[Literal["extension:registered.xradio_tests"]]
+    """Type identifier"""
+
+
+def test_check_datatree_registered_extension_checked():
+    # Conforming
+    dataset = xarray.Dataset(
+        attrs={"type": "extension:registered.xradio_tests"},
+        coords={"coord": numpy.arange(5, dtype=float)},
+    )
+    assert not check_datatree(xarray.DataTree(dataset=dataset))
+
+    # Wrong coordinate dtype must be reported, not skipped
+    dataset = xarray.Dataset(
+        attrs={"type": "extension:registered.xradio_tests"},
+        coords={"coord": numpy.arange(5, dtype=complex)},
+    )
+    issues = check_datatree(xarray.DataTree(dataset=dataset))
+    assert issues
+    assert all(i.path[0] == ("", "/") for i in issues.issues)
+
+
+def test_check_datatree_extension_children_checked():
+    # Children of an unregistered extension node are checked against
+    # their own types
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    register_dataset_type(schema)
+
+    ext_ds = xarray.Dataset(
+        {"x": ("coord", numpy.arange(5))},
+        attrs={"type": "extension:gains.quartical"},
+    )
+    good_ds = xarray.Dataset(
+        attrs={"type": "test_registered_type"},
+        coords={"coord": numpy.arange(5, dtype=float)},
+    )
+    unknown_ds = xarray.Dataset(
+        {"x": ("coord", numpy.arange(5))},
+        attrs={"type": "nonexistent_schema_type_xyz"},
+    )
+    dt = xarray.DataTree.from_dict(
+        {"/ext": ext_ds, "/ext/good": good_ds, "/ext/unknown": unknown_ds}
+    )
+    with pytest.warns(ExtensionTypeWarning):
+        issues = check_datatree(dt)
+    assert len(issues) == 1
+    assert issues[0].path == [("", "/ext/unknown")]
+    assert "Unknown dataset type" in issues[0].message
 
 
 # ---------------------------------------------------------------------------

@@ -2249,6 +2249,132 @@ def test_build_partition_placeholders_and_index(ms_main_layouts, layout):
         _assert_closed(built.main_rows)
 
 
+def _calc_indx_full_scan(tb_tool):
+    """calc_indx_for_row_split as it was before the light index: the first
+    cell of every column read (raises IndexError if none is 2-D), ANTENNA1
+    and ANTENNA2 read twice."""
+    from xradio.measurement_set._utils._msv2._tables.read_main_table import (
+        get_baseline_indices,
+        get_baselines,
+        utimes_tol_from_times,
+    )
+
+    baselines = get_baselines(tb_tool)
+    cshapes = [
+        np.array(tb_tool.getcell(col, 0)).shape
+        for col in tb_tool.colnames()
+        if tb_tool.iscelldefined(col, 0)
+    ]
+    [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]  # noqa: B018
+    times = tb_tool.getcol("TIME")
+    utimes, _ = utimes_tol_from_times(times)
+    tidxs = np.searchsorted(utimes, times)
+    pairs = np.column_stack((tb_tool.getcol("ANTENNA1"), tb_tool.getcol("ANTENNA2")))
+    bidxs = get_baseline_indices(baselines, pairs)
+    return (
+        tidxs,
+        bidxs,
+        baselines[:, 0],
+        baselines[:, 1],
+        conversion.convert_casacore_time(utimes, False),
+    )
+
+
+class _RecordingRows:
+    """MainTableRows recording the columns whose values are read."""
+
+    def __init__(self, rows):
+        self._rows = rows
+        self.read = []
+
+    def __getattr__(self, name):
+        return getattr(self._rows, name)
+
+    def getcol(self, col, *args, **kwargs):
+        self.read.append(("getcol", col))
+        return self._rows.getcol(col, *args, **kwargs)
+
+    def getcell(self, col, rownr):
+        self.read.append(("getcell", col))
+        return self._rows.getcell(col, rownr)
+
+
+def _assert_same_index(got, expected):
+    assert len(got) == len(expected) == 5
+    for a, b in zip(got, expected, strict=True):
+        assert a.dtype == b.dtype and a.shape == b.shape and np.array_equal(a, b)
+
+
+@pytest.mark.parametrize("layout", MAIN_LAYOUTS)
+def test_calc_indx_for_row_split_reads_only_the_key_columns(ms_main_layouts, layout):
+    """
+    The index of every partition (by DDI and by field) is that of the full
+    scan, made from TIME, ANTENNA1 and ANTENNA2 read once each: no cell
+    value of another column is read (the 2-D cell of the first row is told
+    from the cell shapes).
+    """
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_main_layouts[layout]
+    for scheme in ([], ["FIELD_ID"]):
+        partitions, runs = create_partitions_with_main_rows(msname, scheme)
+        for partition, run in zip(partitions, runs, strict=True):
+            with conversion.open_partition_main_table(
+                msname, partition, run
+            ) as main_rows:
+                recording = _RecordingRows(main_rows)
+                got = conversion.calc_indx_for_row_split(recording)
+                assert sorted(recording.read) == [
+                    ("getcol", "ANTENNA1"),
+                    ("getcol", "ANTENNA2"),
+                    ("getcol", "TIME"),
+                ]
+                _assert_same_index(got, _calc_indx_full_scan(main_rows))
+
+
+def test_calc_indx_for_row_split_needs_a_2d_cell_in_the_first_row(tmp_path):
+    """As the full scan: IndexError if no column has a defined 2-D cell of
+    numbers or booleans in the first row of the partition (an undefined
+    cell, 1-D cells, scalars and a 2-D string cell do not count)."""
+    from casacore import tables
+
+    from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
+
+    desc = tables.maketabdesc(
+        [
+            tables.makescacoldesc("TIME", 0.0),
+            tables.makescacoldesc("ANTENNA1", 0),
+            tables.makescacoldesc("ANTENNA2", 0),
+            tables.makearrcoldesc("UVW", 0.0, ndim=1, shape=[3]),
+            tables.makearrcoldesc("NAMES", "", ndim=2),
+            tables.makearrcoldesc("FLAG", False, ndim=2),
+        ]
+    )
+    with tables.table(str(tmp_path / "main.tab"), desc, nrow=4, ack=False) as tb:
+        tb.putcol("TIME", np.array([2.0, 1.0, 2.0, 1.0]))
+        tb.putcol("ANTENNA1", np.zeros(4, np.int32))
+        tb.putcol("ANTENNA2", np.array([2, 1, 1, 2], np.int32))
+        tb.putcell("NAMES", 0, np.array([["a", "b", "c"], ["d", "e", "f"]]))
+        for row in (1, 2):
+            tb.putcell("FLAG", row, np.zeros((3, 2), bool))
+        for rows in ([0, 1, 2], [0, 3], [3]):
+            main_rows = MainTableRows(tb, np.array(rows))
+            assert not conversion.first_row_has_2d_cells(main_rows)
+            with pytest.raises(IndexError, match="2-D cell"):
+                conversion.calc_indx_for_row_split(main_rows)
+            with pytest.raises(IndexError):
+                _calc_indx_full_scan(main_rows)
+        for rows in ([1, 2, 3], [2, 3]):
+            main_rows = MainTableRows(tb, np.array(rows))
+            assert conversion.first_row_has_2d_cells(main_rows)
+            _assert_same_index(
+                conversion.calc_indx_for_row_split(main_rows),
+                _calc_indx_full_scan(main_rows),
+            )
+
+
 @pytest.mark.parametrize("defer", [False, True])
 @pytest.mark.parametrize("layout", MAIN_LAYOUTS)
 def test_build_partition_tree_is_what_the_writer_writes(

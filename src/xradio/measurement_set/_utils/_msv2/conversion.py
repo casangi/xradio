@@ -32,6 +32,7 @@ from xradio.measurement_set._utils._msv2._tables.read import (
 from xradio.measurement_set._utils._msv2._tables.read_main_table import (
     get_baseline_indices,
     get_baselines,
+    unique_baselines,
     utimes_tol_from_times,
 )
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
@@ -549,12 +550,43 @@ def calc_used_gb(
     )
 
 
+def first_row_has_2d_cells(tb_tool: MainTableRows) -> bool:
+    """
+    Whether a column of the MAIN table has a 2-D cell of numbers or booleans
+    (e.g. DATA or FLAG: (chan, pol)) in the first row of a partition, told
+    from the shapes of the cells (getcolshapestring: no value is read).
+
+    Parameters
+    ----------
+    tb_tool : MainTableRows
+        The partition rows (not empty).
+
+    Returns
+    -------
+    bool
+        True if such a cell is defined.
+    """
+    table, row = tb_tool.table, None
+    for col in tb_tool.colnames():
+        if tb_tool.isscalarcol(col) or not tb_tool.iscelldefined(col, 0):
+            continue
+        if table.coldatatype(col) in ("string", "record"):
+            continue  # (cells read as lists or dicts, not 2-D arrays)
+        if row is None:
+            row = int(tb_tool.rows[0])
+        shape = table.getcolshapestring(col, row, 1)[0]
+        if len(shape.strip("[]").split(",")) == 2:
+            return True
+    return False
+
+
 def calc_indx_for_row_split(
     tb_tool: MainTableRows,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Time and baseline index of every row of a partition, and its baselines and
-    unique times.
+    unique times, from the TIME, ANTENNA1 and ANTENNA2 of its rows (each
+    column read once).
 
     Parameters
     ----------
@@ -567,17 +599,18 @@ def calc_indx_for_row_split(
         tidxs, bidxs (time and baseline index of every row), ANTENNA1 and
         ANTENNA2 of every baseline, and the unique times (seconds from the
         Unix epoch).
-    """
-    baselines = get_baselines(tb_tool)
-    col_names = tb_tool.colnames()
-    cshapes = [
-        np.array(tb_tool.getcell(col, 0)).shape
-        for col in col_names
-        if tb_tool.iscelldefined(col, 0)
-    ]
 
-    # (raises if no column has 2-D cells in the first row)
-    freq_cnt, pol_cnt = [(cc[0], cc[1]) for cc in cshapes if len(cc) == 2][0]
+    Raises
+    ------
+    IndexError
+        If the partition has no rows, or no column has a 2-D cell in its
+        first row (first_row_has_2d_cells).
+    """
+    if not first_row_has_2d_cells(tb_tool):
+        raise IndexError(
+            f"No column of {tb_tool.name()} has a 2-D cell in the first row of "
+            "the partition"
+        )
     times = tb_tool.getcol("TIME")
     utimes, tol = utimes_tol_from_times(times)
     tidxs = np.searchsorted(utimes, times)
@@ -589,6 +622,8 @@ def calc_indx_for_row_split(
     )
 
     ts_bases = np.column_stack((ts_ant1, ts_ant2))
+    del ts_ant1, ts_ant2
+    baselines = unique_baselines(ts_bases)
     bidxs = get_baseline_indices(baselines, ts_bases)
 
     baseline_ant1_id = baselines[:, 0]

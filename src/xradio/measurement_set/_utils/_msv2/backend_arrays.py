@@ -125,8 +125,8 @@ CHANNEL_SLICED_COLUMNS = frozenset(
 )
 # The tiled storage managers whose hypercubes have (pol, chan, row) tiles
 CHANNEL_TILED_DM_TYPES = ("TiledShapeStMan", "TiledColumnStMan", "TiledDataStMan")
-# Smallest maximum size (MiB) of the tile cache of a column that a
-# channel-sliced read sets (casacore's setmaxcachesize)
+# Smallest maximum size (MiB) of the tile cache of the data manager of a
+# column that a channel-sliced read sets (casacore's setmaxcachesize)
 CHANNEL_SLICE_MIN_CACHE_MIB = 16
 # Bound of the per-process memo of partition indices (bytes of index arrays).
 # The most recently used index is always kept.
@@ -647,17 +647,21 @@ def _max_cache_mib(table: Any, col: str) -> int | None:
 
 class _TileCacheBounds:
     """
-    The bounds (MiB) of the tile caches of the MAIN columns that
-    channel-sliced reads of this process set while they read
+    The bounds (MiB) of the tile caches of the data managers of the MAIN
+    columns that channel-sliced reads of this process set while they read
     (``MSv2MainColumnArray._read_with``, see ``_channel_cache_mib``).
+    casacore keeps one tile cache per tiled data manager, which every column
+    it stores shares (e.g. DATA and FLAG in one TiledShapeStMan):
+    ``setmaxcachesize`` of a column bounds that of its data manager. And
     python-casacore shares one table object per table in a process, so a
-    bound (``setmaxcachesize``) applies to every handle of MAIN open in the
-    process while it is set, and stays set as long as one of them is open.
-    So the first of the reads of a column under way records the maximum
-    the column had before (``_max_cache_mib``; no bound is set if it cannot
-    be told), the largest bound of the reads under way is set, and the last
-    of them to end sets the maximum before again. Renewed (no read under
-    way) in a fork child.
+    bound applies to every handle of MAIN open in the process while it is
+    set, and stays set as long as one of them is open. So the reads under
+    way are kept per data manager (by its name, which is unique in a table;
+    per column if it has none): the first of them records the maximum the
+    data manager had before (``_max_cache_mib``; no bound is set if it
+    cannot be told), the largest bound of the reads under way is set, and
+    the last of them to end, whatever its column, sets the maximum before
+    again. Renewed (no read under way) in a fork child.
     """
 
     def __init__(self):
@@ -665,18 +669,22 @@ class _TileCacheBounds:
 
     def reset_after_fork(self) -> None:
         self._lock = threading.Lock()
-        # (MAIN path, column) -> (bounds of the reads under way, maximum before)
-        self._active: dict[tuple[str, str], tuple[list[int], int]] = {}
+        # (MAIN path, ("data manager", name) or ("column", column)) ->
+        # (bounds of the reads under way, maximum before)
+        self._active: dict[tuple[str, tuple[str, str]], tuple[list[int], int]] = {}
 
     def __len__(self) -> int:
         return len(self._active)
 
     @contextlib.contextmanager
-    def bounded(self, table: Any, ms_path: str, col: str, mib: int):
-        """Bound the tile cache of ``col`` to ``mib`` (MiB, or the largest
-        bound of the other reads of the column under way) while the block
-        runs; the table must stay open until it ends."""
-        key = (os.path.realpath(ms_path), str(col))
+    def bounded(self, table: Any, ms_path: str, col: str, mib: int, dm_name: str = ""):
+        """Bound the tile cache of the data manager of ``col`` (named
+        ``dm_name``, "": not known, the column's reads alone are counted) to
+        ``mib`` (MiB, or the largest bound of the other reads of its columns
+        under way) while the block runs; the table must stay open until it
+        ends."""
+        owner = ("data manager", str(dm_name)) if dm_name else ("column", str(col))
+        key = (os.path.realpath(ms_path), owner)
         mib = int(mib)
         with self._lock:
             entry = self._active.get(key)
@@ -704,8 +712,8 @@ class _TileCacheBounds:
                         table.setmaxcachesize(col, max(bounds) if bounds else before)
                     except Exception as exc:  # (the values are read)
                         xradio_logger().debug(
-                            f"The tile cache bound of {col} of {ms_path} was not "
-                            f"reset: {exc}"
+                            f"The tile cache bound of {col} ({owner[0]} "
+                            f"{owner[1]}) of {ms_path} was not reset: {exc}"
                         )
 
 
@@ -1578,6 +1586,10 @@ class MSv2MainColumnArray(MSv2BackendArray):
         Whether a channel-sliced read may bridge gaps of rows of other
         partitions (``one_cell_shape`` of the column when the MS was
         opened), by default False: the partition's rows only.
+    tile_dm : str, optional
+        Name of the column's data manager when the MS was opened
+        (``ColumnStorage.dm_name``; "": not known), whose tile cache a
+        channel-sliced read bounds (TILE_CACHE_BOUNDS).
     """
 
     def __init__(
@@ -1595,6 +1607,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
         tile_channels: int = 0,
         tile_band_bytes: int = 0,
         tile_bridge: bool = False,
+        tile_dm: str = "",
     ):
         super().__init__(shape, dtype)
         if self.shape[:2] != index.shape:
@@ -1619,6 +1632,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
         self.tile_channels = int(tile_channels) if sliced else 0
         self.tile_band_bytes = max(0, int(tile_band_bytes)) if sliced else 0
         self.tile_bridge = bool(tile_bridge) and sliced
+        self.tile_dm = str(tile_dm) if sliced else ""
 
     @classmethod
     def from_spec(
@@ -1631,9 +1645,9 @@ class MSv2MainColumnArray(MSv2BackendArray):
         storage: ColumnStorage | None = None,
     ) -> "MSv2MainColumnArray":
         """The array of a ``stream_write.DeferredVariable`` read from a column,
-        whose channel tiling (``channel_tiling``) is found from ``storage``
-        (``column_storage`` of the column when the MS is opened; None: whole
-        cells are read)."""
+        whose channel tiling (``channel_tiling``) and data manager are found
+        from ``storage`` (``column_storage`` of the column when the MS is
+        opened; None: whole cells are read)."""
         tile_channels, tile_band_bytes, tile_bridge = 0, 0, False
         if spec.col in CHANNEL_SLICED_COLUMNS:
             tile_channels, tile_band_bytes = channel_tiling(
@@ -1654,6 +1668,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
             tile_channels,
             tile_band_bytes,
             tile_bridge,
+            "" if storage is None else storage.dm_name,
         )
 
     def _cell_bytes(self, channels: int | None = None) -> int:
@@ -1687,10 +1702,10 @@ class MSv2MainColumnArray(MSv2BackendArray):
 
     def _channel_cache_mib(self, c0: int, c1: int) -> int:
         """
-        The bound (MiB) of the column's tile cache for a read of the channels
-        [c0, c1): twice the tiles of its bands of channels for the rows of a
-        tile (a row of tiles, and the next one), at least
-        CHANNEL_SLICE_MIN_CACHE_MIB.
+        The bound (MiB) of the tile cache of the column's data manager for a
+        read of the channels [c0, c1): twice the tiles of its bands of
+        channels for the rows of a tile (a row of tiles, and the next one), at
+        least CHANNEL_SLICE_MIN_CACHE_MIB.
 
         It caps memory, not the bytes read. casacore sizes the cache of every
         access itself (TSMDataColumn::accessSlicedCells): one tile for a range
@@ -1702,11 +1717,11 @@ class MSv2MainColumnArray(MSv2BackendArray):
         column of 200,000 rows of 100 channels, in tiles of 8 channels and 64
         rows: the 25 MiB of tiles read were kept; nothing with the bound). The
         bytes read are the same without a bound and with bounds of 16 MiB to
-        1 GiB:
-        the tiles that the rows of two runs share are read again either way,
-        as with whole cells. The bound is set while the read runs
-        (TILE_CACHE_BOUNDS), on the column's data manager: for every handle of
-        MAIN open in the process at that time.
+        1 GiB: the tiles that the rows of two runs share are read again either
+        way, as with whole cells. The bound is set while the read runs
+        (TILE_CACHE_BOUNDS), on the column's data manager (``tile_dm``): for
+        the other columns it stores too, and for every handle of MAIN open in
+        the process at that time.
         """
         bands = -(-(c1 - c0) // self.tile_channels)
         needed = -(-2 * bands * self.tile_band_bytes // 2**20)
@@ -1895,6 +1910,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
                                         self.index.ms_path,
                                         self.col,
                                         self._channel_cache_mib(*chan_range),
+                                        self.tile_dm,
                                     )
                                 )
                             else:  # (casatools: whole cells)

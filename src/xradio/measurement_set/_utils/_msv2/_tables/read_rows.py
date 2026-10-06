@@ -1758,6 +1758,9 @@ class ColumnStorage:
         Fortran axis order).
     error : str
         Why the storage could not be described ("" if it could).
+    dm_name : str
+        Name of the data manager ("" if unknown). Unique in the table when not
+        empty: the columns of one data manager share, e.g., its tile cache.
     """
 
     plain: bool
@@ -1765,6 +1768,7 @@ class ColumnStorage:
     option: int = 0
     hypercubes: tuple[dict, ...] = ()
     error: str = ""
+    dm_name: str = ""
 
 
 def is_plain_table(table: tables.table) -> bool:
@@ -1811,7 +1815,13 @@ def column_storage(
                 dm for dm in table_dminfo.values() if col in dm.get("COLUMNS", ())
             )
         cubes = tuple(dminfo.get("SPEC", {}).get("HYPERCUBES", {}).values())
-        return ColumnStorage(plain, str(dminfo.get("TYPE", "")), option, cubes)
+        return ColumnStorage(
+            plain,
+            str(dminfo.get("TYPE", "")),
+            option,
+            cubes,
+            dm_name=str(dminfo.get("NAME", "")),
+        )
     except Exception as exc:
         return ColumnStorage(False, error=f"{type(exc).__name__}: {exc}")
 

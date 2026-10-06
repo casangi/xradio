@@ -46,12 +46,13 @@ builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those o
 indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time. With
 python-casacore, a selection of some channels of ``VISIBILITY*``, ``SPECTRUM*``, ``FLAG`` or ``WEIGHT`` (from
 ``WEIGHT_SPECTRUM``) whose MAIN column is stored in tiles of fewer channels than a cell (tiled storage managers) reads
-only the tiles of those channels: their range rounded out to whole tiles. While it reads, the tile cache of the column
-is bounded (casacore's ``setmaxcachesize``, at least 16 MiB; set back when the last such read of the column ends), which
-caps its memory (casacore would otherwise keep every tile of the last, partial band of channels it reads);
-python-casacore shares one table object per table in a process, so the bound also applies to the reads of other handles
-of MAIN open in the process at that time (with a smaller bound, a pattern of reads that reuses tiles may read them
-again). Cells without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The
+only the tiles of those channels: their range rounded out to whole tiles. While it reads, the tile cache of the
+column's data manager is bounded (casacore's ``setmaxcachesize``, at least 16 MiB; set back when the last such read of
+a column of that data manager ends), which caps its memory (casacore would otherwise keep every tile of the last,
+partial band of channels it reads). The cache, and so the bound, is shared by the columns of the data manager (e.g.
+``DATA`` and ``FLAG`` in one ``TiledShapeStMan``) and, as python-casacore shares one table object per table in a
+process, by the reads of other handles of MAIN open in the process at that time (with a smaller bound, a pattern of
+reads that reuses tiles may read them again). Cells without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The
 ``pointing_xds`` is lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID``
 columns, the shapes (not the values) of the cells of its array columns (stored in the MS by the first open, see below)
 and one cell of each data column, and a selection reads only the rows of its times and antennas. Only with

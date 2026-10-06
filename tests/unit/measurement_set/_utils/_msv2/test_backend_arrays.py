@@ -710,6 +710,7 @@ def test_channel_tiling_of_generated_columns(backend_ms):
         for col, tiling in expected.items():
             storage = column_storage(main_tb, col)
             assert len(storage.hypercubes) == 2, col
+            assert storage.dm_name == f"TSM_{col}"
             dtype = main_tb.getcell(col, 0).dtype
             for cell_shape in ((16, 2), (24, 2)):
                 found = backend_arrays.channel_tiling(storage, cell_shape, dtype)
@@ -748,7 +749,8 @@ def test_channel_sliced_columns_are_read_as_written():
 )
 def test_channel_sliced_arrays(col, cell_shape, shape, tile_channels, expected):
     """Only arrays of CHANNEL_SLICED_COLUMNS with 2-D cells read slices of
-    channels; the tiling is kept in the pickled state."""
+    channels; the tiling and the data manager are kept in the pickled
+    state."""
     index = PartitionIndex("/x.ms", [0], [6], 6, shape[:2], "t" * 32)
     array = MSv2MainColumnArray(
         index,
@@ -760,13 +762,16 @@ def test_channel_sliced_arrays(col, cell_shape, shape, tile_channels, expected):
         cell_shape,
         tile_channels=tile_channels,
         tile_band_bytes=100,
+        tile_dm="TiledData",
     )
     assert array.tile_channels == expected
     assert array.tile_band_bytes == (100 if expected else 0)
+    assert array.tile_dm == ("TiledData" if expected else "")
     restored = pickle.loads(pickle.dumps(array))
-    assert (restored.tile_channels, restored.tile_band_bytes) == (
+    assert (restored.tile_channels, restored.tile_band_bytes, restored.tile_dm) == (
         array.tile_channels,
         array.tile_band_bytes,
+        array.tile_dm,
     )
 
 
@@ -980,6 +985,120 @@ def test_channel_sliced_reads_set_the_tile_cache_bound_back(backend_ms, monkeypa
                     raise ValueError("a read that fails")
             assert handle.getdmprop("DATA")["MaxCacheSize"] == 16
         assert handle.getdmprop("DATA")["MaxCacheSize"] == 3
+        assert len(bounds) == 0
+        handle.setmaxcachesize("DATA", 0)
+
+
+# The data manager of the columns of shared_dm_narrow_tiles, its columns and
+# its tiles (Fortran order: pol, chan, rows)
+SHARED_DM = "TiledShared"
+SHARED_DM_COLUMNS = ("DATA", "CORRECTED_DATA", "FLAG")
+SHARED_DM_TILE_SHAPE = (2, 3, 7)
+
+
+@pytest.fixture(scope="module")
+def shared_dm_narrow_tiles(backend_ms, tmp_path_factory):
+    """A deep copy of the "dense" MS whose DATA, CORRECTED_DATA and FLAG are
+    in one TiledShapeStMan (SHARED_DM, as DATA and FLAG of some MSs of the
+    test corpus), in tiles of 3 of the 16 channels: one tile cache for the
+    three columns."""
+    from casacore import tables
+
+    base = tmp_path_factory.mktemp("shared_dm")
+    msname = str(base / "shared_dm.ms")
+    with tables.table(backend_ms("dense"), ack=False) as main_tb:
+        dminfo = {}
+        for info in main_tb.getdminfo().values():
+            columns = [c for c in info["COLUMNS"] if c not in SHARED_DM_COLUMNS]
+            if columns:
+                dminfo[f"*{len(dminfo) + 1}"] = dict(info, COLUMNS=columns)
+        dminfo[f"*{len(dminfo) + 1}"] = {
+            "TYPE": "TiledShapeStMan",
+            "NAME": SHARED_DM,
+            "SPEC": {"DEFAULTTILESHAPE": np.array(SHARED_DM_TILE_SHAPE, np.int32)},
+            "COLUMNS": list(SHARED_DM_COLUMNS),
+        }
+        main_tb.copy(msname, deep=True, valuecopy=True, dminfo=dminfo).close()
+    yield msname
+    shutil.rmtree(base, ignore_errors=True)
+
+
+def test_channel_sliced_reads_bound_the_tile_cache_of_the_data_manager(
+    shared_dm_narrow_tiles, monkeypatch
+):
+    """
+    casacore keeps one tile cache per tiled data manager, which
+    setmaxcachesize of any of its columns bounds. Reads of two columns of one
+    data manager under way at once (DATA and FLAG, here interleaved: the
+    first ends while the second still reads) keep the largest of their
+    bounds until the last one ends, whatever its column, which sets the
+    maximum before (here 3 MiB, of a handle held open) again: the bound is
+    never lifted while one of them reads, and none is left after them. Also
+    with dask threads reading VISIBILITY and FLAG one channel at a time.
+    """
+    from casacore import tables
+
+    from xradio.measurement_set._utils._msv2._tables.table_query import (
+        open_table_ro,
+    )
+
+    msname = shared_dm_narrow_tiles
+    with tables.table(msname, ack=False) as main_tb:
+        for col in SHARED_DM_COLUMNS:
+            assert main_tb.getdminfo(col)["NAME"] == SHARED_DM
+    lazy, reference, _ = lazy_and_reference(msname, 0)
+    for name in ("VISIBILITY", "VISIBILITY_CORRECTED", "FLAG"):
+        array = lazy[name]._data.array
+        assert (array.tile_channels, array.tile_dm) == (3, SHARED_DM), name
+        sel = {"frequency": slice(4, 9)}
+        assert_same_values(
+            lazy[name].isel(sel).values, reference[name].isel(sel).values, name
+        )
+
+    bounds = backend_arrays.TILE_CACHE_BOUNDS
+    with open_table_ro(msname) as handle:
+        handle.setmaxcachesize("DATA", 3)
+        assert handle.getdmprop("FLAG")["MaxCacheSize"] == 3  # (one cache)
+        data = bounds.bounded(handle, msname, "DATA", 16, SHARED_DM)
+        flag = bounds.bounded(handle, msname, "FLAG", 42, SHARED_DM)
+        data.__enter__()
+        assert handle.getdmprop("FLAG")["MaxCacheSize"] == 16
+        flag.__enter__()
+        assert handle.getdmprop("DATA")["MaxCacheSize"] == 42
+        data.__exit__(None, None, None)  # (FLAG still reads)
+        assert handle.getdmprop("FLAG")["MaxCacheSize"] == 42
+        assert len(bounds) == 1
+        flag.__exit__(None, None, None)
+        assert handle.getdmprop("DATA")["MaxCacheSize"] == 3
+        assert len(bounds) == 0
+
+        # dask threads: one-channel reads of both variables at once
+        seen = []
+        read_rows_to_grid = backend_arrays.read_rows_to_grid
+
+        def spy(table, col, plan, grid, *args, **kwargs):
+            seen.append(table.getdmprop(col)["MaxCacheSize"])
+            return read_rows_to_grid(table, col, plan, grid, *args, **kwargs)
+
+        monkeypatch.setattr(backend_arrays, "read_rows_to_grid", spy)
+        n_chan = lazy["FLAG"].sizes["frequency"]
+        names = ("VISIBILITY", "FLAG")
+        selections = [
+            lazy[name].isel(frequency=slice(k, k + 1)).chunk({"time": 10})
+            for k in range(n_chan)
+            for name in names
+        ]
+        values = dask.compute(*selections, scheduler="threads", num_workers=4)
+        for k in range(n_chan):
+            for j, name in enumerate(names):
+                assert_same_values(
+                    np.asarray(values[2 * k + j]),
+                    reference[name].isel(frequency=slice(k, k + 1)).values,
+                    (name, k),
+                )
+        assert len(seen) >= 2 * n_chan
+        assert min(seen) >= backend_arrays.CHANNEL_SLICE_MIN_CACHE_MIB
+        assert handle.getdmprop("FLAG")["MaxCacheSize"] == 3
         assert len(bounds) == 0
         handle.setmaxcachesize("DATA", 0)
 

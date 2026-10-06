@@ -149,6 +149,14 @@ are read as they are now, as are rows moved within an unchanged grid. While this
 writing (its writes are seen before they are flushed), and for reference and concatenated MSs (their lock files do not
 show the writes of the MSs they read), every read checks its partition so.
 
+Writing MAIN from another process while the MS is being opened is not supported. As the converter, the engine reads
+the MS without casacore's read locks (``lockoptions="usernoread"``: it never waits for a writer, nor makes one wait), so
+such an open may raise :py:class:`MSv2ChangedError` (for example when MAIN has another number of rows in the process
+than on disk), raise a casacore ``RuntimeError`` (such as ``TiledStMan::headerFileGet: mismatch in #row``), or crash the
+process inside casacore (a segmentation fault, or an abort with ``free(): invalid next size``), as a conversion of the
+MS at that time may. The partitions stored in the MS are not affected. Open the MS before or after such writes (once
+the writer has flushed its changes and released its lock), or open a copy.
+
 **Performance.** Opening costs what the converter spends on metadata: about 0.05 to 0.2 s per partition, plus 4 to
 12 ms per node for xarray (about 3 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). The first open of an MS
 also scans the cell shapes of the POINTING array columns (about 1 s per column for 3.6 million rows), which it stores in

@@ -135,6 +135,9 @@ def open_msv2(
         From a lazy read, if the MS changed since it was opened (MAIN or
         POINTING rows added or removed, rows moved to or from another
         partition, or the time and baseline grid of a partition changed).
+        From the open, if MAIN changes while the MS is opened (another
+        process writing it, which is not supported: such an open may also
+        fail inside casacore, see the API documentation).
     MSv2ReadError
         From a lazy read that failed (see skip_columns for columns whose
         cells only a read can check).

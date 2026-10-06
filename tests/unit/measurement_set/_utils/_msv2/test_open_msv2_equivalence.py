@@ -447,6 +447,31 @@ def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, k
     assert scans == ["WEIGHT_SPECTRUM"] * (len(names) + len(bad))
 
 
+@pytest.mark.parametrize("mode", ["off", "auto"])
+def test_open_while_main_is_written(ms_copy, monkeypatch, mode):
+    """An open that sees MAIN with fewer rows than its lock file tells, also
+    after re-reading it (rows another process is adding: writing MAIN while
+    the MS is opened is not supported), raises MSv2ChangedError from the
+    open, before anything is stored in the MS."""
+    import dataclasses
+
+    from xradio.measurement_set import MSv2ChangedError
+
+    msname = ms_copy("dense")
+    read_table_lock = backend_open.read_table_lock
+
+    def more_rows(path):
+        lock = read_table_lock(path)
+        if os.path.realpath(path) != os.path.realpath(msname):
+            return lock
+        return dataclasses.replace(lock, nrrow=lock.nrrow + 10)
+
+    monkeypatch.setattr(backend_open, "read_table_lock", more_rows)
+    with pytest.raises(MSv2ChangedError, match="rows in this process and"):
+        open_msv2(msname, partition_cache=mode)
+    assert not os.path.exists(os.path.join(msname, "XRADIO_PARTITIONS"))
+
+
 def test_relative_path_and_chdir(backend_ms, tmp_path, monkeypatch):
     """The lazy arrays read the MS by its absolute path: a relative path
     opened before a chdir still reads."""

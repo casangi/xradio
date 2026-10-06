@@ -30,6 +30,7 @@ def test_load_times_from_partition_bdfs():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         load_times_from_partition_bdfs,
     )
+    from xradio.measurement_set._utils._asdm._utils.time import MJD_TO_UNIX_TIME_DELTA
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False, True, False]
@@ -45,9 +46,9 @@ def test_load_times_from_partition_bdfs():
         centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
             load_times_from_partition_bdfs(bdf_paths, pd.DataFrame())
         )
-        assert (centers == [10] * 2).all()
+        assert (centers == [10 - MJD_TO_UNIX_TIME_DELTA] * 2).all()
         assert (durations == [1] * 2).all()
-        assert (actual_times == [10.1] * 2).all()
+        assert (actual_times == [10.1 - MJD_TO_UNIX_TIME_DELTA] * 2).all()
         assert (actual_durations == [1.01] * 2).all()
         assert time_indices_by_bdf == {
             "bdf_names": ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"],
@@ -315,3 +316,17 @@ def test_load_times_bdf_pybdfreader_exception():
             _centers, _durations, _actual_times, _actual_durations = load_times_bdf(
                 bdf_path
             )
+
+
+def test_load_times_from_bdfs_more_than_one_integration_per_subset():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        load_times_from_bdfs,
+    )
+
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
+        bdf_header = mock_bdf_reader.return_value.getHeader.return_value
+        bdf_header.getDimensionality.return_value = 0
+        bdf_header.getNumTime.return_value = 5
+        with pytest.raises(NotImplementedError, match="numTime=5"):
+            load_times_from_bdfs(["/no_path/nonexistant/foo"])

@@ -7,7 +7,10 @@ import pyasdm
 
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils._bdf import config
-from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
+from xradio.measurement_set._utils._asdm._utils.time import (
+    MJD_TO_UNIX_TIME_DELTA,
+    convert_time_asdm_to_unix,
+)
 
 
 def load_times_from_partition_bdfs(
@@ -49,8 +52,8 @@ def load_times_from_partition_bdfs(
         time_centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
             load_times_from_bdfs(bdf_paths)
         )
-        for time_var in time_centers, durations, actual_times, actual_durations:
-            time_var = convert_time_asdm_to_unix(time_var)
+        time_centers = time_centers - MJD_TO_UNIX_TIME_DELTA
+        actual_times = actual_times - MJD_TO_UNIX_TIME_DELTA
 
     except RuntimeError as exc:
         xradio_logger().warning(
@@ -168,6 +171,11 @@ def load_times_from_bdfs(
         try:
             bdf_reader.open(bdf_path)
             bdf_header = bdf_reader.getHeader()
+            if bdf_header.getDimensionality() == 0 and bdf_header.getNumTime() > 1:
+                raise NotImplementedError(
+                    f"BDFs with more than one integration per subset (dimensionality 0, "
+                    f"numTime={bdf_header.getNumTime()}) are not supported: {bdf_path}"
+                )
             # xradio_logger().debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: *")
             # xradio_logger().debug(bdf_header)
             if config.do_save_blob_info:

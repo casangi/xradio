@@ -96,3 +96,29 @@ def test_exclude_unsupported_axis_names(
 
     with expected_error:
         exclude_unsupported_axis_names(input_names, exclude_also_for_flags)
+
+
+@pytest.mark.parametrize(
+    "input_apc, input_num_bin, expected_error",
+    [
+        (["AP_UNCORRECTED"], 1, no_raises()),
+        ([], 1, no_raises()),
+        (
+            ["AP_UNCORRECTED", "AP_CORRECTED"],
+            1,
+            pytest.raises(NotImplementedError, match="APC"),
+        ),
+        (["AP_UNCORRECTED"], 2, pytest.raises(NotImplementedError, match="numBin")),
+    ],
+)
+def test_check_apc_and_bins(input_apc, input_num_bin, expected_error):
+    from xradio.measurement_set._utils._asdm._utils._bdf.bdf_description_checks import (
+        check_apc_and_bins,
+    )
+
+    bdf_descr = {
+        "apc": input_apc,
+        "basebands": [{"spectralWindows": [{"numBin": 1}, {"numBin": input_num_bin}]}],
+    }
+    with expected_error:
+        check_apc_and_bins(bdf_descr, "/no_path/nonexistant/foo")

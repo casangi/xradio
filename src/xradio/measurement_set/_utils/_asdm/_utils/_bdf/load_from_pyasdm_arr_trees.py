@@ -90,7 +90,7 @@ def load_visibilities_all_subsets_from_trees(
                 guessed_shape,
                 baseband_spw_idxs,
                 bdf_descr,
-                array_slice,
+                (slice(None), *array_slice[1:]),
             )
         else:
             ndarrays = load_subset_with_get_ndarrays(
@@ -268,12 +268,12 @@ def load_vis_subset_cross_data_from_tree(
     polarization_min, polarization_max = min_max_from_dimension_slice(
         array_slice[3], 0, polarization_len
     )
-    for time_idx in np.arange(time_min, time_max):
+    for _time_idx in np.arange(time_min, time_max):
         vis_strides = []
         for baseline_idx in np.arange(baseline_min, baseline_max):
             if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
                 offset = (
-                    time_idx * baseline_idx * cross_offset_addition_both
+                    baseline_idx * cross_offset_addition_both
                     + cross_offset_addition_before
                 )
                 first_frequency = offset + (frequency_min * polarization_len * 2)
@@ -291,7 +291,7 @@ def load_vis_subset_cross_data_from_tree(
                 # radiometer / spectrometer
                 offset = int(
                     (
-                        time_idx * baseline_idx * cross_offset_addition_both
+                        baseline_idx * cross_offset_addition_both
                         + cross_offset_addition_before
                     )
                     / 2
@@ -351,13 +351,12 @@ def load_vis_subset_auto_data_from_tree(
     polarization_min, polarization_max = min_max_from_dimension_slice(
         array_slice[3], 0, sd_polarization_len
     )
-    for time_idx in np.arange(time_min, time_max):
+    for _time_idx in np.arange(time_min, time_max):
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_min, antenna_max):
             auto_floats = auto_data_arr
             offset = (
-                time_idx * antenna_idx * auto_offset_addition_both
-                + auto_offset_addition_before
+                antenna_idx * auto_offset_addition_both + auto_offset_addition_before
             )
             first_frequency = offset + (frequency_min * sd_polarization_len)
             last_frequency = offset + (frequency_max * sd_polarization_len)
@@ -409,6 +408,9 @@ def load_flags_all_subsets_from_trees(
     # Load taking pieces from the data trees of the binary components. Needed when the number
     # of SPWs per baseband, or number of channels per SPW are not uniform.
     flag_per_subset = []
+    time_start = array_slice[0].start or 0
+    time_stop = array_slice[0].stop
+    time_index = 0
     while bdf_reader.hasSubset():
         try:
             subset = bdf_reader.getSubset(loadOnlyComponents={"flags"})
@@ -419,10 +421,16 @@ def load_flags_all_subsets_from_trees(
             )
             return None
 
-        flag_subset = load_flags_subset_from_tree(
-            subset, guessed_shape, bdf_descr, baseband_spw_idxs, array_slice
-        )
-        flag_per_subset.append(flag_subset)
+        if time_index >= time_start and (time_stop is None or time_index < time_stop):
+            flag_subset = load_flags_subset_from_tree(
+                subset,
+                guessed_shape,
+                bdf_descr,
+                baseband_spw_idxs,
+                (slice(None), *array_slice[1:]),
+            )
+            flag_per_subset.append(flag_subset)
+        time_index += 1
 
     bdf_flag = np.concatenate(flag_per_subset)
 
@@ -466,7 +474,7 @@ def load_flags_subset_from_tree(
         shape = add_cross_and_auto_flag_shapes(guessed_shape)
         flag_subset = np.full(
             full_shape_to_output_filled_flags_shape(shape), False, dtype="bool"
-        )
+        )[:, array_slice[1], array_slice[3]]
 
     return flag_subset
 
@@ -485,22 +493,28 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
     spw_descr = baseband_description["spectralWindows"][baseband_spw_idxs[1]]
     polarization_cross_len = len(spw_descr["crossPolProducts"])
     polarization_auto_len = len(spw_descr["sdPolProducts"])
+    polarization_len = polarization_cross_len or polarization_auto_len
 
     flag_subset_integrations = []
     time_len = guessed_shape["auto"][0]
 
     time_min, time_max = min_max_from_dimension_slice(array_slice[0], 0, time_len)
-    # TODO: split baseline indices/antenna indices
-    baseline_min, baseline_max = min_max_from_dimension_slice(
-        array_slice[1], 0, baseline_len
+    cross_len = (
+        0
+        if bdf_descr["correlation_mode"]
+        == pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+        else baseline_len
     )
-    antenna_min, antenna_max = min_max_from_dimension_slice(
-        array_slice[1], 0, antenna_len
+    row_min, row_max = min_max_from_dimension_slice(
+        array_slice[1], 0, cross_len + antenna_len
     )
+    baseline_min, baseline_max = min(row_min, cross_len), min(row_max, cross_len)
+    antenna_min = max(row_min - cross_len, 0)
+    antenna_max = max(row_max - cross_len, 0)
     polarization_min, polarization_max = min_max_from_dimension_slice(
-        array_slice[3], 0, polarization_cross_len
+        array_slice[3], 0, polarization_len
     )
-    for time_idx in np.arange(time_min, time_max):
+    for _time_idx in np.arange(time_min, time_max):
         flag_strides = []
 
         auto_offset_addition_before = offset_additions["auto"]["before"]
@@ -519,12 +533,10 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
             cross_offset_addition_both = (
                 cross_offset_addition_before + cross_offset_addition_after
             )
-            prev_auto_offset = time_idx * antenna_len * auto_offset_addition_both
             for baseline_idx in np.arange(baseline_min, baseline_max):
                 offset = (
-                    time_idx * baseline_idx * cross_offset_addition_both
+                    baseline_idx * cross_offset_addition_both
                     + cross_offset_addition_before
-                    + prev_auto_offset
                 )
                 # notice: forgetting the int details (BinaryDataFlags enum)
                 stride = flag_array[offset : offset + polarization_cross_len].astype(
@@ -535,12 +547,11 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
 
                 flag_strides.append(stride)
 
-        total_cross_offset = time_idx * baseline_len * cross_offset_addition_both
+        total_cross_offset = baseline_len * cross_offset_addition_both
 
         for antenna_idx in np.arange(antenna_min, antenna_max):
             offset = total_cross_offset + (
-                time_idx * antenna_idx * auto_offset_addition_both
-                + auto_offset_addition_before
+                antenna_idx * auto_offset_addition_both + auto_offset_addition_before
             )
             if polarization_auto_len != 3:
                 # notice: forgetting the int details (BinaryDataFlags enum)
@@ -557,8 +568,8 @@ def load_flags_subset_cross_and_auto_blocks_from_tree(
                     ],
                     dtype="bool",
                 )
-                if polarization_max - polarization_min != polarization_cross_len:
-                    stride = stride[..., polarization_min:polarization_max]
+            if polarization_max - polarization_min != polarization_len:
+                stride = stride[..., polarization_min:polarization_max]
 
             flag_strides.append(stride)
 

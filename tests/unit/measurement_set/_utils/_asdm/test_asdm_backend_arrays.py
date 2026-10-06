@@ -72,7 +72,7 @@ def test_VisibilityArray__raw_indexing_method(
 @pytest.mark.parametrize(
     "input_shape, expected_output_shape, expected_error",
     [
-        (None, None, pytest.raises(TypeError, match="as shape arguments")),
+        (None, None, pytest.raises(TypeError)),
         ((1, 5, 2, 1), None, no_raises()),
     ],
 )
@@ -134,3 +134,63 @@ def test_UVWArray__raw_indexing_method():
     uvw = UVWArray(None, None, None, None, None, None)
     with pytest.raises(AttributeError, match="NoneType"):
         uvw._raw_indexing_method(None)
+
+
+@pytest.mark.parametrize(
+    "indexers",
+    [
+        {"time": 0},
+        {"time": -1, "polarization": 1},
+        {"time": slice(None, None, 2)},
+        {"frequency": slice(1, 8, 3), "baseline_id": 4},
+        {"baseline_id": slice(5, 0, -2)},
+        {"time": slice(2, 2, 2)},
+    ],
+)
+def test_ASDMBackendArray_basic_indexing(indexers):
+    import xarray as xr
+
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        ASDMBackendArray,
+    )
+
+    data = np.arange(7 * 6 * 8 * 2, dtype="float64").reshape(7, 6, 8, 2)
+    raw_keys = []
+
+    class NumpyBackendArray(ASDMBackendArray):
+        def _raw_indexing_method(self, key):
+            raw_keys.append(key)
+            return data[key]
+
+    dims = ("time", "baseline_id", "frequency", "polarization")
+    array = xr.DataArray(
+        xr.core.indexing.LazilyIndexedArray(NumpyBackendArray(data.shape, data.dtype)),
+        dims=dims,
+    )
+    expected = data[tuple(indexers.get(dim, slice(None)) for dim in dims)]
+    np.testing.assert_array_equal(array.isel(indexers).values, expected)
+    assert all(
+        isinstance(dim_key, slice) and dim_key.step in (None, 1)
+        for key in raw_keys
+        for dim_key in key
+    )
+
+
+def test_WeightArray_selection_only():
+    from unittest import mock
+
+    import xarray as xr
+
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import WeightArray
+
+    weight = WeightArray((20, 10, 30, 4))
+    with mock.patch(
+        "xradio.measurement_set._utils._asdm.asdm_backend_arrays.np.ones",
+        wraps=np.ones,
+    ) as mock_ones:
+        selected = weight[
+            xr.core.indexing.BasicIndexer((5, slice(0, 2), 3, slice(None)))
+        ]
+    assert mock_ones.call_args.kwargs["shape"] == (1, 2, 1, 4)
+    assert selected.shape == (2, 4)
+    assert (selected == 1).all()

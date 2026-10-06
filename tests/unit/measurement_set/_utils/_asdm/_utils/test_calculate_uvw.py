@@ -19,10 +19,11 @@ def test_calculate_uvw_fail():
 
 def test_calculate_uvw_few_antennas():
     from xradio.measurement_set._utils._asdm._utils.calculate_uvw import calculate_uvw
+    from xradio.measurement_set._utils._asdm._utils.time import MJD_TO_UNIX_TIME_DELTA
 
     key = None
     time = xr.DataArray(
-        data=np.array([0, 10, 15, 17]) + 5e9,
+        data=np.array([0, 10, 15, 17]) + 5e9 - MJD_TO_UNIX_TIME_DELTA,
         dims="time",
         coords={"time": "time"},
         attrs={"type": "time", "units": "s", "scale": "tai", "format": "unix"},

@@ -1,6 +1,8 @@
 import numpy as np
 import pyasdm
 
+MJD_TO_UNIX_TIME_DELTA = 3_506_716_800
+
 
 def convert_time_asdm_to_unix(times_asdm: np.ndarray) -> np.ndarray:
     """Convert ASDM time values to Unix timestamps.
@@ -40,7 +42,6 @@ def convert_time_asdm_to_unix(times_asdm: np.ndarray) -> np.ndarray:
     # values/
     # [((asdm_interval.toFITS()) for asdm_interval in main_df["time"].values]
 
-    MJD_TO_UNIX_TIME_DELTA = 3_506_716_800
     MJD_TO_UNIX_TIME_DELTA_NS = MJD_TO_UNIX_TIME_DELTA * 1e9
 
     if len(times_asdm) > 0 and isinstance(times_asdm[0], pyasdm.types.ArrayTime):

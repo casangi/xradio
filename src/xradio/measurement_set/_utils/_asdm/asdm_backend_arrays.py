@@ -38,8 +38,22 @@ class ASDMBackendArray(xr.backends.BackendArray):
             key,
             self.shape,
             xr.core.indexing.IndexingSupport.BASIC,
-            self._raw_indexing_method,
+            self._basic_indexing_method,
         )
+
+    def _basic_indexing_method(self, key: tuple) -> np.ndarray:
+        """Loads with step-1 slices, then applies the steps and integer indices."""
+        raw_key = []
+        residual_key = []
+        for dim_key in key:
+            if isinstance(dim_key, int | np.integer):
+                raw_key.append(slice(dim_key, dim_key + 1))
+                residual_key.append(0)
+            else:
+                raw_key.append(slice(dim_key.start, dim_key.stop))
+                residual_key.append(slice(None, None, dim_key.step))
+
+        return self._raw_indexing_method(tuple(raw_key))[tuple(residual_key)]
 
     def _raw_indexing_method(self, key: tuple):
         raise NotImplementedError
@@ -84,9 +98,8 @@ class WeightArray(ASDMBackendArray):
 
     def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" WeightArray._raw_indexing_method, {key=}")
-        weight = np.ones(shape=self.shape, dtype=self.dtype)
-        weight = weight[key]
-        return weight
+        shape = np.broadcast_to(np.empty((), dtype=self.dtype), self.shape)[key].shape
+        return np.ones(shape=shape, dtype=self.dtype)
 
 
 class FlagArray(ASDMBackendArray):

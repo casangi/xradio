@@ -1292,3 +1292,194 @@ def test_load_flags_subset_from_tree(
         assert flags.dtype == np.dtype("bool")
         assert flags.size == expected_size
         assert flags.shape == expected_shape
+
+
+class _SubsetsReader:
+    def __init__(self, subsets):
+        self._subsets = list(subsets)
+
+    def hasSubset(self):
+        return bool(self._subsets)
+
+    def getSubset(self, loadOnlyComponents=None):
+        return self._subsets.pop(0)
+
+    def getPath(self):
+        return "/no_path/nonexistant/foo"
+
+
+def _two_spw_bdf_descr():
+    spw = {
+        "crossPolProducts": ["XX", "YY"],
+        "sdPolProducts": ["XX", "YY"],
+        "scaleFactor": 1,
+    }
+    return {
+        "correlation_mode": pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO,
+        "processor_type": pyasdm.enumerations.ProcessorType.CORRELATOR,
+        "num_antenna": 3,
+        "dimensionality": 1,
+        "num_time": 0,
+        "basebands": [
+            {
+                "spectralWindows": [
+                    {**spw, "numSpectralPoint": 4},
+                    {**spw, "numSpectralPoint": 6},
+                ]
+            }
+        ],
+    }
+
+
+def _vis_subset(integration):
+    cross, auto = [], []
+    for row in range(3):
+        for spw, channel_len in enumerate([4, 6]):
+            for channel in range(channel_len):
+                for pol in range(2):
+                    value = 10000 * integration + 1000 * row + 100 * spw
+                    value += 10 * channel + pol
+                    cross += [value, -value]
+                    auto.append(value + 0.5)
+    return {
+        "crossData": {"present": True, "arr": np.array(cross, dtype="float64")},
+        "autoData": {"present": True, "arr": np.array(auto, dtype="float64")},
+    }
+
+
+def test_load_visibilities_all_subsets_from_trees_values():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_visibilities_all_subsets_from_trees,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_visibility_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    vis = load_visibilities_all_subsets_from_trees(
+        _SubsetsReader([_vis_subset(integration) for integration in range(3)]),
+        define_visibility_shape(bdf_descr, (0, 1)),
+        (0, 1),
+        bdf_descr,
+        (slice(1, 3), slice(None), slice(2, 5), slice(None)),
+        False,
+    )
+
+    integration = np.array([1, 2])[:, None, None, None]
+    row = np.arange(3)[None, :, None, None]
+    channel = np.arange(2, 5)[None, None, :, None]
+    pol = np.arange(2)[None, None, None, :]
+    value = 10000 * integration + 1000 * row + 100 + 10 * channel + pol
+    np.testing.assert_array_equal(
+        vis, np.concatenate([value - 1j * value, value + 0.5], axis=1)
+    )
+
+
+def _flags_subset(flagged):
+    # rows: cross baselines 0-2, then antennas 0-2; per row: spw 0, 1; per spw: 2 pols
+    flags = np.zeros(24, dtype="int32")
+    for row, spw, pol, word in flagged:
+        flags[row * 4 + spw * 2 + pol] = word
+    return {"flags": {"present": True, "arr": flags}}
+
+
+FLAGGED = [(1, 1, 0, 16), (5, 1, 1, 2**30), (1, 0, 1, 1), (3, 0, 0, 1)]
+
+
+@pytest.mark.parametrize(
+    "input_baseline_slice, input_polarization_slice, expected_true",
+    [
+        (slice(None), slice(None), [(1, 0), (5, 1)]),
+        (slice(1, 6), slice(None), [(0, 0), (4, 1)]),
+        (slice(2, 5), slice(None), []),
+        (slice(None), slice(1, 2), [(5, 0)]),
+    ],
+)
+def test_load_flags_subset_from_tree_values(
+    input_baseline_slice, input_polarization_slice, expected_true
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_flags_subset_from_tree,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_flag_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    flags = load_flags_subset_from_tree(
+        _flags_subset(FLAGGED),
+        define_flag_shape(bdf_descr, (0, 1)),
+        bdf_descr,
+        (0, 1),
+        (slice(None), input_baseline_slice, slice(None), input_polarization_slice),
+    )
+
+    expected = np.zeros(
+        (
+            1,
+            len(range(6)[input_baseline_slice]),
+            len(range(2)[input_polarization_slice]),
+        ),
+        dtype=bool,
+    )
+    for row, pol in expected_true:
+        expected[0, row, pol] = True
+    np.testing.assert_array_equal(flags, expected)
+
+
+def test_load_flags_all_subsets_from_trees_time_selection():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_flags_all_subsets_from_trees,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_flag_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    subsets = [_flags_subset([(row, 1, 0, 1)]) for row in range(3)]
+    flags = load_flags_all_subsets_from_trees(
+        _SubsetsReader(subsets),
+        define_flag_shape(bdf_descr, (0, 1)),
+        bdf_descr,
+        (0, 1),
+        (slice(1, 3), slice(None), slice(None), slice(None)),
+    )
+
+    expected = np.zeros((2, 6, 2), dtype=bool)
+    expected[0, 1, 0] = expected[1, 2, 0] = True
+    np.testing.assert_array_equal(flags, expected)
+
+
+@pytest.mark.parametrize(
+    "input_polarization_slice, expected_true",
+    [(slice(None), [(1, 0), (2, 1)]), (slice(0, 1), [(1, 0)]), (slice(1, 2), [(2, 0)])],
+)
+def test_load_flags_subset_from_tree_auto_only_values(
+    input_polarization_slice, expected_true
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_flags_subset_from_tree,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_flag_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    bdf_descr["correlation_mode"] = pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+    for spw in bdf_descr["basebands"][0]["spectralWindows"]:
+        spw["crossPolProducts"] = []
+    # rows: antennas 0-2; per row: spw 0, 1; per spw: 2 pols
+    flag_words = np.zeros(12, dtype="int32")
+    flag_words[[1 * 4 + 2 + 0, 2 * 4 + 2 + 1, 0 * 4 + 0 + 1]] = [16, 2**30, 1]
+    flags = load_flags_subset_from_tree(
+        {"flags": {"present": True, "arr": flag_words}},
+        define_flag_shape(bdf_descr, (0, 1)),
+        bdf_descr,
+        (0, 1),
+        (slice(None), slice(None), slice(None), input_polarization_slice),
+    )
+
+    expected = np.zeros((1, 3, len(range(2)[input_polarization_slice])), dtype=bool)
+    for row, pol in expected_true:
+        expected[0, row, pol] = True
+    np.testing.assert_array_equal(flags, expected)

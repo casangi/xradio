@@ -4,6 +4,8 @@ import numpy as np
 import xarray as xr
 from astropy.time import Time
 
+from xradio.measurement_set._utils._asdm._utils.time import MJD_TO_UNIX_TIME_DELTA
+
 
 def calculate_uvw(
     key: tuple[slice] | None,
@@ -89,7 +91,7 @@ def _calculate_uvw_astropy(
     time_x_antenna = np.tile(time.values[:, np.newaxis], (1, num_ant))
     time_observation = Time(
         Time(
-            time_x_antenna * u.Unit(time.attrs["units"]),
+            (time_x_antenna + MJD_TO_UNIX_TIME_DELTA) * u.Unit(time.attrs["units"]),
             format="mjd",
             scale=time.attrs["scale"],
         ),

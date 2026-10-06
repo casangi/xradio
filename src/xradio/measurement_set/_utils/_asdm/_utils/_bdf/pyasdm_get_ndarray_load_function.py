@@ -151,14 +151,18 @@ def _load_vis_one_spw_auto_data_from_tree(
     )
     component_offset = bdf_file.tell()
     vis_subset_integrations = []
-    for time_idx in np.arange(time_min, time_max):
+    for _time_idx in np.arange(time_min, time_max):
         vis_auto_strides = []
         for antenna_idx in np.arange(antenna_min, antenna_max):
             offset = (
-                time_idx - time_min
-            ) * antenna_idx * auto_offset_addition_both + auto_offset_addition_before
+                antenna_idx * auto_offset_addition_both
+                + auto_offset_addition_before
+                + frequency_min * sd_polarization_len
+            )
             one_antenna_count = (frequency_max - frequency_min) * sd_polarization_len
-            bdf_file.seek(component_offset + offset, os.SEEK_SET)
+            bdf_file.seek(
+                component_offset + offset * np.dtype(data_type).itemsize, os.SEEK_SET
+            )
             spw_floats = np.fromfile(bdf_file, dtype=data_type, count=one_antenna_count)
 
             if polarization_len != 3:
@@ -230,8 +234,11 @@ def _load_vis_one_spw_cross_data_from_tree(
     for baseline_idx in np.arange(baseline_min, baseline_max):
         offset = baseline_idx * cross_offset_both + cross_offset_addition_before
         if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
+            offset += frequency_min * polarization_len * 2
             one_baseline_count = (frequency_max - frequency_min) * polarization_len * 2
-            bdf_file.seek(component_offset + offset, os.SEEK_SET)
+            bdf_file.seek(
+                component_offset + offset * np.dtype(data_type).itemsize, os.SEEK_SET
+            )
             spw_vis = np.fromfile(bdf_file, dtype=data_type, count=one_baseline_count)
             spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
             spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
@@ -240,8 +247,11 @@ def _load_vis_one_spw_cross_data_from_tree(
 
         else:
             # radiometer / spectrometer
-            offset = offset // 2
+            offset = offset // 2 + frequency_min * polarization_len
             one_baseline_count = (frequency_max - frequency_min) * polarization_len
+            bdf_file.seek(
+                component_offset + offset * np.dtype(data_type).itemsize, os.SEEK_SET
+            )
             spw_values = np.fromfile(
                 bdf_file, dtype=data_type, count=one_baseline_count
             )

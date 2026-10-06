@@ -25,6 +25,7 @@ from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
     find_spw_in_basebands_list,
 )
 from xradio.measurement_set._utils._asdm._utils._bdf.bdf_description_checks import (
+    check_apc_and_bins,
     check_basebands,
     check_correlation_mode,
     ensure_presence_binary_components,
@@ -114,6 +115,7 @@ def load_visibilities_from_bdf(
 
     check_correlation_mode(bdf_descr["correlation_mode"])
     check_basebands(bdf_descr["basebands"])
+    check_apc_and_bins(bdf_descr, bdf_path)
     ensure_presence_binary_components(
         ["crossData", "autoData"], bdf_descr["binary_types"], bdf_path
     )

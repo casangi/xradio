@@ -12,6 +12,23 @@ def check_basebands(basebands: list[dict]):
         raise RuntimeError(f" {len(basebands)=}, {basebands=}")
 
 
+def check_apc_and_bins(bdf_descr: dict, bdf_path: str):
+    if len(bdf_descr["apc"]) > 1:
+        raise NotImplementedError(
+            f"BDFs with more than one atmospheric phase correction (APC) value are not "
+            f"supported: {bdf_path}, APC: {' '.join(map(str, bdf_descr['apc']))}"
+        )
+    num_bins = [
+        spw["numBin"]
+        for baseband in bdf_descr["basebands"]
+        for spw in baseband["spectralWindows"]
+    ]
+    if any(num_bin > 1 for num_bin in num_bins):
+        raise NotImplementedError(
+            f"BDFs with numBin > 1 are not supported: {bdf_path}, numBin: {num_bins}"
+        )
+
+
 def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode):
     if correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_ONLY:
         raise RuntimeError(f" Unexpected {correlation_mode=}")

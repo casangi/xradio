@@ -1,16 +1,11 @@
 """casacore-table backend selection.
 
 XRADIO accesses CASA tables (MSv2 conversion, CASA image IO) through the
-python-casacore ``tables``/``images``/``coordinates`` API surface. This
-module is the single place where the implementation of that surface is
-chosen:
-
-* **arcae** (primary): :mod:`xradio._utils._casacore.casacore_from_arcae`
-  and :mod:`xradio._utils._casacore.images_from_arcae` emulate the
-  python-casacore API on top of `arcae <https://github.com/ska-sa/arcae>`_.
-* **alternative backend**: set ``XRADIO_CASACORE_BACKEND=<dotted.module.path>``
-  (e.g. ``casacore`` or its alias ``python-casacore``, ``xradio_casatools_backend``)
-  to load any installed python-casacore-like backend.
+python-casacore ``tables``/``images``/``coordinates`` API surface, which
+:mod:`xradio._utils._casacore.casacore_from_arcae` and
+:mod:`xradio._utils._casacore.images_from_arcae` emulate on top of
+`arcae <https://github.com/ska-sa/arcae>`_. This module is the single place
+where the implementation of that surface is chosen.
 
 Consumers must import ``tables`` / ``images`` / ``coordinates`` (and the
 MS-creation helpers) from this module instead of importing a backend directly.
@@ -19,6 +14,7 @@ MS-creation helpers) from this module instead of importing a backend directly.
 import importlib
 import os
 
+# Unsupported testing hook: XRADIO_CASACORE_BACKEND=casacore selects python-casacore.
 _backend = os.environ.get("XRADIO_CASACORE_BACKEND", "arcae")
 # Alias python-casacore -> casacore for consistent submodule imports.
 _backend = "casacore" if _backend == "python-casacore" else _backend
@@ -41,7 +37,7 @@ if _backend == "arcae":
 
         BACKEND = "arcae"
     except ImportError:
-        _backend = "python-casacore"  # arcae unavailable; fall through
+        _backend = "casacore"  # arcae unavailable; fall through
 
 if _backend != "arcae":
     try:
@@ -50,7 +46,7 @@ if _backend != "arcae":
         _msutil = importlib.import_module(f"{_backend}.tables.msutil")
         _tableutil = importlib.import_module(f"{_backend}.tables.tableutil")
     except ImportError as e:
-        raise ImportError(
+        raise ModuleNotFoundError(
             f"Backend '{_backend}' is not properly installed or does not "
             f"expose the required casacore-compatible submodules."
         ) from e

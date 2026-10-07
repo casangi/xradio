@@ -510,6 +510,19 @@ def _fill_direction_defaults(coords):
     return coords
 
 
+def _fill_obsinfo_defaults(coords):
+    """Add the entries casacore's ObsInfo gives a restored coordinate system
+    that was saved without them."""
+    coords.setdefault("telescope", "UNKNOWN")
+    coords.setdefault("observer", "UNKNOWN")
+    coords.setdefault(
+        "obsdate",
+        {"type": "epoch", "refer": "LAST", "m0": {"value": 0.0, "unit": "d"}},
+    )
+    coords.setdefault("pointingcenter", {"value": np.zeros(2), "initial": True})
+    return coords
+
+
 def _make_default_mask(imagepath, maskname, shape_f):
     """Create a mask subtable (all pixels good) and return its ``masks``
     keyword record."""
@@ -639,7 +652,9 @@ class image:
         }
 
     def _coords(self):
-        return _fill_direction_defaults(self._keyword("coords", {}))
+        return _fill_obsinfo_defaults(
+            _fill_direction_defaults(self._keyword("coords", {}))
+        )
 
     def imageinfo(self):
         return self.info()["imageinfo"]

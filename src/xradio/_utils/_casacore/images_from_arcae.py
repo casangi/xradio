@@ -271,6 +271,9 @@ def _create_tiled_table(tablename, columnname, valuetype, shape_f, info_type):
 
 
 _HI_RESTFREQ = 1420405751.786
+# 2000-01-01 00:00:00.0001 UTC, casacore's observation date for images
+# created without a coordinate system
+_DEFAULT_OBSDATE_MJD = 51544.0 + 0.0001 / 86400.0
 
 # casacore ImageInfo::ImageTypes names
 _CASA_IMAGE_TYPES = frozenset(
@@ -365,82 +368,124 @@ def _beams_hdu(perplanebeams):
     return hdu
 
 
-def _default_coords_record(shape_f):
-    """Synthesize a default coordinate-system record for a new 4-d image,
-    like casacore's CoordinateUtil does for images created without an
-    explicit coordinate system (axes: RA, Dec, Stokes, Frequency)."""
-    if len(shape_f) != 4:
-        raise ValueError(
-            f"Only 4-d images can be created without a coordinate system, "
-            f"got shape {shape_f[::-1]}"
-        )
-    nx, ny, nstokes, nchan = shape_f
-    arcsec = np.deg2rad(1.0 / 3600.0)
-    stokes_names = ["I", "Q", "U", "V"][: max(nstokes, 1)]
+def _default_spectral_conversion(system):
+    """The reference-conversion layer casacore gives a spectral coordinate."""
     return {
-        "telescope": "UNKNOWN",
-        "observer": "UNKNOWN",
-        "obsdate": {
+        "direction": {
+            "type": "direction",
+            "refer": "J2000",
+            "m0": {"unit": "rad", "value": 0.0},
+            "m1": {"unit": "rad", "value": np.pi / 2},
+        },
+        "position": {
+            "type": "position",
+            "refer": "ITRF",
+            "m0": {"unit": "rad", "value": 0.0},
+            "m1": {"unit": "rad", "value": 0.0},
+            "m2": {"unit": "m", "value": 0.0},
+        },
+        "epoch": {
             "type": "epoch",
-            "refer": "UTC",
-            "m0": {"value": 51544.0, "unit": "d"},
+            "refer": "LAST",
+            "m0": {"unit": "d", "value": 0.0},
         },
-        "pointingcenter": {"value": [0.0, 0.0], "initial": True},
-        "direction0": {
-            "system": "J2000",
-            "projection": "SIN",
-            "projection_parameters": [0.0, 0.0],
-            "crval": [0.0, 0.0],
-            "crpix": [nx / 2.0, ny / 2.0],
-            "cdelt": [-arcsec, arcsec],
-            "pc": [[1.0, 0.0], [0.0, 1.0]],
-            "axes": ["Right Ascension", "Declination"],
-            "units": ["rad", "rad"],
-            "conversionSystem": "J2000",
-            "longpole": 180.0,
-            "latpole": 0.0,
-        },
-        "worldmap0": np.array([0, 1], dtype=np.int32),
-        "worldreplace0": [0.0, 0.0],
-        "pixelmap0": np.array([0, 1], dtype=np.int32),
-        "pixelreplace0": [0.0, 0.0],
-        "stokes1": {
-            "axes": ["Stokes"],
-            "stokes": stokes_names,
-            "crval": [1.0],
-            "crpix": [0.0],
-            "cdelt": [1.0],
-            "pc": [[1.0]],
-        },
-        "worldmap1": np.array([2], dtype=np.int32),
-        "worldreplace1": [1.0],
-        "pixelmap1": np.array([2], dtype=np.int32),
-        "pixelreplace1": [0.0],
-        "spectral2": {
-            "version": 2,
-            "system": "LSRK",
-            "restfreq": _HI_RESTFREQ,
-            "restfreqs": [_HI_RESTFREQ],
-            "velType": 0,
-            "nativeType": 0,
-            "velUnit": "km/s",
-            "waveUnit": "mm",
-            "formatUnit": "",
-            "name": "Frequency",
-            "unit": "Hz",
-            "wcs": {
-                "ctype": "FREQ",
-                "crval": 1.415e9,
-                "crpix": 0.0,
-                "cdelt": 1e3,
-                "pc": 1.0,
-            },
-        },
-        "worldmap2": np.array([3], dtype=np.int32),
-        "worldreplace2": [1.415e9],
-        "pixelmap2": np.array([3], dtype=np.int32),
-        "pixelreplace2": [0.0],
+        "system": system,
     }
+
+
+def _default_coordinate(kind, shape_f):
+    """A coordinate of casacore's default coordinate system with its
+    reference pixel at the center (integer division) of its axes, and its
+    world replacement values."""
+    if kind == "direction":
+        nx, ny = shape_f
+        return {
+            "axes": ["Right Ascension", "Declination"],
+            "cdelt": np.array([-1.0, 1.0]),
+            "conversionSystem": "J2000",
+            "crpix": np.array([float(nx // 2), float(ny // 2)]),
+            "crval": np.array([0.0, 0.0]),
+            "latpole": 0.0,
+            "longpole": 180.0,
+            "pc": np.eye(2),
+            "projection": "SIN",
+            "projection_parameters": np.array([0.0, 0.0]),
+            "system": "J2000",
+            "units": ["'", "'"],
+        }, [0.0, 0.0]
+    if kind == "stokes":
+        return {
+            "axes": ["Stokes"],
+            "cdelt": np.array([1.0]),
+            "crpix": np.array([0.0]),
+            "crval": np.array([1.0]),
+            "pc": np.array([[1.0]]),
+            "stokes": ["I", "Q", "U", "V"][: shape_f[0]],
+        }, [1.0]
+    return {
+        "conversion": _default_spectral_conversion("LSRK"),
+        "formatUnit": "",
+        "name": "Frequency",
+        "nativeType": 0,
+        "restfreq": _HI_RESTFREQ,
+        "restfreqs": np.array([_HI_RESTFREQ]),
+        "system": "LSRK",
+        "unit": "Hz",
+        "velType": 0,
+        "velUnit": "km/s",
+        "version": 2,
+        "waveUnit": "mm",
+        "wcs": {
+            "cdelt": 1e3,
+            "crpix": float(shape_f[0] // 2),
+            "crval": 1.415e9,
+            "ctype": "FREQ",
+            "pc": 1.0,
+        },
+    }, [1.415e9]
+
+
+def _default_coords_record(shape_f):
+    """Synthesize the coordinate-system record casacore's
+    CoordinateUtil::makeCoordinateSystem gives an image created without one:
+    a spectral axis for a 1-d image, else direction axes, then a Stokes axis
+    if the third axis has at most 4 pixels (a spectral axis otherwise), then
+    the other one of the two."""
+    n = len(shape_f)
+    kinds = ["spectral"] if n == 1 else ["direction"]
+    if n >= 3:
+        kinds.append("stokes" if shape_f[2] <= 4 else "spectral")
+    if n >= 4 and (kinds[1] == "stokes" or shape_f[3] <= 4):
+        kinds.append("spectral" if kinds[1] == "stokes" else "stokes")
+    if sum(2 if kind == "direction" else 1 for kind in kinds) != n:
+        # casacore adds linear coordinates for the remaining axes
+        raise ValueError(
+            f"Images of shape {shape_f[::-1]} cannot be created without a "
+            f"coordinate system"
+        )
+    record = {
+        "obsdate": {
+            "m0": {"unit": "d", "value": _DEFAULT_OBSDATE_MJD},
+            "refer": "UTC",
+            "type": "epoch",
+        },
+        "observer": "Karl Jansky",
+        "pointingcenter": {"initial": True, "value": np.array([0.0, 0.0])},
+        "telescope": "ALMA",
+    }
+    axis = 0
+    for i, kind in enumerate(kinds):
+        naxes = 2 if kind == "direction" else 1
+        axes = np.arange(axis, axis + naxes, dtype=np.int32)
+        record[f"{kind}{i}"], worldreplace = _default_coordinate(
+            kind, shape_f[axis : axis + naxes]
+        )
+        record[f"pixelmap{i}"] = axes
+        record[f"pixelreplace{i}"] = np.zeros(naxes)
+        record[f"worldmap{i}"] = axes.copy()
+        record[f"worldreplace{i}"] = np.array(worldreplace)
+        axis += naxes
+    return record
 
 
 def _fill_direction_defaults(coords):
@@ -486,27 +531,7 @@ def _fill_direction_defaults(coords):
         elif key.startswith("spectral") and "conversion" not in sub:
             # casacore synthesizes a default reference-conversion layer when
             # restoring a spectral coordinate saved without one
-            sub["conversion"] = {
-                "direction": {
-                    "type": "direction",
-                    "refer": "J2000",
-                    "m0": {"unit": "rad", "value": 0.0},
-                    "m1": {"unit": "rad", "value": np.pi / 2},
-                },
-                "position": {
-                    "type": "position",
-                    "refer": "ITRF",
-                    "m0": {"unit": "rad", "value": 0.0},
-                    "m1": {"unit": "rad", "value": 0.0},
-                    "m2": {"unit": "m", "value": 0.0},
-                },
-                "epoch": {
-                    "type": "epoch",
-                    "refer": "LAST",
-                    "m0": {"unit": "d", "value": 0.0},
-                },
-                "system": sub.get("system", "LSRK"),
-            }
+            sub["conversion"] = _default_spectral_conversion(sub.get("system", "LSRK"))
     return coords
 
 

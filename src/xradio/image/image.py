@@ -44,13 +44,13 @@ def _resolve_ninstances(backend_opts: dict | None) -> int:
 
 
 def _casa_image_reader_unavailable(exc: ImportError):
-    """Stand-in for the CASA image readers when neither python-casacore nor
-    casatools can be imported: it fails when a CASA image is read, so FITS and
-    zarr images open without those packages."""
+    """Stand-in for the CASA image readers when arcae cannot be imported: it
+    fails when a CASA image is read, so FITS and zarr images open without
+    arcae."""
 
     def read_casa_image(store, **kwargs):
         raise ModuleNotFoundError(
-            f"Reading the CASA image {store} needs python-casacore or casatools: {exc}"
+            f"Reading the CASA image {store} needs arcae: {exc}"
         ) from exc
 
     return read_casa_image
@@ -111,9 +111,8 @@ def open_image(
 
     Supported formats:
 
-    * CASA images (casacore tables), read with python-casacore or casatools;
-    * FITS images, read with astropy only (python-casacore and casatools are
-      not needed);
+    * CASA images (casacore tables), read with arcae;
+    * FITS images, read with astropy only (arcae is not needed);
     * zarr stores written by :func:`write_image` (``out_format="zarr"``,
       named with the extension ``.img.zarr``), which hold a whole image
       dataset; zarr stores with other names open too. Stores written by
@@ -220,8 +219,8 @@ def open_image(
     -------
     xarray.Dataset
     """
-    # python-casacore and casatools are optional: FITS images are read with
-    # astropy and zarr images with zarr, so only a CASA image needs them.
+    # arcae is optional: FITS images are read with astropy and zarr images
+    # with zarr, so only a CASA image needs it.
     try:
         from xradio.image._util.casacore import _open_casa_image
     except ImportError as exc:
@@ -349,10 +348,10 @@ def write_image(
 
     Supported formats:
 
-    * ``"casa"`` (the default) writes casacore image tables and needs
-      python-casacore or casatools. Sky plane images (l and m dimensions) and
-      aperture plane images (u and v dimensions) are written; the
-      normalization images, which have neither, are skipped with a warning.
+    * ``"casa"`` (the default) writes casacore image tables and needs arcae.
+      Sky plane images (l and m dimensions) and aperture plane images (u and
+      v dimensions) are written; the normalization images, which have
+      neither, are skipped with a warning.
       A sky image's flags become its default mask and its beam fit
       parameters its restoring beam(s).
     * ``"fits"`` writes FITS files with astropy only. Only sky plane images
@@ -456,7 +455,7 @@ def write_image(
             from xradio.image._util.casacore import _xds_to_multiple_casa_images
         except ImportError as exc:
             raise ModuleNotFoundError(
-                f"Writing CASA images needs python-casacore or casatools: {exc}"
+                f"Writing CASA images needs arcae: {exc}"
             ) from exc
         write_images = _xds_to_multiple_casa_images
     elif my_format == "fits":

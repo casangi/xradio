@@ -79,6 +79,12 @@ _DTYPE_TO_VALUETYPE = {
 }
 
 
+def _default_value_type(value) -> str:
+    """casacore valueType of a column's default value (strings: "string")."""
+    dtype = np.asarray(value).dtype
+    return "string" if dtype.kind in "US" else _DTYPE_TO_VALUETYPE.get(dtype, "double")
+
+
 def _json_safe(value):
     """Convert a python/numpy value into a JSON-serializable equivalent that
     casacore's JsonParser converts back to a sensible Record field."""
@@ -1180,7 +1186,7 @@ def makescacoldesc(
     keywords={},  # noqa: B006
 ):
     """Create a description of a scalar column (python-casacore compatible)."""
-    vtype = valuetype or _DTYPE_TO_VALUETYPE.get(np.asarray(value).dtype, "double")
+    vtype = valuetype or _default_value_type(value)
     desc = {
         "valueType": vtype,
         "dataManagerType": datamanagertype,
@@ -1207,7 +1213,7 @@ def makearrcoldesc(
     keywords={},  # noqa: B006
 ):
     """Create a description of an array column (python-casacore compatible)."""
-    vtype = valuetype or _DTYPE_TO_VALUETYPE.get(np.asarray(value).dtype, "double")
+    vtype = valuetype or _default_value_type(value)
     if shape is not None and len(shape) > 0 and ndim <= 0:
         ndim = len(shape)
     desc = {

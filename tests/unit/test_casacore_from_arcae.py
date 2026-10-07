@@ -79,3 +79,9 @@ def test_putcellslice_tiled_cell_column(tiled_cell_table, blc, trc, inc):
             np.testing.assert_array_equal(
                 tb.getcell("DATA", row), expected[row], strict=True
             )
+
+
+def test_string_column_descriptions():
+    """A string default makes a string column, as in python-casacore."""
+    assert tables.makescacoldesc("S", "none")["desc"]["valueType"] == "string"
+    assert tables.makearrcoldesc("A", "", ndim=2)["desc"]["valueType"] == "string"

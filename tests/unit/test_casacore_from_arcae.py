@@ -85,3 +85,189 @@ def test_string_column_descriptions():
     """A string default makes a string column, as in python-casacore."""
     assert tables.makescacoldesc("S", "none")["desc"]["valueType"] == "string"
     assert tables.makearrcoldesc("A", "", ndim=2)["desc"]["valueType"] == "string"
+
+
+# Undefined cells (array cells never written), expected as python-casacore
+# 3.8.1 gives them: rows 1 and 3 are defined, rows 0, 2 and 4 are not.
+UNDEFINED_ROWS = [0, 2, 4]
+VAR_COLUMNS = {
+    # name: (valuetype, ndim, value of the defined cells, undefined row value)
+    "VARF": ("double", -1, np.arange(3.0), np.empty((0,))),
+    "VARF2": ("double", 2, np.ones((2, 3)), np.empty((0, 0))),
+    "VARI": ("int", 1, np.arange(2, dtype=np.int32), np.empty((0,), np.int32)),
+    "VARS": ("string", -1, np.array(["a", "b"]), {"shape": [], "array": []}),
+    "VARS1": ("string", 1, np.array(["a", "b"]), []),
+    "VARS2": ("string", 2, np.array([["a", "b"]]), {"shape": [0, 0], "array": []}),
+}
+
+
+@pytest.fixture(scope="module")
+def undefined_cells_table(tmp_path_factory):
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc(col, 0.0, ndim=ndim, valuetype=valuetype)
+            for col, (valuetype, ndim, _, _) in VAR_COLUMNS.items()
+        ]
+    )
+    path = str(tmp_path_factory.mktemp("undefined") / "undefined.tbl")
+    with tables.table(path, desc, nrow=5, readonly=False) as tb:
+        for col, (_, _, value, _) in VAR_COLUMNS.items():
+            tb.putcell(col, 1, value)
+            tb.putcell(col, 3, value)
+    return path
+
+
+@pytest.mark.parametrize("col", VAR_COLUMNS)
+def test_iscelldefined_undefined_cells(undefined_cells_table, col):
+    with tables.table(undefined_cells_table) as tb:
+        defined = [tb.iscelldefined(col, row) for row in range(5)]
+    assert defined == [False, True, False, True, False]
+
+
+@pytest.mark.parametrize("col", VAR_COLUMNS)
+@pytest.mark.parametrize("startrow, nrow", [(0, 1), (2, 1), (1, 3), (0, 2), (0, -1)])
+def test_getcolshapestring_raises_for_undefined_cells(
+    undefined_cells_table, col, startrow, nrow
+):
+    with tables.table(undefined_cells_table) as tb:
+        with pytest.raises(RuntimeError, match="no array in row"):
+            tb.getcolshapestring(col, startrow, nrow)
+
+
+@pytest.mark.parametrize("col", VAR_COLUMNS)
+def test_getcolshapestring_of_defined_cells(undefined_cells_table, col):
+    shape = str(list(VAR_COLUMNS[col][2].shape))
+    with tables.table(undefined_cells_table) as tb:
+        assert tb.getcolshapestring(col, 1, 1) == [shape]
+        assert tb.getcolshapestring(col, 3, 1) == [shape]
+
+
+@pytest.mark.parametrize("col", VAR_COLUMNS)
+@pytest.mark.parametrize(
+    "read",
+    [
+        lambda tb, col: tb.getcell(col, 0),
+        lambda tb, col: tb.col(col)[2],
+        lambda tb, col: tb.getcol(col, 0, 1),
+        lambda tb, col: tb.getcol(col, 1, 3),
+        lambda tb, col: tb.getcol(col),
+    ],
+    ids=["getcell", "col", "getcol-undefined", "getcol-mixed", "getcol-all"],
+)
+def test_reads_of_undefined_cells_raise(undefined_cells_table, col, read):
+    with tables.table(undefined_cells_table) as tb:
+        with pytest.raises(RuntimeError):
+            read(tb, col)
+
+
+def _assert_tablerow_value(got, expected):
+    if isinstance(expected, np.ndarray):
+        assert isinstance(got, np.ndarray)
+        np.testing.assert_array_equal(got, expected, strict=True)
+    else:
+        assert got == expected
+        assert type(got) is type(expected)
+
+
+@pytest.mark.parametrize("col", VAR_COLUMNS)
+@pytest.mark.parametrize("rows", [slice(0, 5), slice(0, 1), slice(4, 5)])
+def test_tablerow_undefined_cells(undefined_cells_table, col, rows):
+    _, _, value, undefined = VAR_COLUMNS[col]
+    with tables.table(undefined_cells_table) as tb:
+        got = [row[col] for row in tb.row([col])[rows]]
+        single = tb.row([col])[rows.start][col]
+    assert len(got) == rows.stop - rows.start
+    for rownr, cell in zip(range(rows.start, rows.stop), got, strict=True):
+        if rownr in UNDEFINED_ROWS:
+            _assert_tablerow_value(cell, undefined)
+        else:
+            # the defined cells keep their values next to undefined ones
+            if isinstance(cell, dict):  # python-casacore's n-d string arrays
+                cell = np.reshape(cell["array"], cell["shape"])
+            np.testing.assert_array_equal(cell, value)
+    _assert_tablerow_value(single, undefined)
+
+
+@pytest.mark.parametrize("col", VAR_COLUMNS)
+def test_never_written_column(tmp_path, col):
+    valuetype, ndim, _, undefined = VAR_COLUMNS[col]
+    desc = tables.maketabdesc(
+        [tables.makearrcoldesc(col, 0.0, ndim=ndim, valuetype=valuetype)]
+    )
+    path = str(tmp_path / "unwritten.tbl")
+    with tables.table(path, desc, nrow=3, readonly=False):
+        pass
+    with tables.table(path) as tb:
+        assert not tb.iscelldefined(col, 0)
+        with pytest.raises(RuntimeError, match="no array in row 0"):
+            tb.getcolshapestring(col)
+        with pytest.raises(RuntimeError):
+            tb.getcol(col)
+        for row in tb.row([col])[0:3]:
+            _assert_tablerow_value(row[col], undefined)
+
+
+def test_undefined_cells_of_tiled_shape_column(tmp_path):
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc(
+                "TSM",
+                0.0,
+                ndim=2,
+                valuetype="float",
+                datamanagertype="TiledShapeStMan",
+                datamanagergroup="TSM",
+            )
+        ]
+    )
+    dminfo = tables.makedminfo(desc, {"TSM": {"DEFAULTTILESHAPE": [2, 4, 2]}})
+    value = np.ones((2, 4), dtype=np.float32)
+    path = str(tmp_path / "tsm.tbl")
+    with tables.table(path, desc, nrow=5, dminfo=dminfo, readonly=False) as tb:
+        tb.putcell("TSM", 1, value)
+        tb.putcell("TSM", 3, value)
+    with tables.table(path) as tb:
+        assert tb.getdminfo("TSM")["TYPE"] == "TiledShapeStMan"
+        assert [tb.iscelldefined("TSM", row) for row in range(5)] == [
+            False,
+            True,
+            False,
+            True,
+            False,
+        ]
+        assert tb.getcolshapestring("TSM", 1, 1) == ["[2, 4]"]
+        with pytest.raises(RuntimeError, match="no array in row 2"):
+            tb.getcolshapestring("TSM", 1, 2)
+        with pytest.raises(RuntimeError):
+            tb.getcell("TSM", 0)
+        got = [row["TSM"] for row in tb.row(["TSM"])[0:5]]
+    for rownr, cell in enumerate(got):
+        expected = np.empty((0, 0), np.float32) if rownr in UNDEFINED_ROWS else value
+        np.testing.assert_array_equal(cell, expected, strict=True)
+
+
+def test_cells_of_different_ndim_next_to_undefined_cells(tmp_path):
+    desc = tables.maketabdesc(
+        [tables.makearrcoldesc("VAR", 0.0, ndim=-1, valuetype="double")]
+    )
+    path = str(tmp_path / "ndim.tbl")
+    with tables.table(path, desc, nrow=4, readonly=False) as tb:
+        tb.putcell("VAR", 1, np.arange(3.0))
+        tb.putcell("VAR", 2, np.ones((2, 2)))
+    with tables.table(path) as tb:
+        assert [tb.iscelldefined("VAR", row) for row in range(4)] == [
+            False,
+            True,
+            True,
+            False,
+        ]
+        assert tb.getcolshapestring("VAR", 1, 2) == ["[3]", "[2, 2]"]
+        with pytest.raises(RuntimeError, match="no array in row 3"):
+            tb.getcolshapestring("VAR", 1, 3)
+        got = [row["VAR"] for row in tb.row(["VAR"])[0:4]]
+    for cell, expected in zip(
+        got,
+        [np.empty((0,)), np.arange(3.0), np.ones((2, 2)), np.empty((0,))],
+        strict=True,
+    ):
+        np.testing.assert_array_equal(cell, expected, strict=True)

@@ -40,6 +40,7 @@ import sys
 
 import arcae
 import numpy as np
+import pyarrow as pa
 from arcae.lib import arrow_tables as _at
 
 # ---------------------------------------------------------------------------
@@ -278,24 +279,42 @@ class table:
         nrows = self.nrows()
         if nrow < 0:
             nrow = nrows - startrow
-        shapes = self._t.row_shapes(
-            columnname, index=(slice(startrow, startrow + nrow),)
-        ).to_pylist()
+        shapes = self._cell_shapes(columnname, startrow, nrow)
+        for rownr, shape in enumerate(shapes, start=startrow):
+            if shape is None:
+                # like python-casacore
+                raise RuntimeError(
+                    f"Invalid operation: no array in row {rownr} in column "
+                    f"{columnname} of table {self.name()}"
+                )
         # arcae row_shapes are already C-order, like python-casacore's strings
         return [
             "[" + ", ".join(str(s) for s in shape) + "]" if shape else "[]"
             for shape in shapes
         ]
 
+    def _cell_shapes(self, columnname, startrow, nrow):
+        """The cell shapes of ``nrow`` rows from ``startrow`` (None: undefined)."""
+        try:
+            return self._t.row_shapes(
+                columnname, index=(slice(startrow, startrow + nrow),)
+            ).to_pylist()
+        except pa.ArrowInvalid:
+            # arcae cannot tell the number of dimensions of cells of a column
+            # without a fixed one when no cell of the rows is defined (or they
+            # differ): split the rows down to single, undefined, cells
+            if nrow <= 1:
+                return [None] * nrow
+            half = nrow // 2
+            return self._cell_shapes(columnname, startrow, half) + self._cell_shapes(
+                columnname, startrow + half, nrow - half
+            )
+
     def iscelldefined(self, columnname, rownr):
         desc = self.getcoldesc(columnname)
         if "ndim" not in desc and "shape" not in desc:
             return True  # scalar cells are always defined
-        try:
-            shape = self._t.row_shapes(columnname, index=([rownr],)).to_pylist()[0]
-        except Exception:
-            return True
-        return shape is not None
+        return self._cell_shapes(columnname, int(rownr), 1)[0] is not None
 
     # -- keywords -----------------------------------------------------------
 
@@ -450,10 +469,17 @@ class table:
             data = data.astype(str)
         return data
 
+    def _getcol(self, columnname, index):
+        try:
+            return self._t.getcol(columnname, index=index)
+        except pa.ArrowInvalid as exc:
+            # python-casacore raises RuntimeError, e.g. for an undefined cell
+            raise RuntimeError(str(exc)) from exc
+
     def getcol(self, columnname, startrow=0, nrow=-1, rowincr=1):
         if rowincr != 1:
             raise NotImplementedError("rowincr != 1 is not supported")
-        data = self._t.getcol(columnname, index=self._row_index(startrow, nrow))
+        data = self._getcol(columnname, self._row_index(startrow, nrow))
         return self._convert_read(data, columnname)
 
     def getcolnp(self, columnname, nparray, startrow=0, nrow=-1, rowincr=1):
@@ -464,7 +490,7 @@ class table:
     def getcell(self, columnname, rownr):
         if self.coldatatype(columnname) == "record":
             raise RuntimeError(f"Cannot read record-valued column {columnname}")
-        data = self._t.getcol(columnname, index=([int(rownr)],))
+        data = self._getcol(columnname, ([int(rownr)],))
         data = self._convert_read(data, columnname)
         cell = data[0]
         if np.ndim(cell) == 0:
@@ -477,7 +503,7 @@ class table:
             slice(int(b), int(t) + 1, int(s))
             for b, t, s in zip(blc, trc, inc_list, strict=True)
         )
-        data = self._t.getcol(columnname, index=([int(rownr)],) + cell_index)
+        data = self._getcol(columnname, ([int(rownr)],) + cell_index)
         return self._convert_read(data.squeeze(axis=0), columnname)
 
     def getcolslice(self, columnname, blc, trc, inc=[], startrow=0, nrow=-1, rowincr=1):  # noqa: B006
@@ -493,7 +519,7 @@ class table:
         row_index = self._row_index(startrow, nrow)
         if row_index is None:
             row_index = (slice(0, self.nrows()),)
-        data = self._t.getcol(columnname, index=row_index + dims)
+        data = self._getcol(columnname, row_index + dims)
         return self._convert_read(data, columnname)
 
     def col(self, columnname):
@@ -742,8 +768,8 @@ class tablerow:
 
     @staticmethod
     def _undefined_cell(dtype, desc=None):
-        # python-casacore returns an empty (size-0) array for undefined
-        # variable-shaped array cells in a table row, and a shaped
+        # python-casacore returns an empty array of the column's ndim for
+        # undefined variable-shaped array cells in a table row, and a shaped
         # (zero-filled) array for undefined fixed-shape cells
         shape = (desc or {}).get("shape")
         if shape is not None and len(shape) > 0:
@@ -751,14 +777,14 @@ class tablerow:
             if dtype is None:  # string column
                 return np.full(shape, "", dtype=object)
             return np.zeros(shape, dtype=dtype)
+        ndim = int((desc or {}).get("ndim", -1))
         if dtype is None:
-            # undefined variable string cells surface as python-casacore's
-            # dict representation of empty (non-1-d) string arrays
-            return {
-                "shape": np.array([0], dtype=np.int32),
-                "array": np.array([], dtype=str),
-            }
-        return np.array([], dtype=dtype)
+            # python-casacore's empty string arrays: a list when 1-d, else
+            # its dict representation
+            if ndim == 1:
+                return []
+            return {"shape": [0] * max(ndim, 0), "array": []}
+        return np.empty((0,) * max(ndim, 1), dtype=dtype)
 
     def _read_column(self, col, start, stop):
         desc = self._table.getcoldesc(col)
@@ -772,8 +798,8 @@ class tablerow:
             # some cells are defined: fall back to per-cell reads
             return self._read_column_per_cell(col, start, stop, dtype, desc)
         if col not in arrow_table.column_names:
-            # arcae drops columns it cannot read (e.g. all cells undefined)
-            return [self._undefined_cell(dtype, desc) for _ in range(stop - start)]
+            # arcae leaves out a column with an undefined cell in the rows
+            return self._read_column_runs(col, start, stop, dtype, desc)
         arrow = arrow_table.column(col)
         is_scalar = "ndim" not in desc and "shape" not in desc
         is_complex = dtype is not None and dtype.kind == "c"
@@ -797,14 +823,50 @@ class tablerow:
             values.append(value)
         return values
 
-    def _read_column_per_cell(self, col, start, stop, dtype, desc=None):
-        values = []
-        for rownr in range(start, stop):
-            if not self._table.iscelldefined(col, rownr):
-                values.append(self._undefined_cell(dtype, desc))
-            else:
-                values.append(self._table.getcell(col, rownr))
+    @staticmethod
+    def _empty_cell(dtype, shape):
+        # python-casacore's defined cell of a shape with a zero dimension
+        # (arcae cannot read it)
+        if dtype is None:
+            return [] if len(shape) == 1 else {"shape": list(shape), "array": []}
+        return np.empty(shape, dtype=dtype)
+
+    def _cell_without_values(self, dtype, desc, shape):
+        if shape is None:
+            return self._undefined_cell(dtype, desc)
+        return self._empty_cell(dtype, shape)
+
+    def _read_column_runs(self, col, start, stop, dtype, desc):
+        """The runs of cells with values read as a whole, the others apart."""
+        shapes = self._table._cell_shapes(col, start, stop - start)
+        readable = np.array(
+            [shape is not None and 0 not in shape for shape in shapes], dtype=bool
+        )
+        if readable.all():
+            return self._read_column_per_cell(col, start, stop, dtype, desc)
+        values = [
+            None if ok else self._cell_without_values(dtype, desc, shape)
+            for ok, shape in zip(readable, shapes, strict=True)
+        ]
+        edges = np.flatnonzero(np.diff(np.concatenate(([0], readable, [0]))))
+        for run_start, run_stop in zip(edges[::2], edges[1::2], strict=True):
+            values[run_start:run_stop] = self._read_column(
+                col, start + int(run_start), start + int(run_stop)
+            )
         return values
+
+    def _read_column_per_cell(self, col, start, stop, dtype, desc=None):
+        if self._table.isscalarcol(col):
+            return [self._table.getcell(col, rownr) for rownr in range(start, stop)]
+        shapes = self._table._cell_shapes(col, start, stop - start)
+        return [
+            (
+                self._cell_without_values(dtype, desc, shape)
+                if shape is None or 0 in shape
+                else self._table.getcell(col, rownr)
+            )
+            for rownr, shape in enumerate(shapes, start=start)
+        ]
 
     def __getitem__(self, key):
         if isinstance(key, int):

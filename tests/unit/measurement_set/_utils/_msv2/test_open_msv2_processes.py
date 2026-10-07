@@ -1,0 +1,450 @@
+"""
+The lazy variables of the ``xradio_msv2`` engine read in other processes and
+threads: a fork child (also one forked while other threads hold every lock of
+the backend, which opens an MS, or reads through every lock of the reads),
+dask's processes scheduler (spawned workers, which unpickle the
+arrays and rebuild their indices from the MS), a distributed LocalCluster
+with worker processes, 8 dask threads that rebuild the indices at once, and
+a pickled lazy selection computed in a spawned process. All give the values
+of a synchronous read in this process (which equal the converter's:
+test_open_msv2_equivalence.py).
+"""
+
+import contextlib
+import hashlib
+import io
+import os
+import pickle
+import subprocess
+import sys
+import threading
+import time
+from concurrent.futures import ThreadPoolExecutor
+
+import cloudpickle
+import dask
+import numpy as np
+import pytest
+import xarray as xr
+
+from _xradio_xarray_backends import MSv2BackendEntrypoint
+from xradio._utils._casacore.tables import CASATOOLS_LOCK
+from xradio.measurement_set._utils._msv2 import (
+    backend_arrays,
+    backend_pointing,
+    partition_cache,
+)
+from xradio.measurement_set._utils._msv2._tables import subtable_cache
+from xradio.testing.measurement_set.equivalence import main_data_variables
+
+ENGINE = MSv2BackendEntrypoint
+# Several time chunks per main data variable (30 times): more tasks than
+# workers. The session MSs are read only: partitions are never stored (the
+# module fixture is set up before the autouse fixture that turns the cache
+# off).
+OPTIONS = {"main_chunksize": {"time": 7}, "partition_cache": "off"}
+
+
+def lazy_variables(tree: xr.DataTree) -> dict[str, xr.DataArray]:
+    """The variables read from the MS on access: the main data variables and
+    the pointing_xds data variables of every MSv4, by path."""
+    found = {}
+    for name, node in sorted(tree.children.items()):
+        for var in main_data_variables(node):
+            found[f"{name}/{var}"] = node[var]
+        if "pointing_xds" in node.children:
+            for var, data in node["pointing_xds"].data_vars.items():
+                found[f"{name}/pointing_xds/{var}"] = data
+    return found
+
+
+def digests(values: dict) -> dict[str, str]:
+    """dtype, shape and sha256 of the bytes of every array."""
+    return {
+        name: f"{arr.dtype}|{arr.shape}|"
+        + hashlib.sha256(np.ascontiguousarray(arr).tobytes()).hexdigest()
+        for name, arr in ((name, np.asarray(v)) for name, v in values.items())
+    }
+
+
+def compute(arrays: dict[str, xr.DataArray], **kwargs) -> dict:
+    """The values of the (dask-backed) arrays, computed together."""
+    names = list(arrays)
+    results = dask.compute(*(arrays[name].data for name in names), **kwargs)
+    return dict(zip(names, results, strict=True))
+
+
+def in_new_threads(n: int) -> dict:
+    """dask.compute options: the threaded scheduler with a new pool of
+    ``n`` threads. (A fork child cannot use dask's default pool, or any pool
+    the parent used: their threads do not exist in the child, so their
+    tasks would never run.)"""
+    return {"scheduler": "threads", "pool": ThreadPoolExecutor(n)}
+
+
+def clear_memos() -> None:
+    """Forget the indices of this process (reads rebuild them from the MS)."""
+    backend_arrays.clear_index_memo()
+    backend_pointing.clear_pointing_memos()
+
+
+@pytest.fixture(scope="module")
+def opened(backend_ms):
+    """The MS ("rich": 3 data groups, POINTING), its tree (chunks={}) and
+    the digests of every lazy variable read synchronously."""
+    msname = backend_ms("rich")
+    tree = xr.open_datatree(msname, engine=ENGINE, chunks={}, **OPTIONS)
+    arrays = lazy_variables(tree)
+    assert any("pointing_xds" in name for name in arrays)
+    expected = digests(compute(arrays, scheduler="synchronous"))
+    return msname, tree, expected
+
+
+def wait_child(pid: int, seconds: float = 120.0) -> int | None:
+    """The exit code of a forked child; a child still running after
+    ``seconds`` (e.g. deadlocked) is killed: None."""
+    deadline = time.monotonic() + seconds
+    while time.monotonic() < deadline:
+        done, status = os.waitpid(pid, os.WNOHANG)
+        if done:
+            return os.waitstatus_to_exitcode(status)
+        time.sleep(0.05)
+    os.kill(pid, 9)
+    os.waitpid(pid, 0)
+    return None
+
+
+def backend_locks(msname: str) -> list:
+    """Every lock of the backend that a thread may hold while another
+    thread forks."""
+    key = partition_cache.memo_key(os.path.abspath(msname), [])
+    return [
+        CASATOOLS_LOCK,
+        backend_arrays.INDEX_MEMO._lock,
+        *backend_arrays.INDEX_MEMO._build_locks,
+        backend_arrays.CHECK_MEMO._lock,
+        *backend_arrays.CHECK_MEMO._check_locks,
+        backend_arrays.TILE_CACHE_BOUNDS._lock,
+        partition_cache.PARTITIONS_MEMO._lock,
+        partition_cache.PARTITIONS_MEMO.build_lock(key),
+        partition_cache._NOTICES_LOCK,
+        partition_cache._WRITE_MUTEXES_LOCK,
+        partition_cache.write_mutex(msname),
+        backend_pointing.POINTING_INDEX_MEMO._lock,
+        *backend_pointing.POINTING_INDEX_MEMO._build_locks,
+        backend_pointing.POINTING_SELECTION_MEMO._lock,
+        *backend_pointing.POINTING_SELECTION_MEMO._build_locks,
+        backend_pointing.POINTING_BUILD_MEMO._lock,
+        *backend_pointing.POINTING_BUILD_MEMO._build_locks,
+        subtable_cache._PROCESS_STATES.lock,
+    ]
+
+
+@contextlib.contextmanager
+def held_by_another_thread(locks: list):
+    """While active, another thread holds ``locks``."""
+    holding, finish = threading.Event(), threading.Event()
+
+    def hold():
+        with contextlib.ExitStack() as stack:
+            for lock in locks:
+                stack.enter_context(lock)
+            holding.set()
+            finish.wait(120)
+
+    holder = threading.Thread(target=hold)
+    holder.start()
+    try:
+        assert holding.wait(30)
+        yield
+    finally:
+        finish.set()
+        holder.join(30)
+
+
+def fork_and_check(child) -> int | None:
+    """Run ``child()`` (True: success) in a fork child; its exit code."""
+    pid = os.fork()
+    if pid == 0:  # the child: never return into pytest
+        code = 1
+        try:
+            code = 0 if child() else 2
+        finally:
+            os._exit(code)
+    return wait_child(pid)
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_fork_child_reads_the_values(opened):
+    """A fork child of a process that opened the MS and read its variables
+    reads the same values from the parent's tree (its memos are empty: the
+    indices are rebuilt from the MS) and from a new open."""
+    msname, tree, expected = opened
+    arrays = lazy_variables(tree)
+    compute(arrays, scheduler="threads")  # (the parent's memos are filled)
+
+    def child():
+        if len(backend_arrays.INDEX_MEMO) or len(partition_cache.PARTITIONS_MEMO):
+            return False
+        same = digests(compute(arrays, scheduler="synchronous")) == expected
+        reopened = xr.open_datatree(msname, engine=ENGINE, chunks={}, **OPTIONS)
+        new = lazy_variables(reopened)
+        return same and digests(compute(new, **in_new_threads(4))) == expected
+
+    assert fork_and_check(child) == 0
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_fork_while_other_threads_hold_the_locks(opened, ms_copy):
+    """
+    A child forked while another thread holds every lock of the backend (the
+    casatools lock, the index, check, partition and pointing memos and their
+    build locks, the tile cache bounds, the cache's write mutexes and
+    notices, the sub-table cache state) opens a copy of the MS (storing its
+    partitions) and reads every lazy variable, instead of deadlocking.
+    """
+    _, _, expected = opened
+    msname = ms_copy("rich", name="rich.ms")
+    clear_memos()
+
+    def child():
+        tree = xr.open_datatree(
+            msname, engine=ENGINE, chunks={}, **(OPTIONS | {"partition_cache": "auto"})
+        )
+        values = compute(lazy_variables(tree), **in_new_threads(4))
+        return digests(values) == expected and os.path.isdir(
+            os.path.join(msname, partition_cache.SUBTABLE_NAME)
+        )
+
+    with held_by_another_thread(backend_locks(msname)):
+        assert fork_and_check(child) == 0
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_fork_child_reads_through_every_lock(ms_copy, monkeypatch):
+    """
+    A child forked while another thread holds every lock of the backend
+    reads the lazy variables of trees the parent opened through the locks
+    that only some reads take, instead of deadlocking: channel-sliced reads
+    (TILE_CACHE_BOUNDS: a selection of a few channels of the "narrow_tiles"
+    MS, whose columns are in tiles of fewer channels), whole-partition
+    checks (CHECK_MEMO: MAIN's key columns written since the open, with the
+    same values) and pointing_xds variables built on read
+    (POINTING_BUILD_MEMO: a POINTING column the lazy reads cannot describe).
+    They give the values read in the parent.
+    """
+    from casacore import tables
+
+    narrow, rich = ms_copy("narrow_tiles"), ms_copy("rich")
+    with tables.table(os.path.join(rich, "POINTING"), readonly=False, ack=False) as tb:
+        tb.addcols(tables.makescacoldesc("OVER_THE_TOP", 0))
+        tb.putcol("OVER_THE_TOP", (np.arange(tb.nrows()) % 3).astype(np.int32))
+    narrow_tree = xr.open_datatree(narrow, engine=ENGINE, chunks={}, **OPTIONS)
+    rich_tree = xr.open_datatree(rich, engine=ENGINE, chunks={}, **OPTIONS)
+    with tables.table(narrow, readonly=False, ack=False) as main_tb:
+        main_tb.putcol("TIME", main_tb.getcol("TIME"))
+    arrays = {
+        name: var.isel(frequency=slice(4, 6)) if "frequency" in var.dims else var
+        for name, var in lazy_variables(narrow_tree).items()
+    }
+    arrays |= {
+        f"rich/{name}": var
+        for name, var in lazy_variables(rich_tree).items()
+        if "pointing_xds" in name
+    }
+    assert any(name.startswith("rich/") for name in arrays)
+    bounds = backend_arrays.TILE_CACHE_BOUNDS
+    bounded, bounded_columns = bounds.bounded, []
+
+    def spy(table, ms_path, col, *args, **kwargs):
+        bounded_columns.append(col)
+        return bounded(table, ms_path, col, *args, **kwargs)
+
+    monkeypatch.setattr(bounds, "bounded", spy)
+    clear_memos()
+    expected = digests(compute(arrays, scheduler="synchronous"))
+    # (the reads took these locks in the parent)
+    assert {"DATA", "CORRECTED_DATA", "FLAG", "WEIGHT_SPECTRUM"} <= set(bounded_columns)
+    assert len(backend_arrays.CHECK_MEMO) and len(backend_pointing.POINTING_BUILD_MEMO)
+
+    def child():
+        bounded_columns.clear()
+        values = compute(arrays, scheduler="synchronous")
+        return digests(values) == expected and bool(bounded_columns)
+
+    with held_by_another_thread(backend_locks(narrow)):
+        assert fork_and_check(child) == 0
+
+
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_dask_processes_scheduler(opened):
+    """dask's processes scheduler (spawned workers: the arrays are pickled,
+    and every worker rebuilds the indices it needs) gives the values."""
+    _, tree, expected = opened
+    values = compute(lazy_variables(tree), scheduler="processes", num_workers=2)
+    assert digests(values) == expected
+
+
+def test_distributed_local_cluster(opened):
+    """A distributed LocalCluster with worker processes gives the values."""
+    distributed = pytest.importorskip("distributed")
+    _, tree, expected = opened
+    arrays = lazy_variables(tree)
+    with (
+        distributed.LocalCluster(
+            n_workers=2,
+            threads_per_worker=2,
+            processes=True,
+            dashboard_address=None,
+        ) as cluster,
+        distributed.Client(cluster) as client,
+    ):
+        names = list(arrays)
+        futures = client.compute([arrays[name].data for name in names])
+        values = dict(zip(names, client.gather(futures), strict=True))
+    assert digests(values) == expected
+
+
+def test_eight_threads_rebuild_and_read(opened):
+    """8 dask threads, starting with empty memos (so that they rebuild the
+    indices at once), give the values; every index is built once."""
+    _, tree, expected = opened
+    arrays = lazy_variables(tree)
+    clear_memos()
+    values = compute(arrays, scheduler="threads", num_workers=8)
+    assert digests(values) == expected
+    n_main = sum(1 for name in arrays if "pointing_xds" not in name)
+    assert 0 < backend_arrays.INDEX_MEMO.stats["rebuilds"] <= len(tree.children)
+    assert n_main > len(tree.children)
+
+
+# --- a pickled lazy selection computed in a spawned process -------------------
+
+# The spawned process: unpickles the selection (argv[1]), records the files
+# under the MS (argv[2]) it has open then, computes it, records them again and
+# pickles the computed dataset and what it saw to argv[3].
+SPAWNED_CHILD = """
+import os, pickle, sys
+
+payload_path, ms_path, out_path = sys.argv[1:4]
+
+
+def open_files():
+    if not os.path.isdir("/proc/self/fd"):
+        return None
+    found = []
+    for fd in os.listdir("/proc/self/fd"):
+        try:
+            target = os.readlink(os.path.join("/proc/self/fd", fd))
+        except OSError:
+            continue
+        if target == ms_path or target.startswith(ms_path + os.sep):
+            found.append(target)
+    return found
+
+
+from xradio.measurement_set._utils._msv2 import backend_arrays
+
+with open(payload_path, "rb") as payload:
+    subset = pickle.load(payload)
+seen = {"open_after_load": open_files(), "memo_after_load": len(backend_arrays.INDEX_MEMO)}
+computed = subset.compute()
+seen["open_after_compute"] = open_files()
+seen["rebuilds"] = backend_arrays.INDEX_MEMO.stats["rebuilds"]
+with open(out_path, "wb") as out:
+    pickle.dump({"computed": computed, "seen": seen}, out)
+"""
+
+
+class _RecordingPickler(pickle.Pickler):
+    """A pickler that records the type of every object it pickles (but None,
+    booleans and exact ints, floats, bytes, strings, dicts, sets, lists and
+    tuples, which pickle never hands to reducer_override)."""
+
+    def __init__(self, file):
+        super().__init__(file, protocol=pickle.HIGHEST_PROTOCOL)
+        self.types = set()
+
+    def reducer_override(self, obj):
+        self.types.add(type(obj))
+        return NotImplemented
+
+
+def compute_in_spawned_process(payload: bytes, msname: str, tmp_path) -> dict:
+    """Unpickle and compute a pickled selection in a new Python process (the
+    import path of this one) and return what SPAWNED_CHILD pickled."""
+    paths = {name: str(tmp_path / name) for name in ("child.py", "in.pkl", "out.pkl")}
+    with open(paths["child.py"], "w") as script:
+        script.write(SPAWNED_CHILD)
+    with open(paths["in.pkl"], "wb") as payload_file:
+        payload_file.write(payload)
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(
+        path for path in sys.path if path and os.path.isdir(path)
+    )
+    done = subprocess.run(
+        [sys.executable, paths["child.py"], paths["in.pkl"], msname, paths["out.pkl"]],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=300,
+    )
+    assert done.returncode == 0, done.stderr[-3000:]
+    with open(paths["out.pkl"], "rb") as out:
+        return pickle.load(out)
+
+
+# (nodes of "narrow_tiles": 0, SPW 0, 16 channels; 3, SPW 1, 24 decreasing
+# channels; both with padded and duplicated cells and channel-sliced reads)
+@pytest.mark.parametrize("pickler", ["pickle", "cloudpickle"])
+@pytest.mark.parametrize("node_idx", [0, 3])
+def test_pickled_lazy_selection_computed_in_a_spawned_process(
+    backend_ms, tmp_path, node_idx, pickler
+):
+    """
+    The contract AstroVIPER's skunk-works imaging relies on: the data-group
+    variables of an MSv4 of ``open_msv2(ms, array_backend="xarray")``, lazily
+    selected along frequency and polarization, pickle without any open table
+    (no casacore / casatools object in the pickle, no file of the MS open in
+    a process that unpickles them) and computed in a spawned process (which
+    rebuilds the index from the MS) equal the values computed here; the
+    selection itself stays lazy.
+    """
+    from xradio.measurement_set import open_msv2
+
+    msname = os.path.abspath(backend_ms("narrow_tiles"))
+    tree = open_msv2(msname, array_backend="xarray")
+    node = tree[sorted(tree.children)[node_idx]]
+    group = node.attrs["data_groups"]["base"]
+    names = [group[role] for role in ("correlated_data", "flag", "weight", "uvw")]
+    subset = node.to_dataset(inherit=False)[names].isel(
+        frequency=slice(5, 14), polarization=[1, 0]
+    )
+    if pickler == "pickle":
+        buffer = io.BytesIO()
+        recording = _RecordingPickler(buffer)
+        recording.dump(subset)
+        payload = buffer.getvalue()
+        packages = {t.__module__.split(".")[0] for t in recording.types}
+        assert not packages & {"casacore", "casatools"}, packages
+        assert backend_arrays.MSv2MainColumnArray in recording.types
+    else:
+        payload = cloudpickle.dumps(subset)
+
+    seen = compute_in_spawned_process(payload, msname, tmp_path)
+    computed, seen = seen["computed"], seen["seen"]
+    if seen["open_after_load"] is not None:  # (/proc/self/fd: Linux)
+        assert seen["open_after_load"] == [] and seen["open_after_compute"] == []
+    assert seen["memo_after_load"] == 0 and seen["rebuilds"] >= 1
+
+    expected = subset.compute()
+    xr.testing.assert_identical(computed, expected)
+    for name in names:
+        assert computed[name].dtype == expected[name].dtype, name
+        assert computed[name].values.tobytes() == expected[name].values.tobytes(), name
+    assert computed.sizes["frequency"] == 9 and computed.sizes["polarization"] == 2
+    assert np.isnan(expected[group["correlated_data"]].values).any()  # padded cells
+    assert not any(subset[name].variable._in_memory for name in names)

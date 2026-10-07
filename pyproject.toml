@@ -134,6 +134,7 @@ all = [
 # so that loading the entry points does not import the xradio package
 xradio_casa_image = "_xradio_xarray_backends:CasaImageBackendEntrypoint"
 xradio_fits_image = "_xradio_xarray_backends:FitsImageBackendEntrypoint"
+xradio_msv2 = "_xradio_xarray_backends:MSv2BackendEntrypoint"
 
 [tool.pytest.ini_options]
 addopts = [

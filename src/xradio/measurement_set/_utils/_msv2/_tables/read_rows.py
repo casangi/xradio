@@ -1130,6 +1130,7 @@ def read_rows_to_grid(
     max_tmp_bytes: int = DEFAULT_MAX_TMP_BYTES,
     stats: dict[str, int] | None = None,
     min_read_bytes: int = DEFAULT_MIN_READ_BYTES,
+    bridge: bool = True,
 ) -> dict[str, int]:
     """
     Read one column of the rows of ``plan`` into a dense grid, with few large
@@ -1201,6 +1202,12 @@ def read_rows_to_grid(
     min_read_bytes : int, optional
         Minimum read size (bytes of cells), see above. 0 reads every direct
         segment of the plan straight into the grid.
+    bridge : bool, optional
+        Whether gaps of rows of other partitions may be bridged (default
+        True). False reads the partition rows only: for a read of a channel
+        or polarization range of a column whose other rows may hold cells of
+        another shape, of which casacore reads a range beyond the cell
+        without an error when the run starts with a larger cell.
 
     Returns
     -------
@@ -1269,7 +1276,7 @@ def read_rows_to_grid(
         tmp_rows = max(
             1, min(rows_per_call, MAX_SELECTROWS_ROWS, int(max_tmp_bytes) // row_bytes)
         )
-        pieces = _tmp_pieces(tmp_rows_t, tmp_pos, row_bytes, tmp_rows, bridge=True)
+        pieces = _tmp_pieces(tmp_rows_t, tmp_pos, row_bytes, tmp_rows, bridge=bridge)
         batches, tmp_n = _tmp_batches(pieces, tmp_rows)
         tmp_full = np.empty((tmp_n,) + cell_shape, dtype=col_dt)
         stats["max_tmp_bytes"] = max(stats.get("max_tmp_bytes", 0), tmp_full.nbytes)
@@ -1751,6 +1758,9 @@ class ColumnStorage:
         Fortran axis order).
     error : str
         Why the storage could not be described ("" if it could).
+    dm_name : str
+        Name of the data manager ("" if unknown). Unique in the table when not
+        empty: the columns of one data manager share, e.g., its tile cache.
     """
 
     plain: bool
@@ -1758,6 +1768,7 @@ class ColumnStorage:
     option: int = 0
     hypercubes: tuple[dict, ...] = ()
     error: str = ""
+    dm_name: str = ""
 
 
 def is_plain_table(table: tables.table) -> bool:
@@ -1804,7 +1815,13 @@ def column_storage(
                 dm for dm in table_dminfo.values() if col in dm.get("COLUMNS", ())
             )
         cubes = tuple(dminfo.get("SPEC", {}).get("HYPERCUBES", {}).values())
-        return ColumnStorage(plain, str(dminfo.get("TYPE", "")), option, cubes)
+        return ColumnStorage(
+            plain,
+            str(dminfo.get("TYPE", "")),
+            option,
+            cubes,
+            dm_name=str(dminfo.get("NAME", "")),
+        )
     except Exception as exc:
         return ColumnStorage(False, error=f"{type(exc).__name__}: {exc}")
 

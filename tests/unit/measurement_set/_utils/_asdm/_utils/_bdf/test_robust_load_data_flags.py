@@ -502,7 +502,7 @@ def test_load_flags_from_bdf_with_error():
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
 
         with pytest.raises(RuntimeError, match="Error while loading flags from a BDF"):
-            _flags = load_flags_from_bdf(bdf_path, 1, {}, True)
+            _flags = load_flags_from_bdf(bdf_path, 1, (slice(None),) * 4, True)
 
 
 @pytest.mark.parametrize(

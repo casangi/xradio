@@ -260,7 +260,7 @@ def _expand_frequency_in_flags_subset(
         or not array_slice[2]
         or (
             isinstance(array_slice[2], slice)
-            and (not array_slice[2].start or not array_slice[2].stop)
+            and (array_slice[2].start is None or array_slice[2].stop is None)
         )
     ):
         frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][

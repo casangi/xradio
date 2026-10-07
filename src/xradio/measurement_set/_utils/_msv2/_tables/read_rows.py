@@ -30,8 +30,8 @@ trap):
 
 Backends: python-casacore reads into the caller's buffers (``getcolnp``,
 ``getcolslicenp``) and makes reference tables of scattered rows
-(``selectrows``). The casatools shim (``casacore_from_casatools``, used where
-python-casacore is not installed, e.g. on macOS) has none of these: there every
+(``selectrows``). The arcae shim (``casacore_from_arcae``, the default backend)
+has no ``getcolslicenp`` or ``selectrows``: there every
 call is a ``getcol`` (or a ``getcell`` for a one-row table) into a temporary
 that is copied into the buffer, with the same rules (ascending rows, at most
 ``max_elems`` elements per call, never the whole column), and scattered rows
@@ -44,12 +44,8 @@ from typing import Any
 
 import numpy as np
 
+from xradio._utils._casacore.backend import tables
 from xradio._utils.list_and_array import get_pad_value
-
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
 
 # Default and maximum number of elements read by one getcolnp/getcolslicenp call
 # (python-casacore #130: keep every call at 2**29 elements or fewer).
@@ -93,7 +89,7 @@ MAX_GAP_FRACTION = 0.125
 MIN_SLICE_COPY_BYTES = 64 * 1024
 
 # python-casacore table methods that read into the caller's buffer or select
-# rows; a table without all of them (the casatools shim) is read with getcol
+# rows; a table without all of them (the arcae shim) is read with getcol
 IN_PLACE_READ_METHODS = ("getcolnp", "getcolslicenp", "selectrows")
 # Bound of the temporary of one getcol call (tables without in-place reads)
 GETCOL_MAX_BYTES = 16 * 1024 * 1024
@@ -113,7 +109,7 @@ def has_in_place_reads(table: Any) -> bool:
     """
     Whether a table (or table class) reads columns into the caller's buffers
     and selects rows (python-casacore's ``getcolnp``, ``getcolslicenp`` and
-    ``selectrows``). The casatools shim does not: the reads here then use
+    ``selectrows``). The arcae shim does not: the reads here then use
     ``getcol`` and a copy.
 
     Parameters
@@ -131,8 +127,8 @@ def has_in_place_reads(table: Any) -> bool:
 
 def backend_has_in_place_reads() -> bool:
     """
-    Whether the casacore bindings in use (python-casacore, or the casatools
-    shim when python-casacore is not installed) read in place
+    Whether the casacore bindings in use (``backend.tables``: the arcae
+    shim, or python-casacore) read in place
     (``has_in_place_reads`` of their table class).
     """
     return has_in_place_reads(tables.table)

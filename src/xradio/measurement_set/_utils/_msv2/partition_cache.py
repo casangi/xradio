@@ -1435,7 +1435,7 @@ def _create_subtable(path: str) -> str | None:
     place (never at its final name: casacore would replace a table there).
     Returns its path, or None if another writer's is already there.
     """
-    from casacore import tables
+    tables = _tables_module()
 
     final = subtable_path(path)
     tmp = _tmp_subtable_path(path)

@@ -10,10 +10,24 @@ import pytest
 import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
+from xradio._utils._casacore import backend
 from xradio.measurement_set._utils._msv2 import stream_write
+from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
+    subtable_cache_supported,
+)
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
 from xradio.testing.measurement_set.checker import check_msv4_matches_descr
+
+# python-casacore features that the arcae backend lacks
+needs_subtable_cache = pytest.mark.skipif(
+    not subtable_cache_supported(),
+    reason="the sub-table cache needs in-place reads, which the backend lacks",
+)
+needs_partnames = pytest.mark.skipif(
+    not hasattr(backend.tables.table, "partnames"),
+    reason="storage decisions need table.partnames(), which the backend lacks",
+)
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
 xds_main = minxds(
@@ -658,7 +672,7 @@ def _rewrite_main_rows(
     row before (duplicated cells). The generated MS uses TiledColumnStMan,
     which cannot remove rows.
     """
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     rng = np.random.default_rng(seed)
     with tables.table(msname, readonly=False, ack=False) as main_tb:
@@ -910,7 +924,7 @@ def test_convert_and_write_partition_time_mode(
 def _to_tiled_shape_columns(main_tb, columns: dict, cell: tuple, tile_rows: int):
     """Replace MAIN columns by TiledShapeStMan columns (tile_rows rows per tile)
     holding the given values."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     main_tb.removecols([col for col in columns if col in main_tb.colnames()])
     for col, values in columns.items():
@@ -947,8 +961,7 @@ def ms_tiled_shape_main(tmp_path_factory):
     - "single_dish": FLOAT_DATA, FLAG; autocorrelations only (ANTENNA1
       partitions).
     """
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
 
     base = tmp_path_factory.mktemp("ms_tiled_shape_main")
@@ -969,7 +982,8 @@ def ms_tiled_shape_main(tmp_path_factory):
             rows = np.arange(nrows)
             cell = main_tb.getcell("DATA", 0).shape
             main_tb.putcol("FIELD_ID", ((rows // 13) % 2).astype(np.int32))
-            ant1, ant2 = main_tb.getcol("ANTENNA1"), main_tb.getcol("ANTENNA2")
+            ant1 = main_tb.getcol("ANTENNA1")
+            ant2 = main_tb.getcol("ANTENNA2").copy()  # getcol may be read-only
             auto = rows % 5 == 0 if variant == "interferometer" else rows >= 0
             ant2[auto] = ant1[auto]
             main_tb.putcol("ANTENNA2", ant2)
@@ -1007,8 +1021,7 @@ def test_convert_and_write_partition_tiled_shape_main_matches_taql_reference(
     with the FIELD_ID / ANTENNA1 partition schemes: the row reads give exactly
     the output of the TaQL selection's reads.
     """
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
     )
@@ -1075,8 +1088,7 @@ def test_convert_and_write_partition_no_taql_on_main(
 ):
     import sys
 
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
     )
@@ -1205,6 +1217,7 @@ def test_create_data_variables_releases_the_row_plans(
 # --- sub-table cache --------------------------------------------------------------
 
 
+@needs_subtable_cache
 @pytest.mark.parametrize("ms_fixture", ["ms_minimal_required", "ms_minimal_misbehaved"])
 @pytest.mark.parametrize("interpolate", [False, True])
 def test_convert_and_write_partition_subtable_cache_bit_identical(
@@ -1556,7 +1569,7 @@ STREAM_EDGE_VARIANTS = (
 def _add_tiled_shape_column(main_tb, col, values, tile_rows, rows=None):
     """Add a TiledShapeStMan column; only ``rows`` (all by default) are written,
     the other cells stay undefined."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     desc = tables.makearrcoldesc(
         col,
@@ -1606,8 +1619,7 @@ def ms_stream_edges(tmp_path_factory):
     persistent reference table (selection) of the DDI 1 rows of
     "wsp_partial", with copies of its sub-tables.
     """
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
 
     base = tmp_path_factory.mktemp("ms_stream_edges")
@@ -1661,11 +1673,10 @@ def ms_stream_edges(tmp_path_factory):
     # a persistent reference table: getdminfo describes its root table
     root = paths["wsp_partial"]
     ref_path = str(base / "edge_reftable_wsp_partial.ms")
-    with tables.table(root, ack=False) as root_tb:
-        ddi_rows = np.flatnonzero(root_tb.getcol("DATA_DESC_ID") == 1)
-        selection = root_tb.selectrows(ddi_rows)
-        selection.copy(ref_path, deep=False).close()
-        selection.close()
+    with tables.table(root, ack=False) as root_tb:  # noqa: F841 ($root_tb)
+        tables.taql(
+            f"select from $root_tb where DATA_DESC_ID == 1 giving '{ref_path}'"
+        ).close()
     for name in os.listdir(root):
         sub = os.path.join(root, name)
         if os.path.isdir(sub) and not os.path.exists(os.path.join(ref_path, name)):
@@ -1689,7 +1700,17 @@ def partition_attempts(monkeypatch):
     return attempts
 
 
-@pytest.mark.parametrize("variant", STREAM_EDGE_VARIANTS + ("reftable_wsp_partial",))
+@pytest.mark.parametrize(
+    "variant",
+    [
+        (
+            pytest.param(variant, marks=needs_partnames)
+            if variant in ("reversed_freq", "wsp_partial", "reftable_wsp_partial")
+            else variant
+        )
+        for variant in STREAM_EDGE_VARIANTS + ("reftable_wsp_partial",)
+    ],
+)
 def test_stream_write_column_decisions_bit_identical(
     ms_stream_edges, variant, tmp_path, monkeypatch, stream_stats, partition_attempts
 ):
@@ -1751,6 +1772,7 @@ def test_stream_write_column_decisions_bit_identical(
         assert stats["WEIGHT"]["col"] == "WEIGHT_SPECTRUM"
 
 
+@needs_partnames
 def test_stream_write_guard_interleaved_partitions(
     ms_stream_edges, tmp_path, monkeypatch, stream_stats
 ):
@@ -2338,8 +2360,7 @@ def test_calc_indx_for_row_split_needs_a_2d_cell_in_the_first_row(tmp_path):
     """As the full scan: IndexError if no column has a defined 2-D cell of
     numbers or booleans in the first row of the partition (an undefined
     cell, 1-D cells, scalars and a 2-D string cell do not count)."""
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.measurement_set._utils._msv2._tables.read_rows import MainTableRows
 
     desc = tables.maketabdesc(

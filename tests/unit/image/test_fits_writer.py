@@ -624,7 +624,9 @@ class TestDirectionAxes:
     def test_slant_orthographic_positions_match_casacore(self, tmp_path):
         """An NCP-like SIN image (projection parameters [0, cot(dec0)]) has the
         same sky positions through FITS as in casacore."""
-        images = pytest.importorskip("casacore.images")
+        images = pytest.importorskip(
+            "casacore.images", reason="python-casacore computes the reference positions"
+        )
         shape = (2, 1, 20, 30)
         template = images.image(str(tmp_path / "template.im"), shape=shape)
         coords = template.coordinates().dict()

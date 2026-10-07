@@ -5,7 +5,10 @@ import numpy as np
 import pytest
 import xarray as xr
 
-tables = pytest.importorskip("casacore.tables")
+tables = pytest.importorskip(
+    "casacore.tables",
+    reason="the tests make and open their tables with python-casacore",
+)
 
 from xradio.measurement_set._utils._msv2._tables import (  # noqa: E402
     read_pointing as rp,
@@ -294,8 +297,11 @@ def test_select_pointing_rows_matches_taql(pointing_ms):
     )
     utimes = pointing_times(ms)
     rng = np.random.default_rng(3)
-    # tb is used by the TaQL query ($tb); opened (no read lock) as xradio opens it
-    with open_table_ro(os.path.join(ms, "POINTING")) as tb:  # noqa: F841
+    # tb is used by the TaQL query ($tb); opened (no read lock) as xradio opens it,
+    # with python-casacore (the reference)
+    with tables.table(
+        os.path.join(ms, "POINTING"), lockoptions={"option": "usernoread"}, ack=False
+    ) as tb:  # noqa: F841
         for _ in range(20):
             lo, hi = np.sort(rng.uniform(utimes[0] - 1, utimes[-1] + 1, 2))
             ants = np.unique(rng.integers(0, NANTS + 2, 3))

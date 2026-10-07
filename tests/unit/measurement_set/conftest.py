@@ -369,4 +369,7 @@ def taql_reference_column(ms_path: str, partition_info: dict, col: str):
 @pytest.fixture
 def taql_main_reference():
     """taql_reference_column (TaQL reads of MAIN columns, for comparisons)."""
+    pytest.importorskip(
+        "casacore.tables", reason="the TaQL reference reads MAIN with python-casacore"
+    )
     return taql_reference_column

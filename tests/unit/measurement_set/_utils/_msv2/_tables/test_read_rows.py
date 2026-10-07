@@ -5,8 +5,12 @@ import textwrap
 import numpy as np
 import pytest
 
-tables = pytest.importorskip("casacore.tables")
+tables = pytest.importorskip(
+    "casacore.tables",
+    reason="the tests make and open their tables with python-casacore",
+)
 
+from xradio._utils._casacore.backend import BACKEND  # noqa: E402
 from xradio.measurement_set._utils._msv2._tables import read_rows as rr  # noqa: E402
 
 NROWS = 200
@@ -1177,7 +1181,8 @@ def test_time_chunk_rows_n_runs(time_ordered, time_chunks, contiguous):
 def test_has_in_place_reads(rows_tb):
     tb, _ = rows_tb
     assert rr.has_in_place_reads(tb) and rr.has_in_place_reads(tables.table)
-    assert rr.backend_has_in_place_reads()  # python-casacore
+    # the backend reads in place with python-casacore, not with the arcae shim
+    assert rr.backend_has_in_place_reads() == (BACKEND != "arcae")
 
 
 def test_read_row_range(rows_tb):

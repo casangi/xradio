@@ -1073,7 +1073,9 @@ def generic_cols_table(tmp_path_factory):
     arrays, undefined cells, string arrays, an IncrementalStMan and a
     TiledShapeStMan array.
     """
-    tables = pytest.importorskip("casacore.tables")
+    tables = pytest.importorskip(
+        "casacore.tables", reason="the fixture makes its table with python-casacore"
+    )
     path = str(tmp_path_factory.mktemp("generic_cols") / "GENERIC")
     nrows = 12
     desc = tables.maketabdesc(

@@ -3,7 +3,10 @@ import types
 import numpy as np
 import pytest
 
-tables = pytest.importorskip("casacore.tables")
+tables = pytest.importorskip(
+    "casacore.tables",
+    reason="the tests make and open their tables with python-casacore",
+)
 
 from xradio.measurement_set._utils._msv2 import stream_write as sw  # noqa: E402
 from xradio.measurement_set._utils._msv2._tables import read_rows as rr  # noqa: E402

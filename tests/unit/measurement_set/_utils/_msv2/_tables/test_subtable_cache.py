@@ -5,12 +5,15 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from xradio._utils._casacore.backend import BACKEND
 from xradio.measurement_set._utils._msv2._tables import subtable_cache as sc
 
 
-def test_resolve_subtable_cache():
-    assert sc.subtable_cache_supported()  # python-casacore
+def test_resolve_subtable_cache(monkeypatch):
+    # python-casacore reads in place, the arcae shim does not (no cache)
+    assert sc.subtable_cache_supported() == (BACKEND != "arcae")
     shared = sc.SubtableCache()
+    monkeypatch.setattr(sc, "subtable_cache_supported", lambda: True)
     assert sc.resolve_subtable_cache(shared) is shared
     own = sc.resolve_subtable_cache(None)
     assert isinstance(own, sc.SubtableCache) and own is not shared
@@ -337,7 +340,8 @@ def test_get_or_build_amortized(n_partitions, built_at):
     assert cache.get_or_build("other", lambda: 5) == 5
 
 
-def test_resolve_subtable_cache_for_one_partition_defers():
+def test_resolve_subtable_cache_for_one_partition_defers(monkeypatch):
+    monkeypatch.setattr(sc, "subtable_cache_supported", lambda: True)
     own = sc.resolve_subtable_cache(None)
     assert own.get_or_build("k", lambda: 1, amortized=True) is None
     assert own.get_or_build("k", lambda: 1, amortized=True) == 1

@@ -548,15 +548,16 @@ def _fill_obsinfo_defaults(coords):
     return coords
 
 
-def _make_default_mask(imagepath, maskname, shape_f):
-    """Create a mask subtable (all pixels good) and return its ``masks``
-    keyword record."""
+def _make_default_mask(imagepath, maskname, shape_f, good=False):
+    """Create a mask subtable and return its ``masks`` keyword record. Like
+    casacore's makeMask, the mask is not initialized unless ``good`` marks
+    every pixel as good."""
     mask_path = os.path.join(imagepath, maskname)
     mask_tab = _create_tiled_table(
         mask_path, "PagedArray", "boolean", shape_f, "Paged Array"
     )
-    # a fresh default mask marks every pixel as good
-    mask_tab._taql("UPDATE $1 SET PagedArray = T").close()
+    if good:
+        mask_tab._taql("UPDATE $1 SET PagedArray = T").close()
     mask_tab.close()
     return {
         "isRegion": 1,
@@ -618,12 +619,8 @@ class image:
             valuetype = _DTYPE_TO_VALUETYPE[dtype]
         self._column = "map"
         tab = _create_tiled_table(self._path, "map", valuetype, shape_f, "Image")
-        keywords = {
-            "units": "",
-            "imageinfo": {"imagetype": "Intensity", "objectname": ""},
-            "miscinfo": {},
-            "coords": _default_coords_record(shape_f),
-        }
+        # like casacore, units, image info and miscinfo are stored when set
+        keywords = {"coords": _default_coords_record(shape_f)}
         if maskname:
             keywords["masks"] = {
                 maskname: _make_default_mask(self._path, maskname, shape_f)
@@ -756,7 +753,8 @@ class image:
                 return
             maskname = "mask0"
             shape_f = self.shape()[::-1]
-            mask_record = _make_default_mask(self._path, maskname, shape_f)
+            # like python-casacore, pixels not put stay good
+            mask_record = _make_default_mask(self._path, maskname, shape_f, good=True)
             tab = _tables.table(
                 self._path,
                 readonly=False,

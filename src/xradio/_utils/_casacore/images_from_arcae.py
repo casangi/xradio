@@ -186,6 +186,9 @@ class coordinatesystem:
 # image
 # ---------------------------------------------------------------------------
 
+# casacore image pixel type names of the column value types
+_VALUETYPE_TO_DATATYPE = {"complex": "Complex", "dcomplex": "DComplex"}
+
 _DTYPE_TO_VALUETYPE = {
     np.dtype(np.float32): "float",
     np.dtype(np.float64): "double",
@@ -660,7 +663,8 @@ class image:
         return [int(s) for s in shape_f[::-1]]
 
     def datatype(self):
-        return self._tab.coldatatype(self._column)
+        valuetype = self._tab.coldatatype(self._column)
+        return _VALUETYPE_TO_DATATYPE.get(valuetype, valuetype)
 
     def ndim(self):
         return len(self.shape())

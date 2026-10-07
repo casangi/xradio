@@ -164,7 +164,7 @@ three formats (``out_format`` ``"casa"``, the default, ``"fits"`` or
   ``write_image`` adds it to the name, replacing a bare ``.zarr``, so ``out``
   and ``out.zarr`` are both written as ``out.img.zarr`` (an existing
   ``out.zarr`` is left unchanged, with a warning).
-- **CASA images** (read and written with python-casacore or casatools) and
+- **CASA images** (read and written with arcae) and
   **FITS** files (read and written with astropy only) hold one image each.
   Several of them are opened into one dataset by passing ``open_image`` a
   dictionary that maps image types to paths, or a list of paths whose image

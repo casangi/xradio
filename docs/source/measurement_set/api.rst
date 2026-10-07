@@ -18,8 +18,7 @@ Xradio includes an `Xarray backend <https://docs.xarray.dev/en/latest/api/backen
 MeasurementSet v2 directly as a Processing Set, without converting it: the :py:class:`xarray.DataTree` of MSv4s that
 :py:func:`convert_msv2_to_processing_set` would write, as :py:func:`open_processing_set` would open it (the same MSv4
 names, variables, values and attributes, and with ``chunks={}`` the same Dask chunks of the main data variables). It
-reads the MS with python-casacore (``pip install "xradio[casacore]"``) or, where python-casacore is not installed (for
-example on macOS), with casatools.
+reads the MS with arcae (``pip install "xradio[casacore]"``).
 
 .. code:: python
 

@@ -249,7 +249,7 @@ def ms_key_variants(ms_edge_rows, tmp_path_factory):
         else:
             with tables.table(path + "/FIELD", readonly=False, ack=False) as tb:
                 tb.removecols("EPHEMERIS_ID")
-                tb.addcols(tables.makescacoldesc("EPHEMERIS_ID", 0))
+                tb.addcols(tables.maketabdesc(tables.makescacoldesc("EPHEMERIS_ID", 0)))
                 tb.putcol("EPHEMERIS_ID", np.array([0, 3], dtype=np.int32))
         paths[variant] = path
     yield paths

@@ -46,6 +46,7 @@ released (so that consecutive tasks of a conversion share it), at most
 import collections
 import contextlib
 import contextvars
+import os
 import threading
 import time
 import uuid
@@ -193,6 +194,17 @@ class _ProcessStates:
             self.idle.pop(token, None)
             self.states.pop(token, None)
 
+    def reset_after_fork(self) -> None:
+        """
+        Start a fork child without the parent's states: another thread of the
+        parent may have held their locks (or this one) at the fork, and the
+        expiry timer's thread does not exist in the child.
+        """
+        self.lock = threading.RLock()
+        self.states = weakref.WeakValueDictionary()
+        self.idle = collections.OrderedDict()
+        self.timer = None
+
     def _schedule_expiry(self) -> None:
         if self.timer is not None and self.timer.is_alive():
             return
@@ -212,6 +224,8 @@ class _ProcessStates:
 
 
 _PROCESS_STATES = _ProcessStates()
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_PROCESS_STATES.reset_after_fork)
 
 
 class SubtableCache:

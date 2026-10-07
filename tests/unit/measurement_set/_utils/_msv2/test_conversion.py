@@ -19,6 +19,11 @@ from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
 from xradio.testing.measurement_set.checker import check_msv4_matches_descr
 
+try:  # (writes the cells of another shape of ms_stream_edges' "varying_shape")
+    from casacore import tables as casacore_tables
+except ImportError:
+    casacore_tables = None
+
 # python-casacore features that the arcae backend lacks
 needs_subtable_cache = pytest.mark.skipif(
     not subtable_cache_supported(),
@@ -27,6 +32,11 @@ needs_subtable_cache = pytest.mark.skipif(
 needs_partnames = pytest.mark.skipif(
     not hasattr(backend.tables.table, "partnames"),
     reason="storage decisions need table.partnames(), which the backend lacks",
+)
+needs_reshaped_cells = pytest.mark.skipif(
+    casacore_tables is None,
+    reason="python-casacore writes cells of another shape "
+    "(the arcae shim's putcell keeps the cell's shape)",
 )
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
@@ -1659,9 +1669,10 @@ def ms_stream_edges(tmp_path_factory):
                 )
                 main_tb.addcols(tables.maketabdesc([desc]))
                 main_tb.putcol("MODEL_DATA", model)
-                if variant == "varying_shape":
-                    for row in np.flatnonzero((pos >= 50) & (pos < 53)):
-                        main_tb.putcell("MODEL_DATA", int(row), model[row][:, :1])
+        if variant == "varying_shape" and casacore_tables is not None:
+            with casacore_tables.table(msname, readonly=False, ack=False) as main_tb:
+                for row in np.flatnonzero((pos >= 50) & (pos < 53)):
+                    main_tb.putcell("MODEL_DATA", int(row), model[row][:, :1])
         if variant in ("reversed_freq", "wsp_partial"):
             with tables.table(
                 os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
@@ -1706,6 +1717,8 @@ def partition_attempts(monkeypatch):
         (
             pytest.param(variant, marks=needs_partnames)
             if variant in ("reversed_freq", "wsp_partial", "reftable_wsp_partial")
+            else pytest.param(variant, marks=needs_reshaped_cells)
+            if variant == "varying_shape"
             else variant
         )
         for variant in STREAM_EDGE_VARIANTS + ("reftable_wsp_partial",)
@@ -2206,8 +2219,12 @@ def _is_placeholder(var: xr.Variable) -> bool:
 
 def _assert_closed(main_rows) -> None:
     """The MAIN table of a MainTableRows was closed."""
-    with pytest.raises(RuntimeError):
-        main_rows.table.nrows()
+    if backend.BACKEND == "arcae":  # (ArrowInvalid, a ValueError)
+        with pytest.raises(ValueError, match="TableProxy is closed"):
+            main_rows.table.nrows()
+    else:
+        with pytest.raises(RuntimeError):
+            main_rows.table.nrows()
 
 
 def test_build_partition_none_for_0_rows(ms_main_layouts):
@@ -2385,8 +2402,11 @@ def test_calc_indx_for_row_split_needs_a_2d_cell_in_the_first_row(tmp_path):
             assert not conversion.first_row_has_2d_cells(main_rows)
             with pytest.raises(IndexError, match="2-D cell"):
                 conversion.calc_indx_for_row_split(main_rows)
-            with pytest.raises(IndexError):
-                _calc_indx_full_scan(main_rows)
+            # (the full scan's getcell of a string array cell: a dict with
+            # python-casacore, a 2-D array with the arcae shim)
+            if backend.BACKEND != "arcae":
+                with pytest.raises(IndexError):
+                    _calc_indx_full_scan(main_rows)
         for rows in ([1, 2, 3], [2, 3]):
             main_rows = MainTableRows(tb, np.array(rows))
             assert conversion.first_row_has_2d_cells(main_rows)

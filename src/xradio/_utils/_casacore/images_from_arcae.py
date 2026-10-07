@@ -915,14 +915,18 @@ class image:
         header["BUNIT"] = info.get("unit", "") or ""
         header["OBJECT"] = imageinfo.get("objectname", "")
         header["BTYPE"] = imageinfo.get("imagetype", "Intensity")
-        header["TELESCOP"] = coords.get("telescope", "UNKNOWN")
-        header["OBSERVER"] = coords.get("observer", "")
-        obsdate = coords.get("obsdate")
-        if obsdate:
+        # like casacore's ObsInfo::toFITS, default values are left out
+        for fits_key, casa_key in (("TELESCOP", "telescope"), ("OBSERVER", "observer")):
+            if coords[casa_key] != "UNKNOWN":
+                header[fits_key] = coords[casa_key]
+        obsdate = coords["obsdate"]
+        header["TIMESYS"] = "UTC"
+        if obsdate["m0"]["value"] != 0.0:
             time = Time(
                 float(obsdate["m0"]["value"]),
                 format="mjd",
                 scale=str(obsdate.get("refer", "UTC")).lower(),
+                precision=6,
             )
             header["DATE-OBS"] = time.isot
             header["TIMESYS"] = str(obsdate.get("refer", "UTC")).upper()

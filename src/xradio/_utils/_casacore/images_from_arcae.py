@@ -870,11 +870,10 @@ class image:
                     )
                 ):
                     ax = axes[j]
-                    unit = str(sub["units"][casa_idx])
-                    scale = np.rad2deg(1.0) if unit.startswith("rad") else 1.0
+                    unit = sub["units"][casa_idx]
                     header[f"CTYPE{ax}"] = fits_base
-                    header[f"CRVAL{ax}"] = float(sub["crval"][casa_idx]) * scale
-                    header[f"CDELT{ax}"] = float(sub["cdelt"][casa_idx]) * scale
+                    header[f"CRVAL{ax}"] = _to_deg(float(sub["crval"][casa_idx]), unit)
+                    header[f"CDELT{ax}"] = _to_deg(float(sub["cdelt"][casa_idx]), unit)
                     header[f"CRPIX{ax}"] = float(sub["crpix"][casa_idx]) + 1.0
                     header[f"CUNIT{ax}"] = "deg"
                 system = sub.get("system", "ICRS")

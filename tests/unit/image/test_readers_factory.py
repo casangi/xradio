@@ -27,11 +27,7 @@ import pytest
 import zarr
 from astropy.time import Time
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
+from xradio._utils._casacore.backend import tables
 from xradio._utils.dict_helpers import make_spectral_coord_reference_dict
 from xradio._utils.schema import casacore_to_msv4_measure_type
 from xradio.image import (
@@ -274,7 +270,9 @@ class TestCasaReaderSpectral:
 def _casacore_sky_positions(path):
     """Sky positions of every pixel from casacore, shape (l, m, 2) in
     radians (the direction axes are in radians)."""
-    images = pytest.importorskip("casacore.images")
+    images = pytest.importorskip(
+        "casacore.images", reason="python-casacore computes the reference positions"
+    )
     image = images.image(path)
     n_m, n_l = image.shape()[-2:]
     world = np.array(

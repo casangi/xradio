@@ -67,7 +67,7 @@ def create_field_and_source_xds(
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
     sdm_field_required_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir"]
-    sdm_field_optional_attrs = ["sourceId"]
+    sdm_field_optional_attrs = ["sourceId", "directionCode"]
     try:
         # TODO: sourceId is an opt attr, but so far always present in ALMA ASDMs
         field_df = exp_asdm_table_to_df(
@@ -76,12 +76,15 @@ def create_field_and_source_xds(
     except ValueError as _exc:
         field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_required_attrs)
         field_df["sourceId"] = None
+        field_df["directionCode"] = None
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
 
     field_name = (
-        field_df["fieldName"].astype("str") + "_" + field_df["fieldId"].astype("str")
+        field_df["fieldName"].astype("str").str.strip()
+        + "_"
+        + field_df["fieldId"].astype("str")
     ).to_numpy(dtype="str")
     field_coords = {
         "sky_dir_label": ["ra", "dec"],
@@ -103,10 +106,10 @@ def create_field_and_source_xds(
         ["field_name", "sky_dir_label"],
         [[phase_or_ref_dir[0], phase_or_ref_dir[1]]],
     )
-    # TODO: should check for presence of Source/directionCode
-    # (optional, "if not J2000")
+
+    direction_frame = _retrieve_direction_frame(field_df, field_id)
     xds.data_vars[center_direction_dv].attrs.update(
-        make_sky_coord_measure_attrs("rad", "fk5")
+        make_sky_coord_measure_attrs("rad", direction_frame)
     )
 
     xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
@@ -208,3 +211,22 @@ def extract_source_info(
         )
 
     return xds
+
+
+def _retrieve_direction_frame(field_df: pd.DataFrame, field_id: int) -> str:
+    try:
+        direction_code = (
+            field_df.loc[field_df["fieldId"] == field_id]["directionCode"]
+            .values[0]
+            .getName()
+        )
+    except AttributeError as _exc:
+        direction_code = ""
+
+    if direction_code and direction_code != "NaN" and direction_code.strip() != "J2000":
+        # Seen so far: ICRS
+        direction_frame = direction_code.lower()
+    else:
+        direction_frame = "fk5"
+
+    return direction_frame

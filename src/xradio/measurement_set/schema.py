@@ -57,7 +57,7 @@ from xradio.schema.measures import (  # noqa: F401
 )
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
-MSV4_SCHEMA_VERSION = "4.0.0"
+MSV4_SCHEMA_VERSION = "4.0.1"
 
 # Dimensions
 TimeSystemCal = Literal["time_system_cal"]

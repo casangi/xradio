@@ -757,7 +757,7 @@ def create_phased_array_xds(
         hands for each antenna.
 
     Returns
-    ----------
+    -------
         xr.Dataset or None: If the input MS contains a PHASED_ARRAY table,
            returns the Xarray Dataset containing the phased array information.
            Otherwise, return None.
@@ -815,6 +815,20 @@ def create_phased_array_xds(
         name: make_data_variable(name, dims)
         for name, dims in raw_datavar_names_and_dims
     }
+
+    # load_generic_table() already pads variable-length float columns with NaN:
+    # infer ELEMENT_COUNT from any trailing NaN-padding in ELEMENT_OFFSET
+    num_antennas = len(antenna_names)
+    max_elements = data_vars["ELEMENT_OFFSET"].sizes["element_id"]
+    element_count = np.array(
+        [
+            max_elements
+            - _count_trailing_nans(data_vars["ELEMENT_OFFSET"].data[i, 0, :])
+            for i in range(num_antennas)
+        ]
+    )
+    data_vars["ELEMENT_COUNT"] = xr.DataArray(element_count, dims=("antenna_name",))
+
     data_vars["COORDINATE_AXES"].attrs = {
         "type": "rotation_matrix",
         "units": "dimensionless",
@@ -829,12 +843,11 @@ def create_phased_array_xds(
         }
     )
 
-    num_elements = data_vars["ELEMENT_OFFSET"].sizes["element_id"]
-
     data_vars = {"PHASED_ARRAY_" + key: val for key, val in data_vars.items()}
+
     coords = {
         "antenna_name": antenna_names,
-        "element_id": np.arange(num_elements),
+        "element_id": np.arange(max_elements),
         "receptor_label": receptor_label,
         "polarization_type": (
             ("antenna_name", "receptor_label"),
@@ -845,3 +858,14 @@ def create_phased_array_xds(
     }
     attrs = {"type": "phased_array"}
     return xr.Dataset(data_vars, coords, attrs)
+
+
+def _count_trailing_nans(seq) -> int:
+    """Count the number of consecutive NaN values at the end of a sequence."""
+    count = 0
+    for val in reversed(seq):
+        if np.isnan(val):
+            count += 1
+        else:
+            break
+    return count

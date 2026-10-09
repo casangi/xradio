@@ -798,14 +798,12 @@ def create_phased_array_xds(
     if not all(k in raw_xds for k in required_keys):
         return None
 
-    def msv4_measure(raw_name: str) -> dict:
-        coldesc = raw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
-        return column_description_casacore_to_msv4_measure(coldesc[raw_name])
-
     def make_data_variable(raw_name: str, dim_names: list[str]) -> xr.DataArray:
         da = raw_xds[raw_name]
         da = xr.DataArray(da.data, dims=tuple(dim_names))
-        return da.assign_attrs(msv4_measure(raw_name))
+        coldesc = raw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+        attrs = column_description_casacore_to_msv4_measure(coldesc[raw_name])
+        return da.assign_attrs(attrs)
 
     raw_datavar_names_and_dims = [
         (

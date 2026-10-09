@@ -789,14 +789,22 @@ def create_phased_array_xds(
             ignore=["COORDINATE_SYSTEM"],
             taql_where=f"where (ANTENNA_ID IN [{','.join(map(str, antenna_ids))}])",
         )
-    except ValueError:
+    except ValueError as exc:
+        xradio_logger().warning(
+            f"Failed to load PHASED_ARRAY table from {in_file}: {exc}. "
+            "Skipping PHASED_ARRAY conversion."
+        )
         return None
 
     # Defend against empty PHASED_ARRAY table.
     # The test MS "AA2-Mid-sim_00000.ms" has that problem.
-    if not set(raw_xds.data_vars).issuperset(
-        {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
-    ):
+    required_columns = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
+    missing_columns = required_columns - set(raw_xds.data_vars)
+    if missing_columns:
+        xradio_logger().warning(
+            f"PHASED_ARRAY table in {in_file} is missing columns: {missing_columns}. "
+            "Skipping PHASED_ARRAY conversion."
+        )
         return None
 
     # The rows loaded from PHASED_ARRAY could be in any order, which is carried

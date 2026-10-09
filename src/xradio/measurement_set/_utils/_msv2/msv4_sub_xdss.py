@@ -838,6 +838,11 @@ def create_phased_array_xds(
     )
     data_vars["ELEMENT_COUNT"] = xr.DataArray(element_count, dims=("antenna_name",))
 
+    # ELEMENT_FLAG should be True-padded for antennas with fewer elements,
+    # but load_generic_table() pads with False.
+    for i in range(num_antennas):
+        data_vars["ELEMENT_FLAG"].data[i, :, element_count[i] :] = True
+
     data_vars["COORDINATE_AXES"].attrs = {
         "type": "rotation_matrix",
         "units": "dimensionless",
@@ -852,6 +857,7 @@ def create_phased_array_xds(
         }
     )
 
+    # Final name for data variables
     data_vars = {"PHASED_ARRAY_" + key: val for key, val in data_vars.items()}
 
     coords = {

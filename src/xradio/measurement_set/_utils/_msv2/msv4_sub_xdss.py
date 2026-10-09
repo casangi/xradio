@@ -811,7 +811,12 @@ def create_phased_array_xds(
     # by raw_xds.ANTENNA_ID. We need to reorder the rows to match the order of
     # antenna_xds, which is carried by `antenna_ids`.
     # Then drop the ANTENNA_ID coordinate, which is not needed anymore.
-    raw_xds = raw_xds.sortby("ANTENNA_ID").drop_vars("ANTENNA_ID")
+    raw_xds = raw_xds.sortby("ANTENNA_ID")
+    antenna_id_name_mapping = dict(zip(antenna_ids, antenna_names, strict=True))
+    reordered_antenna_names = [
+        antenna_id_name_mapping[ant_id] for ant_id in raw_xds.ANTENNA_ID.data
+    ]
+    raw_xds = raw_xds.drop_vars("ANTENNA_ID")
 
     def make_data_variable(raw_name: str, dim_names: Sequence[str]) -> xr.DataArray:
         da = raw_xds[raw_name]
@@ -871,7 +876,7 @@ def create_phased_array_xds(
     data_vars = {"PHASED_ARRAY_" + key: val for key, val in data_vars.items()}
 
     coords = {
-        "antenna_name": antenna_names,
+        "antenna_name": reordered_antenna_names,
         "element_id": np.arange(max_elements),
         "receptor_label": receptor_label,
         "polarization_type": (

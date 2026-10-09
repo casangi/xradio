@@ -1,10 +1,10 @@
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import numpy as np
 import xarray as xr
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from xradio._utils.coord_math import convert_to_si_units
 from xradio._utils.dict_helpers import (
@@ -735,9 +735,9 @@ def create_system_calibration_xds(
 
 def create_phased_array_xds(
     in_file: str,
-    antenna_ids: list[int],
-    antenna_names: list[str],
-    receptor_label: list[str],
+    antenna_ids: xr.DataArray | Sequence[int],
+    antenna_names: xr.DataArray | Sequence[str],
+    receptor_label: xr.DataArray | Sequence[str],
     polarization_type: ArrayLike,
 ) -> xr.Dataset | None:
     """
@@ -787,15 +787,16 @@ def create_phased_array_xds(
             # Some MSes carry COORDINATE_SYSTEM as a copy of COORDINATE_AXES
             # due to a past ambiguity on the PHASED_ARRAY schema
             ignore=["COORDINATE_SYSTEM"],
-            taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, antenna_ids))}])",
+            taql_where=f"where (ANTENNA_ID IN [{','.join(map(str, antenna_ids))}])",
         )
     except ValueError:
         return None
 
     # Defend against empty PHASED_ARRAY table.
     # The test MS "AA2-Mid-sim_00000.ms" has that problem.
-    required_keys = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
-    if not all(k in raw_xds for k in required_keys):
+    if not set(raw_xds.data_vars).issuperset(
+        {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
+    ):
         return None
 
     # The rows loaded from PHASED_ARRAY could be in any order, which is carried
@@ -804,25 +805,26 @@ def create_phased_array_xds(
     # Then drop the ANTENNA_ID coordinate, which is not needed anymore.
     raw_xds = raw_xds.sortby("ANTENNA_ID").drop_vars("ANTENNA_ID")
 
-    def make_data_variable(raw_name: str, dim_names: list[str]) -> xr.DataArray:
+    def make_data_variable(raw_name: str, dim_names: Sequence[str]) -> xr.DataArray:
         da = raw_xds[raw_name]
         da = xr.DataArray(da.data, dims=tuple(dim_names))
         coldesc = raw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
         attrs = column_description_casacore_to_msv4_measure(coldesc[raw_name])
         return da.assign_attrs(attrs)
 
-    raw_datavar_names_and_dims = [
-        (
-            "COORDINATE_AXES",
-            ("antenna_name", "cartesian_pos_label_local", "cartesian_pos_label"),
+    raw_datavar_dims_mapping = {
+        "COORDINATE_AXES": (
+            "antenna_name",
+            "cartesian_pos_label_local",
+            "cartesian_pos_label",
         ),
-        ("ELEMENT_OFFSET", ("antenna_name", "cartesian_pos_label_local", "element_id")),
-        ("ELEMENT_FLAG", ("antenna_name", "receptor_label", "element_id")),
-    ]
+        "ELEMENT_OFFSET": ("antenna_name", "cartesian_pos_label_local", "element_id"),
+        "ELEMENT_FLAG": ("antenna_name", "receptor_label", "element_id"),
+    }
 
     data_vars = {
         name: make_data_variable(name, dims)
-        for name, dims in raw_datavar_names_and_dims
+        for name, dims in raw_datavar_dims_mapping.items()
     }
 
     # load_generic_table() already pads variable-length float columns with NaN:
@@ -875,7 +877,7 @@ def create_phased_array_xds(
     return xr.Dataset(data_vars, coords, attrs)
 
 
-def _count_trailing_nans(seq) -> int:
+def _count_trailing_nans(seq: NDArray[np.floating]) -> int:
     """Count the number of consecutive NaN values at the end of a sequence."""
     count = 0
     for val in reversed(seq):

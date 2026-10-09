@@ -735,6 +735,7 @@ def create_system_calibration_xds(
 
 def create_phased_array_xds(
     in_file: str,
+    antenna_ids: list[int],
     antenna_names: list[str],
     receptor_label: list[str],
     polarization_type: ArrayLike,
@@ -746,8 +747,10 @@ def create_phased_array_xds(
     ----------
     in_file : str
         Path to the input MSv2.
+    antenna_ids: DataArray or Sequence[int]
+        Antenna IDs to select from the PHASED_ARRAY table.
     antenna_names: DataArray or Sequence[str]
-        Content of the antenna_name coordinate of the antenna_xds.
+        Antenna names that correspond to the antenna_ids.
     receptor_label: DataArray or Sequence[str]
         Content of the receptor_label coordinate of the antenna_xds. Used to
         label the corresponding axis of ELEMENT_FLAG.
@@ -763,11 +766,12 @@ def create_phased_array_xds(
            Otherwise, return None.
     """
 
-    def extract_data(dataarray_or_sequence):
+    def extract_data(dataarray_or_sequence) -> list:
         if hasattr(dataarray_or_sequence, "data"):
             return dataarray_or_sequence.data.tolist()
-        return dataarray_or_sequence
+        return list(dataarray_or_sequence)
 
+    antenna_ids = extract_data(antenna_ids)
     antenna_names = extract_data(antenna_names)
     receptor_label = extract_data(receptor_label)
     polarization_type = extract_data(polarization_type)
@@ -783,6 +787,7 @@ def create_phased_array_xds(
             # Some MSes carry COORDINATE_SYSTEM as a copy of COORDINATE_AXES
             # due to a past ambiguity on the PHASED_ARRAY schema
             ignore=["COORDINATE_SYSTEM", "ANTENNA_ID"],
+            taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, antenna_ids))}])",
         )
     except ValueError:
         return None

@@ -1998,6 +1998,16 @@ def build_partition(
         )
         xradio_logger().debug("Time system_calibation " + str(time.time() - start))
 
+        # Create phased array xds; it needs the original mapping antenna ID
+        # to antenna name.
+        phased_array_xds = create_phased_array_xds(
+            in_file,
+            ant_xds.antenna_id,
+            ant_xds.antenna_name,
+            ant_xds.receptor_label,
+            ant_xds.polarization_type,
+        )
+
         # Change antenna_ids to antenna_names
         with_antenna_partitioning = "ANTENNA1" in partition_info
         xds = antenna_ids_to_names(
@@ -2037,14 +2047,6 @@ def build_partition(
                 "Time pointing (with add compressor and chunking) "
                 + str(time.time() - start)
             )
-
-        # Create phased array xds
-        phased_array_xds = create_phased_array_xds(
-            in_file,
-            ant_xds.antenna_name,
-            ant_xds.receptor_label,
-            ant_xds.polarization_type,
-        )
 
         start = time.time()
 

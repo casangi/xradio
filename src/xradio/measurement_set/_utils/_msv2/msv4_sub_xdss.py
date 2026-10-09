@@ -1,10 +1,10 @@
 import os
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import numpy as np
 import xarray as xr
-from numpy.typing import ArrayLike
+from numpy.typing import ArrayLike, NDArray
 
 from xradio._utils.coord_math import convert_to_si_units
 from xradio._utils.dict_helpers import (
@@ -735,8 +735,9 @@ def create_system_calibration_xds(
 
 def create_phased_array_xds(
     in_file: str,
-    antenna_names: list[str],
-    receptor_label: list[str],
+    antenna_ids: xr.DataArray | Sequence[int],
+    antenna_names: xr.DataArray | Sequence[str],
+    receptor_label: xr.DataArray | Sequence[str],
     polarization_type: ArrayLike,
 ) -> xr.Dataset | None:
     """
@@ -746,8 +747,10 @@ def create_phased_array_xds(
     ----------
     in_file : str
         Path to the input MSv2.
+    antenna_ids: DataArray or Sequence[int]
+        Antenna IDs to select from the PHASED_ARRAY table.
     antenna_names: DataArray or Sequence[str]
-        Content of the antenna_name coordinate of the antenna_xds.
+        Antenna names that correspond to the antenna_ids.
     receptor_label: DataArray or Sequence[str]
         Content of the receptor_label coordinate of the antenna_xds. Used to
         label the corresponding axis of ELEMENT_FLAG.
@@ -757,17 +760,18 @@ def create_phased_array_xds(
         hands for each antenna.
 
     Returns
-    ----------
+    -------
         xr.Dataset or None: If the input MS contains a PHASED_ARRAY table,
            returns the Xarray Dataset containing the phased array information.
            Otherwise, return None.
     """
 
-    def extract_data(dataarray_or_sequence):
+    def extract_data(dataarray_or_sequence) -> list:
         if hasattr(dataarray_or_sequence, "data"):
             return dataarray_or_sequence.data.tolist()
-        return dataarray_or_sequence
+        return list(dataarray_or_sequence)
 
+    antenna_ids = extract_data(antenna_ids)
     antenna_names = extract_data(antenna_names)
     receptor_label = extract_data(receptor_label)
     polarization_type = extract_data(polarization_type)
@@ -782,39 +786,78 @@ def create_phased_array_xds(
             "PHASED_ARRAY",
             # Some MSes carry COORDINATE_SYSTEM as a copy of COORDINATE_AXES
             # due to a past ambiguity on the PHASED_ARRAY schema
-            ignore=["COORDINATE_SYSTEM", "ANTENNA_ID"],
+            ignore=["COORDINATE_SYSTEM"],
+            taql_where=f"where (ANTENNA_ID IN [{','.join(map(str, antenna_ids))}])",
         )
-    except ValueError:
+    except ValueError as exc:
+        xradio_logger().warning(
+            f"Failed to load PHASED_ARRAY table from {in_file}: {exc}. "
+            "Skipping PHASED_ARRAY conversion."
+        )
         return None
 
     # Defend against empty PHASED_ARRAY table.
     # The test MS "AA2-Mid-sim_00000.ms" has that problem.
-    required_keys = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
-    if not all(k in raw_xds for k in required_keys):
+    required_columns = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
+    missing_columns = required_columns - set(raw_xds.data_vars)
+    if missing_columns:
+        xradio_logger().warning(
+            f"PHASED_ARRAY table in {in_file} is missing columns: {missing_columns}. "
+            "Skipping PHASED_ARRAY conversion."
+        )
         return None
 
-    def msv4_measure(raw_name: str) -> dict:
-        coldesc = raw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
-        return column_description_casacore_to_msv4_measure(coldesc[raw_name])
+    # The rows loaded from PHASED_ARRAY could be in any order, which is carried
+    # by raw_xds.ANTENNA_ID. We need to reorder the rows to match the order of
+    # antenna_xds, which is carried by `antenna_ids`.
+    # Then drop the ANTENNA_ID coordinate, which is not needed anymore.
+    raw_xds = raw_xds.sortby("ANTENNA_ID")
+    antenna_id_name_mapping = dict(zip(antenna_ids, antenna_names, strict=True))
+    reordered_antenna_names = [
+        antenna_id_name_mapping[ant_id] for ant_id in raw_xds.ANTENNA_ID.data
+    ]
+    raw_xds = raw_xds.drop_vars("ANTENNA_ID")
 
-    def make_data_variable(raw_name: str, dim_names: list[str]) -> xr.DataArray:
+    def make_data_variable(raw_name: str, dim_names: Sequence[str]) -> xr.DataArray:
         da = raw_xds[raw_name]
         da = xr.DataArray(da.data, dims=tuple(dim_names))
-        return da.assign_attrs(msv4_measure(raw_name))
+        coldesc = raw_xds.attrs["other"]["msv2"]["ctds_attrs"]["column_descriptions"]
+        attrs = column_description_casacore_to_msv4_measure(coldesc[raw_name])
+        return da.assign_attrs(attrs)
 
-    raw_datavar_names_and_dims = [
-        (
-            "COORDINATE_AXES",
-            ("antenna_name", "cartesian_pos_label_local", "cartesian_pos_label"),
+    raw_datavar_dims_mapping = {
+        "COORDINATE_AXES": (
+            "antenna_name",
+            "cartesian_pos_label_local",
+            "cartesian_pos_label",
         ),
-        ("ELEMENT_OFFSET", ("antenna_name", "cartesian_pos_label_local", "element_id")),
-        ("ELEMENT_FLAG", ("antenna_name", "receptor_label", "element_id")),
-    ]
+        "ELEMENT_OFFSET": ("antenna_name", "cartesian_pos_label_local", "element_id"),
+        "ELEMENT_FLAG": ("antenna_name", "receptor_label", "element_id"),
+    }
 
     data_vars = {
         name: make_data_variable(name, dims)
-        for name, dims in raw_datavar_names_and_dims
+        for name, dims in raw_datavar_dims_mapping.items()
     }
+
+    # load_generic_table() already pads variable-length float columns with NaN:
+    # infer ELEMENT_COUNT from any trailing NaN-padding in ELEMENT_OFFSET
+    num_antennas = len(antenna_names)
+    max_elements = data_vars["ELEMENT_OFFSET"].sizes["element_id"]
+    element_count = np.array(
+        [
+            max_elements
+            - _count_trailing_nans(data_vars["ELEMENT_OFFSET"].data[i, 0, :])
+            for i in range(num_antennas)
+        ]
+    )
+    data_vars["ELEMENT_COUNT"] = xr.DataArray(element_count, dims=("antenna_name",))
+
+    # ELEMENT_FLAG should be True-padded for antennas with fewer elements,
+    # but load_generic_table() pads with False.
+    for i in range(num_antennas):
+        data_vars["ELEMENT_FLAG"].data[i, :, element_count[i] :] = True
+
     data_vars["COORDINATE_AXES"].attrs = {
         "type": "rotation_matrix",
         "units": "dimensionless",
@@ -829,12 +872,12 @@ def create_phased_array_xds(
         }
     )
 
-    num_elements = data_vars["ELEMENT_OFFSET"].sizes["element_id"]
-
+    # Final name for data variables
     data_vars = {"PHASED_ARRAY_" + key: val for key, val in data_vars.items()}
+
     coords = {
-        "antenna_name": antenna_names,
-        "element_id": np.arange(num_elements),
+        "antenna_name": reordered_antenna_names,
+        "element_id": np.arange(max_elements),
         "receptor_label": receptor_label,
         "polarization_type": (
             ("antenna_name", "receptor_label"),
@@ -845,3 +888,14 @@ def create_phased_array_xds(
     }
     attrs = {"type": "phased_array"}
     return xr.Dataset(data_vars, coords, attrs)
+
+
+def _count_trailing_nans(seq: NDArray[np.floating]) -> int:
+    """Count the number of consecutive NaN values at the end of a sequence."""
+    count = 0
+    for val in reversed(seq):
+        if np.isnan(val):
+            count += 1
+        else:
+            break
+    return count

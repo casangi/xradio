@@ -69,16 +69,17 @@ def load_visibilities_one_spw_to_ndarray(
             guessed_shape,
             spw_chan_lens,
             overall_spw_idx,
-            data_type,
+            np.dtype("float32"),
             elements_count,
             auto_array_slice,
         )
+
         # squeeze baseline_id dim
         if isinstance(auto_baseline_slice, int):
             vis_one_spw = np.squeeze(vis_one_spw, 1)
 
-        if bdf_descr["processor_type"] == pyasdm.enumerations.ProcessorType.CORRELATOR:
-            vis_one_spw = vis_one_spw.astype("complex128")
+        if cross_data_present and vis_one_spw is not None:
+            vis_one_spw = vis_one_spw.astype("complex64")
 
     elif component_name == "crossData" and "crossData" in components_to_load:
         baseband_spw_idxs = find_spw_in_basebands_list(
@@ -150,15 +151,18 @@ def _load_vis_one_spw_auto_data_from_tree(
         array_slice[3], 0, sd_polarization_len
     )
     component_offset = bdf_file.tell()
+    itemsize = np.dtype(data_type).itemsize
     vis_subset_integrations = []
-    for time_idx in np.arange(time_min, time_max):
-        vis_auto_strides = []
+    vis_auto_strides = []
+    for _time_idx in np.arange(time_min, time_max):
         for antenna_idx in np.arange(antenna_min, antenna_max):
             offset = (
-                time_idx - time_min
-            ) * antenna_idx * auto_offset_addition_both + auto_offset_addition_before
+                antenna_idx * auto_offset_addition_both
+                + auto_offset_addition_before
+                + frequency_min * sd_polarization_len
+            )
             one_antenna_count = (frequency_max - frequency_min) * sd_polarization_len
-            bdf_file.seek(component_offset + offset, os.SEEK_SET)
+            bdf_file.seek(component_offset + offset * itemsize, os.SEEK_SET)
             spw_floats = np.fromfile(bdf_file, dtype=data_type, count=one_antenna_count)
 
             if polarization_len != 3:
@@ -226,12 +230,14 @@ def _load_vis_one_spw_cross_data_from_tree(
         array_slice[3], 0, polarization_len
     )
     component_offset = bdf_file.tell()
+    itemsize = np.dtype(data_type).itemsize
     vis_cross_strides = []
     for baseline_idx in np.arange(baseline_min, baseline_max):
         offset = baseline_idx * cross_offset_both + cross_offset_addition_before
         if processor_type == pyasdm.enumerations.ProcessorType.CORRELATOR:
+            offset += frequency_min * polarization_len * 2
             one_baseline_count = (frequency_max - frequency_min) * polarization_len * 2
-            bdf_file.seek(component_offset + offset, os.SEEK_SET)
+            bdf_file.seek(component_offset + offset * itemsize, os.SEEK_SET)
             spw_vis = np.fromfile(bdf_file, dtype=data_type, count=one_baseline_count)
             spw_vis = spw_vis.reshape((int(spw_vis.size / 2), 2))
             spw_vis = spw_vis[:, 0] + 1j * spw_vis[:, 1]
@@ -240,8 +246,9 @@ def _load_vis_one_spw_cross_data_from_tree(
 
         else:
             # radiometer / spectrometer
-            offset = offset // 2
+            offset = offset // 2 + frequency_min * polarization_len
             one_baseline_count = (frequency_max - frequency_min) * polarization_len
+            bdf_file.seek(component_offset + offset * itemsize, os.SEEK_SET)
             spw_values = np.fromfile(
                 bdf_file, dtype=data_type, count=one_baseline_count
             )

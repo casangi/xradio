@@ -786,7 +786,7 @@ def create_phased_array_xds(
             "PHASED_ARRAY",
             # Some MSes carry COORDINATE_SYSTEM as a copy of COORDINATE_AXES
             # due to a past ambiguity on the PHASED_ARRAY schema
-            ignore=["COORDINATE_SYSTEM", "ANTENNA_ID"],
+            ignore=["COORDINATE_SYSTEM"],
             taql_where=f" where (ANTENNA_ID IN [{','.join(map(str, antenna_ids))}])",
         )
     except ValueError:
@@ -797,6 +797,12 @@ def create_phased_array_xds(
     required_keys = {"COORDINATE_AXES", "ELEMENT_OFFSET", "ELEMENT_FLAG"}
     if not all(k in raw_xds for k in required_keys):
         return None
+
+    # The rows loaded from PHASED_ARRAY could be in any order, which is carried
+    # by raw_xds.ANTENNA_ID. We need to reorder the rows to match the order of
+    # antenna_xds, which is carried by `antenna_ids`.
+    # Then drop the ANTENNA_ID coordinate, which is not needed anymore.
+    raw_xds = raw_xds.sortby("ANTENNA_ID").drop_vars("ANTENNA_ID")
 
     def make_data_variable(raw_name: str, dim_names: list[str]) -> xr.DataArray:
         da = raw_xds[raw_name]

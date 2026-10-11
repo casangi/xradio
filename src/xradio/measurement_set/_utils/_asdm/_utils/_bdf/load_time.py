@@ -49,21 +49,14 @@ def load_times_from_partition_bdfs(
         time_centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
             load_times_from_bdfs(bdf_paths)
         )
-        for time_var in time_centers, durations, actual_times, actual_durations:
-            time_var = convert_time_asdm_to_unix(time_var)
+        time_centers = convert_time_asdm_to_unix(time_centers)
+        actual_times = convert_time_asdm_to_unix(actual_times)
 
     except RuntimeError as exc:
         xradio_logger().warning(
             f"Could not read nominal and actual times and durations from BDFs. {exc=}"
         )
         raise exc
-        time_centers = convert_time_asdm_to_unix(
-            scans_metadata["startTime"].values
-        ) + convert_time_asdm_to_unix(scans_metadata["endTime"].values)
-        durations = np.zeros(2)
-
-        actual_times = np.zeros(2)
-        actual_durations = np.zeros(2)
 
     return time_centers, durations, actual_times, actual_durations, time_indices_by_bdf
 

@@ -57,7 +57,7 @@ from xradio.schema.measures import (  # noqa: F401
 )
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
-MSV4_SCHEMA_VERSION = "4.0.0"
+MSV4_SCHEMA_VERSION = "4.0.1"
 
 # Dimensions
 TimeSystemCal = Literal["time_system_cal"]
@@ -1956,7 +1956,9 @@ class PhasedArrayXds:
     """ Antenna name """
 
     element_id: Coord[ElementId, numpy.int64 | numpy.int32]
-    """ Element Id within a station/antenna """
+    """ Element Id within a station/antenna. Contains integers from 0 to N - 1
+    inclusive where N is the maximum number of receiving elements of any
+    station/antenna."""
 
     receptor_label: Coord[ReceptorLabel, str]
     """ Names of receptors, i.e. polarization hands. """
@@ -1973,6 +1975,9 @@ class PhasedArrayXds:
     """ (p,q,r) - cartesian station-local frame of reference """
 
     # Data variables
+    PHASED_ARRAY_ELEMENT_COUNT: Data[tuple[AntennaName], numpy.int64 | numpy.int32]
+    """ Number of receiving elements of each station/antenna. """
+
     PHASED_ARRAY_COORDINATE_AXES: Dataof[PhasedArrayCoordinateAxesArray]
     """
     3x3 Rotation M such that X_geo = M X_local.
@@ -1984,13 +1989,15 @@ class PhasedArrayXds:
     """
     Offsets of each array element from its parent station position, expressed
     in a station-local frame. Station positions are stored in
-    antenna_xds.ANTENNA_POSITION.
+    antenna_xds.ANTENNA_POSITION. Antennas with fewer than N receiving
+    elements are nan-padded along element_id.
     """
 
     PHASED_ARRAY_ELEMENT_FLAG: Data[tuple[AntennaName, ReceptorLabel, ElementId], bool]
     """
     Boolean flag set to True if the data from a given polarisation receptor of a station element
-    should be ignored.
+    should be ignored. Antennas with fewer than N receiving elements are
+    True-padded along element_id.
     """
 
     # Attributes

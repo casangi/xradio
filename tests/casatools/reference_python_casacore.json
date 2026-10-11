@@ -24,114 +24,114 @@
 "attrs": "59c0d18f895abfda",
 "msv4": {
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_00": {
-".": "825c11bf0023de47",
+".": "f32883517b7e0261",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "0b45cb9971820ebf",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_01": {
-".": "8f0eed751dd639b2",
+".": "f66b7118b714aa33",
 "antenna_xds": "33af1527e286b25d",
 "field_and_source_base_xds": "3adca86d9e9a86e7",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_02": {
-".": "5201b912b56bb4c5",
+".": "0b2948db7f87e7d2",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "e57a3cc195918c73",
 "system_calibration_xds": "537ec7b446002db3",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_03": {
-".": "d00078de40c7408e",
+".": "d46d1dc05ed80dc7",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "f838a0dccaab2fb7",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_04": {
-".": "d31e0710e48c9559",
+".": "7775423d85ec6b7f",
 "antenna_xds": "33af1527e286b25d",
 "field_and_source_base_xds": "f5c3d1703ce44038",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_05": {
-".": "45b2fbbda5ff55b7",
+".": "a9e76300d4bc6f09",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "1aa5217571cd326f",
 "system_calibration_xds": "537ec7b446002db3",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_06": {
-".": "bc21eb1986ab5006",
+".": "ec3d2130b735d167",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "5c8f58dfa109c14b",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_07": {
-".": "a0756207576440c0",
+".": "0875b87bfd5432a0",
 "antenna_xds": "33af1527e286b25d",
 "field_and_source_base_xds": "7485e03d55fd1f0a",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_08": {
-".": "8fccab296a042892",
+".": "086352eb9b9b3fc3",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "3442cc7cb37c3221",
 "system_calibration_xds": "537ec7b446002db3",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_09": {
-".": "87ecba8b29b7bffc",
+".": "c7a20a208c1139cb",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "0c7f8f683262abb8",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_10": {
-".": "93cae4b18c8e2db6",
+".": "12d02d603b3ab1a9",
 "antenna_xds": "33af1527e286b25d",
 "field_and_source_base_xds": "0c7f8f683262abb8",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_11": {
-".": "e9a34878c0c533a4",
+".": "99799df7d140abf9",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "82be312379425cff",
 "system_calibration_xds": "537ec7b446002db3",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_12": {
-".": "47b272975df84e98",
+".": "5dfecd935b8098ee",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "b55c306d9157036d",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_13": {
-".": "8050247cb4b2581e",
+".": "e5ab23fe3b8797b3",
 "antenna_xds": "33af1527e286b25d",
 "field_and_source_base_xds": "a2e1458d10a1eb50",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_14": {
-".": "43adc613e896c582",
+".": "c99512e1ebae3c4c",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "fb2d0eb0b7523925",
 "system_calibration_xds": "537ec7b446002db3",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_15": {
-".": "445817031b61eaee",
+".": "402c89c6233dfb2d",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "c07d1b0eb12936c4",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_16": {
-".": "466921c8b16b2412",
+".": "de053447733ccdd7",
 "antenna_xds": "33af1527e286b25d",
 "field_and_source_base_xds": "d250ce3c4631a947",
 "weather_xds": "c809236ae0cc09c5"
 },
 "ALMA_uid___A002_X1003af4_X75a3.split.avg_17": {
-".": "e8b7483baf04e74b",
+".": "f6eb9e098a2bdb10",
 "antenna_xds": "347b518cd178a1cb",
 "field_and_source_base_xds": "b701bfed67d03325",
 "system_calibration_xds": "537ec7b446002db3",
@@ -146,7 +146,7 @@
 "attrs": "59c0d18f895abfda",
 "msv4": {
 "small_lofar_0": {
-".": "4772aac0303e42c3",
+".": "879fa07d1a3cd4ee",
 "antenna_xds": "2f5f8c435cd2d621",
 "field_and_source_base_xds": "507c45d2e039000b",
 "pointing_xds": "e42d4153d83d10a6"
@@ -179,7 +179,7 @@
 "attrs": "59c0d18f895abfda",
 "msv4": {
 "uid___A002_Xe3a5fd_Xe38e.small_00": {
-".": "86e82bac328b65d6",
+".": "dae34d4c8332d9cb",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "27349da7f536f607",
 "pointing_xds": "e19972165733bfc5",
@@ -187,7 +187,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_01": {
-".": "a8576557f39a59fc",
+".": "52783ee040fa97b0",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "4fc130002ced922c",
 "pointing_xds": "e19972165733bfc5",
@@ -195,7 +195,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_02": {
-".": "95dc9c818e13962e",
+".": "93d765a9ce617e0d",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "2e6c5049c480688c",
 "pointing_xds": "e19972165733bfc5",
@@ -203,7 +203,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_03": {
-".": "e8e02325d28f1b22",
+".": "cf300e9190689fe3",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "b3a5c3a34c9e6096",
 "pointing_xds": "e19972165733bfc5",
@@ -211,7 +211,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_04": {
-".": "5ad02c3ab885eb34",
+".": "8c31edfdb92fdb07",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "27349da7f536f607",
 "pointing_xds": "def60ac7eab9a3c5",
@@ -219,7 +219,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_05": {
-".": "1423e9150c6ecdef",
+".": "cea9c8ac69e1eba1",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "4fc130002ced922c",
 "pointing_xds": "def60ac7eab9a3c5",
@@ -227,7 +227,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_06": {
-".": "38117757c8ecda74",
+".": "6a26ab7368cf040d",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "2e6c5049c480688c",
 "pointing_xds": "def60ac7eab9a3c5",
@@ -235,7 +235,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_07": {
-".": "b927b995a16c88ef",
+".": "d5ca7772fdeb73c7",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "b3a5c3a34c9e6096",
 "pointing_xds": "def60ac7eab9a3c5",
@@ -243,7 +243,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_08": {
-".": "8e0459892d1ccae8",
+".": "bec1dc8d8fb3dfd2",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "27349da7f536f607",
 "pointing_xds": "6af948ec588fcb88",
@@ -251,7 +251,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_09": {
-".": "5b5688243bc23820",
+".": "1ea75180690316d7",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "4fc130002ced922c",
 "pointing_xds": "6af948ec588fcb88",
@@ -259,7 +259,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_10": {
-".": "1bc500b8ffedd51f",
+".": "b92055e692871ec4",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "2e6c5049c480688c",
 "pointing_xds": "6af948ec588fcb88",
@@ -267,7 +267,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_11": {
-".": "2a6a34dbed4c9a22",
+".": "b3dbbe018cd86174",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "b3a5c3a34c9e6096",
 "pointing_xds": "6af948ec588fcb88",
@@ -275,7 +275,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_12": {
-".": "fde8c3c5684a2ce2",
+".": "1a73244b08904221",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "70892126114c71f5",
 "pointing_xds": "9208cdcad75d4b74",
@@ -283,7 +283,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_13": {
-".": "f579033bc7834628",
+".": "25f0191fab0fd229",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "384d94442dbffd1d",
 "pointing_xds": "9208cdcad75d4b74",
@@ -291,7 +291,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_14": {
-".": "43d4b43a9bc27f93",
+".": "69432ba68706e884",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "dd0796ed4deaa0aa",
 "pointing_xds": "9208cdcad75d4b74",
@@ -299,7 +299,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_15": {
-".": "f71319089e2d0d60",
+".": "c3667c9e7633efe8",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "31d14bbba8939d89",
 "pointing_xds": "9208cdcad75d4b74",
@@ -307,7 +307,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_16": {
-".": "2b01fda042b54ed4",
+".": "e88f807a914edacf",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "c0279d0343b597f5",
 "pointing_xds": "741c861e8b386f5e",
@@ -315,7 +315,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_17": {
-".": "6fb73b227b2497c7",
+".": "dfd986973c03ff43",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "f3e3af2051e59edb",
 "pointing_xds": "741c861e8b386f5e",
@@ -323,7 +323,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_18": {
-".": "00d3ee503b51d659",
+".": "7ce59a95bb6ff91f",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "89e35ff49706acd2",
 "pointing_xds": "741c861e8b386f5e",
@@ -331,7 +331,7 @@
 "weather_xds": "42bfba3902acb074"
 },
 "uid___A002_Xe3a5fd_Xe38e.small_19": {
-".": "d095dc3bdf103496",
+".": "8e967d31f25dbe00",
 "antenna_xds": "00ad02f482b12a2a",
 "field_and_source_base_xds": "b59daf249a26a3b9",
 "pointing_xds": "741c861e8b386f5e",
@@ -347,7 +347,7 @@
 "attrs": "59c0d18f895abfda",
 "msv4": {
 "sdimaging_0": {
-".": "e77346127fd5d550",
+".": "ec7a362208a50271",
 "antenna_xds": "7dedbca240169172",
 "field_and_source_base_xds": "7eaae464de29bba1",
 "pointing_xds": "1ae1a43dff2da05b",
@@ -382,140 +382,140 @@
 "attrs": "59c0d18f895abfda",
 "msv4": {
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_00": {
-".": "5506cdb1125dd3e6",
+".": "3fe6049923cc9dc1",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "192d8980c58257b9",
 "pointing_xds": "77fc4c642d82b47b",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_01": {
-".": "4f6d3ddc717e3534",
+".": "70f772a8fee808ce",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "192d8980c58257b9",
 "pointing_xds": "77fc4c642d82b47b",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_02": {
-".": "b6b212b93555ab1e",
+".": "b013e905b42b4d17",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "192d8980c58257b9",
 "pointing_xds": "77fc4c642d82b47b",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_03": {
-".": "eb09107c4dd9c0a3",
+".": "2192eeb313acc575",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "192d8980c58257b9",
 "pointing_xds": "77fc4c642d82b47b",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_04": {
-".": "f6861debf7273282",
+".": "e5bc9bd6f27fe76a",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "c811e8f6a5dd3b17",
 "pointing_xds": "1c73fd18d7ee9239",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_05": {
-".": "13b66edce8f99e5c",
+".": "58b10283a33c8673",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "c811e8f6a5dd3b17",
 "pointing_xds": "1c73fd18d7ee9239",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_06": {
-".": "65777ee921789c50",
+".": "fa128f2f3c10a956",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "c811e8f6a5dd3b17",
 "pointing_xds": "1c73fd18d7ee9239",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_07": {
-".": "895950b41d1ba4b0",
+".": "ee35cb25f2b345ef",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "c811e8f6a5dd3b17",
 "pointing_xds": "1c73fd18d7ee9239",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_08": {
-".": "7a6a219f58c93a8f",
+".": "7700db433f04a283",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "45ffe9d185ad5035",
 "pointing_xds": "6ff23d321a0ff3bc",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_09": {
-".": "56671ad62b46e3fb",
+".": "5ee4d34229859a5b",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "45ffe9d185ad5035",
 "pointing_xds": "6ff23d321a0ff3bc",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_10": {
-".": "cb7dc5451c645483",
+".": "3e943f104a57f411",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "45ffe9d185ad5035",
 "pointing_xds": "6ff23d321a0ff3bc",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_11": {
-".": "f631fa989728ea0b",
+".": "437f870b57c1f49e",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "45ffe9d185ad5035",
 "pointing_xds": "6ff23d321a0ff3bc",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_12": {
-".": "25b7b291ff1a8e95",
+".": "af436a08e0535411",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "52ed1fc141784e33",
 "pointing_xds": "7690fca8eb57b285",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_13": {
-".": "04ee009d626d6582",
+".": "c4e536dd4289b670",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "52ed1fc141784e33",
 "pointing_xds": "7690fca8eb57b285",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_14": {
-".": "ae868c7c6e6db1f0",
+".": "9ce61683eda3c0dc",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "52ed1fc141784e33",
 "pointing_xds": "7690fca8eb57b285",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_15": {
-".": "2c631e51df2deb74",
+".": "edd8046243a02e0b",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "52ed1fc141784e33",
 "pointing_xds": "7690fca8eb57b285",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_16": {
-".": "425cc33b18114428",
+".": "2918d97e3dc9c15b",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "438160dc95d4ec9e",
 "pointing_xds": "50f22aac7098c629",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_17": {
-".": "e1601c936b31bfbb",
+".": "5778a703d8236771",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "438160dc95d4ec9e",
 "pointing_xds": "50f22aac7098c629",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_18": {
-".": "e54ec871424d0b10",
+".": "f34b88d9484ab28d",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "438160dc95d4ec9e",
 "pointing_xds": "50f22aac7098c629",
 "weather_xds": "b1306cce2f87a3a6"
 },
 "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6_19": {
-".": "3a5654ccb1de67c5",
+".": "759e892e9ae63a23",
 "antenna_xds": "d276c3c6a076a4f0",
 "field_and_source_base_xds": "438160dc95d4ec9e",
 "pointing_xds": "50f22aac7098c629",
@@ -531,14 +531,14 @@
 "attrs": "59c0d18f895abfda",
 "msv4": {
 "global_vlbi_gg084b_reduced_0": {
-".": "05780c38a42054f0",
+".": "4599b68a96a5dee9",
 "antenna_xds": "89e4aaedae868794",
 "field_and_source_base_xds": "34109cb48932c407",
 "gain_curve_xds": "9b68dcea59d0fae0",
 "system_calibration_xds": "036852907f38b7b5"
 },
 "global_vlbi_gg084b_reduced_1": {
-".": "b985bb2b119df115",
+".": "6d2e5522d203da18",
 "antenna_xds": "89e4aaedae868794",
 "field_and_source_base_xds": "34109cb48932c407",
 "gain_curve_xds": "9b68dcea59d0fae0",
@@ -556,28 +556,28 @@
 "attrs": "59c0d18f895abfda",
 "msv4": {
 "global_vlbi_gg084b_reduced_0": {
-".": "7c136acbdfdb7229",
+".": "9afc1a37513bfcda",
 "antenna_xds": "89e4aaedae868794",
 "field_and_source_base_xds": "c9b04f90ff13c4a3",
 "gain_curve_xds": "9b68dcea59d0fae0",
 "system_calibration_xds": "036852907f38b7b5"
 },
 "global_vlbi_gg084b_reduced_1": {
-".": "27e94ad461e6085b",
+".": "68f27bebab9b3a8d",
 "antenna_xds": "89e4aaedae868794",
 "field_and_source_base_xds": "c9b04f90ff13c4a3",
 "gain_curve_xds": "9b68dcea59d0fae0",
 "system_calibration_xds": "eaee5ef56fbc1f2f"
 },
 "global_vlbi_gg084b_reduced_2": {
-".": "828a618d99eea329",
+".": "9f3b330ba2ebcfb3",
 "antenna_xds": "383d2108157f09c6",
 "field_and_source_base_xds": "6f6ba85b868eca53",
 "gain_curve_xds": "671f4ba8a02ce74e",
 "system_calibration_xds": "44a5961651bef110"
 },
 "global_vlbi_gg084b_reduced_3": {
-".": "9cb8f6c6efbc6c66",
+".": "d88bc138dec9ce69",
 "antenna_xds": "383d2108157f09c6",
 "field_and_source_base_xds": "6f6ba85b868eca53",
 "gain_curve_xds": "671f4ba8a02ce74e",
@@ -605,23 +605,6 @@
 "telescope_name": "str|e9b82ebe1fd26298"
 }
 },
-"00d3ee503b51d659": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
-"FLAG": "bool|6477df8e0d12d3b0",
-"SPECTRUM": "float32|b266522c7e7373ab",
-"TIME_CENTROID": "float64|c99bad840d1f0c0f",
-"WEIGHT": "float64|cc1f37d051ccf892",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|163b28a4d8fd7a0f",
-"frequency": "float64|cea6c2d679a27be5",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|9dea21a24ccba50d",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|880e72eb97001f19"
-}
-},
 "036852907f38b7b5": {
 "meta": "5fb958c3a3c7a330",
 "vars": {
@@ -636,43 +619,43 @@
 "time_system_cal": "float64|764be60b16736bce"
 }
 },
-"04ee009d626d6582": {
-"meta": "9a6dc971cadbfb7b",
+"086352eb9b9b3fc3": {
+"meta": "a43f3517c0033aa6",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
-"FLAG": "bool|43812bd443b05080",
-"TIME_CENTROID": "float64|53ac5dcfb61dff97",
-"UVW": "float64|58baf49fd242ee9e",
-"VISIBILITY": "complex64|84eab75303ee002c",
-"WEIGHT": "float32|d62166f0fbc91d71",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|92c72eadf782db9c",
-"frequency": "float64|ba1e7281025ce33a",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|cc63a9cd4fac84ab",
-"time": "float64|5d07c4cd4cb33981",
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|964508fad6015757",
+"UVW": "float64|2f039710ead54504",
+"VISIBILITY": "complex64|19ad67b58a6eb588",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|c348ec3dcf53effe",
+"time": "float64|e1326a794fa85df2",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
-"05780c38a42054f0": {
-"meta": "56d38b8d1b5644ad",
+"0875b87bfd5432a0": {
+"meta": "6de853d930434f3d",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
-"FLAG": "bool|a6b5ff97e7fa23f3",
-"TIME_CENTROID": "float64|f93b61b455a3995e",
-"UVW": "float64|a8d770ac30fb2e2c",
-"VISIBILITY": "complex64|1d12dc2bb0748792",
-"WEIGHT": "float32|6f6ca328fea3c9d5",
-"baseline_antenna1_name": "str|d3fd3e40f3112bec",
-"baseline_antenna2_name": "str|88d829d6a6c082ca",
-"baseline_id": "int64|1ffed7ec5446410b",
-"field_name": "str|f4dfd6dbc9c91114",
-"frequency": "float64|73eca3d64cda9a57",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|651ad15bc4808c79",
-"time": "float64|975534bd36e1b231",
+"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|da2871a5eba4f722",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|230ede82783961e6",
+"WEIGHT": "float32|c22fa756269e8346",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|c348ec3dcf53effe",
+"time": "float64|3d810aab8c6ffeab",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
@@ -691,6 +674,26 @@
 "station_name": "str|46564abece9058e9",
 "telescope_name": "str|e9b82ebe1fd26298",
 "time_system_cal": "float64|2fe7daa25a8e7e3b"
+}
+},
+"0b2948db7f87e7d2": {
+"meta": "a43f3517c0033aa6",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|2f5f718162eea5be",
+"UVW": "float64|552c0a7976011cd2",
+"VISIBILITY": "complex64|f2c1a6504b6b13a3",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|8f4534924973590b",
+"time": "float64|69de1413d707a9be",
+"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "0b45cb9971820ebf": {
@@ -791,41 +794,24 @@
 "time_system_cal": "float64|e027a4925b3841d1"
 }
 },
-"13b66edce8f99e5c": {
-"meta": "9a6dc971cadbfb7b",
+"12d02d603b3ab1a9": {
+"meta": "6de853d930434f3d",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
-"FLAG": "bool|9fe1f32672a5c3bc",
-"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
-"UVW": "float64|187f2efc3cf2ea89",
-"VISIBILITY": "complex64|35afb25a775356da",
-"WEIGHT": "float32|cb62592ee6f17205",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|22918143d415f890",
-"frequency": "float64|ba1e7281025ce33a",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|1dae0c2404de2431",
-"time": "float64|839a79b5fe0e10d3",
+"EFFECTIVE_INTEGRATION_TIME": "float64|d2529848e59aace9",
+"FLAG": "bool|19d6a161aae5a7e1",
+"TIME_CENTROID": "float64|975fa0fe825b055f",
+"UVW": "float64|7b8ba44c5a0e0b26",
+"VISIBILITY": "complex64|463f7f961593f5ec",
+"WEIGHT": "float32|174892d393435ff3",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|6f0a7ee1f9f37706",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|30d515ad9f7aa9d0",
+"time": "float64|0c00ad388a4ead9c",
 "uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"1423e9150c6ecdef": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|6fde4f1cc93e346b",
-"TIME_CENTROID": "float64|3b65fe88f8744a8e",
-"WEIGHT": "float64|8e26431292c29a5d",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|c89e9dd66fc6ad1a",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|204a36440e9e0f5e",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|4d6f9dcb1e9a0a5a"
 }
 },
 "192d8980c58257b9": {
@@ -836,6 +822,23 @@
 "field_name": "str|0a13393a918b9ca0",
 "sky_dir_label": "str|ce909f0f69f37958",
 "source_name": "str|c0479efce94ec700"
+}
+},
+"1a73244b08904221": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|32921cd9a94ec7ab",
+"SPECTRUM": "float32|d1d7ac8849bceea7",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|c55a6eb09e45b739",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
 }
 },
 "1aa5217571cd326f": {
@@ -899,23 +902,6 @@
 "time_pointing": "float64|d55a4e0ffd4d2bbd"
 }
 },
-"1bc500b8ffedd51f": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|a9f612551d08234a",
-"TIME_CENTROID": "float64|a6631bc2ebd2513c",
-"WEIGHT": "float64|8e26431292c29a5d",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|cea6c2d679a27be5",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|e05f3870e7be39aa",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|8cfd23037c2f91a7"
-}
-},
 "1c73fd18d7ee9239": {
 "meta": "333e0474b119250a",
 "vars": {
@@ -927,24 +913,58 @@
 "time_pointing": "float64|57b701b3312eb052"
 }
 },
-"25b7b291ff1a8e95": {
-"meta": "9a6dc971cadbfb7b",
+"1ea75180690316d7": {
+"meta": "07217f3837e11043",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
-"FLAG": "bool|43812bd443b05080",
-"TIME_CENTROID": "float64|53ac5dcfb61dff97",
-"UVW": "float64|58baf49fd242ee9e",
-"VISIBILITY": "complex64|428a2a4aa62b2040",
-"WEIGHT": "float32|d62166f0fbc91d71",
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|bbe289e43e04e12e",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
+}
+},
+"2192eeb313acc575": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|b4a3bd1e24a6c15d",
+"WEIGHT": "float32|c4ecc3faae000a84",
 "baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
 "baseline_antenna2_name": "str|fcf8b2202faac192",
 "baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|92c72eadf782db9c",
-"frequency": "float64|a58281ed74e96e6b",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|613ce2d013f0d834",
 "polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|cc63a9cd4fac84ab",
-"time": "float64|5d07c4cd4cb33981",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
 "uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"25f0191fab0fd229": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|57d6a5dba8ec8df3",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
 }
 },
 "27349da7f536f607": {
@@ -961,58 +981,24 @@
 "source_name": "str|a538226f81b2b438"
 }
 },
-"27e94ad461e6085b": {
-"meta": "56d38b8d1b5644ad",
+"2918d97e3dc9c15b": {
+"meta": "70a2767b717004c8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
-"FLAG": "bool|d1c7eec62aa9defe",
-"TIME_CENTROID": "float64|72a8a07e7199f4d4",
-"UVW": "float64|60f74c9923935ec0",
-"VISIBILITY": "complex64|ad7f9ab8dff31bf8",
-"WEIGHT": "float32|efcb17bdcaab4cb8",
-"baseline_antenna1_name": "str|d3fd3e40f3112bec",
-"baseline_antenna2_name": "str|88d829d6a6c082ca",
-"baseline_id": "int64|1ffed7ec5446410b",
-"field_name": "str|4ee82efb69a0394a",
-"frequency": "float64|6a342e0daf117b70",
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|fb41f9618f869f86",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|a58281ed74e96e6b",
 "polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|28f601a9f56bd3b3",
-"time": "float64|71386ff4b71e4098",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
 "uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"2a6a34dbed4c9a22": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|e15bc36b48f24ead",
-"TIME_CENTROID": "float64|a6631bc2ebd2513c",
-"WEIGHT": "float64|8e26431292c29a5d",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|c56edd2dfb6e47e4",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|e05f3870e7be39aa",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|8cfd23037c2f91a7"
-}
-},
-"2b01fda042b54ed4": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
-"FLAG": "bool|5e0977412cac52d4",
-"SPECTRUM": "float32|feb1760a81ac9ee1",
-"TIME_CENTROID": "float64|c99bad840d1f0c0f",
-"WEIGHT": "float64|d5474176fb276954",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|163b28a4d8fd7a0f",
-"frequency": "float64|b59e43004d434fed",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|9dea21a24ccba50d",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|880e72eb97001f19"
 }
 },
 "2b6f706a81183ced": {
@@ -1030,26 +1016,6 @@
 "station_name": "str|46564abece9058e9",
 "telescope_name": "str|e9b82ebe1fd26298",
 "time_system_cal": "float64|2fe7daa25a8e7e3b"
-}
-},
-"2c631e51df2deb74": {
-"meta": "9a6dc971cadbfb7b",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
-"FLAG": "bool|43812bd443b05080",
-"TIME_CENTROID": "float64|53ac5dcfb61dff97",
-"UVW": "float64|58baf49fd242ee9e",
-"VISIBILITY": "complex64|5fe32a53be0f974f",
-"WEIGHT": "float32|d62166f0fbc91d71",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|92c72eadf782db9c",
-"frequency": "float64|613ce2d013f0d834",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|cc63a9cd4fac84ab",
-"time": "float64|5d07c4cd4cb33981",
-"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "2e6c5049c480688c": {
@@ -1186,23 +1152,6 @@
 "telescope_name": "str|024ccd754dfd6efe"
 }
 },
-"38117757c8ecda74": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|8c9cbd7b35dfcfc5",
-"TIME_CENTROID": "float64|3b65fe88f8744a8e",
-"WEIGHT": "float64|8e26431292c29a5d",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|cea6c2d679a27be5",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|204a36440e9e0f5e",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|4d6f9dcb1e9a0a5a"
-}
-},
 "383d2108157f09c6": {
 "meta": "ee49155e11923344",
 "vars": {
@@ -1230,26 +1179,6 @@
 "line_name": "str|435ae6fec466140a",
 "sky_dir_label": "str|ce909f0f69f37958",
 "source_name": "str|33f2d18af653cb92"
-}
-},
-"3a5654ccb1de67c5": {
-"meta": "9a6dc971cadbfb7b",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
-"FLAG": "bool|c9ea53a143785bbd",
-"TIME_CENTROID": "float64|630585e3ffe5fe50",
-"UVW": "float64|c83032da3d8beb08",
-"VISIBILITY": "complex64|5a2f6a2ef528de86",
-"WEIGHT": "float32|1276be509bb8855c",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|7837f1610e4fdda9",
-"frequency": "float64|613ce2d013f0d834",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|78d4df8388296b1b",
-"time": "float64|43b51d164a62df3a",
-"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "3adca86d9e9a86e7": {
@@ -1301,90 +1230,48 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
-"425cc33b18114428": {
-"meta": "9a6dc971cadbfb7b",
+"3e943f104a57f411": {
+"meta": "70a2767b717004c8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
-"FLAG": "bool|c9ea53a143785bbd",
-"TIME_CENTROID": "float64|630585e3ffe5fe50",
-"UVW": "float64|c83032da3d8beb08",
-"VISIBILITY": "complex64|fb41f9618f869f86",
-"WEIGHT": "float32|1276be509bb8855c",
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|dee7de2058b272b6",
+"WEIGHT": "float32|b0a5ab45a942c790",
 "baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
 "baseline_antenna2_name": "str|fcf8b2202faac192",
 "baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|7837f1610e4fdda9",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"3fe6049923cc9dc1": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|447167082a044f27",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
 "frequency": "float64|a58281ed74e96e6b",
 "polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|78d4df8388296b1b",
-"time": "float64|43b51d164a62df3a",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
-"42bfba3902acb074": {
-"meta": "2052abee51fd2de8",
-"vars": {
-"DEW_POINT": "float64|99518a54b78d7fcb",
-"PRESSURE": "float64|65b035b62118a1b8",
-"REL_HUMIDITY": "float64|37eb9d9eb3d40975",
-"STATION_POSITION": "float64|ca00112f9e916c8c",
-"TEMPERATURE": "float64|5e6c00dd3a298347",
-"WIND_DIRECTION": "float64|741b69976b8d67bd",
-"WIND_SPEED": "float64|3d15d6fb2b90c131",
-"cartesian_pos_label": "str|d6d0ae5afb26dc88",
-"station_name": "str|a479039a7d603551",
-"time_weather": "float64|a7fae903030fef94"
-}
-},
-"438160dc95d4ec9e": {
-"meta": "887e2811edae594a",
-"vars": {
-"FIELD_PHASE_CENTER_DIRECTION": "float64|13f6234a0d8a88ea",
-"SOURCE_DIRECTION": "float64|05149764af5be8a8",
-"field_name": "str|554a583600311c94",
-"sky_dir_label": "str|ce909f0f69f37958",
-"source_name": "str|836c12704620ed37"
-}
-},
-"43adc613e896c582": {
-"meta": "e42438558e1b4117",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|62556081a0c9a0e2",
-"FLAG": "bool|98afc746487a5c5b",
-"TIME_CENTROID": "float64|25abed22b7ebaf08",
-"UVW": "float64|e92abe6222eb89ac",
-"VISIBILITY": "complex64|cb2c2a09094e1946",
-"WEIGHT": "float32|48cedaf785ffa3ba",
-"baseline_antenna1_name": "str|cddab9a141f9371e",
-"baseline_antenna2_name": "str|38166206ec5e098d",
-"baseline_id": "int64|a701d81398720755",
-"field_name": "str|e24a4253873525d1",
-"frequency": "float64|54f6bf8ae7bc28a0",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|baa570831c7bda2c",
-"time": "float64|473f5df8f7ec3073",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"43d4b43a9bc27f93": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
-"FLAG": "bool|e66dfd565ed74ddb",
-"SPECTRUM": "float32|a212c55360769acb",
-"TIME_CENTROID": "float64|19df861e0c96de52",
-"WEIGHT": "float64|cd868d96fc2ff652",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|5f198924f49b7edf",
-"frequency": "float64|cea6c2d679a27be5",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|cadad967d6a116e7",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|66bcbf9015de0824"
-}
-},
-"445817031b61eaee": {
-"meta": "536d7ca0ca2c2f59",
+"402c89c6233dfb2d": {
+"meta": "86c6129660f9c8d8",
 "vars": {
 "EFFECTIVE_INTEGRATION_TIME": "float64|edeb9d5590952591",
 "FLAG": "bool|ec031ca0866f31ab",
@@ -1403,6 +1290,51 @@
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
+"42bfba3902acb074": {
+"meta": "2052abee51fd2de8",
+"vars": {
+"DEW_POINT": "float64|99518a54b78d7fcb",
+"PRESSURE": "float64|65b035b62118a1b8",
+"REL_HUMIDITY": "float64|37eb9d9eb3d40975",
+"STATION_POSITION": "float64|ca00112f9e916c8c",
+"TEMPERATURE": "float64|5e6c00dd3a298347",
+"WIND_DIRECTION": "float64|741b69976b8d67bd",
+"WIND_SPEED": "float64|3d15d6fb2b90c131",
+"cartesian_pos_label": "str|d6d0ae5afb26dc88",
+"station_name": "str|a479039a7d603551",
+"time_weather": "float64|a7fae903030fef94"
+}
+},
+"437f870b57c1f49e": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|4d6c2e7d8b5433b6",
+"WEIGHT": "float32|b0a5ab45a942c790",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"438160dc95d4ec9e": {
+"meta": "887e2811edae594a",
+"vars": {
+"FIELD_PHASE_CENTER_DIRECTION": "float64|13f6234a0d8a88ea",
+"SOURCE_DIRECTION": "float64|05149764af5be8a8",
+"field_name": "str|554a583600311c94",
+"sky_dir_label": "str|ce909f0f69f37958",
+"source_name": "str|836c12704620ed37"
+}
+},
 "44a5961651bef110": {
 "meta": "5fb958c3a3c7a330",
 "vars": {
@@ -1417,23 +1349,23 @@
 "time_system_cal": "float64|28c14d9ae447d111"
 }
 },
-"45b2fbbda5ff55b7": {
-"meta": "e42438558e1b4117",
+"4599b68a96a5dee9": {
+"meta": "5c1d329b6941719c",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
-"FLAG": "bool|3f4d9f707d2bb07e",
-"TIME_CENTROID": "float64|3d54d347c1497f86",
-"UVW": "float64|292a02f72563dd4f",
-"VISIBILITY": "complex64|8effbadb0602e065",
-"WEIGHT": "float32|03039f37d59c99b3",
-"baseline_antenna1_name": "str|cddab9a141f9371e",
-"baseline_antenna2_name": "str|38166206ec5e098d",
-"baseline_id": "int64|a701d81398720755",
-"field_name": "str|1a3a8cc77a17c627",
-"frequency": "float64|54f6bf8ae7bc28a0",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|bde28f4ab6aeca9b",
-"time": "float64|4644ead4b7fd5433",
+"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
+"FLAG": "bool|a6b5ff97e7fa23f3",
+"TIME_CENTROID": "float64|f93b61b455a3995e",
+"UVW": "float64|a8d770ac30fb2e2c",
+"VISIBILITY": "complex64|1d12dc2bb0748792",
+"WEIGHT": "float32|6f6ca328fea3c9d5",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|f4dfd6dbc9c91114",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|651ad15bc4808c79",
+"time": "float64|975534bd36e1b231",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
@@ -1445,86 +1377,6 @@
 "field_name": "str|c2b5d98b11f47a85",
 "sky_dir_label": "str|ce909f0f69f37958",
 "source_name": "str|c2b5d98b11f47a85"
-}
-},
-"466921c8b16b2412": {
-"meta": "007427d3b50c628d",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|e0459e9572f25a97",
-"FLAG": "bool|eda0475525a63273",
-"TIME_CENTROID": "float64|2adb8bc369c78ab6",
-"UVW": "float64|e1aca2d880cd57fe",
-"VISIBILITY": "complex64|b6d822a22e40e558",
-"WEIGHT": "float32|2b0fb59721f5442c",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|b3dba8afe66266ce",
-"frequency": "float64|dff55e84e844e76d",
-"polarization": "str|eed710a9fa10c117",
-"scan_name": "str|e46386c092385ddd",
-"time": "float64|a0839375df612fb8",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"4772aac0303e42c3": {
-"meta": "e34afaeeffeba776",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|5578c3fd17be2d4a",
-"FLAG": "bool|b5a25589198f12b7",
-"TIME_CENTROID": "float64|c2f75e27cafa9e39",
-"UVW": "float64|49b442b02cb2c74e",
-"VISIBILITY": "complex64|e549fa4ca5b1748e",
-"WEIGHT": "float32|b1a63887c73d4e13",
-"baseline_antenna1_name": "str|7524c535ee3f4eb6",
-"baseline_antenna2_name": "str|ccb4ff05f828b0c8",
-"baseline_id": "int64|d5d93955be9e2d0f",
-"field_name": "str|79bda58fe77b87f3",
-"frequency": "float64|402a869f2ba74192",
-"polarization": "str|2e23cfa7e9460a01",
-"scan_name": "str|2c84fde9e77b30f0",
-"time": "float64|ab90064ed983ede2",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"47b272975df84e98": {
-"meta": "536d7ca0ca2c2f59",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|c85d2e2fb960ed6e",
-"FLAG": "bool|55cdd5c405f5c9f3",
-"TIME_CENTROID": "float64|fc1f6e6c43ddf662",
-"UVW": "float64|d9f117d3664a26ab",
-"VISIBILITY": "complex64|04ca9b990b068cfb",
-"WEIGHT": "float32|7ccfa968e9e000f0",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|e058c221b0fba2a9",
-"frequency": "float64|a61ae9bb3e588366",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|7b65b2b9ee11632a",
-"time": "float64|700a49953d6dce08",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"4f6d3ddc717e3534": {
-"meta": "9a6dc971cadbfb7b",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
-"FLAG": "bool|8d9af6c02f6356e8",
-"TIME_CENTROID": "float64|cbd279ff13a2be18",
-"UVW": "float64|ef6d5f0ad2840889",
-"VISIBILITY": "complex64|80ca940ab8b6e796",
-"WEIGHT": "float32|c4ecc3faae000a84",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|03f7c3b97c7cb415",
-"frequency": "float64|ba1e7281025ce33a",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|d724524d324f6f2f",
-"time": "float64|22c6374553fc5627",
-"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "4fc130002ced922c": {
@@ -1561,24 +1413,21 @@
 "time_pointing": "float64|1bb3ead517529dbe"
 }
 },
-"5201b912b56bb4c5": {
-"meta": "e42438558e1b4117",
+"52783ee040fa97b0": {
+"meta": "07217f3837e11043",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
-"FLAG": "bool|3f4d9f707d2bb07e",
-"TIME_CENTROID": "float64|2f5f718162eea5be",
-"UVW": "float64|552c0a7976011cd2",
-"VISIBILITY": "complex64|f2c1a6504b6b13a3",
-"WEIGHT": "float32|03039f37d59c99b3",
-"baseline_antenna1_name": "str|cddab9a141f9371e",
-"baseline_antenna2_name": "str|38166206ec5e098d",
-"baseline_id": "int64|a701d81398720755",
-"field_name": "str|1a3a8cc77a17c627",
-"frequency": "float64|54f6bf8ae7bc28a0",
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|bbf266fecfeaad1a",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|8f4534924973590b",
-"time": "float64|69de1413d707a9be",
-"uvw_label": "str|a03ef8a373c0c4c7"
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
 }
 },
 "52ed1fc141784e33": {
@@ -1609,78 +1458,44 @@
 "time_system_cal": "float64|4987ba9860e868eb"
 }
 },
-"5506cdb1125dd3e6": {
-"meta": "9a6dc971cadbfb7b",
+"5778a703d8236771": {
+"meta": "70a2767b717004c8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
-"FLAG": "bool|8d9af6c02f6356e8",
-"TIME_CENTROID": "float64|cbd279ff13a2be18",
-"UVW": "float64|ef6d5f0ad2840889",
-"VISIBILITY": "complex64|447167082a044f27",
-"WEIGHT": "float32|c4ecc3faae000a84",
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|f20feab29f7c87cc",
+"WEIGHT": "float32|1276be509bb8855c",
 "baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
 "baseline_antenna2_name": "str|fcf8b2202faac192",
 "baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|03f7c3b97c7cb415",
-"frequency": "float64|a58281ed74e96e6b",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|d724524d324f6f2f",
-"time": "float64|22c6374553fc5627",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"56671ad62b46e3fb": {
-"meta": "9a6dc971cadbfb7b",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
-"FLAG": "bool|e4064901c3c28ca5",
-"TIME_CENTROID": "float64|5e0e869cf4b61157",
-"UVW": "float64|fbf0366c6a9018be",
-"VISIBILITY": "complex64|c3fc7f4d4331e635",
-"WEIGHT": "float32|b0a5ab45a942c790",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|b3503937567598af",
+"field_name": "str|7837f1610e4fdda9",
 "frequency": "float64|ba1e7281025ce33a",
 "polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|1b2d9f3ad6e79db8",
-"time": "float64|986e06374e878e68",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
-"5ad02c3ab885eb34": {
-"meta": "e89edcbe557b62cf",
+"58b10283a33c8673": {
+"meta": "70a2767b717004c8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|7fb125c8f3f3fca5",
-"SPECTRUM": "float32|55f1123a2285a74c",
-"TIME_CENTROID": "float64|3b65fe88f8744a8e",
-"WEIGHT": "float64|e1cecd9cc42d1d5f",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|b59e43004d434fed",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|204a36440e9e0f5e",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|4d6f9dcb1e9a0a5a"
-}
-},
-"5b5688243bc23820": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|bbe289e43e04e12e",
-"TIME_CENTROID": "float64|a6631bc2ebd2513c",
-"WEIGHT": "float64|8e26431292c29a5d",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|c89e9dd66fc6ad1a",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|e05f3870e7be39aa",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|8cfd23037c2f91a7"
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|35afb25a775356da",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "5c8f58dfa109c14b": {
@@ -1739,23 +1554,43 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
-"65777ee921789c50": {
-"meta": "9a6dc971cadbfb7b",
+"5dfecd935b8098ee": {
+"meta": "86c6129660f9c8d8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
-"FLAG": "bool|9fe1f32672a5c3bc",
-"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
-"UVW": "float64|187f2efc3cf2ea89",
-"VISIBILITY": "complex64|6c0c0aa2c7d087ed",
-"WEIGHT": "float32|cb62592ee6f17205",
+"EFFECTIVE_INTEGRATION_TIME": "float64|c85d2e2fb960ed6e",
+"FLAG": "bool|55cdd5c405f5c9f3",
+"TIME_CENTROID": "float64|fc1f6e6c43ddf662",
+"UVW": "float64|d9f117d3664a26ab",
+"VISIBILITY": "complex64|04ca9b990b068cfb",
+"WEIGHT": "float32|7ccfa968e9e000f0",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|e058c221b0fba2a9",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|7b65b2b9ee11632a",
+"time": "float64|700a49953d6dce08",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"5ee4d34229859a5b": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
+"FLAG": "bool|e4064901c3c28ca5",
+"TIME_CENTROID": "float64|5e0e869cf4b61157",
+"UVW": "float64|fbf0366c6a9018be",
+"VISIBILITY": "complex64|c3fc7f4d4331e635",
+"WEIGHT": "float32|b0a5ab45a942c790",
 "baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
 "baseline_antenna2_name": "str|fcf8b2202faac192",
 "baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|22918143d415f890",
-"frequency": "float64|6ef2af9afdfa9436",
+"field_name": "str|b3503937567598af",
+"frequency": "float64|ba1e7281025ce33a",
 "polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|1dae0c2404de2431",
-"time": "float64|839a79b5fe0e10d3",
+"scan_name": "str|1b2d9f3ad6e79db8",
+"time": "float64|986e06374e878e68",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
@@ -1775,6 +1610,60 @@
 "telescope_name": "str|8a326d96aaab8960"
 }
 },
+"68f27bebab9b3a8d": {
+"meta": "5c1d329b6941719c",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
+"FLAG": "bool|d1c7eec62aa9defe",
+"TIME_CENTROID": "float64|72a8a07e7199f4d4",
+"UVW": "float64|60f74c9923935ec0",
+"VISIBILITY": "complex64|ad7f9ab8dff31bf8",
+"WEIGHT": "float32|efcb17bdcaab4cb8",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|4ee82efb69a0394a",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|28f601a9f56bd3b3",
+"time": "float64|71386ff4b71e4098",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"69432ba68706e884": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|a212c55360769acb",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"6a26ab7368cf040d": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|8c9cbd7b35dfcfc5",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
 "6af948ec588fcb88": {
 "meta": "2f88d7ff37e2c655",
 "vars": {
@@ -1785,6 +1674,26 @@
 "time_pointing": "float64|a2ad2d337206b01a"
 }
 },
+"6d2e5522d203da18": {
+"meta": "5c1d329b6941719c",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
+"FLAG": "bool|a6b5ff97e7fa23f3",
+"TIME_CENTROID": "float64|f93b61b455a3995e",
+"UVW": "float64|a8d770ac30fb2e2c",
+"VISIBILITY": "complex64|39a02a8af088db64",
+"WEIGHT": "float32|4d44e2e82c4ce55a",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|f4dfd6dbc9c91114",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|651ad15bc4808c79",
+"time": "float64|975534bd36e1b231",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
 "6f6ba85b868eca53": {
 "meta": "887e2811edae594a",
 "vars": {
@@ -1792,23 +1701,6 @@
 "field_name": "str|e5c54da6631066db",
 "sky_dir_label": "str|ce909f0f69f37958",
 "source_name": "str|2816a2abe85d208a"
-}
-},
-"6fb73b227b2497c7": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
-"FLAG": "bool|6477df8e0d12d3b0",
-"SPECTRUM": "float32|4f10923197e293c0",
-"TIME_CENTROID": "float64|c99bad840d1f0c0f",
-"WEIGHT": "float64|cc1f37d051ccf892",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|163b28a4d8fd7a0f",
-"frequency": "float64|c89e9dd66fc6ad1a",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|9dea21a24ccba50d",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|880e72eb97001f19"
 }
 },
 "6ff23d321a0ff3bc": {
@@ -1834,6 +1726,26 @@
 "line_name": "str|1422217eac1f91e1",
 "sky_dir_label": "str|ce909f0f69f37958",
 "source_name": "str|33f2d18af653cb92"
+}
+},
+"70f772a8fee808ce": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|80ca940ab8b6e796",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
+"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "741c861e8b386f5e": {
@@ -1895,6 +1807,26 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
+"759e892e9ae63a23": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|5a2f6a2ef528de86",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
 "7690fca8eb57b285": {
 "meta": "333e0474b119250a",
 "vars": {
@@ -1906,19 +1838,8 @@
 "time_pointing": "float64|d793c8d10daaab93"
 }
 },
-"77fc4c642d82b47b": {
-"meta": "333e0474b119250a",
-"vars": {
-"POINTING_BEAM": "float64|400bdff5ce50b50a",
-"POINTING_DISH_MEASURED": "float64|5842ad0f48d4bf15",
-"POINTING_OVER_THE_TOP": "bool|74b2f3982c081911",
-"antenna_name": "str|332b14ff22152bf2",
-"local_sky_dir_label": "str|7471bf44b9e5a54b",
-"time_pointing": "float64|d19c6a0492ce3ecf"
-}
-},
-"7a6a219f58c93a8f": {
-"meta": "9a6dc971cadbfb7b",
+"7700db433f04a283": {
+"meta": "70a2767b717004c8",
 "vars": {
 "EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
 "FLAG": "bool|e4064901c3c28ca5",
@@ -1937,24 +1858,52 @@
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
-"7c136acbdfdb7229": {
-"meta": "56d38b8d1b5644ad",
+"7775423d85ec6b7f": {
+"meta": "6de853d930434f3d",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
-"FLAG": "bool|d1c7eec62aa9defe",
-"TIME_CENTROID": "float64|72a8a07e7199f4d4",
-"UVW": "float64|60f74c9923935ec0",
-"VISIBILITY": "complex64|dbf7323c0e4b6104",
-"WEIGHT": "float32|3c0d2afa36f69ad3",
-"baseline_antenna1_name": "str|d3fd3e40f3112bec",
-"baseline_antenna2_name": "str|88d829d6a6c082ca",
-"baseline_id": "int64|1ffed7ec5446410b",
-"field_name": "str|4ee82efb69a0394a",
-"frequency": "float64|73eca3d64cda9a57",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|28f601a9f56bd3b3",
-"time": "float64|71386ff4b71e4098",
+"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|1a6de25d3098b1e7",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|6b92c69d1efdcfa8",
+"WEIGHT": "float32|c22fa756269e8346",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|bde28f4ab6aeca9b",
+"time": "float64|10c465ebd37a947b",
 "uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"77fc4c642d82b47b": {
+"meta": "333e0474b119250a",
+"vars": {
+"POINTING_BEAM": "float64|400bdff5ce50b50a",
+"POINTING_DISH_MEASURED": "float64|5842ad0f48d4bf15",
+"POINTING_OVER_THE_TOP": "bool|74b2f3982c081911",
+"antenna_name": "str|332b14ff22152bf2",
+"local_sky_dir_label": "str|7471bf44b9e5a54b",
+"time_pointing": "float64|d19c6a0492ce3ecf"
+}
+},
+"7ce59a95bb6ff91f": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|b266522c7e7373ab",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|cea6c2d679a27be5",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
 }
 },
 "7dedbca240169172": {
@@ -1985,66 +1934,6 @@
 "source_name": "str|9bc1eebab9fd2685"
 }
 },
-"8050247cb4b2581e": {
-"meta": "007427d3b50c628d",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|766826bab3d65568",
-"FLAG": "bool|ba46d8ca5e10007d",
-"TIME_CENTROID": "float64|68e57f19355db8a0",
-"UVW": "float64|3df5844db2274090",
-"VISIBILITY": "complex64|fce9d619cb5bfaf5",
-"WEIGHT": "float32|155f8932c9a5a6be",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|bdeb1ebca538098b",
-"frequency": "float64|dff55e84e844e76d",
-"polarization": "str|eed710a9fa10c117",
-"scan_name": "str|985a577dfaade5d4",
-"time": "float64|00cf4dd874458d70",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"825c11bf0023de47": {
-"meta": "536d7ca0ca2c2f59",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
-"FLAG": "bool|ddcf27fbf4fb14ed",
-"TIME_CENTROID": "float64|403fed1ea058e4e5",
-"UVW": "float64|4e90d6f77269fb8b",
-"VISIBILITY": "complex64|9e051e72545da3a0",
-"WEIGHT": "float32|f4f01b7aff1cef2b",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|74f3fb05e408dfa5",
-"frequency": "float64|a61ae9bb3e588366",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|70243450326e0856",
-"time": "float64|735bb8e3ff7525c4",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"828a618d99eea329": {
-"meta": "56d38b8d1b5644ad",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|9d7e433950c20bf8",
-"FLAG": "bool|8c6474474fd16224",
-"TIME_CENTROID": "float64|6d1b4ff737389b6a",
-"UVW": "float64|80144b496cd2bcc1",
-"VISIBILITY": "complex64|ec6c54894834fc34",
-"WEIGHT": "float32|33fc800daf798abf",
-"baseline_antenna1_name": "str|ff8a50ea6a463e99",
-"baseline_antenna2_name": "str|667091b60d0be1c7",
-"baseline_id": "int64|6517990b6720fc39",
-"field_name": "str|a9256e141b67ea29",
-"frequency": "float64|73eca3d64cda9a57",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|7922f94fe0e07e53",
-"time": "float64|3033b0087844da2c",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
 "82be312379425cff": {
 "meta": "363efa992bc3c9a0",
 "vars": {
@@ -2059,60 +1948,23 @@
 "source_name": "str|b1826d48c7eccbc1"
 }
 },
-"86e82bac328b65d6": {
-"meta": "e89edcbe557b62cf",
+"879fa07d1a3cd4ee": {
+"meta": "beff3716c713c253",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|7fb125c8f3f3fca5",
-"SPECTRUM": "float32|42647dcd5c5937ba",
-"TIME_CENTROID": "float64|84713b4644206267",
-"WEIGHT": "float64|e1cecd9cc42d1d5f",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|b59e43004d434fed",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|6b8c4f72a4b1c474",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|90d0d41a0b59d97b"
-}
-},
-"87ecba8b29b7bffc": {
-"meta": "536d7ca0ca2c2f59",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|d88f4ad99f8bcfd2",
-"FLAG": "bool|6169f1b9634c5bda",
-"TIME_CENTROID": "float64|7190d6f737ba19df",
-"UVW": "float64|c9a80b7bd6fbaa95",
-"VISIBILITY": "complex64|c6bc403c369dd680",
-"WEIGHT": "float32|f757b324daec253d",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|18995002f48f8b78",
-"frequency": "float64|a61ae9bb3e588366",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|17f2cd32467ce3de",
-"time": "float64|7c99118139755981",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"895950b41d1ba4b0": {
-"meta": "9a6dc971cadbfb7b",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
-"FLAG": "bool|9fe1f32672a5c3bc",
-"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
-"UVW": "float64|187f2efc3cf2ea89",
-"VISIBILITY": "complex64|5204db460aa63fcf",
-"WEIGHT": "float32|cb62592ee6f17205",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|22918143d415f890",
-"frequency": "float64|613ce2d013f0d834",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|1dae0c2404de2431",
-"time": "float64|839a79b5fe0e10d3",
+"EFFECTIVE_INTEGRATION_TIME": "float64|5578c3fd17be2d4a",
+"FLAG": "bool|b5a25589198f12b7",
+"TIME_CENTROID": "float64|c2f75e27cafa9e39",
+"UVW": "float64|49b442b02cb2c74e",
+"VISIBILITY": "complex64|e549fa4ca5b1748e",
+"WEIGHT": "float32|b1a63887c73d4e13",
+"baseline_antenna1_name": "str|7524c535ee3f4eb6",
+"baseline_antenna2_name": "str|ccb4ff05f828b0c8",
+"baseline_id": "int64|d5d93955be9e2d0f",
+"field_name": "str|79bda58fe77b87f3",
+"frequency": "float64|402a869f2ba74192",
+"polarization": "str|2e23cfa7e9460a01",
+"scan_name": "str|2c84fde9e77b30f0",
+"time": "float64|ab90064ed983ede2",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
@@ -2162,61 +2014,38 @@
 "time_system_cal": "float64|2fe7daa25a8e7e3b"
 }
 },
-"8e0459892d1ccae8": {
-"meta": "e89edcbe557b62cf",
+"8c31edfdb92fdb07": {
+"meta": "07217f3837e11043",
 "vars": {
 "EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
 "FLAG": "bool|7fb125c8f3f3fca5",
-"SPECTRUM": "float32|a4ca620552eab21e",
-"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"SPECTRUM": "float32|55f1123a2285a74c",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
 "WEIGHT": "float64|e1cecd9cc42d1d5f",
 "antenna_name": "str|9368dee98ad33971",
 "field_name": "str|3811cafea6b846ad",
 "frequency": "float64|b59e43004d434fed",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|e05f3870e7be39aa",
+"scan_name": "str|204a36440e9e0f5e",
 "telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|8cfd23037c2f91a7"
+"time": "float64|4d6f9dcb1e9a0a5a"
 }
 },
-"8f0eed751dd639b2": {
-"meta": "007427d3b50c628d",
+"8e967d31f25dbe00": {
+"meta": "07217f3837e11043",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|064afa4d23ae285e",
-"FLAG": "bool|de7c2b598a60b30f",
-"TIME_CENTROID": "float64|41f26f121f2f1f14",
-"UVW": "float64|0e2a7ab979ab53c0",
-"VISIBILITY": "complex64|3f1ecb96c22a9e6d",
-"WEIGHT": "float32|a11dab08dea5dea0",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|1a3a8cc77a17c627",
-"frequency": "float64|dff55e84e844e76d",
-"polarization": "str|eed710a9fa10c117",
-"scan_name": "str|8f4534924973590b",
-"time": "float64|1e42c8daea7f33ba",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"8fccab296a042892": {
-"meta": "e42438558e1b4117",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
-"FLAG": "bool|3f4d9f707d2bb07e",
-"TIME_CENTROID": "float64|964508fad6015757",
-"UVW": "float64|2f039710ead54504",
-"VISIBILITY": "complex64|19ad67b58a6eb588",
-"WEIGHT": "float32|03039f37d59c99b3",
-"baseline_antenna1_name": "str|cddab9a141f9371e",
-"baseline_antenna2_name": "str|38166206ec5e098d",
-"baseline_id": "int64|a701d81398720755",
-"field_name": "str|1a3a8cc77a17c627",
-"frequency": "float64|54f6bf8ae7bc28a0",
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|fd71a666e840b364",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|c56edd2dfb6e47e4",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|c348ec3dcf53effe",
-"time": "float64|e1326a794fa85df2",
-"uvw_label": "str|a03ef8a373c0c4c7"
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
 }
 },
 "9208cdcad75d4b74": {
@@ -2229,28 +2058,8 @@
 "time_pointing": "float64|6099a8ff351c659a"
 }
 },
-"93cae4b18c8e2db6": {
-"meta": "007427d3b50c628d",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|d2529848e59aace9",
-"FLAG": "bool|19d6a161aae5a7e1",
-"TIME_CENTROID": "float64|975fa0fe825b055f",
-"UVW": "float64|7b8ba44c5a0e0b26",
-"VISIBILITY": "complex64|463f7f961593f5ec",
-"WEIGHT": "float32|174892d393435ff3",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|6f0a7ee1f9f37706",
-"frequency": "float64|dff55e84e844e76d",
-"polarization": "str|eed710a9fa10c117",
-"scan_name": "str|30d515ad9f7aa9d0",
-"time": "float64|0c00ad388a4ead9c",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"95dc9c818e13962e": {
-"meta": "e89edcbe557b62cf",
+"93d765a9ce617e0d": {
+"meta": "07217f3837e11043",
 "vars": {
 "EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
 "FLAG": "bool|9ab79d4018fd1f3e",
@@ -2264,6 +2073,46 @@
 "scan_name": "str|6b8c4f72a4b1c474",
 "telescope_name": "str|e9b82ebe1fd26298",
 "time": "float64|90d0d41a0b59d97b"
+}
+},
+"99799df7d140abf9": {
+"meta": "a43f3517c0033aa6",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|5de4ce5bd7cd249f",
+"FLAG": "bool|2a6c452e0ce18df3",
+"TIME_CENTROID": "float64|180e372cd7724518",
+"UVW": "float64|d6f42af0763d22a3",
+"VISIBILITY": "complex64|ab8566d5d62997fd",
+"WEIGHT": "float32|b3c2aed70cf61968",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|3894c3f80140df45",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|884a3b7d671d798d",
+"time": "float64|6ecb938597bab199",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"9afc1a37513bfcda": {
+"meta": "5c1d329b6941719c",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|626a666bcb3e9d0d",
+"FLAG": "bool|d1c7eec62aa9defe",
+"TIME_CENTROID": "float64|72a8a07e7199f4d4",
+"UVW": "float64|60f74c9923935ec0",
+"VISIBILITY": "complex64|dbf7323c0e4b6104",
+"WEIGHT": "float32|3c0d2afa36f69ad3",
+"baseline_antenna1_name": "str|d3fd3e40f3112bec",
+"baseline_antenna2_name": "str|88d829d6a6c082ca",
+"baseline_id": "int64|1ffed7ec5446410b",
+"field_name": "str|4ee82efb69a0394a",
+"frequency": "float64|73eca3d64cda9a57",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|28f601a9f56bd3b3",
+"time": "float64|71386ff4b71e4098",
+"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "9b68dcea59d0fae0": {
@@ -2282,43 +2131,43 @@
 "telescope_name": "str|95cf71caa5ac58d2"
 }
 },
-"9cb8f6c6efbc6c66": {
-"meta": "56d38b8d1b5644ad",
+"9ce61683eda3c0dc": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|9c804fdc1bc0a8e3",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"9f3b330ba2ebcfb3": {
+"meta": "5c1d329b6941719c",
 "vars": {
 "EFFECTIVE_INTEGRATION_TIME": "float64|9d7e433950c20bf8",
 "FLAG": "bool|8c6474474fd16224",
 "TIME_CENTROID": "float64|6d1b4ff737389b6a",
 "UVW": "float64|80144b496cd2bcc1",
-"VISIBILITY": "complex64|54db45baeaf87502",
+"VISIBILITY": "complex64|ec6c54894834fc34",
 "WEIGHT": "float32|33fc800daf798abf",
 "baseline_antenna1_name": "str|ff8a50ea6a463e99",
 "baseline_antenna2_name": "str|667091b60d0be1c7",
 "baseline_id": "int64|6517990b6720fc39",
 "field_name": "str|a9256e141b67ea29",
-"frequency": "float64|6a342e0daf117b70",
+"frequency": "float64|73eca3d64cda9a57",
 "polarization": "str|963b8043b8dfaea8",
 "scan_name": "str|7922f94fe0e07e53",
 "time": "float64|3033b0087844da2c",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"a0756207576440c0": {
-"meta": "007427d3b50c628d",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
-"FLAG": "bool|de7c2b598a60b30f",
-"TIME_CENTROID": "float64|da2871a5eba4f722",
-"UVW": "float64|0e2a7ab979ab53c0",
-"VISIBILITY": "complex64|230ede82783961e6",
-"WEIGHT": "float32|c22fa756269e8346",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|1a3a8cc77a17c627",
-"frequency": "float64|dff55e84e844e76d",
-"polarization": "str|eed710a9fa10c117",
-"scan_name": "str|c348ec3dcf53effe",
-"time": "float64|3d810aab8c6ffeab",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
@@ -2434,40 +2283,63 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
-"a8576557f39a59fc": {
-"meta": "e89edcbe557b62cf",
+"a9e76300d4bc6f09": {
+"meta": "a43f3517c0033aa6",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|bbf266fecfeaad1a",
-"TIME_CENTROID": "float64|84713b4644206267",
-"WEIGHT": "float64|8e26431292c29a5d",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|c89e9dd66fc6ad1a",
+"EFFECTIVE_INTEGRATION_TIME": "float64|cf89dda3834cc86f",
+"FLAG": "bool|3f4d9f707d2bb07e",
+"TIME_CENTROID": "float64|3d54d347c1497f86",
+"UVW": "float64|292a02f72563dd4f",
+"VISIBILITY": "complex64|8effbadb0602e065",
+"WEIGHT": "float32|03039f37d59c99b3",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|54f6bf8ae7bc28a0",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|6b8c4f72a4b1c474",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|90d0d41a0b59d97b"
+"scan_name": "str|bde28f4ab6aeca9b",
+"time": "float64|4644ead4b7fd5433",
+"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
-"ae868c7c6e6db1f0": {
-"meta": "9a6dc971cadbfb7b",
+"af436a08e0535411": {
+"meta": "70a2767b717004c8",
 "vars": {
 "EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
 "FLAG": "bool|43812bd443b05080",
 "TIME_CENTROID": "float64|53ac5dcfb61dff97",
 "UVW": "float64|58baf49fd242ee9e",
-"VISIBILITY": "complex64|9c804fdc1bc0a8e3",
+"VISIBILITY": "complex64|428a2a4aa62b2040",
 "WEIGHT": "float32|d62166f0fbc91d71",
 "baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
 "baseline_antenna2_name": "str|fcf8b2202faac192",
 "baseline_id": "int64|c6f9a3f4026196bc",
 "field_name": "str|92c72eadf782db9c",
-"frequency": "float64|6ef2af9afdfa9436",
+"frequency": "float64|a58281ed74e96e6b",
 "polarization": "str|963b8043b8dfaea8",
 "scan_name": "str|cc63a9cd4fac84ab",
 "time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"b013e905b42b4d17": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
+"FLAG": "bool|8d9af6c02f6356e8",
+"TIME_CENTROID": "float64|cbd279ff13a2be18",
+"UVW": "float64|ef6d5f0ad2840889",
+"VISIBILITY": "complex64|0e3b9a44997f4e1a",
+"WEIGHT": "float32|c4ecc3faae000a84",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|03f7c3b97c7cb415",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|d724524d324f6f2f",
+"time": "float64|22c6374553fc5627",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
@@ -2498,6 +2370,23 @@
 "line_name": "str|d7fa744f662f4ed9",
 "sky_dir_label": "str|ce909f0f69f37958",
 "source_name": "str|a538226f81b2b438"
+}
+},
+"b3dbbe018cd86174": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|e15bc36b48f24ead",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
 }
 },
 "b55c306d9157036d": {
@@ -2659,26 +2548,6 @@
 "cartesian_pos_label": "str|d6d0ae5afb26dc88",
 "station_name": "str|c672e11048655ed6",
 "time_weather": "float64|d1d98d6ba3bd92f1"
-}
-},
-"b6b212b93555ab1e": {
-"meta": "9a6dc971cadbfb7b",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
-"FLAG": "bool|8d9af6c02f6356e8",
-"TIME_CENTROID": "float64|cbd279ff13a2be18",
-"UVW": "float64|ef6d5f0ad2840889",
-"VISIBILITY": "complex64|0e3b9a44997f4e1a",
-"WEIGHT": "float32|c4ecc3faae000a84",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|03f7c3b97c7cb415",
-"frequency": "float64|6ef2af9afdfa9436",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|d724524d324f6f2f",
-"time": "float64|22c6374553fc5627",
-"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "b701bfed67d03325": {
@@ -4358,61 +4227,38 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
-"b927b995a16c88ef": {
-"meta": "e89edcbe557b62cf",
+"b92055e692871ec4": {
+"meta": "07217f3837e11043",
 "vars": {
 "EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
 "FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|b946c67242b337ed",
-"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"SPECTRUM": "float32|a9f612551d08234a",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
 "WEIGHT": "float64|8e26431292c29a5d",
 "antenna_name": "str|9368dee98ad33971",
 "field_name": "str|3811cafea6b846ad",
-"frequency": "float64|c56edd2dfb6e47e4",
+"frequency": "float64|cea6c2d679a27be5",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|204a36440e9e0f5e",
+"scan_name": "str|e05f3870e7be39aa",
 "telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|4d6f9dcb1e9a0a5a"
+"time": "float64|8cfd23037c2f91a7"
 }
 },
-"b985bb2b119df115": {
-"meta": "56d38b8d1b5644ad",
+"bec1dc8d8fb3dfd2": {
+"meta": "07217f3837e11043",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|106eae2688324894",
-"FLAG": "bool|a6b5ff97e7fa23f3",
-"TIME_CENTROID": "float64|f93b61b455a3995e",
-"UVW": "float64|a8d770ac30fb2e2c",
-"VISIBILITY": "complex64|39a02a8af088db64",
-"WEIGHT": "float32|4d44e2e82c4ce55a",
-"baseline_antenna1_name": "str|d3fd3e40f3112bec",
-"baseline_antenna2_name": "str|88d829d6a6c082ca",
-"baseline_id": "int64|1ffed7ec5446410b",
-"field_name": "str|f4dfd6dbc9c91114",
-"frequency": "float64|6a342e0daf117b70",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|651ad15bc4808c79",
-"time": "float64|975534bd36e1b231",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"bc21eb1986ab5006": {
-"meta": "536d7ca0ca2c2f59",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
-"FLAG": "bool|ddcf27fbf4fb14ed",
-"TIME_CENTROID": "float64|aaff9885541822ea",
-"UVW": "float64|4e90d6f77269fb8b",
-"VISIBILITY": "complex64|2efe457800e2a554",
-"WEIGHT": "float32|f4f01b7aff1cef2b",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|74f3fb05e408dfa5",
-"frequency": "float64|a61ae9bb3e588366",
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|a4ca620552eab21e",
+"TIME_CENTROID": "float64|a6631bc2ebd2513c",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|904086c2fc1b094e",
-"time": "float64|11c52e6e8db929ec",
-"uvw_label": "str|a03ef8a373c0c4c7"
+"scan_name": "str|e05f3870e7be39aa",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|8cfd23037c2f91a7"
 }
 },
 "c0279d0343b597f5": {
@@ -6648,6 +6494,63 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
+"c3667c9e7633efe8": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
+"FLAG": "bool|e66dfd565ed74ddb",
+"SPECTRUM": "float32|a8eacbf319fbd4f9",
+"TIME_CENTROID": "float64|19df861e0c96de52",
+"WEIGHT": "float64|cd868d96fc2ff652",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|5f198924f49b7edf",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|cadad967d6a116e7",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|66bcbf9015de0824"
+}
+},
+"c4e536dd4289b670": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|84eab75303ee002c",
+"WEIGHT": "float32|d62166f0fbc91d71",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|92c72eadf782db9c",
+"frequency": "float64|ba1e7281025ce33a",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"c7a20a208c1139cb": {
+"meta": "86c6129660f9c8d8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|d88f4ad99f8bcfd2",
+"FLAG": "bool|6169f1b9634c5bda",
+"TIME_CENTROID": "float64|7190d6f737ba19df",
+"UVW": "float64|c9a80b7bd6fbaa95",
+"VISIBILITY": "complex64|c6bc403c369dd680",
+"WEIGHT": "float32|f757b324daec253d",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|18995002f48f8b78",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|17f2cd32467ce3de",
+"time": "float64|7c99118139755981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
 "c809236ae0cc09c5": {
 "meta": "2052abee51fd2de8",
 "vars": {
@@ -6673,6 +6576,26 @@
 "source_name": "str|2d926d6517520ae6"
 }
 },
+"c99512e1ebae3c4c": {
+"meta": "a43f3517c0033aa6",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|62556081a0c9a0e2",
+"FLAG": "bool|98afc746487a5c5b",
+"TIME_CENTROID": "float64|25abed22b7ebaf08",
+"UVW": "float64|e92abe6222eb89ac",
+"VISIBILITY": "complex64|cb2c2a09094e1946",
+"WEIGHT": "float32|48cedaf785ffa3ba",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|e24a4253873525d1",
+"frequency": "float64|54f6bf8ae7bc28a0",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|baa570831c7bda2c",
+"time": "float64|473f5df8f7ec3073",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
 "c9b04f90ff13c4a3": {
 "meta": "887e2811edae594a",
 "vars": {
@@ -6682,61 +6605,38 @@
 "source_name": "str|2816a2abe85d208a"
 }
 },
-"cb7dc5451c645483": {
-"meta": "9a6dc971cadbfb7b",
+"cea9c8ac69e1eba1": {
+"meta": "07217f3837e11043",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
-"FLAG": "bool|e4064901c3c28ca5",
-"TIME_CENTROID": "float64|5e0e869cf4b61157",
-"UVW": "float64|fbf0366c6a9018be",
-"VISIBILITY": "complex64|dee7de2058b272b6",
-"WEIGHT": "float32|b0a5ab45a942c790",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|b3503937567598af",
-"frequency": "float64|6ef2af9afdfa9436",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|1b2d9f3ad6e79db8",
-"time": "float64|986e06374e878e68",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"d00078de40c7408e": {
-"meta": "536d7ca0ca2c2f59",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
-"FLAG": "bool|ddcf27fbf4fb14ed",
-"TIME_CENTROID": "float64|b0a299f953e89268",
-"UVW": "float64|4e90d6f77269fb8b",
-"VISIBILITY": "complex64|f9ee77ad8e9cde34",
-"WEIGHT": "float32|f4f01b7aff1cef2b",
-"baseline_antenna1_name": "str|5ef6695b1673cf0d",
-"baseline_antenna2_name": "str|5ef6695b1673cf0d",
-"baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|74f3fb05e408dfa5",
-"frequency": "float64|a61ae9bb3e588366",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|b3442ebf682c6db0",
-"time": "float64|55d1fa73bc17cf6f",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"d095dc3bdf103496": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
-"FLAG": "bool|6477df8e0d12d3b0",
-"SPECTRUM": "float32|fd71a666e840b364",
-"TIME_CENTROID": "float64|c99bad840d1f0c0f",
-"WEIGHT": "float64|cc1f37d051ccf892",
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|6fde4f1cc93e346b",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
 "antenna_name": "str|9368dee98ad33971",
-"field_name": "str|163b28a4d8fd7a0f",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"cf300e9190689fe3": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|3f5f80ca6f0227ab",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
 "frequency": "float64|c56edd2dfb6e47e4",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|9dea21a24ccba50d",
+"scan_name": "str|6b8c4f72a4b1c474",
 "telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|880e72eb97001f19"
+"time": "float64|90d0d41a0b59d97b"
 }
 },
 "d250ce3c4631a947": {
@@ -8427,24 +8327,78 @@
 "telescope_name": "str|a712ed10b00530c1"
 }
 },
-"d31e0710e48c9559": {
-"meta": "007427d3b50c628d",
+"d46d1dc05ed80dc7": {
+"meta": "86c6129660f9c8d8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|8b984af626804452",
-"FLAG": "bool|de7c2b598a60b30f",
-"TIME_CENTROID": "float64|1a6de25d3098b1e7",
-"UVW": "float64|0e2a7ab979ab53c0",
-"VISIBILITY": "complex64|6b92c69d1efdcfa8",
-"WEIGHT": "float32|c22fa756269e8346",
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|b0a299f953e89268",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|f9ee77ad8e9cde34",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
 "baseline_antenna1_name": "str|5ef6695b1673cf0d",
 "baseline_antenna2_name": "str|5ef6695b1673cf0d",
 "baseline_id": "int64|30fe28d274395f84",
-"field_name": "str|1a3a8cc77a17c627",
-"frequency": "float64|dff55e84e844e76d",
-"polarization": "str|eed710a9fa10c117",
-"scan_name": "str|bde28f4ab6aeca9b",
-"time": "float64|10c465ebd37a947b",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|b3442ebf682c6db0",
+"time": "float64|55d1fa73bc17cf6f",
 "uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"d5ca7772fdeb73c7": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|9ab79d4018fd1f3e",
+"SPECTRUM": "float32|b946c67242b337ed",
+"TIME_CENTROID": "float64|3b65fe88f8744a8e",
+"WEIGHT": "float64|8e26431292c29a5d",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|c56edd2dfb6e47e4",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|204a36440e9e0f5e",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|4d6f9dcb1e9a0a5a"
+}
+},
+"d88bc138dec9ce69": {
+"meta": "5c1d329b6941719c",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|9d7e433950c20bf8",
+"FLAG": "bool|8c6474474fd16224",
+"TIME_CENTROID": "float64|6d1b4ff737389b6a",
+"UVW": "float64|80144b496cd2bcc1",
+"VISIBILITY": "complex64|54db45baeaf87502",
+"WEIGHT": "float32|33fc800daf798abf",
+"baseline_antenna1_name": "str|ff8a50ea6a463e99",
+"baseline_antenna2_name": "str|667091b60d0be1c7",
+"baseline_id": "int64|6517990b6720fc39",
+"field_name": "str|a9256e141b67ea29",
+"frequency": "float64|6a342e0daf117b70",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|7922f94fe0e07e53",
+"time": "float64|3033b0087844da2c",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"dae34d4c8332d9cb": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
+"FLAG": "bool|7fb125c8f3f3fca5",
+"SPECTRUM": "float32|42647dcd5c5937ba",
+"TIME_CENTROID": "float64|84713b4644206267",
+"WEIGHT": "float64|e1cecd9cc42d1d5f",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|3811cafea6b846ad",
+"frequency": "float64|b59e43004d434fed",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|6b8c4f72a4b1c474",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|90d0d41a0b59d97b"
 }
 },
 "dd0796ed4deaa0aa": {
@@ -8461,6 +8415,26 @@
 "source_name": "str|33f2d18af653cb92"
 }
 },
+"de053447733ccdd7": {
+"meta": "6de853d930434f3d",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|e0459e9572f25a97",
+"FLAG": "bool|eda0475525a63273",
+"TIME_CENTROID": "float64|2adb8bc369c78ab6",
+"UVW": "float64|e1aca2d880cd57fe",
+"VISIBILITY": "complex64|b6d822a22e40e558",
+"WEIGHT": "float32|2b0fb59721f5442c",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|b3dba8afe66266ce",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|e46386c092385ddd",
+"time": "float64|a0839375df612fb8",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
 "def60ac7eab9a3c5": {
 "meta": "2f88d7ff37e2c655",
 "vars": {
@@ -8471,24 +8445,21 @@
 "time_pointing": "float64|54a910f6b4a9cac8"
 }
 },
-"e1601c936b31bfbb": {
-"meta": "9a6dc971cadbfb7b",
+"dfd986973c03ff43": {
+"meta": "07217f3837e11043",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
-"FLAG": "bool|c9ea53a143785bbd",
-"TIME_CENTROID": "float64|630585e3ffe5fe50",
-"UVW": "float64|c83032da3d8beb08",
-"VISIBILITY": "complex64|f20feab29f7c87cc",
-"WEIGHT": "float32|1276be509bb8855c",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|7837f1610e4fdda9",
-"frequency": "float64|ba1e7281025ce33a",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|78d4df8388296b1b",
-"time": "float64|43b51d164a62df3a",
-"uvw_label": "str|a03ef8a373c0c4c7"
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|6477df8e0d12d3b0",
+"SPECTRUM": "float32|4f10923197e293c0",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|cc1f37d051ccf892",
+"antenna_name": "str|9368dee98ad33971",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|c89e9dd66fc6ad1a",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|9dea21a24ccba50d",
+"telescope_name": "str|e9b82ebe1fd26298",
+"time": "float64|880e72eb97001f19"
 }
 },
 "e19972165733bfc5": {
@@ -8508,26 +8479,6 @@
 "antenna_name": "str|8f40dda2ae4d288e",
 "local_sky_dir_label": "str|7471bf44b9e5a54b",
 "time_pointing": "float64|f126b2444863f17b"
-}
-},
-"e54ec871424d0b10": {
-"meta": "9a6dc971cadbfb7b",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
-"FLAG": "bool|c9ea53a143785bbd",
-"TIME_CENTROID": "float64|630585e3ffe5fe50",
-"UVW": "float64|c83032da3d8beb08",
-"VISIBILITY": "complex64|c4cbf2ad7ef5429d",
-"WEIGHT": "float32|1276be509bb8855c",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|7837f1610e4fdda9",
-"frequency": "float64|6ef2af9afdfa9436",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|78d4df8388296b1b",
-"time": "float64|43b51d164a62df3a",
-"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "e57a3cc195918c73": {
@@ -8583,78 +8534,61 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
-"e77346127fd5d550": {
-"meta": "bd5463db83a2a40e",
+"e5ab23fe3b8797b3": {
+"meta": "6de853d930434f3d",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|8c10daa0179ef7fd",
-"FLAG": "bool|7d0c46c0bb0fae67",
-"SPECTRUM": "float32|bccba1de4f45ade6",
-"TIME_CENTROID": "float64|f5588eb14b82abdc",
-"WEIGHT": "float32|c49581a327197ebf",
-"antenna_name": "str|bef33037b8af9f0d",
-"field_name": "str|8a946c344d3881ee",
-"frequency": "float64|03da57ad844b538e",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|27f8bf29df9bea41",
-"telescope_name": "str|bef33037b8af9f0d",
-"time": "float64|96faa2d5ab289959"
-}
-},
-"e8b7483baf04e74b": {
-"meta": "e42438558e1b4117",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|c8ee9cf2c740d161",
-"FLAG": "bool|550f7bfe960efc47",
-"TIME_CENTROID": "float64|61f1c1154e5af654",
-"UVW": "float64|dc2838f8a8e2f9e2",
-"VISIBILITY": "complex64|b3952a318acdacec",
-"WEIGHT": "float32|5960ff03f5edd4f5",
-"baseline_antenna1_name": "str|cddab9a141f9371e",
-"baseline_antenna2_name": "str|38166206ec5e098d",
-"baseline_id": "int64|a701d81398720755",
-"field_name": "str|b3dba8afe66266ce",
-"frequency": "float64|54f6bf8ae7bc28a0",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|e46386c092385ddd",
-"time": "float64|cc6c554e37f24b48",
+"EFFECTIVE_INTEGRATION_TIME": "float64|766826bab3d65568",
+"FLAG": "bool|ba46d8ca5e10007d",
+"TIME_CENTROID": "float64|68e57f19355db8a0",
+"UVW": "float64|3df5844db2274090",
+"VISIBILITY": "complex64|fce9d619cb5bfaf5",
+"WEIGHT": "float32|155f8932c9a5a6be",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|bdeb1ebca538098b",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|985a577dfaade5d4",
+"time": "float64|00cf4dd874458d70",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
-"e8e02325d28f1b22": {
-"meta": "e89edcbe557b62cf",
+"e5bc9bd6f27fe76a": {
+"meta": "70a2767b717004c8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|95bb8467d3770d51",
-"FLAG": "bool|9ab79d4018fd1f3e",
-"SPECTRUM": "float32|3f5f80ca6f0227ab",
-"TIME_CENTROID": "float64|84713b4644206267",
-"WEIGHT": "float64|8e26431292c29a5d",
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|20573229ff561b51",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|a58281ed74e96e6b",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"e88f807a914edacf": {
+"meta": "07217f3837e11043",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|792e541b06bcbfc0",
+"FLAG": "bool|5e0977412cac52d4",
+"SPECTRUM": "float32|feb1760a81ac9ee1",
+"TIME_CENTROID": "float64|c99bad840d1f0c0f",
+"WEIGHT": "float64|d5474176fb276954",
 "antenna_name": "str|9368dee98ad33971",
-"field_name": "str|3811cafea6b846ad",
-"frequency": "float64|c56edd2dfb6e47e4",
+"field_name": "str|163b28a4d8fd7a0f",
+"frequency": "float64|b59e43004d434fed",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|6b8c4f72a4b1c474",
+"scan_name": "str|9dea21a24ccba50d",
 "telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|90d0d41a0b59d97b"
-}
-},
-"e9a34878c0c533a4": {
-"meta": "e42438558e1b4117",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|5de4ce5bd7cd249f",
-"FLAG": "bool|2a6c452e0ce18df3",
-"TIME_CENTROID": "float64|180e372cd7724518",
-"UVW": "float64|d6f42af0763d22a3",
-"VISIBILITY": "complex64|ab8566d5d62997fd",
-"WEIGHT": "float32|b3c2aed70cf61968",
-"baseline_antenna1_name": "str|cddab9a141f9371e",
-"baseline_antenna2_name": "str|38166206ec5e098d",
-"baseline_id": "int64|a701d81398720755",
-"field_name": "str|3894c3f80140df45",
-"frequency": "float64|54f6bf8ae7bc28a0",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|884a3b7d671d798d",
-"time": "float64|6ecb938597bab199",
-"uvw_label": "str|a03ef8a373c0c4c7"
+"time": "float64|880e72eb97001f19"
 }
 },
 "eaee5ef56fbc1f2f": {
@@ -8671,23 +8605,80 @@
 "time_system_cal": "float64|764be60b16736bce"
 }
 },
-"eb09107c4dd9c0a3": {
-"meta": "9a6dc971cadbfb7b",
+"ec3d2130b735d167": {
+"meta": "86c6129660f9c8d8",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|18fc48e78fbcd617",
-"FLAG": "bool|8d9af6c02f6356e8",
-"TIME_CENTROID": "float64|cbd279ff13a2be18",
-"UVW": "float64|ef6d5f0ad2840889",
-"VISIBILITY": "complex64|b4a3bd1e24a6c15d",
-"WEIGHT": "float32|c4ecc3faae000a84",
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|aaff9885541822ea",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|2efe457800e2a554",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|904086c2fc1b094e",
+"time": "float64|11c52e6e8db929ec",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"ec7a362208a50271": {
+"meta": "51c9016adcbf6620",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|8c10daa0179ef7fd",
+"FLAG": "bool|7d0c46c0bb0fae67",
+"SPECTRUM": "float32|bccba1de4f45ade6",
+"TIME_CENTROID": "float64|f5588eb14b82abdc",
+"WEIGHT": "float32|c49581a327197ebf",
+"antenna_name": "str|bef33037b8af9f0d",
+"field_name": "str|8a946c344d3881ee",
+"frequency": "float64|03da57ad844b538e",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|27f8bf29df9bea41",
+"telescope_name": "str|bef33037b8af9f0d",
+"time": "float64|96faa2d5ab289959"
+}
+},
+"edd8046243a02e0b": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|81a2d541af65b7b2",
+"FLAG": "bool|43812bd443b05080",
+"TIME_CENTROID": "float64|53ac5dcfb61dff97",
+"UVW": "float64|58baf49fd242ee9e",
+"VISIBILITY": "complex64|5fe32a53be0f974f",
+"WEIGHT": "float32|d62166f0fbc91d71",
 "baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
 "baseline_antenna2_name": "str|fcf8b2202faac192",
 "baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|03f7c3b97c7cb415",
+"field_name": "str|92c72eadf782db9c",
 "frequency": "float64|613ce2d013f0d834",
 "polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|d724524d324f6f2f",
-"time": "float64|22c6374553fc5627",
+"scan_name": "str|cc63a9cd4fac84ab",
+"time": "float64|5d07c4cd4cb33981",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"ee35cb25f2b345ef": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|5204db460aa63fcf",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|613ce2d013f0d834",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
@@ -8705,6 +8696,46 @@
 "time_system_cal": "float64|28c14d9ae447d111"
 }
 },
+"f32883517b7e0261": {
+"meta": "86c6129660f9c8d8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|510d14e6799bd06a",
+"FLAG": "bool|ddcf27fbf4fb14ed",
+"TIME_CENTROID": "float64|403fed1ea058e4e5",
+"UVW": "float64|4e90d6f77269fb8b",
+"VISIBILITY": "complex64|9e051e72545da3a0",
+"WEIGHT": "float32|f4f01b7aff1cef2b",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|74f3fb05e408dfa5",
+"frequency": "float64|a61ae9bb3e588366",
+"polarization": "str|9d3dba4f9d54263a",
+"scan_name": "str|70243450326e0856",
+"time": "float64|735bb8e3ff7525c4",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
+"f34b88d9484ab28d": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|6b893ea7c74d0292",
+"FLAG": "bool|c9ea53a143785bbd",
+"TIME_CENTROID": "float64|630585e3ffe5fe50",
+"UVW": "float64|c83032da3d8beb08",
+"VISIBILITY": "complex64|c4cbf2ad7ef5429d",
+"WEIGHT": "float32|1276be509bb8855c",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|7837f1610e4fdda9",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|78d4df8388296b1b",
+"time": "float64|43b51d164a62df3a",
+"uvw_label": "str|a03ef8a373c0c4c7"
+}
+},
 "f3e3af2051e59edb": {
 "meta": "363efa992bc3c9a0",
 "vars": {
@@ -8717,23 +8748,6 @@
 "line_name": "str|435ae6fec466140a",
 "sky_dir_label": "str|ce909f0f69f37958",
 "source_name": "str|fb240727a2c17627"
-}
-},
-"f579033bc7834628": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
-"FLAG": "bool|e66dfd565ed74ddb",
-"SPECTRUM": "float32|57d6a5dba8ec8df3",
-"TIME_CENTROID": "float64|19df861e0c96de52",
-"WEIGHT": "float64|cd868d96fc2ff652",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|5f198924f49b7edf",
-"frequency": "float64|c89e9dd66fc6ad1a",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|cadad967d6a116e7",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|66bcbf9015de0824"
 }
 },
 "f5c3d1703ce44038": {
@@ -8785,61 +8799,44 @@
 "time_ephemeris": "float64|98b865838d04adb1"
 }
 },
-"f631fa989728ea0b": {
-"meta": "9a6dc971cadbfb7b",
+"f66b7118b714aa33": {
+"meta": "6de853d930434f3d",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|087d6d13955dc297",
-"FLAG": "bool|e4064901c3c28ca5",
-"TIME_CENTROID": "float64|5e0e869cf4b61157",
-"UVW": "float64|fbf0366c6a9018be",
-"VISIBILITY": "complex64|4d6c2e7d8b5433b6",
-"WEIGHT": "float32|b0a5ab45a942c790",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|b3503937567598af",
-"frequency": "float64|613ce2d013f0d834",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|1b2d9f3ad6e79db8",
-"time": "float64|986e06374e878e68",
+"EFFECTIVE_INTEGRATION_TIME": "float64|064afa4d23ae285e",
+"FLAG": "bool|de7c2b598a60b30f",
+"TIME_CENTROID": "float64|41f26f121f2f1f14",
+"UVW": "float64|0e2a7ab979ab53c0",
+"VISIBILITY": "complex64|3f1ecb96c22a9e6d",
+"WEIGHT": "float32|a11dab08dea5dea0",
+"baseline_antenna1_name": "str|5ef6695b1673cf0d",
+"baseline_antenna2_name": "str|5ef6695b1673cf0d",
+"baseline_id": "int64|30fe28d274395f84",
+"field_name": "str|1a3a8cc77a17c627",
+"frequency": "float64|dff55e84e844e76d",
+"polarization": "str|eed710a9fa10c117",
+"scan_name": "str|8f4534924973590b",
+"time": "float64|1e42c8daea7f33ba",
 "uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
-"f6861debf7273282": {
-"meta": "9a6dc971cadbfb7b",
+"f6eb9e098a2bdb10": {
+"meta": "a43f3517c0033aa6",
 "vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
-"FLAG": "bool|9fe1f32672a5c3bc",
-"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
-"UVW": "float64|187f2efc3cf2ea89",
-"VISIBILITY": "complex64|20573229ff561b51",
-"WEIGHT": "float32|cb62592ee6f17205",
-"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
-"baseline_antenna2_name": "str|fcf8b2202faac192",
-"baseline_id": "int64|c6f9a3f4026196bc",
-"field_name": "str|22918143d415f890",
-"frequency": "float64|a58281ed74e96e6b",
-"polarization": "str|963b8043b8dfaea8",
-"scan_name": "str|1dae0c2404de2431",
-"time": "float64|839a79b5fe0e10d3",
-"uvw_label": "str|a03ef8a373c0c4c7"
-}
-},
-"f71319089e2d0d60": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
-"FLAG": "bool|e66dfd565ed74ddb",
-"SPECTRUM": "float32|a8eacbf319fbd4f9",
-"TIME_CENTROID": "float64|19df861e0c96de52",
-"WEIGHT": "float64|cd868d96fc2ff652",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|5f198924f49b7edf",
-"frequency": "float64|c56edd2dfb6e47e4",
+"EFFECTIVE_INTEGRATION_TIME": "float64|c8ee9cf2c740d161",
+"FLAG": "bool|550f7bfe960efc47",
+"TIME_CENTROID": "float64|61f1c1154e5af654",
+"UVW": "float64|dc2838f8a8e2f9e2",
+"VISIBILITY": "complex64|b3952a318acdacec",
+"WEIGHT": "float32|5960ff03f5edd4f5",
+"baseline_antenna1_name": "str|cddab9a141f9371e",
+"baseline_antenna2_name": "str|38166206ec5e098d",
+"baseline_id": "int64|a701d81398720755",
+"field_name": "str|b3dba8afe66266ce",
+"frequency": "float64|54f6bf8ae7bc28a0",
 "polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|cadad967d6a116e7",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|66bcbf9015de0824"
+"scan_name": "str|e46386c092385ddd",
+"time": "float64|cc6c554e37f24b48",
+"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "f838a0dccaab2fb7": {
@@ -8896,6 +8893,26 @@
 "sky_dis_label": "str|776805481a83cba0",
 "source_name": "str|74f3fb05e408dfa5",
 "time_ephemeris": "float64|98b865838d04adb1"
+}
+},
+"fa128f2f3c10a956": {
+"meta": "70a2767b717004c8",
+"vars": {
+"EFFECTIVE_INTEGRATION_TIME": "float64|abcb64501b07633d",
+"FLAG": "bool|9fe1f32672a5c3bc",
+"TIME_CENTROID": "float64|bd5325ee2a03ff3b",
+"UVW": "float64|187f2efc3cf2ea89",
+"VISIBILITY": "complex64|6c0c0aa2c7d087ed",
+"WEIGHT": "float32|cb62592ee6f17205",
+"baseline_antenna1_name": "str|5e15d9c8a2c6d8af",
+"baseline_antenna2_name": "str|fcf8b2202faac192",
+"baseline_id": "int64|c6f9a3f4026196bc",
+"field_name": "str|22918143d415f890",
+"frequency": "float64|6ef2af9afdfa9436",
+"polarization": "str|963b8043b8dfaea8",
+"scan_name": "str|1dae0c2404de2431",
+"time": "float64|839a79b5fe0e10d3",
+"uvw_label": "str|a03ef8a373c0c4c7"
 }
 },
 "fb2d0eb0b7523925": {
@@ -9019,23 +9036,6 @@
 "sky_dis_label": "str|776805481a83cba0",
 "source_name": "str|e24a4253873525d1",
 "time_ephemeris": "float64|98b865838d04adb1"
-}
-},
-"fde8c3c5684a2ce2": {
-"meta": "e89edcbe557b62cf",
-"vars": {
-"EFFECTIVE_INTEGRATION_TIME": "float64|90dbff7aec892261",
-"FLAG": "bool|32921cd9a94ec7ab",
-"SPECTRUM": "float32|d1d7ac8849bceea7",
-"TIME_CENTROID": "float64|19df861e0c96de52",
-"WEIGHT": "float64|c55a6eb09e45b739",
-"antenna_name": "str|9368dee98ad33971",
-"field_name": "str|5f198924f49b7edf",
-"frequency": "float64|b59e43004d434fed",
-"polarization": "str|9d3dba4f9d54263a",
-"scan_name": "str|cadad967d6a116e7",
-"telescope_name": "str|e9b82ebe1fd26298",
-"time": "float64|66bcbf9015de0824"
 }
 }
 },

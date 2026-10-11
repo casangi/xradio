@@ -790,7 +790,7 @@ def create_phased_array_xds(
             taql_where=f"where (ANTENNA_ID IN [{','.join(map(str, antenna_ids))}])",
         )
     except ValueError as exc:
-        xradio_logger().warning(
+        xradio_logger().debug(
             f"Failed to load PHASED_ARRAY table from {in_file}: {exc}. "
             "Skipping PHASED_ARRAY conversion."
         )

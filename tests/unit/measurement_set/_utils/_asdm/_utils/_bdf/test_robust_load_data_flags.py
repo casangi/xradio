@@ -337,17 +337,17 @@ def test_load_visibilities_from_bdf_no_issues(input_never_reshape, input_spw):
         make_sufficient_bdf_header_mock(mock_bdf_header)
         mock_bdf_reader.return_value.getHeader.return_value = mock_bdf_header
         array_slice = (slice(None), slice(None), slice(0, 16), slice(None))
-        _visibilities = load_visibilities_from_bdf(
+        visibilities = load_visibilities_from_bdf(
             "/inexistent/foo/path/",
             input_spw,
             array_slice,
             never_reshape_from_all_spws=input_never_reshape,
         )
-        # assert visibilities.shape == subset_shape
+        assert visibilities.shape == subset_shape
         mock_bdf_header.getBasebandsList.assert_called_once()
-        assert mock_bdf_reader.return_value.hasSubset.call_count == 3
+        assert mock_bdf_reader.return_value.hasSubset.call_count == 2
         assert mock_bdf_reader.return_value.getNDArrays.call_count == 1
-        assert mock_bdf_reader.return_value.getSubset.call_count == 1
+        assert mock_bdf_reader.return_value.getSubset.call_count == 0
 
 
 def test_load_flags_from_partition_bdfs_empty():

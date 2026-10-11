@@ -176,6 +176,18 @@ def test_make_blob_info():
         assert info.shape == (1, 22)
 
 
+def test_save_all_blob_infos():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        save_all_blob_infos,
+    )
+
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        save_all_blob_infos(["/inexistent/path/foo", "/inexistent/path/noop"])
+        assert mock_bdf_reader.return_value.open.call_count == 2
+        assert mock_bdf_reader.return_value.getHeader.call_count == 2
+        assert mock_bdf_reader.return_value.getSubset.call_count == 0
+
+
 def test_save_blob_info():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         save_blob_info,

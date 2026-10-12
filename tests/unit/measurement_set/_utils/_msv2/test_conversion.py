@@ -12,32 +12,9 @@ import xarray as xr
 import xradio.measurement_set._utils._msv2.conversion as conversion
 from xradio._utils._casacore import backend
 from xradio.measurement_set._utils._msv2 import stream_write
-from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
-    subtable_cache_supported,
-)
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
 from xradio.testing.measurement_set.checker import check_msv4_matches_descr
-
-try:  # (writes the cells of another shape of ms_stream_edges' "varying_shape")
-    from casacore import tables as casacore_tables
-except ImportError:
-    casacore_tables = None
-
-# python-casacore features that the arcae backend lacks
-needs_subtable_cache = pytest.mark.skipif(
-    not subtable_cache_supported(),
-    reason="the sub-table cache needs in-place reads, which the backend lacks",
-)
-needs_partnames = pytest.mark.skipif(
-    not hasattr(backend.tables.table, "partnames"),
-    reason="storage decisions need table.partnames(), which the backend lacks",
-)
-needs_reshaped_cells = pytest.mark.skipif(
-    casacore_tables is None,
-    reason="python-casacore writes cells of another shape "
-    "(the arcae shim's putcell keeps the cell's shape)",
-)
 
 minxds = namedtuple("minxds", "data_vars coords sizes")
 xds_main = minxds(
@@ -1227,7 +1204,6 @@ def test_create_data_variables_releases_the_row_plans(
 # --- sub-table cache --------------------------------------------------------------
 
 
-@needs_subtable_cache
 @pytest.mark.parametrize("ms_fixture", ["ms_minimal_required", "ms_minimal_misbehaved"])
 @pytest.mark.parametrize("interpolate", [False, True])
 def test_convert_and_write_partition_subtable_cache_bit_identical(
@@ -1669,10 +1645,9 @@ def ms_stream_edges(tmp_path_factory):
                 )
                 main_tb.addcols(tables.maketabdesc([desc]))
                 main_tb.putcol("MODEL_DATA", model)
-        if variant == "varying_shape" and casacore_tables is not None:
-            with casacore_tables.table(msname, readonly=False, ack=False) as main_tb:
-                for row in np.flatnonzero((pos >= 50) & (pos < 53)):
-                    main_tb.putcell("MODEL_DATA", int(row), model[row][:, :1])
+                if variant == "varying_shape":
+                    for row in np.flatnonzero((pos >= 50) & (pos < 53)):
+                        main_tb.putcell("MODEL_DATA", int(row), model[row][:, :1])
         if variant in ("reversed_freq", "wsp_partial"):
             with tables.table(
                 os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
@@ -1711,19 +1686,7 @@ def partition_attempts(monkeypatch):
     return attempts
 
 
-@pytest.mark.parametrize(
-    "variant",
-    [
-        (
-            pytest.param(variant, marks=needs_partnames)
-            if variant in ("reversed_freq", "wsp_partial", "reftable_wsp_partial")
-            else pytest.param(variant, marks=needs_reshaped_cells)
-            if variant == "varying_shape"
-            else variant
-        )
-        for variant in STREAM_EDGE_VARIANTS + ("reftable_wsp_partial",)
-    ],
-)
+@pytest.mark.parametrize("variant", STREAM_EDGE_VARIANTS + ("reftable_wsp_partial",))
 def test_stream_write_column_decisions_bit_identical(
     ms_stream_edges, variant, tmp_path, monkeypatch, stream_stats, partition_attempts
 ):
@@ -1785,7 +1748,6 @@ def test_stream_write_column_decisions_bit_identical(
         assert stats["WEIGHT"]["col"] == "WEIGHT_SPECTRUM"
 
 
-@needs_partnames
 def test_stream_write_guard_interleaved_partitions(
     ms_stream_edges, tmp_path, monkeypatch, stream_stats
 ):

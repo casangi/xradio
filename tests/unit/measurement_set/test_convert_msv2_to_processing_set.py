@@ -107,8 +107,6 @@ def test_convert_msv2_to_processing_set_subtable_cache_identical(
     from xradio.measurement_set._utils._msv2 import conversion
     from xradio.measurement_set._utils._msv2._tables import subtable_cache
 
-    if not subtable_cache.subtable_cache_supported():
-        pytest.skip("the sub-table cache needs in-place reads, which the backend lacks")
     built = []
     cache_class = subtable_cache.SubtableCache
 
@@ -239,8 +237,6 @@ def test_convert_msv2_to_processing_set_subtable_cache_lifetime(
     from xradio.measurement_set import convert_msv2_to_processing_set
     from xradio.measurement_set._utils._msv2._tables import subtable_cache
 
-    if not subtable_cache.subtable_cache_supported():
-        pytest.skip("the sub-table cache needs in-place reads, which the backend lacks")
     built = []
     cache_class = subtable_cache.SubtableCache
 

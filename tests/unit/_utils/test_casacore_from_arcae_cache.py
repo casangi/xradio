@@ -55,3 +55,27 @@ def test_column_descriptions_of_a_writable_table_follow_its_columns(tmp_path):
         assert tb.coldatatype("S") == "int"
         assert tb.getcoldesc("S")["valueType"] == "int"
         assert not tb.isscalarcol("S") and tb.isvarcol("S")
+
+
+def test_getcolrows_reads_the_cells_of_scattered_rows(tmp_path):
+    desc = tables.maketabdesc(
+        [
+            tables.makescacoldesc("S", 0.0, valuetype="float"),
+            tables.makearrcoldesc("V", 0j, ndim=2, valuetype="complex"),
+        ]
+    )
+    path = str(tmp_path / "rows.tbl")
+    with tables.table(path, desc, nrow=10, readonly=False) as tb:
+        tb.putcol("S", np.arange(10, dtype=np.float32))
+        for row in range(10):
+            if row != 7:
+                tb.putcell("V", row, np.full((2, 3), row + 1j, np.complex64))
+    rows = np.array([1, 2, 5, 9])
+    with tables.table(path) as tb:
+        for col in ("S", "V"):
+            expected = np.concatenate([tb.getcol(col, row, 1) for row in rows])
+            values = tb.getcolrows(col, rows)
+            assert values.dtype == expected.dtype
+            np.testing.assert_array_equal(values, expected)
+        with pytest.raises(RuntimeError):
+            tb.getcolrows("V", [6, 7])  # an undefined cell

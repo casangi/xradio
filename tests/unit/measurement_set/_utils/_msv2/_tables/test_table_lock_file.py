@@ -434,6 +434,20 @@ def test_tables_whose_writes_the_fingerprint_cannot_follow(ms_copy, tmp_path):
     )
 
 
+def test_followed_ms_fingerprint_with_the_opened_main_table(ms_copy):
+    """The data managers of an opened MAIN (``main_table``) give the
+    fingerprint of a new open of MAIN."""
+    msname = ms_copy("dense")
+    expected = table_lock_file.followed_ms_fingerprint(msname, KEY_COLUMNS)
+    with tables.table(msname, ack=False) as main_tb:
+        assert (
+            table_lock_file.followed_ms_fingerprint(
+                msname, KEY_COLUMNS, main_table=main_tb
+            )
+            == expected
+        )
+
+
 def test_history_nrows(ms_copy):
     msname = ms_copy("dense")
     with tables.table(os.path.join(msname, "HISTORY"), ack=False) as history:

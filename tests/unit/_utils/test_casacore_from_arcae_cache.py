@@ -39,6 +39,11 @@ def test_column_descriptions_of_a_read_only_table(tmp_path):
         assert tb.coldatatype("V") == "float"
         assert not tb.isscalarcol("V") and tb.isvarcol("V")
         assert tb.isscalarcol("S") and tb.coldatatype("S") == "double"
+        with tb.query("ROWID() < 1") as selection:
+            coldesc = selection.getcoldesc("V")
+            coldesc["valueType"] = "int"
+            assert selection.coldatatype("V") == "float"
+            assert not selection.isscalarcol("V") and selection.isvarcol("V")
 
 
 def test_column_descriptions_of_a_writable_table_follow_its_columns(tmp_path):

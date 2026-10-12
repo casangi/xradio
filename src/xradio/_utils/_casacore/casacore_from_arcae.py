@@ -176,6 +176,8 @@ class table:
         if _arcae_table is not None:
             self._t = _arcae_table
             self._name = _name or ""
+            if not self._t.iswritable():  # e.g. a selection of a read-only table
+                self._coldescs = {}
             return
         tablename = _resolve_subtable_path(os.path.expanduser(str(tablename)))
         self._name = tablename

@@ -365,6 +365,59 @@ def test_tablerow_defined_cells_without_values(tmp_path):
             _assert_tablerow_value(got[2], undefined)
 
 
+# Defined cells of a shape with a zero dimension (rows 2 and 3) after defined
+# (row 0) and undefined (row 1) cells, read as python-casacore 3.8.1 reads
+# them (string cells as numpy arrays, like the shim's other string cells)
+ZERO_SIZE_COLUMNS = {
+    # name: (valuetype, ndim, value of row 0, Glish TaQL value of rows 2 and 3,
+    #        their value)
+    "D1": ("double", 1, np.arange(2.0), "array(0., [0])", np.empty((0,))),
+    "I2": (
+        "int",
+        2,
+        np.ones((2, 3), np.int32),
+        "array(0, [3, 0])",
+        np.empty((0, 3), np.int32),
+    ),
+    "C2": (
+        "complex",
+        2,
+        np.full((2, 2), 1 + 2j, np.complex64),
+        "array(0+0i, [0, 2])",
+        np.empty((2, 0), np.complex64),
+    ),
+    "B1": ("boolean", 1, np.array([True, False]), "array(F, [0])", np.empty(0, bool)),
+    "DV": ("double", -1, np.arange(3.0), "array(0., [2, 0])", np.empty((0, 2))),
+    "S1": ("string", 1, np.array(["a", "b"]), "array('', [0])", np.empty(0, str)),
+}
+
+
+@pytest.mark.parametrize("col", ZERO_SIZE_COLUMNS)
+def test_reads_of_defined_cells_without_values(tmp_path, col):
+    valuetype, ndim, value, taql_value, empty = ZERO_SIZE_COLUMNS[col]
+    desc = tables.maketabdesc(
+        [tables.makearrcoldesc(col, 0.0, ndim=ndim, valuetype=valuetype)]
+    )
+    path = str(tmp_path / "zero_size.tbl")
+    with tables.table(path, desc, nrow=4, readonly=False) as tb:
+        tb.putcell(col, 0, value)
+        tables.taql(
+            f"UPDATE $tb SET {col} = {taql_value} WHERE ROWID() >= 2", style="Glish"
+        )
+    with tables.table(path) as tb:
+        np.testing.assert_array_equal(tb.getcell(col, 2), empty, strict=True)
+        np.testing.assert_array_equal(tb.col(col)[3], empty, strict=True)
+        np.testing.assert_array_equal(tb.getcol(col, 3, 1), empty[None], strict=True)
+        np.testing.assert_array_equal(
+            tb.getcol(col, 2), np.stack([empty, empty]), strict=True
+        )
+        np.testing.assert_array_equal(tb.getcell(col, 0), value, strict=True)
+        with pytest.raises(RuntimeError):
+            tb.getcell(col, 1)
+        with pytest.raises(RuntimeError):
+            tb.getcol(col)
+
+
 def test_writes_of_another_shape_reshape_variable_shaped_cells(tmp_path):
     """Like python-casacore, putcell and putcol reshape the defined cells of
     a variable-shaped column (arcae writes into the cell's shape)."""

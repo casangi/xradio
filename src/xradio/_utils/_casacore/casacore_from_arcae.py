@@ -488,10 +488,28 @@ class table:
             # python-casacore raises RuntimeError, e.g. for an undefined cell
             raise RuntimeError(str(exc)) from exc
 
+    def _empty_cells(self, columnname, startrow, nrow):
+        """The ``nrow`` cells from ``startrow`` if all are defined with one
+        shape with a zero dimension (arcae cannot read them), else None."""
+        if self.isscalarcol(columnname):
+            return None
+        shapes = self._cell_shapes(columnname, startrow, nrow)
+        shape = shapes[0] if shapes else None
+        if shape is None or 0 not in shape or any(s != shape for s in shapes):
+            return None
+        return np.empty([nrow] + shape, dtype=self._col_dtype(columnname) or str)
+
     def getcol(self, columnname, startrow=0, nrow=-1, rowincr=1):
         if rowincr != 1:
             raise NotImplementedError("rowincr != 1 is not supported")
-        data = self._getcol(columnname, self._row_index(startrow, nrow))
+        try:
+            data = self._getcol(columnname, self._row_index(startrow, nrow))
+        except RuntimeError:
+            if nrow is None or nrow < 0:
+                nrow = self.nrows() - startrow
+            data = self._empty_cells(columnname, int(startrow), int(nrow))
+            if data is None:
+                raise
         return self._convert_read(data, columnname)
 
     def getcolnp(self, columnname, nparray, startrow=0, nrow=-1, rowincr=1):
@@ -502,7 +520,12 @@ class table:
     def getcell(self, columnname, rownr):
         if self.coldatatype(columnname) == "record":
             raise RuntimeError(f"Cannot read record-valued column {columnname}")
-        data = self._getcol(columnname, ([int(rownr)],))
+        try:
+            data = self._getcol(columnname, ([int(rownr)],))
+        except RuntimeError:
+            data = self._empty_cells(columnname, int(rownr), 1)
+            if data is None:
+                raise
         data = self._convert_read(data, columnname)
         cell = data[0]
         if np.ndim(cell) == 0:

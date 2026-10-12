@@ -38,7 +38,7 @@ partition that cannot be opened is left out with a ``RuntimeWarning`` (``on_part
 other MSv4s keep their names); ``on_partition_error="raise"`` raises instead. An MS without MAIN rows opens as an empty
 processing set, as the converter writes it. ``xr.open_dataset`` cannot open an MS: use ``xr.open_datatree``.
 
-**What is read when.** Opening reads the metadata of the MS: its partitions (stored in the MS, see below), and for every
+**What is read when.** Opening reads the metadata of the MS: its partitions (see below), and for every
 partition the coordinates and the sub-datasets (antenna, field and source, system calibration, ...) as the converter
 builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those of the other data groups, ``FLAG``,
 ``WEIGHT``, ``UVW``, ``TIME_CENTROID``, ``EFFECTIVE_INTEGRATION_TIME``) are read from the MAIN table only when they are
@@ -47,8 +47,8 @@ Opening reads one cell of each of their MAIN columns per partition, that of its 
 variable's dtype, as the converter does (for a column in tiled storage, this reads the tiles that hold that cell).
 Cells without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The
 ``pointing_xds`` is lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID``
-columns, the shapes (not the values) of the cells of its array columns (stored in the MS by the first open, see below)
-and one cell of each data column, and a selection reads only the rows of its times and antennas. Only with
+columns, the shapes (not the values) of the cells of its array columns (scanned by the first open in a process, see
+below) and one cell of each data column, and a selection reads only the rows of its times and antennas. Only with
 ``pointing_interpolate=True`` is it read when the MS is opened, as by the converter. The converter reads the POINTING
 rows of every partition on their own, and leaves out (1,000 rows or more) or pads (fewer) a column whose cells there
 have several shapes or no value: a partition whose POINTING rows have such cells gets the converter's ``pointing_xds``
@@ -84,34 +84,26 @@ lazily indexed arrays: a selection reads only its rows, but a variable loaded wh
 pass ``cache=False`` to scan through the data. The variables of a ``pointing_xds`` are one chunk each, as in the
 converted processing set; for large POINTING tables, give ``pointing_chunksize`` (for example ``{"time": 10000}``).
 
-**Partitions stored in the MS: opening may write.** To compute the partitions, the key columns of the whole MAIN table
-are read, which takes time for large MSs. So the first open of a writable MS stores them in the MS:
+**Partitions computed on open.** To compute the partitions, the key columns of the whole MAIN table are read, which
+takes time for large MSs. The first open of an MS in a process computes them and keeps them in memory, and later opens
+in the process use them while the MS is unchanged; they are never stored in the MS (logged once per MS). The shapes of
+the cells of the POINTING array columns, which the first open in a process scans (about 0.2 s per column for 550,000
+rows), are kept in memory likewise. Partitions stored in the MS (a sub-table ``XRADIO_PARTITIONS``) are used while the
+MS is unchanged. ``partition_cache`` sets what is done:
 
-- a sub-table ``XRADIO_PARTITIONS``;
-- a MAIN keyword of the same name that links it (casacore rewrites MAIN's ``table.dat``, and its ``table.info`` in
-  place);
-- a row of the ``HISTORY`` table.
+- ``"auto"`` (default): use the partitions kept in memory or stored in the MS, or compute them;
+- ``"read"``: as ``"auto"``, without the log;
+- ``"rebuild"``: compute the partitions again;
+- ``"off"``: compute the partitions, neither use nor keep them.
 
-Later opens read the stored partitions (in milliseconds) while the MS is unchanged, and every process also keeps them
-in memory. The sub-table also stores the shapes of the cells of the POINTING array columns, which the first open scans
-(about 0.2 s per column for 550,000 rows), with a fingerprint of the POINTING table: later opens, in any process, use
-them while that table is unchanged (no ``HISTORY`` row is written for them). ``partition_cache`` sets what is done:
-
-- ``"auto"`` (default): use the stored partitions, or compute and store them;
-- ``"read"``: use the stored partitions, never write (for archives and shared data);
-- ``"rebuild"``: compute the partitions and store them (a ``HISTORY`` row only if they changed);
-- ``"off"``: compute the partitions, neither use nor store them.
-
-The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``. A
-read-only MS is opened with partitions computed in memory, and a :py:class:`PartitionCacheWarning` (once per MS and
-reason) says so; so is an MS whose MAIN table another process has locked (for example a CASA session with the MS open):
-xradio never waits for a lock. With arcae the partitions are never stored (logged once). Those of reference and
+The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``.
+The partitions of reference and
 concatenated MSs (a multi-MS), and of MSs whose MAIN key columns are forwarded to other MSs (as ``msconcat`` makes them),
 are computed on every open, neither stored nor kept in memory (logged once): their rows live in other tables, whose
 changes their lock files do not show. CASA tasks that copy an MS (``split``, ``mstransform``, ``tb.copy``, ``msconcat``)
 also copy the sub-table: the copy's first open finds that it does not apply and computes the partitions again.
 :py:func:`remove_msv2_partition_cache` removes the stored partitions (only a sub-table that xradio wrote, and not while
-another process holds a lock on it); an open in another process at the same time stores a sub-table of its own.
+another process holds a lock on it).
 
 **A writable table handle in the same process.** Within one process, closing any handle of a table releases the locks
 that the process holds on it, also those of handles opened with another package (casacore's locks are POSIX record
@@ -137,9 +129,8 @@ tables have not been written since the open, nothing more is read. Otherwise the
 MS as it is now (the key columns of every MAIN row are read), once per state of the MS in a process, and the rows a read
 reads are checked against the times and antennas of their cells (MAIN ``TIME``, ``ANTENNA1``, ``ANTENNA2``; POINTING
 ``TIME``, ``ANTENNA_ID``), so the outcome does not depend on what the process kept in memory: values rewritten in place
-are read as they are now, as are rows moved within an unchanged grid. While this process has the MAIN table open for
-writing (its writes are seen before they are flushed), and for reference and concatenated MSs (their lock files do not
-show the writes of the MSs they read), every read checks its partition so.
+are read as they are now, as are rows moved within an unchanged grid. For reference and concatenated MSs (their lock
+files do not show the writes of the MSs they read), every read checks its partition so.
 
 Writing MAIN from another process while the MS is being opened is not supported. As the converter, the engine reads
 the MS without casacore's read locks (``lockoptions="usernoread"``: it never waits for a writer, nor makes one wait), so
@@ -151,10 +142,9 @@ the writer has flushed its changes and released its lock), or open a copy.
 
 **Performance.** Opening costs what the converter spends on metadata: about 0.05 to 0.2 s per partition, plus 4 to
 12 ms per node for xarray (about 3 s and 150 MiB for the 20 partitions of a 160 MB VLASS MS). The first open of an MS
-also scans the cell shapes of the POINTING array columns (about 1 s per column for 3.6 million rows), which it stores in
-the MS for later opens (an MS that cannot be written: once per process). Opening more than 1,000 partitions gives a
-warning. For large MSs, keep the default ``partition_scheme=[]``, select partitions with
-``partition_filter``, and pass ``with_pointing=False`` when the pointing is not needed.
+in a process also scans the cell shapes of the POINTING array columns (about 1 s per column for 3.6 million rows).
+Opening more than 1,000 partitions gives a warning. For large MSs, keep the default ``partition_scheme=[]``, select
+partitions with ``partition_filter``, and pass ``with_pointing=False`` when the pointing is not needed.
 Converting is still the better choice when the data is read in full several times, or from cloud storage: every read
 from the MS reorders its rows into the MSv4 layout, which the converted processing set stores once, chunked and
 compressed.

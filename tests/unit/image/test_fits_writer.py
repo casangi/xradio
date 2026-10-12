@@ -33,9 +33,11 @@ from astropy.io import fits
 from astropy.time import Time
 from astropy.wcs import WCS
 
+from xradio._utils._casacore.backend import tables
 from xradio._utils.dict_helpers import make_quantity
 from xradio.image import open_image, write_image
 from xradio.image._util import conventions
+from xradio.image._util._casacore.common import _create_new_image
 from xradio.image._util._fits import xds_to_fits
 from xradio.image._util._fits.xds_to_fits import (
     _fits_image_header,
@@ -620,6 +622,43 @@ class TestDirectionAxes:
             rtol=0,
             atol=1e-10,
         )
+
+    def test_slant_orthographic_positions_match_casacore(self, tmp_path):
+        """An NCP-like SIN image (projection parameters [0, cot(dec0)]) has the
+        same sky positions through FITS as in casacore."""
+        shape = (2, 1, 20, 30)
+        casa_path = str(tmp_path / "slant.im")
+        with _create_new_image(casa_path, shape=list(shape)) as image:
+            image.putdata(np.ones(shape, dtype=np.float32))
+        with tables.table(casa_path, readonly=False, ack=False) as tb:
+            coords = tb.getkeyword("coords")
+            dec0 = np.radians(-40.0)
+            direction = coords["direction0"]
+            direction["units"] = ["rad", "rad"]
+            direction["crval"] = np.array([np.radians(105.0), dec0])
+            direction["cdelt"] = np.array([-np.radians(1 / 60), np.radians(1 / 60)])
+            direction["crpix"] = np.array([15.0, 10.0])
+            direction["projection_parameters"] = np.array([0.0, 1 / np.tan(dec0)])
+            tb.putkeyword("coords", coords)
+        corners = [(0, 0), (29, 0), (0, 19), (29, 19)]
+        # (ra, dec) in radians at the corners, computed with python-casacore 3.8.1
+        # (casacore.images.image(casa_path).toworld([0, 0, y, x])[2:][::-1])
+        casa_world = [
+            (1.8383055032059323, -0.7010162493890848),
+            (1.8272665710920222, -0.7010187386146189),
+            (1.8382790821049393, -0.6954902565236886),
+            (1.827291230889416, -0.6954927505979717),
+        ]
+        xds = open_image(casa_path)
+        fits_path = tmp_path / "slant.fits"
+        _xds_to_fits_image(
+            xr.Dataset({"SKY": xds["SKY"]}, attrs=dict(xds.attrs)), str(fits_path)
+        )
+        wcs = WCS(fits.getheader(fits_path)).celestial
+        for (x, y), (ra, dec) in zip(corners, casa_world, strict=True):
+            fits_ra, fits_dec = wcs.pixel_to_world_values(x, y)
+            assert abs(np.degrees(ra) % 360 - fits_ra) * 3600 < 1e-6
+            assert abs(np.degrees(dec) - fits_dec) * 3600 < 1e-6
 
     @pytest.mark.parametrize(
         "frame, equinox, radesys, fits_equinox",

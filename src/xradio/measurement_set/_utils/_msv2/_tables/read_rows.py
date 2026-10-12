@@ -96,6 +96,10 @@ IN_PLACE_READ_METHODS = ("getcolnp", "getcolslicenp", "selectrows")
 GETCOL_MAX_BYTES = 16 * 1024 * 1024
 # arcae shim method reading the cells of an array of row numbers with one call
 ROW_READ_METHOD = "getcolrows"
+# Runs of scattered rows averaging at least this many bytes are read with one
+# getcol each rather than one ROW_READ_METHOD call (slower for long runs of
+# large cells)
+ROW_READ_MAX_RUN_BYTES = 1024 * 1024
 
 # casacore column value type -> numpy dtype that python-casacore uses for it
 CASACORE_TO_NUMPY_DTYPE = {
@@ -128,13 +132,19 @@ def has_in_place_reads(table: Any) -> bool:
     return all(hasattr(table, name) for name in IN_PLACE_READ_METHODS)
 
 
-def has_row_reads(table: Any, dst: np.ndarray) -> bool:
+def has_row_reads(table: Any, dst: np.ndarray, n_runs: int) -> bool:
     """
-    Whether scattered rows of a table without in-place reads are read into
-    ``dst`` with one call (``ROW_READ_METHOD``) rather than one per run: not
-    for cells without elements, which only ``getcol`` reads.
+    Whether ``n_runs`` runs of scattered rows of a table without in-place
+    reads are read into ``dst`` with one call (``ROW_READ_METHOD``) rather
+    than one per run: not for cells without elements, which only ``getcol``
+    reads, nor for runs of ROW_READ_MAX_RUN_BYTES or more of ``dst`` on
+    average.
     """
-    return dst.size > 0 and hasattr(table, ROW_READ_METHOD)
+    return (
+        dst.size > 0
+        and dst.nbytes < n_runs * ROW_READ_MAX_RUN_BYTES
+        and hasattr(table, ROW_READ_METHOD)
+    )
 
 
 def backend_has_in_place_reads() -> bool:
@@ -553,7 +563,7 @@ def _read_rows_unchecked(
         batch = rows[b0 : b0 + batch_rows]
         dst = out[b0 : b0 + batch.size]
         starts, lengths = rows_to_runs(batch)
-        if not in_place and starts.size > 1 and has_row_reads(table, dst):
+        if not in_place and starts.size > 1 and has_row_reads(table, dst, starts.size):
             stats["calls"] = stats.get("calls", 0) + _read_cells_getcol(
                 table, col, dst, slicer, int(batch[0]), batch.size, batch
             )
@@ -1336,7 +1346,11 @@ def read_rows_to_grid(
             stats["calls"] = stats.get("calls", 0) + 1
             stats["selectrows_calls"] = stats.get("selectrows_calls", 0) + 1
             return np.arange(b - a, dtype=np.int64)
-        if not in_place and n_pieces > 1 and has_row_reads(table, tmp_full):
+        if (
+            not in_place
+            and n_pieces > 1
+            and has_row_reads(table, tmp_full[: b - a], n_pieces)
+        ):
             # several pieces: one call for the partition rows
             stats["calls"] = stats.get("calls", 0) + _read_cells_getcol(
                 table,

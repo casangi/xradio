@@ -193,7 +193,7 @@ def test_read_rows_matches_reference(rows_tb, selection, col, max_elems):
         # one call per run, but never one call over the whole column (one call
         # for several runs where the table reads rows: has_row_reads)
         whole_column = rows.size == NROWS
-        if starts.size > 1 and rr.has_row_reads(tb, out):
+        if starts.size > 1 and rr.has_row_reads(tb, out, starts.size):
             assert stats["calls"] == 1
         else:
             assert stats["calls"] == starts.size + whole_column
@@ -1064,9 +1064,10 @@ def test_read_rows_to_grid_without_in_place_reads_bridges_fixed_shapes_only(
 def test_read_rows_without_in_place_reads_bounds_every_getcol(
     rows_tb, monkeypatch, chan
 ):
-    """Without in-place reads (arcae) every run is read with getcol calls of
-    at most GETCOL_MAX_BYTES of whole cells (also for a channel range), in
-    one ascending pass."""
+    """Without in-place reads (arcae) the runs are read with getcolrows calls
+    (getcol calls of every run where the table has no getcolrows) of at most
+    GETCOL_MAX_BYTES of whole cells (also for a channel range), in one
+    ascending pass."""
     tb, ref = rows_tb
     monkeypatch.setattr(rr, "GETCOL_MAX_BYTES", 7 * DATA_ROW_BYTES)
     rows = ROW_SELECTIONS["few_runs"]
@@ -1088,7 +1089,8 @@ def test_read_rows_to_grid_without_in_place_reads_bounds_every_getcol(
     rows_tb, monkeypatch
 ):
     """Without in-place reads (arcae) the reads of a grid, bridged or not,
-    are getcol calls of at most GETCOL_MAX_BYTES, in one ascending pass."""
+    are getcol or getcolrows calls of at most GETCOL_MAX_BYTES, in one
+    ascending pass."""
     tb, ref = rows_tb
     monkeypatch.setattr(rr, "GETCOL_MAX_BYTES", 7 * DATA_ROW_BYTES)
     rows = np.r_[0:60, 62:130, 131:199]
@@ -1112,6 +1114,30 @@ def test_read_rows_to_grid_without_in_place_reads_bounds_every_getcol(
         np.testing.assert_array_equal(np.concatenate(spy.rows_read), read_order)
         assert [c.size for c in spy.rows_read] == sizes
         assert stats["calls"] == len(sizes)
+
+
+def test_row_reads_only_for_runs_below_max_run_bytes(rows_tb, monkeypatch):
+    """Without in-place reads (arcae) the runs of scattered rows are read with
+    one getcolrows call while they average fewer than ROW_READ_MAX_RUN_BYTES,
+    else with getcol calls of every run (read_rows and read_rows_to_grid)."""
+    tb, ref = rows_tb
+    rows = ROW_SELECTIONS["few_runs"]
+    starts, lengths = rr.rows_to_runs(rows)
+    run_bytes = rows.size * DATA_ROW_BYTES / starts.size
+    per_run = list(zip(starts.tolist(), lengths.tolist(), strict=True))
+    one_call = [(int(rows[0]), rows.size)] if hasattr(tb, rr.ROW_READ_METHOD) else None
+    # grid in reversed row order: every row read through the temporary
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    for max_run_bytes, calls in ((run_bytes, per_run), (run_bytes + 1, one_call)):
+        monkeypatch.setattr(rr, "ROW_READ_MAX_RUN_BYTES", max_run_bytes)
+        spy = GetcolSpy(tb)
+        out = sentinel_buffer(ref["TSM_DATA"][rows].shape, np.complex64)
+        rr.read_rows(spy, "TSM_DATA", rows, out)
+        grid = np.zeros((rows.size, 1) + out.shape[1:], np.complex64)
+        rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid)
+        np.testing.assert_array_equal(out, ref["TSM_DATA"][rows])
+        np.testing.assert_array_equal(grid[::-1, 0], ref["TSM_DATA"][rows])
+        assert [(int(c[0]), c.size) for c in spy.rows_read] == 2 * (calls or per_run)
 
 
 def test_tmp_pieces():

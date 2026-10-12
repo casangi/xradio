@@ -1,3 +1,5 @@
+import os
+
 import numpy as np
 import pytest
 
@@ -397,3 +399,23 @@ def test_query_name_writes_a_reference_table(tmp_path):
         tb.query("S > 1", name=ref).close()
     with tables.table(ref) as tb:
         np.testing.assert_array_equal(tb.getcol("S"), [2, 3])
+
+
+def test_addcols_of_one_column_and_removerows(tmp_path):
+    desc = tables.maketabdesc([tables.makescacoldesc("S", 0)])
+    with tables.table(str(tmp_path / "t.tbl"), desc, nrow=4, readonly=False) as tb:
+        tb.putcol("S", np.arange(4, dtype=np.int32))
+        tb.addcols(tables.makearrcoldesc("A", 0.0, ndim=1))
+        assert tb.colnames() == ["S", "A"]
+        tb.removerows([])
+        tb.removerows([0, 2])
+        np.testing.assert_array_equal(tb.getcol("S"), [1, 3])
+
+
+def test_default_ms_subtable_without_an_ms(tmp_path):
+    path = str(tmp_path / "not_an_ms" / "POINTING")
+    os.makedirs(os.path.dirname(path))
+    extra = tables.maketabdesc([tables.makescacoldesc("OVER_THE_TOP", False)])
+    with tables.default_ms_subtable("POINTING", path, extra) as tb:
+        assert {"ANTENNA_ID", "TIME", "DIRECTION", "OVER_THE_TOP"} <= set(tb.colnames())
+    assert not os.path.exists(os.path.join(os.path.dirname(path), "table.dat"))

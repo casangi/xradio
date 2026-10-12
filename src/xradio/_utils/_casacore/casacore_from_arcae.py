@@ -586,11 +586,18 @@ class table:
         self._t.addrows(int(nrows))
 
     def addcols(self, desc, dminfo={}, addtoparent=True):  # noqa: B006
+        if "name" in desc and "desc" in desc:  # one column (makecoldesc)
+            desc = maketabdesc(desc)
         coldescs, deferred_keywords = _prepare_coldescs_for_json(
             _json_safe(_flatten_coldescs(desc))
         )
         self._t.addcols(coldescs, _json_safe(dminfo) or None)
         _write_deferred_empty_keywords(self, deferred_keywords)
+
+    def removerows(self, rownrs):
+        rows = ", ".join(str(int(row)) for row in np.atleast_1d(rownrs))
+        if rows:  # (TaQL errors abort the process)
+            self._taql(f"DELETE FROM $1 WHERE rowid() IN [{rows}]").close()
 
     def removecols(self, columnnames):
         if isinstance(columnnames, str):
@@ -1391,6 +1398,12 @@ def default_ms_subtable(subtable, name=None, tabdesc=None, dminfo=None):
         # parent MS path and appends the subtable name itself
         parent, leaf = os.path.split(name.rstrip("/"))
         if leaf.upper() == subtable and parent:
+            if not os.path.isfile(os.path.join(parent, "table.dat")):
+                # no MS to link it into: a table of its own, as python-casacore's
+                desc = dict(required_ms_desc(subtable), **(tabdesc or {}))
+                return table(
+                    _arcae_table=_create_table(name, desc, 0, dminfo), _name=name
+                )
             name = parent
     else:
         name = subtable.lower() + ".ms"

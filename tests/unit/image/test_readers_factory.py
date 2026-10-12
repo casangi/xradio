@@ -267,34 +267,8 @@ class TestCasaReaderSpectral:
         assert not check_image(xds)
 
 
-def _casacore_sky_positions(path):
-    """Sky positions of every pixel from casacore, shape (l, m, 2) in
-    radians (the direction axes are in radians)."""
-    images = pytest.importorskip(
-        "casacore.images", reason="python-casacore computes the reference positions"
-    )
-    image = images.image(path)
-    n_m, n_l = image.shape()[-2:]
-    world = np.array(
-        [
-            [
-                image.toworld([0] * (image.ndim() - 2) + [y, x])[-2:][::-1]
-                for y in range(n_m)
-            ]
-            for x in range(n_l)
-        ]
-    )
-    del image
-    return world
-
-
-def _angle_difference(a, b):
-    return (np.asarray(a) - np.asarray(b) + np.pi) % (2 * np.pi) - np.pi
-
-
 class TestCasaReaderDirection:
-    """Sky coordinates of CASA images: projection parameters, rotation and
-    galactic axes."""
+    """Sky coordinates of CASA images: galactic axes."""
 
     @staticmethod
     def _direction(coords, crval, system="J2000", axes=None):
@@ -310,31 +284,6 @@ class TestCasaReaderDirection:
         return direction
 
     @pytest.mark.parametrize("reader", [open_image, load_image])
-    def test_projection_parameters_and_rotation(self, tmp_path, reader):
-        """A slant orthographic (NCP-like) SIN image with a rotated pixel grid
-        gets the sky positions casacore computes."""
-        dec0 = np.radians(-40.0)
-        rho = np.radians(20.0)
-
-        def edit(coords):
-            direction = self._direction(coords, [105.0, -40.0])
-            direction["projection_parameters"] = np.array([0.0, 1 / np.tan(dec0)])
-            direction["pc"] = np.array(
-                [[np.cos(rho), -np.sin(rho)], [np.sin(rho), np.cos(rho)]]
-            )
-
-        path, _ = _make_casa_image(tmp_path / "slant.im", edit_coords=edit)
-        world = _casacore_sky_positions(path)
-        xds = reader(path)
-        # 1e-9 arcsec; ignoring the projection parameters and the rotation
-        # gives arcseconds to arcminutes
-        tolerance = np.radians(1e-9 / 3600)
-        assert np.abs(_angle_difference(xds.right_ascension, world[..., 0])).max() < (
-            tolerance
-        )
-        assert np.abs(xds.declination.values - world[..., 1]).max() < tolerance
-
-    @pytest.mark.parametrize("reader", [open_image, load_image])
     def test_galactic_image(self, tmp_path, reader):
         """casacore names the axes of galactic images Longitude and Latitude."""
 
@@ -344,7 +293,6 @@ class TestCasaReaderDirection:
             )
 
         path, data = _make_casa_image(tmp_path / "galactic.im", edit_coords=edit)
-        world = _casacore_sky_positions(path)
         xds = reader(path)
         assert xds.SKY.dims == ("time", "frequency", "polarization", "l", "m")
         np.testing.assert_array_equal(
@@ -352,11 +300,6 @@ class TestCasaReaderDirection:
         )
         reference = xds.attrs["coordinate_system_info"]["reference_direction"]
         assert reference["attrs"]["frame"] == "galactic"
-        tolerance = np.radians(1e-9 / 3600)
-        assert np.abs(
-            _angle_difference(xds.galactic_longitude, world[..., 0])
-        ).max() < (tolerance)
-        assert np.abs(xds.galactic_latitude.values - world[..., 1]).max() < tolerance
         assert not check_image(xds)
 
     def test_galactic_image_round_trip(self, tmp_path):

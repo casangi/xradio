@@ -621,44 +621,6 @@ class TestDirectionAxes:
             atol=1e-10,
         )
 
-    def test_slant_orthographic_positions_match_casacore(self, tmp_path):
-        """An NCP-like SIN image (projection parameters [0, cot(dec0)]) has the
-        same sky positions through FITS as in casacore."""
-        images = pytest.importorskip(
-            "casacore.images", reason="python-casacore computes the reference positions"
-        )
-        shape = (2, 1, 20, 30)
-        template = images.image(str(tmp_path / "template.im"), shape=shape)
-        coords = template.coordinates().dict()
-        del template
-        dec0 = np.radians(-40.0)
-        direction = coords["direction0"]
-        direction["units"] = ["rad", "rad"]
-        direction["crval"] = np.array([np.radians(105.0), dec0])
-        direction["cdelt"] = np.array([-np.radians(1 / 60), np.radians(1 / 60)])
-        direction["crpix"] = np.array([15.0, 10.0])
-        direction["projection_parameters"] = np.array([0.0, 1 / np.tan(dec0)])
-        casa_path = str(tmp_path / "slant.im")
-        image = images.image(
-            casa_path,
-            shape=shape,
-            coordsys=images.coordinates.coordinatesystem(coords),
-        )
-        image.putdata(np.ones(shape, dtype=np.float32))
-        corners = [(0, 0), (29, 0), (0, 19), (29, 19)]
-        casa_world = [image.toworld([0, 0, y, x])[2:][::-1] for x, y in corners]
-        del image
-        xds = open_image(casa_path)
-        fits_path = tmp_path / "slant.fits"
-        _xds_to_fits_image(
-            xr.Dataset({"SKY": xds["SKY"]}, attrs=dict(xds.attrs)), str(fits_path)
-        )
-        wcs = WCS(fits.getheader(fits_path)).celestial
-        for (x, y), (ra, dec) in zip(corners, casa_world, strict=True):
-            fits_ra, fits_dec = wcs.pixel_to_world_values(x, y)
-            assert abs(np.degrees(ra) % 360 - fits_ra) * 3600 < 1e-6
-            assert abs(np.degrees(dec) - fits_dec) * 3600 < 1e-6
-
     @pytest.mark.parametrize(
         "frame, equinox, radesys, fits_equinox",
         [

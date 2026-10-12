@@ -611,6 +611,15 @@ class table:
             self.getcoldesc(columnname).get("dataManagerType", "").startswith("Tiled")
         )
 
+    def _reshapes(self, columnname, data, startrow):
+        """Whether writing ``data`` (rows first) from ``startrow`` changes the
+        shape of a defined cell of a variable-shaped column (arcae writes into
+        the cell's shape; TaQL, like python-casacore, reshapes it)."""
+        if not self.isvarcol(columnname):
+            return False
+        shapes = self._cell_shapes(columnname, startrow, data.shape[0])
+        return any(s is not None and tuple(s) != data.shape[1:] for s in shapes)
+
     def putcol(self, columnname, value, startrow=0, nrow=-1, rowincr=1):
         if rowincr != 1:
             raise NotImplementedError("rowincr != 1 is not supported")
@@ -624,7 +633,7 @@ class table:
         data = self._convert_write(columnname, data)
         if data.shape[0] == 0:
             return  # nothing to write (and arrow cannot type empty arrays)
-        if self._is_tiled(columnname):
+        if self._is_tiled(columnname) or self._reshapes(columnname, data, startrow):
             # whole-cell writes to tiled columns go through TaQL
             self._put_rows_via_taql(columnname, np.ascontiguousarray(data), startrow)
             return
@@ -633,7 +642,7 @@ class table:
 
     def putcell(self, columnname, rownr, value):
         data = self._convert_write(columnname, value, expect_cell=True)
-        if self._is_tiled(columnname):
+        if self._is_tiled(columnname) or self._reshapes(columnname, data, int(rownr)):
             self._put_rows_via_taql(columnname, np.ascontiguousarray(data), int(rownr))
             return
         self._t.putcol(columnname, data, index=([int(rownr)],))

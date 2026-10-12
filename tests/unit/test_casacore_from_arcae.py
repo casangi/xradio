@@ -361,3 +361,19 @@ def test_tablerow_defined_cells_without_values(tmp_path):
                 got[1] = np.reshape(got[1]["array"], got[1]["shape"])
             np.testing.assert_array_equal(got[1], value)
             _assert_tablerow_value(got[2], undefined)
+
+
+def test_writes_of_another_shape_reshape_variable_shaped_cells(tmp_path):
+    """Like python-casacore, putcell and putcol reshape the defined cells of
+    a variable-shaped column (arcae writes into the cell's shape)."""
+    desc = tables.maketabdesc(
+        [tables.makearrcoldesc("V", 0.0, ndim=1, valuetype="double")]
+    )
+    with tables.table(str(tmp_path / "var.tbl"), desc, nrow=3, readonly=False) as tb:
+        tb.putcol("V", np.zeros((3, 16)))
+        for n in (24, 8):
+            tb.putcell("V", 1, np.arange(n, dtype=float))
+            np.testing.assert_array_equal(tb.getcell("V", 1), np.arange(n))
+        tb.putcol("V", np.ones((2, 5)), startrow=1)
+        assert [tb.getcell("V", row).shape for row in range(3)] == [(16,), (5,), (5,)]
+        np.testing.assert_array_equal(tb.getcol("V", startrow=1), np.ones((2, 5)))

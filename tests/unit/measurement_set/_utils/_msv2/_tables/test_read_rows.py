@@ -1076,7 +1076,11 @@ def test_read_rows_without_in_place_reads_bounds_every_getcol(
     stats = rr.read_rows(spy, "TSM_DATA", rows, out, chan=chan)
     np.testing.assert_array_equal(out, expected)
     np.testing.assert_array_equal(np.concatenate(spy.rows_read), rows)
-    assert [c.size for c in spy.rows_read] == [7] * 5 + [2, 1] + [7] * 8 + [4, 1]
+    if hasattr(tb, rr.ROW_READ_METHOD):  # one getcolrows for the runs
+        sizes = [7] * 14 + [1]
+    else:
+        sizes = [7] * 5 + [2, 1] + [7] * 8 + [4, 1]
+    assert [c.size for c in spy.rows_read] == sizes
     assert stats["calls"] == len(spy.rows_read)
 
 
@@ -1093,7 +1097,13 @@ def test_read_rows_to_grid_without_in_place_reads_bounds_every_getcol(
         # fixed cell shape (8 bytes): gaps bridged, 84 rows per call
         ("SSM_WEIGHT", np.arange(199), [84, 84, 31]),
         # variably shaped: no gap bridged, 7 rows per call
-        ("TSM_DATA", rows, [7] * 8 + [4] + ([7] * 9 + [5]) * 2),
+        (
+            "TSM_DATA",
+            rows,
+            [7] * 28
+            if hasattr(tb, rr.ROW_READ_METHOD)  # one getcolrows of the pieces
+            else [7] * 8 + [4] + ([7] * 9 + [5]) * 2,
+        ),
     ):
         spy = GetcolSpy(tb)
         grid = np.zeros((rows.size, 1) + ref[col].shape[1:], ref[col].dtype)

@@ -170,6 +170,8 @@ class table:
         ninstances=1,
     ):
         self._closed = False
+        # value types of the columns of a read-only table (they cannot change)
+        self._valuetypes = None
         if _arcae_table is not None:
             self._t = _arcae_table
             self._name = _name or ""
@@ -191,6 +193,8 @@ class table:
             except Exception as exc:
                 # python-casacore raises RuntimeError for unopenable tables
                 raise RuntimeError(str(exc)) from exc
+            if readonly:
+                self._valuetypes = {}
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -262,7 +266,11 @@ class table:
         raise RuntimeError(f"Column {columnname} not found in dminfo")
 
     def coldatatype(self, columnname):
-        return self.getcoldesc(columnname)["valueType"]
+        if self._valuetypes is None:
+            return self.getcoldesc(columnname)["valueType"]
+        if columnname not in self._valuetypes:
+            self._valuetypes[columnname] = self.getcoldesc(columnname)["valueType"]
+        return self._valuetypes[columnname]
 
     def _col_dtype(self, columnname):
         return _VALUETYPE_TO_DTYPE.get(self.coldatatype(columnname))

@@ -706,3 +706,104 @@ def test_default_ms_subtable_without_an_ms_data_managers(tmp_path):
     )
     with tables.default_ms_subtable("SOURCE", path, extra) as tb:
         assert _data_managers(tb)["ExtraISM"] == ("IncrementalStMan", ["EXTRA"])
+
+
+def test_iter_over_the_rows_of_each_value(tmp_path):
+    desc = tables.maketabdesc(
+        [tables.makescacoldesc("K", 0), tables.makescacoldesc("R", 0)]
+    )
+    with tables.table(str(tmp_path / "iter.tbl"), desc, nrow=6, readonly=False) as tb:
+        tb.putcol("K", np.array([2, 1, 2, 2, 3, 1], dtype=np.int32))
+        tb.putcol("R", np.arange(6, dtype=np.int32))
+        groups = [(set(sub.getcol("K")), set(sub.getcol("R"))) for sub in tb.iter("K")]
+        assert groups == [({1}, {1, 5}), ({2}, {0, 2, 3}), ({3}, {4})]
+        groups = [list(sub.getcol("R")) for sub in tb.iter(["K"], sort=False)]
+        assert groups == [[0], [1], [2, 3], [4], [5]]
+        with pytest.raises(NotImplementedError, match="multiple columns"):
+            next(tb.iter(["K", "R"]))
+        np.testing.assert_array_equal(tb.rownumbers(), np.arange(6))
+    with tables.table(str(tmp_path / "empty.tbl"), desc, readonly=False) as tb:
+        assert list(tb.iter("K")) == []
+
+
+def test_column_keywords(tmp_path):
+    desc = tables.maketabdesc([tables.makescacoldesc("T", 0.0)])
+    with tables.table(str(tmp_path / "kw.tbl"), desc, nrow=1, readonly=False) as tb:
+        tb.putcolkeyword("T", "UNIT", "s")
+        tb.putcolkeyword("T", "REF", np.array([1.0, 2.0]))
+        keywords = tb.getcolkeywords("T")
+        assert keywords["UNIT"] == "s"
+        np.testing.assert_array_equal(keywords["REF"], [1.0, 2.0])
+        tb.removecolkeyword("T", "UNIT")
+        assert list(tb.getcolkeywords("T")) == ["REF"]
+
+
+def test_tables_that_cannot_be_opened_or_created(tmp_path):
+    path = str(tmp_path / "t.tbl")
+    with pytest.raises(RuntimeError):
+        tables.table(str(tmp_path / "missing.tbl"))
+    desc = tables.maketabdesc([tables.makescacoldesc("S", 0)])
+    with pytest.raises(ValueError, match="ninstances=1"):
+        tables.table(path, desc, readonly=False, ninstances=2)
+    tables.table(path, desc, nrow=1, readonly=False).close()
+    with pytest.raises(RuntimeError, match="already exists"):
+        tables.table(path, desc, readonly=False)
+
+
+def test_unsupported_row_and_cell_increments(tmp_path):
+    desc = tables.maketabdesc([tables.makearrcoldesc("A", 0.0, shape=[3])])
+    with tables.table(str(tmp_path / "t.tbl"), desc, nrow=2, readonly=False) as tb:
+        with pytest.raises(NotImplementedError):
+            tb.getcol("A", rowincr=2)
+        with pytest.raises(NotImplementedError):
+            tb.putcol("A", np.zeros((1, 3)), rowincr=2)
+        with pytest.raises(NotImplementedError):
+            tb.getcolslice("A", [0], [1], rowincr=2)
+        with pytest.raises(NotImplementedError):
+            tb.getcolslice("A", [0], [2], inc=[2])
+
+
+def test_keywords_dminfo_and_info(tmp_path):
+    desc = tables.maketabdesc([tables.makescacoldesc("S", 0)])
+    with tables.table(str(tmp_path / "t.tbl"), desc, nrow=1, readonly=False) as tb:
+        with pytest.raises(RuntimeError, match="keyword NOPE does not exist"):
+            tb.getkeyword("NOPE")
+        tb.putkeyword("K", 1)
+        tb.removekeyword("K")
+        assert "K" not in tb.keywordnames()
+        group = tb.getdminfo("S")
+        assert "S" in group["COLUMNS"]
+        with pytest.raises(RuntimeError, match="not found"):
+            tb.getdminfo("NOPE")
+        assert tb.info() == {"type": "", "subType": "", "readme": ""}
+        tb.putinfo({"type": "Measurement Set", "readme": "line one"})
+        assert tb.info() == {
+            "type": "Measurement Set",
+            "subType": "",
+            "readme": "line one\n",
+        }
+
+
+def test_taql_with_python_values_and_table_variables(tmp_path):
+    desc = tables.maketabdesc(
+        [tables.makescacoldesc("S", 0), tables.makescacoldesc("N", "")]
+    )
+    path = str(tmp_path / "t.tbl")
+    with tables.table(path, desc, nrow=4, readonly=False) as tb:
+        tb.putcol("S", np.arange(4, dtype=np.int32))
+        tb.putcol("N", ["a", "b", "d", "e"])
+    t = tables.table(path)
+    values = {"low": 1, "name": "b", "rows": [0, 3]}
+    result = tables.taql("SELECT FROM $t WHERE S > $low", locals=values)
+    np.testing.assert_array_equal(result.getcol("S"), [2, 3])
+    result = tables.taql("SELECT FROM $t WHERE N == $name", locals=values)
+    np.testing.assert_array_equal(result.getcol("S"), [1])
+    result = tables.taql("SELECT FROM $t WHERE S IN $rows", locals=values)
+    np.testing.assert_array_equal(result.getcol("S"), [0, 3])
+    u = tables.table(path)
+    with pytest.raises(NotImplementedError, match="more than one table"):
+        tables.taql("SELECT FROM $t, $u")
+    with pytest.raises(RuntimeError, match="empty IN list"):
+        tables.taql("SELECT FROM $t WHERE S IN []")
+    t.close()
+    u.close()

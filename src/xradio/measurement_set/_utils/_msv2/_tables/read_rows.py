@@ -1166,7 +1166,10 @@ def read_rows_to_grid(
 
     A table without in-place reads (``has_in_place_reads``) is read the same
     way with getcol calls (and copies), and a fragmented temporary with one
-    call per run instead of selectrows.
+    call per run instead of selectrows. No gap is bridged there in a column
+    without a fixed cell shape: arcae reads rows of several cell shapes in
+    one call as a variably shaped array before failing, in a time quadratic
+    in the number of rows (arcae 0.5.7: 240 s for 337,773 rows of FLAG).
 
     Parameters
     ----------
@@ -1273,6 +1276,7 @@ def read_rows_to_grid(
         tmp_rows = max(
             1, min(rows_per_call, MAX_SELECTROWS_ROWS, int(max_tmp_bytes) // row_bytes)
         )
+        bridge = bridge and (in_place or not table.isvarcol(col))
         pieces = _tmp_pieces(tmp_rows_t, tmp_pos, row_bytes, tmp_rows, bridge=bridge)
         batches, tmp_n = _tmp_batches(pieces, tmp_rows)
         tmp_full = np.empty((tmp_n,) + cell_shape, dtype=col_dt)

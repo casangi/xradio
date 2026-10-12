@@ -998,6 +998,45 @@ def test_read_rows_to_grid_bridge_fallback_other_shape(tmp_path):
     np.testing.assert_array_equal(np.concatenate(spy.rows_read[1:]), rows)
 
 
+class GetcolSpy:
+    """Table proxy with the read API of the arcae shim (no in-place reads) that
+    records the rows of every getcol call."""
+
+    def __init__(self, tb):
+        self._tb = tb
+        self.rows_read: list[np.ndarray] = []
+
+    def __getattr__(self, name):
+        if name in rr.IN_PLACE_READ_METHODS:
+            raise AttributeError(name)
+        return getattr(self._tb, name)
+
+    def getcol(self, col, startrow, nrow):
+        self.rows_read.append(np.arange(startrow, startrow + nrow))
+        return self._tb.getcol(col, startrow, nrow)
+
+
+def test_read_rows_to_grid_without_in_place_reads_bridges_fixed_shapes_only(
+    rows_tb,
+):
+    """Without in-place reads (arcae) gaps are bridged in columns of a fixed
+    cell shape only: arcae reads a bridged gap of cells of another shape in a
+    time quadratic in the number of rows before the read fails."""
+    tb, ref = rows_tb
+    rows = np.r_[0:60, 62:130, 131:199]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    for col, calls, gap_rows in (
+        ("SSM_WEIGHT", [(0, 199)], 3),
+        ("TSM_DATA", [(0, 60), (62, 68), (131, 68)], 0),
+    ):
+        spy = GetcolSpy(tb)
+        grid = np.zeros((rows.size, 1) + ref[col].shape[1:], ref[col].dtype)
+        stats = rr.read_rows_to_grid(spy, col, plan, grid)
+        np.testing.assert_array_equal(grid[::-1, 0], ref[col][rows])
+        assert [(c[0], c.size) for c in spy.rows_read] == calls
+        assert stats.get("gap_rows", 0) == gap_rows
+
+
 def test_tmp_pieces():
     """Runs joined across bridged gaps, cut at the temporary's size, trimmed
     to partition rows, never across a direct segment (barrier)."""

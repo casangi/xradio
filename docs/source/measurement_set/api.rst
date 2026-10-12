@@ -44,16 +44,8 @@ builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those o
 ``WEIGHT``, ``UVW``, ``TIME_CENTROID``, ``EFFECTIVE_INTEGRATION_TIME``) are read from the MAIN table only when they are
 indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time.
 Opening reads one cell of each of their MAIN columns per partition, that of its first row, whose type gives the
-variable's dtype, as the converter does (for a column in tiled storage, this reads the tiles that hold that cell). With
-python-casacore, a selection of some channels of ``VISIBILITY*``, ``SPECTRUM*``, ``FLAG`` or ``WEIGHT`` (from
-``WEIGHT_SPECTRUM``) whose MAIN column is stored in tiles of fewer channels than a cell (tiled storage managers) reads
-only the tiles of those channels: their range rounded out to whole tiles. While it reads, the tile cache of the
-column's data manager is bounded (casacore's ``setmaxcachesize``, at least 16 MiB; set back when the last such read of
-a column of that data manager ends), which caps its memory (casacore would otherwise keep every tile of the last,
-partial band of channels it reads). The cache, and so the bound, is shared by the columns of the data manager (e.g.
-``DATA`` and ``FLAG`` in one ``TiledShapeStMan``) and, as python-casacore shares one table object per table in a
-process, by the reads of other handles of MAIN open in the process at that time (with a smaller bound, a pattern of
-reads that reuses tiles may read them again). Cells without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The
+variable's dtype, as the converter does (for a column in tiled storage, this reads the tiles that hold that cell).
+Cells without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The
 ``pointing_xds`` is lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID``
 columns, the shapes (not the values) of the cells of its array columns (stored in the MS by the first open, see below)
 and one cell of each data column, and a selection reads only the rows of its times and antennas. Only with
@@ -121,19 +113,13 @@ also copy the sub-table: the copy's first open finds that it does not apply and 
 :py:func:`remove_msv2_partition_cache` removes the stored partitions (only a sub-table that xradio wrote, and not while
 another process holds a lock on it); an open in another process at the same time stores a sub-table of its own.
 
-**A writable table handle in the same process.** Within one process, python-casacore shares one table object per
-table, with its locks, and closing any handle of a table releases them. Every open of an MS by xradio (the engine in
-every ``partition_cache`` mode, as the converter) opens and closes the tables of the MS, so it releases the write lock
-of a writable MAIN handle that the process holds, which flushes the handle's changes first (the open sees them), unless
-that handle was opened with ``lockoptions="permanent"``. A handle opened with python-casacore's default lock options is
-also switched to user locking: its next write raises ``... should be locked when using UserLocking`` unless it calls
-``lock()`` first (as a handle opened with ``lockoptions="user"`` must anyway). So open such handles with
-``lockoptions="auto"`` (their writes take the lock again) or ``"permanent"``, or close them before the MS is opened by
-xradio. While the process holds the MAIN write lock (``"permanent"``), the partitions are not stored; if the handle
-added rows that it has not flushed, the partitions are computed from the rows the process sees, as the converter reads
-them, without the stored ones. Likewise, a thread that closes a MAIN handle while another thread stores the partitions
-releases the MAIN write lock: the store takes the lock again before it writes and flushes the MAIN keyword; between
-these steps another process could take the lock and write MAIN too (a window of a few Python statements, once per MS).
+**A writable table handle in the same process.** Within one process, closing any handle of a table releases the locks
+that the process holds on it, also those of handles opened with another package (casacore's locks are POSIX record
+locks). Every open of an MS by xradio (the engine in every ``partition_cache`` mode, as the converter) and every read of
+its data opens and closes the tables of the MS, so it releases the write lock of a writable MAIN handle that the process
+holds, also one opened with ``lockoptions="permanent"``, without flushing the handle's changes: xradio does not see
+them, and the handle goes on writing as if it held the lock while another process can take it. So close writable
+handles of an MS before xradio opens or reads it.
 
 **When the MS changes.** The stored partitions are used only while a fingerprint of the tables they are computed from
 (the data managers and key columns of MAIN, and the FIELD, STATE and SOURCE tables, read from casacore's lock files) is
@@ -168,9 +154,7 @@ the writer has flushed its changes and released its lock), or open a copy.
 also scans the cell shapes of the POINTING array columns (about 1 s per column for 3.6 million rows), which it stores in
 the MS for later opens (an MS that cannot be written: once per process). Opening more than 1,000 partitions gives a
 warning. For large MSs, keep the default ``partition_scheme=[]``, select partitions with
-``partition_filter``, and pass ``with_pointing=False`` when the pointing is not needed. python-casacore holds the
-Python GIL while it reads, so reading with threads is not faster: use processes (Dask's ``processes`` scheduler, or a
-``distributed.LocalCluster(processes=True)``).
+``partition_filter``, and pass ``with_pointing=False`` when the pointing is not needed.
 Converting is still the better choice when the data is read in full several times, or from cloud storage: every read
 from the MS reorders its rows into the MSv4 layout, which the converted processing set stores once, chunked and
 compressed.

@@ -490,3 +490,219 @@ def test_default_ms_subtable_without_an_ms(tmp_path):
     with tables.default_ms_subtable("POINTING", path, extra) as tb:
         assert {"ANTENNA_ID", "TIME", "DIRECTION", "OVER_THE_TOP"} <= set(tb.colnames())
     assert not os.path.exists(os.path.join(os.path.dirname(path), "table.dat"))
+
+
+# Columns of new tables, and the data managers python-casacore 3.8.1 binds
+# them to from their descriptions: {NAME: (TYPE, COLUMNS)}
+def _dm_test_desc():
+    def tiled(name, dmtype, group, **kw):
+        return tables.makearrcoldesc(
+            name,
+            0j,
+            valuetype="complex",
+            datamanagertype=dmtype,
+            datamanagergroup=group,
+            **kw,
+        )
+
+    return tables.maketabdesc(
+        [
+            tables.makescacoldesc("SCALAR", 0.0),
+            tables.makescacoldesc(
+                "ISM",
+                0,
+                valuetype="int",
+                datamanagertype="IncrementalStMan",
+                datamanagergroup="ISMData",
+            ),
+            tiled("TCSM", "TiledColumnStMan", "TCSMData", shape=[4, 2], options=4),
+            tiled("TSM1", "TiledShapeStMan", "TSMData", ndim=2),
+            tiled("TSM2", "TiledShapeStMan", "TSMData", ndim=2),
+            tiled("TSMNOGROUP", "TiledShapeStMan", "", ndim=2),
+        ]
+    )
+
+
+DESC_DATA_MANAGERS = {
+    "StandardStMan": ("StandardStMan", ["SCALAR"]),
+    "ISMData": ("IncrementalStMan", ["ISM"]),
+    "TCSMData": ("TiledColumnStMan", ["TCSM"]),
+    "TSMData": ("TiledShapeStMan", ["TSM1", "TSM2"]),
+    "TiledShapeStMan": ("TiledShapeStMan", ["TSMNOGROUP"]),
+}
+DM_TEST_CELLS = (np.arange(10 * 8) * (1 - 1j)).astype(np.complex64).reshape(10, 4, 2)
+
+
+def _data_managers(tb):
+    return {
+        dm["NAME"]: (dm["TYPE"], sorted(dm["COLUMNS"]))
+        for dm in tb.getdminfo().values()
+    }
+
+
+def _tile_shapes(tb):
+    return {
+        dm["NAME"]: [list(hc["TileShape"]) for hc in dm["SPEC"]["HYPERCUBES"].values()]
+        for dm in tb.getdminfo().values()
+        if dm["TYPE"].startswith("Tiled")
+    }
+
+
+def _write_and_check_cells(path):
+    with tables.table(path, readonly=False) as tb:
+        for col in ("TCSM", "TSM1", "TSM2", "TSMNOGROUP"):
+            tb.putcol(col, DM_TEST_CELLS)
+    with tables.table(path) as tb:
+        for col in ("TCSM", "TSM1", "TSM2", "TSMNOGROUP"):
+            np.testing.assert_array_equal(tb.getcol(col), DM_TEST_CELLS, strict=True)
+
+
+def test_new_table_columns_use_the_data_managers_of_their_descriptions(tmp_path):
+    path = str(tmp_path / "desc.tbl")
+    tables.table(path, _dm_test_desc(), nrow=10, readonly=False).close()
+    _write_and_check_cells(path)
+    with tables.table(path) as tb:
+        assert _data_managers(tb) == DESC_DATA_MANAGERS
+        assert tb.getcoldesc("TSM1")["dataManagerType"] == "TiledShapeStMan"
+
+
+def test_new_table_dminfo_with_tile_shapes(tmp_path):
+    desc = _dm_test_desc()
+    dminfo = tables.makedminfo(
+        {col: desc[col] for col in desc if col != "TSMNOGROUP"},
+        {
+            "TSMData": {"DEFAULTTILESHAPE": np.array([2, 4, 5], np.int32)},
+            "TCSMData": {"DEFAULTTILESHAPE": np.array([2, 4, 8], np.int32)},
+        },
+    )
+    path = str(tmp_path / "dminfo.tbl")
+    tables.table(path, desc, nrow=10, dminfo=dminfo, readonly=False).close()
+    _write_and_check_cells(path)
+    with tables.table(path) as tb:
+        assert _data_managers(tb) == DESC_DATA_MANAGERS
+        assert _tile_shapes(tb) == {
+            "TCSMData": [[2, 4, 8]],
+            "TSMData": [[2, 4, 5]],
+            "TiledShapeStMan": [[2, 4, 4096]],
+        }
+
+
+def test_new_table_dminfo_binds_columns_and_their_descriptions_the_rest(tmp_path):
+    dminfo = {
+        "*1": {
+            "TYPE": "IncrementalStMan",
+            "NAME": "ISM2",
+            "SPEC": {},
+            "COLUMNS": ["SCALAR"],
+        },
+        "*2": {
+            "TYPE": "TiledShapeStMan",
+            "NAME": "TSM1Data",
+            "SPEC": {"DEFAULTTILESHAPE": np.array([2, 4, 3], np.int32)},
+            "COLUMNS": ["TSM1"],
+        },
+    }
+    path = str(tmp_path / "bound.tbl")
+    tables.table(path, _dm_test_desc(), nrow=10, dminfo=dminfo, readonly=False).close()
+    _write_and_check_cells(path)
+    with tables.table(path) as tb:
+        assert _data_managers(tb) == {
+            "ISM2": ("IncrementalStMan", ["SCALAR"]),
+            "ISMData": ("IncrementalStMan", ["ISM"]),
+            "TCSMData": ("TiledColumnStMan", ["TCSM"]),
+            "TSM1Data": ("TiledShapeStMan", ["TSM1"]),
+            "TSMData": ("TiledShapeStMan", ["TSM2"]),
+            "TiledShapeStMan": ("TiledShapeStMan", ["TSMNOGROUP"]),
+        }
+        assert _tile_shapes(tb)["TSM1Data"] == [[2, 4, 3]]
+
+
+def test_table_recreated_from_getdesc_and_getdminfo(tmp_path):
+    """getdminfo has empty arrays (DEFAULTTILESHAPE of TSMNOGROUP)."""
+    path, again = str(tmp_path / "first.tbl"), str(tmp_path / "again.tbl")
+    tables.table(path, _dm_test_desc(), nrow=10, readonly=False).close()
+    _write_and_check_cells(path)
+    with tables.table(path) as tb:
+        desc, dminfo = tb.getdesc(), tb.getdminfo()
+        tiles = _tile_shapes(tb)
+    tables.table(again, desc, nrow=10, dminfo=dminfo, readonly=False).close()
+    _write_and_check_cells(again)
+    with tables.table(again) as tb:
+        assert _data_managers(tb) == DESC_DATA_MANAGERS
+        assert _tile_shapes(tb) == tiles
+
+
+def test_new_table_dminfo_of_an_unknown_column_raises(tmp_path):
+    dminfo = {
+        "*1": {"TYPE": "StandardStMan", "NAME": "S", "SPEC": {}, "COLUMNS": ["NO"]}
+    }
+    with pytest.raises(RuntimeError, match="Table column NO is unknown"):
+        tables.table(str(tmp_path / "t.tbl"), _dm_test_desc(), dminfo=dminfo)
+
+
+def test_addcols_data_managers(tmp_path):
+    """Without dminfo a column joins a storage manager that can add columns,
+    as in python-casacore."""
+
+    def column(name):
+        return tables.makearrcoldesc(
+            name,
+            0.0,
+            ndim=2,
+            valuetype="float",
+            datamanagertype="TiledShapeStMan",
+            datamanagergroup=name,
+        )
+
+    path = str(tmp_path / "addcols.tbl")
+    with tables.table(path, _dm_test_desc(), nrow=10, readonly=False) as tb:
+        tb.addcols(column("NEW1"))
+        tb.addcols(
+            column("NEW2"),
+            {"TYPE": "TiledShapeStMan", "NAME": "NEW2", "SPEC": {}},
+        )
+        tb.addcols(
+            column("NEW3"),
+            {
+                "TYPE": "TiledShapeStMan",
+                "NAME": "NEW3",
+                "SPEC": {"DEFAULTTILESHAPE": np.array([2, 4, 5], np.int32)},
+            },
+        )
+        # getdminfo gives an empty DEFAULTTILESHAPE for the default tile shape
+        tb.addcols(
+            column("NEW4"),
+            {
+                "TYPE": "TiledShapeStMan",
+                "NAME": "NEW4",
+                "SPEC": {"DEFAULTTILESHAPE": []},
+            },
+        )
+        for col in ("NEW2", "NEW3", "NEW4"):
+            tb.putcol(col, DM_TEST_CELLS.real)
+        assert _data_managers(tb) == dict(
+            DESC_DATA_MANAGERS,
+            StandardStMan=("StandardStMan", ["NEW1", "SCALAR"]),
+            NEW2=("TiledShapeStMan", ["NEW2"]),
+            NEW3=("TiledShapeStMan", ["NEW3"]),
+            NEW4=("TiledShapeStMan", ["NEW4"]),
+        )
+        tiles = _tile_shapes(tb)
+        assert tiles["NEW3"] == [[2, 4, 5]]
+        assert tiles["NEW4"] == tiles["NEW2"]
+
+
+def test_default_ms_subtable_without_an_ms_data_managers(tmp_path):
+    path = str(tmp_path / "not_an_ms" / "SOURCE")
+    os.makedirs(os.path.dirname(path))
+    extra = tables.maketabdesc(
+        tables.makescacoldesc(
+            "EXTRA",
+            0,
+            valuetype="int",
+            datamanagertype="IncrementalStMan",
+            datamanagergroup="ExtraISM",
+        )
+    )
+    with tables.default_ms_subtable("SOURCE", path, extra) as tb:
+        assert _data_managers(tb)["ExtraISM"] == ("IncrementalStMan", ["EXTRA"])

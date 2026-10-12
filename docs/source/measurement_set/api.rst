@@ -113,7 +113,7 @@ them while that table is unchanged (no ``HISTORY`` row is written for them). ``p
 The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``. A
 read-only MS is opened with partitions computed in memory, and a :py:class:`PartitionCacheWarning` (once per MS and
 reason) says so; so is an MS whose MAIN table another process has locked (for example a CASA session with the MS open):
-xradio never waits for a lock. With casatools the partitions are never stored (logged once). Those of reference and
+xradio never waits for a lock. Those of reference and
 concatenated MSs (a multi-MS), and of MSs whose MAIN key columns are forwarded to other MSs (as ``msconcat`` makes them),
 are computed on every open, neither stored nor kept in memory (logged once): their rows live in other tables, whose
 changes their lock files do not show. CASA tasks that copy an MS (``split``, ``mstransform``, ``tb.copy``, ``msconcat``)
@@ -170,7 +170,7 @@ the MS for later opens (an MS that cannot be written: once per process). Opening
 warning. For large MSs, keep the default ``partition_scheme=[]``, select partitions with
 ``partition_filter``, and pass ``with_pointing=False`` when the pointing is not needed. python-casacore holds the
 Python GIL while it reads, so reading with threads is not faster: use processes (Dask's ``processes`` scheduler, or a
-``distributed.LocalCluster(processes=True)``); with casatools, reads are serialized by one process-wide lock.
+``distributed.LocalCluster(processes=True)``).
 Converting is still the better choice when the data is read in full several times, or from cloud storage: every read
 from the MS reorders its rows into the MSv4 layout, which the converted processing set stores once, chunked and
 compressed.

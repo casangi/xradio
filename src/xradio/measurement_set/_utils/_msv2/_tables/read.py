@@ -396,15 +396,19 @@ def extract_table_attributes(infile: str) -> dict[str, dict]:
         table attributes as a dictionary
     """
     with open_table_ro(infile) as tb_tool:
-        kwd = tb_tool.getkeywords()
-        attrs = {kk: kwd[kk] for kk in kwd if kk not in os.listdir(infile)}
-        cols = tb_tool.colnames()
-        column_descriptions = {}
-        for col in cols:
-            column_descriptions[col] = tb_tool.getcoldesc(col)
-        attrs["column_descriptions"] = column_descriptions
-        attrs["info"] = tb_tool.info()
+        return _table_attributes(tb_tool, infile)
 
+
+def _table_attributes(tb_tool: tables.table, infile: str) -> dict[str, dict]:
+    """extract_table_attributes() of the open table ``tb_tool`` of ``infile``."""
+    kwd = tb_tool.getkeywords()
+    attrs = {kk: kwd[kk] for kk in kwd if kk not in os.listdir(infile)}
+    cols = tb_tool.colnames()
+    column_descriptions = {}
+    for col in cols:
+        column_descriptions[col] = tb_tool.getcoldesc(col)
+    attrs["column_descriptions"] = column_descriptions
+    attrs["info"] = tb_tool.info()
     return attrs
 
 
@@ -673,15 +677,15 @@ def _load_generic_table(
             f"invalid input filename to load_generic_table: {infile} table {tname}"
         )
 
-    cc_attrs = extract_table_attributes(infile)
-    attrs: dict[str, Any] = {"other": {"msv2": {"ctds_attrs": cc_attrs}}}
-    if is_nested_ms(attrs):
-        xradio_logger().warning(
-            f"Skipping subtable that looks like a MeasurementSet main table: {inpath} {tname}"
-        )
-        return xr.Dataset()
-
     with open_table_ro(infile) as gtable:
+        cc_attrs = _table_attributes(gtable, infile)
+        attrs: dict[str, Any] = {"other": {"msv2": {"ctds_attrs": cc_attrs}}}
+        if is_nested_ms(attrs):
+            xradio_logger().warning(
+                f"Skipping subtable that looks like a MeasurementSet main table: {inpath} {tname}"
+            )
+            return xr.Dataset()
+
         if gtable.nrows() == 0:
             xradio_logger().debug(f"table is empty: {inpath} {tname}")
             return xr.Dataset(attrs=attrs)

@@ -14,7 +14,8 @@ MS-creation helpers) from this module instead of importing a backend directly.
 import importlib
 import os
 
-# Unsupported testing hook: XRADIO_CASACORE_BACKEND=casacore selects python-casacore.
+# Unsupported testing hook: XRADIO_CASACORE_BACKEND=casacore selects python-casacore,
+# XRADIO_CASACORE_BACKEND=casatools the casatools shim.
 _backend = os.environ.get("XRADIO_CASACORE_BACKEND", "arcae")
 # Alias python-casacore -> casacore for consistent submodule imports.
 _backend = "casacore" if _backend == "python-casacore" else _backend
@@ -36,10 +37,14 @@ if _backend == "arcae":
         )
 
         BACKEND = "arcae"
-    except ImportError:
-        _backend = "casacore"  # arcae unavailable; fall through
+    except ImportError as e:
+        raise ModuleNotFoundError(f"arcae cannot be imported: {e}") from e
+elif _backend == "casatools":
+    from xradio._utils._casacore import casacore_from_casatools as tables
 
-if _backend != "arcae":
+    images = coordinates = tables
+    BACKEND = "casatools"
+elif _backend == "casacore":
     try:
         _tables = importlib.import_module(f"{_backend}.tables")
         _images = importlib.import_module(f"{_backend}.images")
@@ -63,6 +68,10 @@ if _backend != "arcae":
     makescacoldesc = _tableutil.makescacoldesc
     maketabdesc = _tableutil.maketabdesc
     BACKEND = _backend
+else:
+    raise ValueError(
+        f"XRADIO_CASACORE_BACKEND={_backend!r}: expected arcae, casacore or casatools"
+    )
 
 __all__ = [
     "BACKEND",

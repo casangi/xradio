@@ -41,6 +41,7 @@ import sys
 import arcae
 import numpy as np
 import pyarrow as pa
+import pyarrow.compute as pc
 from arcae.lib import arrow_tables as _at
 
 # ---------------------------------------------------------------------------
@@ -801,6 +802,10 @@ class tablerow:
             # arcae leaves out a column with an undefined cell in the rows
             return self._read_column_runs(col, start, stop, dtype, desc)
         arrow = arrow_table.column(col)
+        if self._has_empty_lists(arrow):
+            # arcae gives the cells of a shape with a zero dimension as empty
+            # lists, without their shape or type
+            return self._read_column_runs(col, start, stop, dtype, desc)
         is_scalar = "ndim" not in desc and "shape" not in desc
         is_complex = dtype is not None and dtype.kind == "c"
         values = []
@@ -822,6 +827,16 @@ class tablerow:
                     value = value.astype(dtype)
             values.append(value)
         return values
+
+    @staticmethod
+    def _has_empty_lists(arrow):
+        if not pa.types.is_list(arrow.type):
+            return False  # cells of one shape: fixed-size lists, never empty
+        while pa.types.is_list(arrow.type) or pa.types.is_fixed_size_list(arrow.type):
+            if pc.min(pc.list_value_length(arrow)).as_py() == 0:
+                return True
+            arrow = pc.list_flatten(arrow)
+        return False
 
     @staticmethod
     def _empty_cell(dtype, shape):

@@ -271,3 +271,93 @@ def test_cells_of_different_ndim_next_to_undefined_cells(tmp_path):
         strict=True,
     ):
         np.testing.assert_array_equal(cell, expected, strict=True)
+
+
+def test_tablerow_defined_cells_without_values(tmp_path):
+    # defined cells of a shape with a zero dimension (row 0) next to defined
+    # (row 1) and undefined (row 2) cells, written with Glish-style TaQL
+    # (shapes in Fortran order)
+    columns = {
+        # name: (valuetype, ndim, value of row 1, TaQL value of row 0,
+        #        shape string and tablerow value of row 0, of row 2)
+        "I1": (
+            "int",
+            1,
+            np.arange(2, dtype=np.int32),
+            "array(0, [0])",
+            "[0]",
+            np.empty((0,), np.int32),
+            np.empty((0,), np.int32),
+        ),
+        "S1": ("string", 1, np.array(["a"]), "array('', [0])", "[0]", [], []),
+        "D2": (
+            "double",
+            2,
+            np.ones((2, 3)),
+            "array(0., [3, 0])",
+            "[0, 3]",
+            np.empty((0, 3)),
+            np.empty((0, 0)),
+        ),
+        "S2": (
+            "string",
+            2,
+            np.array([["a", "b"]]),
+            "array('', [2, 0])",
+            "[0, 2]",
+            {"shape": [0, 2], "array": []},
+            {"shape": [0, 0], "array": []},
+        ),
+        "C2": (
+            "complex",
+            2,
+            np.full((2, 3), 1 + 2j, np.complex64),
+            "array(0+0i, [0, 2])",
+            "[2, 0]",
+            np.empty((2, 0), np.complex64),
+            np.empty((0, 0), np.complex64),
+        ),
+        "B1": (
+            "boolean",
+            1,
+            np.array([True, False]),
+            "array(F, [0])",
+            "[0]",
+            np.empty((0,), bool),
+            np.empty((0,), bool),
+        ),
+    }
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc(col, 0.0, ndim=spec[1], valuetype=spec[0])
+            for col, spec in columns.items()
+        ]
+    )
+    path = str(tmp_path / "empty.tbl")
+    with tables.table(path, desc, nrow=3, readonly=False) as tb:
+        for col, (_, _, value, taql_value, _, _, _) in columns.items():
+            tb.putcell(col, 1, value)
+            tables.taql(
+                f"UPDATE $tb SET {col} = {taql_value} WHERE ROWID() == 0",
+                style="Glish",
+            )
+    with tables.table(path) as tb:
+        for col, (_, _, value, _, shape, empty, undefined) in columns.items():
+            assert [tb.iscelldefined(col, row) for row in range(3)] == [
+                True,
+                True,
+                False,
+            ]
+            assert tb.getcolshapestring(col, 0, 1) == [shape]
+            assert tb.getcolshapestring(col, 0, 2) == [shape, str(list(value.shape))]
+            with pytest.raises(RuntimeError, match="no array in row 2"):
+                tb.getcolshapestring(col, 0, 3)
+            got = [row[col] for row in tb.row([col])[0:3]]
+            _assert_tablerow_value(got[0], empty)
+            _assert_tablerow_value(tb.row([col])[0][col], empty)
+            # (rows without an undefined cell)
+            _assert_tablerow_value(tb.row([col])[0:2][0][col], empty)
+            if isinstance(got[1], dict):  # python-casacore's n-d string arrays
+                got[1] = np.reshape(got[1]["array"], got[1]["shape"])
+            np.testing.assert_array_equal(got[1], value)
+            _assert_tablerow_value(got[2], undefined)

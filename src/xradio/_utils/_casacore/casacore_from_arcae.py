@@ -223,6 +223,9 @@ class table:
         except Exception:
             return self._name
 
+    def iswritable(self):
+        return bool(self._t.iswritable())
+
     # -- taql helpers -------------------------------------------------------
 
     def _taql(self, command):

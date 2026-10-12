@@ -377,3 +377,13 @@ def test_writes_of_another_shape_reshape_variable_shaped_cells(tmp_path):
         tb.putcol("V", np.ones((2, 5)), startrow=1)
         assert [tb.getcell("V", row).shape for row in range(3)] == [(16,), (5,), (5,)]
         np.testing.assert_array_equal(tb.getcol("V", startrow=1), np.ones((2, 5)))
+
+
+def test_iswritable(tmp_path):
+    path = str(tmp_path / "writable.tbl")
+    desc = tables.maketabdesc([tables.makescacoldesc("S", 0)])
+    tables.table(path, desc, nrow=1, readonly=False).close()
+    with tables.table(path, readonly=False) as tb:
+        assert tb.iswritable()
+    with tables.table(path) as tb:
+        assert not tb.iswritable()

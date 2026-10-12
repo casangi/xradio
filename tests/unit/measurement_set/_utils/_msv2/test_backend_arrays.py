@@ -872,8 +872,8 @@ def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
     (setmaxcachesize, MiB) to twice the tiles of its bands for the rows of a
     tile, at least CHANNEL_SLICE_MIN_CACHE_MIB, and sets the maximum before
     (getdmprop) again when it ends; its time sub-blocks are sized on the
-    read channels; with the casatools read API (no in-place reads) whole
-    cells are read."""
+    read channels; without in-place reads (the arcae shim) whole cells are
+    read."""
     lazy, reference, _ = lazy_and_reference(backend_ms("narrow_tiles"), 0)
     open_table_ro = backend_arrays.open_table_ro
     calls = []
@@ -930,7 +930,7 @@ def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
     assert steps == [3] * (n_times // 3) + [n_times % 3] * bool(n_times % 3)
     monkeypatch.setattr(backend_arrays.PartitionIndex, "select_outer", select_outer)
     monkeypatch.setattr(backend_arrays, "SUB_BLOCK_BYTES", 128 * 2**20)
-    # without in-place reads (the casatools shim): whole cells
+    # without in-place reads (the arcae shim): whole cells
     Recording.hidden = ("getcolnp", "getcolslicenp", "selectrows")
     calls.clear()
     sliced = []

@@ -1042,6 +1042,50 @@ def test_read_rows_to_grid_without_in_place_reads_bridges_fixed_shapes_only(
         assert stats.get("gap_rows", 0) == gap_rows
 
 
+@pytest.mark.parametrize("chan", [None, slice(1, 4)])
+def test_read_rows_without_in_place_reads_bounds_every_getcol(
+    rows_tb, monkeypatch, chan
+):
+    """Without in-place reads (arcae) every run is read with getcol calls of
+    at most GETCOL_MAX_BYTES of whole cells (also for a channel range), in
+    one ascending pass."""
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "GETCOL_MAX_BYTES", 7 * DATA_ROW_BYTES)
+    rows = ROW_SELECTIONS["few_runs"]
+    expected = ref["TSM_DATA"][rows][:, chan or slice(None)]
+    spy = GetcolSpy(tb)
+    out = sentinel_buffer(expected.shape, np.complex64)
+    stats = rr.read_rows(spy, "TSM_DATA", rows, out, chan=chan)
+    np.testing.assert_array_equal(out, expected)
+    np.testing.assert_array_equal(np.concatenate(spy.rows_read), rows)
+    assert [c.size for c in spy.rows_read] == [7] * 5 + [2, 1] + [7] * 8 + [4, 1]
+    assert stats["calls"] == len(spy.rows_read)
+
+
+def test_read_rows_to_grid_without_in_place_reads_bounds_every_getcol(
+    rows_tb, monkeypatch
+):
+    """Without in-place reads (arcae) the reads of a grid, bridged or not,
+    are getcol calls of at most GETCOL_MAX_BYTES, in one ascending pass."""
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "GETCOL_MAX_BYTES", 7 * DATA_ROW_BYTES)
+    rows = np.r_[0:60, 62:130, 131:199]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    for col, read_order, sizes in (
+        # fixed cell shape (8 bytes): gaps bridged, 84 rows per call
+        ("SSM_WEIGHT", np.arange(199), [84, 84, 31]),
+        # variably shaped: no gap bridged, 7 rows per call
+        ("TSM_DATA", rows, [7] * 8 + [4] + ([7] * 9 + [5]) * 2),
+    ):
+        spy = GetcolSpy(tb)
+        grid = np.zeros((rows.size, 1) + ref[col].shape[1:], ref[col].dtype)
+        stats = rr.read_rows_to_grid(spy, col, plan, grid)
+        np.testing.assert_array_equal(grid[::-1, 0], ref[col][rows])
+        np.testing.assert_array_equal(np.concatenate(spy.rows_read), read_order)
+        assert [c.size for c in spy.rows_read] == sizes
+        assert stats["calls"] == len(sizes)
+
+
 def test_tmp_pieces():
     """Runs joined across bridged gaps, cut at the temporary's size, trimmed
     to partition rows, never across a direct segment (barrier)."""

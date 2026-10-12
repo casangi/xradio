@@ -190,9 +190,13 @@ def test_read_rows_matches_reference(rows_tb, selection, col, max_elems):
     rows_per_call = max(1, max_elems // cell_elems)
     starts, lengths = rr.rows_to_runs(rows)
     if starts.size <= rr.FRAGMENTED_RUNS and rows_per_call >= rows.size:
-        # one call per run, but never one call over the whole column
+        # one call per run, but never one call over the whole column (one call
+        # for several runs where the table reads rows: has_row_reads)
         whole_column = rows.size == NROWS
-        assert stats["calls"] == starts.size + whole_column
+        if starts.size > 1 and rr.has_row_reads(tb, out):
+            assert stats["calls"] == 1
+        else:
+            assert stats["calls"] == starts.size + whole_column
         assert stats.get("selectrows_calls", 0) == 0
     if selection == "fragmented" and rows_per_call > rr.FRAGMENTED_RUNS:
         assert bool(stats.get("selectrows_calls")) == rr.has_in_place_reads(tb)
@@ -1005,7 +1009,7 @@ def test_read_rows_to_grid_bridge_fallback_other_shape(tmp_path):
 
 class GetcolSpy:
     """Table proxy with the read API of the arcae shim (no in-place reads) that
-    records the rows of every getcol call."""
+    records the rows of every getcol (and getcolrows) call."""
 
     def __init__(self, tb):
         self._tb = tb
@@ -1014,7 +1018,15 @@ class GetcolSpy:
     def __getattr__(self, name):
         if name in rr.IN_PLACE_READ_METHODS:
             raise AttributeError(name)
-        return getattr(self._tb, name)
+        method = getattr(self._tb, name)
+        if name != rr.ROW_READ_METHOD:
+            return method
+
+        def getcolrows(col, rownrs):
+            self.rows_read.append(np.asarray(rownrs))
+            return method(col, rownrs)
+
+        return getcolrows
 
     def getcol(self, col, startrow, nrow):
         self.rows_read.append(np.arange(startrow, startrow + nrow))
@@ -1030,9 +1042,15 @@ def test_read_rows_to_grid_without_in_place_reads_bridges_fixed_shapes_only(
     tb, ref = rows_tb
     rows = np.r_[0:60, 62:130, 131:199]
     plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    # (one getcolrows call for the runs of TSM_DATA where the table has it)
+    tsm_calls = (
+        [(0, 196)]
+        if hasattr(tb, rr.ROW_READ_METHOD)
+        else [(0, 60), (62, 68), (131, 68)]
+    )
     for col, calls, gap_rows in (
         ("SSM_WEIGHT", [(0, 199)], 3),
-        ("TSM_DATA", [(0, 60), (62, 68), (131, 68)], 0),
+        ("TSM_DATA", tsm_calls, 0),
     ):
         spy = GetcolSpy(tb)
         grid = np.zeros((rows.size, 1) + ref[col].shape[1:], ref[col].dtype)

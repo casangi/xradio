@@ -549,6 +549,12 @@ class table:
                 raise
         return self._convert_read(data, columnname)
 
+    def getcolrows(self, columnname, rownrs):
+        """The cells of the ascending rows ``rownrs``, as getcol returns cells,
+        with one arcae read (python-casacore reads them through selectrows)."""
+        index = (np.asarray(rownrs, dtype=np.int64),)
+        return self._convert_read(self._getcol(columnname, index), columnname)
+
     def getcolnp(self, columnname, nparray, startrow=0, nrow=-1, rowincr=1):
         data = self.getcol(columnname, startrow, nrow, rowincr)
         nparray[...] = data

@@ -5,14 +5,14 @@ import textwrap
 import numpy as np
 import pytest
 
-tables = pytest.importorskip(
-    "casacore.tables",
-    reason="the tests make and open their tables with python-casacore",
+from xradio._utils._casacore.backend import BACKEND, tables
+from xradio.measurement_set._utils._msv2._tables import read_rows as rr
+
+needs_in_place_reads = pytest.mark.skipif(
+    not rr.backend_has_in_place_reads(),
+    reason="tests python-casacore's in-place reads (getcolnp, selectrows), "
+    "which the arcae shim lacks",
 )
-
-from xradio._utils._casacore.backend import BACKEND  # noqa: E402
-from xradio.measurement_set._utils._msv2._tables import read_rows as rr  # noqa: E402
-
 NROWS = 200
 NCHAN = 6
 NPOL = 2
@@ -38,7 +38,7 @@ def rows_table(tmp_path_factory):
     path = str(tmp_path_factory.mktemp("read_rows") / "rows.tab")
     desc = tables.maketabdesc(
         [
-            tables.makescacoldesc("SCALAR_INT", 0),
+            tables.makescacoldesc("SCALAR_INT", 0, valuetype="int"),
             tables.makescacoldesc("SCALAR_DOUBLE", 0.0),
             tables.makescacoldesc("NAME", "none"),
             tables.makearrcoldesc("SSM_WEIGHT", 0.0, shape=[NPOL], valuetype="float"),
@@ -195,12 +195,13 @@ def test_read_rows_matches_reference(rows_tb, selection, col, max_elems):
         assert stats["calls"] == starts.size + whole_column
         assert stats.get("selectrows_calls", 0) == 0
     if selection == "fragmented" and rows_per_call > rr.FRAGMENTED_RUNS:
-        assert stats["selectrows_calls"] >= 1
+        assert bool(stats.get("selectrows_calls")) == rr.has_in_place_reads(tb)
     if max_elems < rr.DEFAULT_MAX_ELEMS and starts.size <= rr.FRAGMENTED_RUNS:
         # max_elems caps every call
         assert stats["calls"] >= int(np.ceil(rows.size / rows_per_call))
 
 
+@needs_in_place_reads
 def test_read_rows_max_elems_bounds_every_call(rows_tb, monkeypatch):
     tb, ref = rows_tb
     calls = []
@@ -247,7 +248,7 @@ def test_read_rows_cell_slice(rows_tb, selection, chan, pol, max_elems):
     )
     np.testing.assert_array_equal(out, expected)
     if selection == "fragmented" and max_elems == rr.DEFAULT_MAX_ELEMS:
-        assert stats["selectrows_calls"] >= 1
+        assert bool(stats.get("selectrows_calls")) == rr.has_in_place_reads(tb)
 
 
 @pytest.mark.parametrize(
@@ -345,7 +346,7 @@ def test_read_rows_whole_column_with_undefined_cells_raises(rows_table, tmp_path
     code = textwrap.dedent(
         f"""
         import numpy as np
-        from casacore import tables
+        from xradio._utils._casacore.backend import tables
         from xradio.measurement_set._utils._msv2._tables.read_rows import read_rows
 
         def check(tb, nrows):
@@ -386,7 +387,7 @@ def test_read_rows_to_grid_whole_column_with_undefined_cells_raises(
     code = textwrap.dedent(
         f"""
         import numpy as np
-        from casacore import tables
+        from xradio._utils._casacore.backend import tables
         from xradio.measurement_set._utils._msv2._tables import read_rows as rr
 
         def check(tb, nrows):
@@ -596,6 +597,7 @@ def assert_one_ascending_pass(spy, rows, max_elems=rr.DEFAULT_MAX_ELEMS):
     return extra
 
 
+@needs_in_place_reads
 @pytest.mark.parametrize("seed", range(4))
 @pytest.mark.parametrize("n_dup", [0, 5])
 @pytest.mark.parametrize("max_tmp_bytes", [rr.DEFAULT_MAX_TMP_BYTES, 200])
@@ -635,6 +637,7 @@ def test_read_rows_to_grid_reads_rows_in_one_ascending_pass(
     np.testing.assert_array_equal(grid, expected)
 
 
+@needs_in_place_reads
 @pytest.mark.parametrize("seed", range(6))
 @pytest.mark.parametrize("n_dup", [0, 7])
 @pytest.mark.parametrize("shuffle_cells", [False, True])
@@ -887,6 +890,7 @@ def test_read_rows_to_grid_last_row_wins_around_slice_copies(rows_tb, monkeypatc
         )
 
 
+@needs_in_place_reads
 def test_read_rows_to_grid_bridges_small_gaps(rows_tb, monkeypatch):
     """
     Gaps of other rows between long runs are read (and discarded) with them,
@@ -961,6 +965,7 @@ def test_read_rows_to_grid_bridge_fallback(rows_tb, monkeypatch):
         rr.read_rows_to_grid(tb, "TSM_UNDEF", plan, grid)
 
 
+@needs_in_place_reads
 def test_read_rows_to_grid_bridge_fallback_other_shape(tmp_path):
     """A bridged gap over cells of another shape (rows of another DDI in a
     TiledShapeStMan column) fails to read; the partition rows are read again
@@ -1216,9 +1221,10 @@ def test_time_chunk_rows_n_runs(time_ordered, time_chunks, contiguous):
 
 def test_has_in_place_reads(rows_tb):
     tb, _ = rows_tb
-    assert rr.has_in_place_reads(tb) and rr.has_in_place_reads(tables.table)
-    # the backend reads in place with python-casacore, not with the arcae shim
-    assert rr.backend_has_in_place_reads() == (BACKEND != "arcae")
+    # python-casacore reads in place, the arcae shim does not
+    in_place = BACKEND != "arcae"
+    assert rr.has_in_place_reads(tb) == rr.has_in_place_reads(tables.table) == in_place
+    assert rr.backend_has_in_place_reads() == in_place
 
 
 def test_read_row_range(rows_tb):
@@ -1248,6 +1254,7 @@ def test_read_rows_other_cell_shape_raises(rows_tb):
             rr.read_rows(tb, "TSM_DATA", np.arange(5), out)
 
 
+@needs_in_place_reads
 def test_read_rows_one_row_table(tmp_path):
     """The cell of a one-row table is read through a selectrows reference
     table of the row (a getcolnp of its row would be casacore's whole-column

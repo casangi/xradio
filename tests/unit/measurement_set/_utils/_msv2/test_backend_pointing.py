@@ -77,9 +77,6 @@ LAZY_VARIANTS = (
     "varying_target",
 )
 REBUILT_VARIANTS = ("empty_encoder", "float_over_the_top")
-# arcae can neither write nor read cells of zero size ("list_size needs to be a
-# strict positive integer"): no "empty_encoder" table with arcae
-ZERO_SIZE_CELLS = BACKEND != "arcae"
 
 
 def make_pointing_ms(
@@ -161,8 +158,8 @@ def make_pointing_ms(
         else:
             tb.putcol("TARGET", rng.normal(size=(nrows, n_poly, 2)))
         if variant == "empty_encoder":
-            for row in range(nrows):
-                tb.putcell("ENCODER", row, np.zeros(0))
+            # (arcae cannot write cells of zero size)
+            tables.taql("UPDATE $tb SET ENCODER = array(0., [0])")
         elif variant == "int_encoder":
             tb.putcol("ENCODER", rng.integers(-(2**30), 2**30, size=(nrows, 2)))
         elif variant != "no_encoder":
@@ -183,7 +180,6 @@ def pointing_ms(tmp_path_factory):
     return {
         variant: make_pointing_ms(str(base / f"{variant}.ms"), variant)
         for variant in POINTING_VARIANTS
-        if ZERO_SIZE_CELLS or variant != "empty_encoder"
     }
 
 
@@ -262,8 +258,6 @@ def test_read_pointing_index(pointing_ms, monkeypatch):
         assert index is not None, variant
         np.testing.assert_array_equal(index.odd_rows, odd_rows(table), variant)
     for variant in REBUILT_VARIANTS + ("empty",):
-        if variant not in pointing_ms:
-            continue  # (empty_encoder with arcae)
         table = os.path.join(pointing_ms[variant], "POINTING")
         assert bpt.read_pointing_index(table, DATA_COLUMNS) is None, variant
 
@@ -638,8 +632,6 @@ def test_tables_of_other_cells(pointing_ms, variant):
     OVER_THE_TOP), or read lazily (TARGET cells of two shapes among the
     1,000 rows or more of the partition, which the converter leaves out);
     none for a table without rows."""
-    if variant not in pointing_ms:
-        pytest.skip("arcae cannot read cells of zero size")
     ms = pointing_ms[variant]
     time_min_max = (np.float64(TIME0 - 1), np.float64(TIME0 + NTIMES))
     ant_names = antenna_names(range(NANTS))

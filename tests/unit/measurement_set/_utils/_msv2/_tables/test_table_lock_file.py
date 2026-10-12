@@ -7,8 +7,8 @@ import subprocess
 import sys
 
 import pytest
-from casacore import tables
 
+from xradio._utils._casacore.backend import BACKEND, tables
 from xradio.measurement_set._utils._msv2._tables import table_lock_file
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
     TableLockInfo,
@@ -191,6 +191,10 @@ def test_data_manager_files_names(tmp_path):
 # --- rows of a table held open in this process ---------------------------------
 
 
+@pytest.mark.skipif(
+    BACKEND == "arcae",
+    reason="needs python-casacore's table object shared per path in a process",
+)
 def test_rows_of_a_table_held_open_with_rows_added_by_another_process(ms_copy):
     """casacore shares one table object per path in a process: with MAIN held
     open here, a new open does not see rows another process added (the
@@ -237,6 +241,10 @@ def test_table_nrows_without_lock_file_data(ms_copy):
     assert fingerprint["counters"] is None and fingerprint["ncolumns"] is None
 
 
+@pytest.mark.skipif(
+    BACKEND == "arcae",
+    reason="needs python-casacore's table object shared per path in a process",
+)
 def test_rows_not_flushed_by_this_process_are_kept(ms_copy, monkeypatch):
     """A table whose write lock this process holds, with rows added and not
     flushed (a user's writable handle): table_nrows and the fingerprint
@@ -383,6 +391,10 @@ def test_fingerprint_of_absent_sub_tables(ms_copy):
         ms_fingerprint(os.path.join(msname, "NOT_THERE"), KEY_COLUMNS)
 
 
+@pytest.mark.skipif(
+    BACKEND == "arcae",
+    reason="needs python-casacore's concatenated tables and msconcat",
+)
 def test_tables_whose_writes_the_fingerprint_cannot_follow(ms_copy, tmp_path):
     """table_type reads casacore's table type from table.dat (no table open,
     casatools has no partnames); followed_ms_fingerprint names MAINs whose

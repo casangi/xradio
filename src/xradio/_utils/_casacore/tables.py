@@ -63,12 +63,12 @@ class ProcessLock:
         return f"<{type(self).__name__} {self.name} {self._lock!r}>"
 
 
-# casatools tables (the shim used where python-casacore is not installed) must
+# casatools tables (the casatools shim) must
 # not be used from several threads at once: concurrent reads of dask's threaded
 # scheduler crashed (segmentation fault), hung, failed with FiledesIO errors or
 # returned wrong values (casatools 6.7). Every lazy read of a casatools table,
 # by the image or the MSv2 readers, holds this one lock over the open, the read,
-# the close and the release of the table object. python-casacore reads take no
+# the close and the release of the table object. Other backends' reads take no
 # lock (see casatools_serialized).
 CASATOOLS_LOCK = ProcessLock("casatools")
 
@@ -77,8 +77,7 @@ if hasattr(os, "register_at_fork"):
 
 
 def uses_casatools() -> bool:
-    """Whether xradio's casacore tables are casatools ones (the casatools shim,
-    used where python-casacore is not installed)."""
+    """Whether xradio's casacore tables are casatools ones (the casatools shim)."""
     return tables.__name__.endswith("casacore_from_casatools")
 
 

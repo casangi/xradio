@@ -1191,7 +1191,7 @@ def find_loadable_cols(
     loadable_cols = {
         col: table_desc[col]["valueType"]
         for col in colnames
-        if (col not in ignore) and tb_tool.coldatatype(col) != "record"
+        if (col not in ignore) and table_desc[col]["valueType"] != "record"
     }
     return loadable_cols
 

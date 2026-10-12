@@ -150,15 +150,14 @@ def ms_edge_rows(ms_minimal_required, tmp_path_factory):
 
 def taql_rows(ms: str, partition: dict) -> np.ndarray:
     """Rows of the partition's TaQL selection (create_taql_query_where)."""
-    tables = pytest.importorskip(
-        "casacore.tables", reason="python-casacore selects the reference rows"
-    )
-    with tables.table(ms, readonly=True, ack=False) as main_tb:
+    with tables.table(ms, readonly=True, ack=False) as main_tb:  # noqa: F841
+        # ROWID(): the MAIN rows (rownumbers() of the arcae shim counts the
+        # selection's rows from 0)
         query = tables.taql(
-            f"select * from $1 {create_taql_query_where(partition)}", tables=[main_tb]
+            f"select ROWID() AS R from $main_tb {create_taql_query_where(partition)}"
         )
         try:
-            return np.asarray(query.rownumbers(), dtype=np.int64)
+            return np.asarray(query.getcol("R") if query.nrows() else [], np.int64)
         finally:
             query.close()
 

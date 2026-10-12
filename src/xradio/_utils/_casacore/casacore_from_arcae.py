@@ -15,9 +15,8 @@ here, using two building blocks:
   serializes the full table descriptor, keywords included, through
   casacore's own ``JsonOut`` at full float precision).
 * **TaQL statements** cover what the shim does not do through arcae's API:
-  whole-cell writes to tiled columns (``putcol``/``putcell``), creating
-  tables (``CREATE TABLE``), copying tables (``GIVING ... AS PLAIN``) and
-  dropping columns.  Statements always
+  whole-cell writes to tiled columns (``putcol``/``putcell``), copying
+  tables (``GIVING ... AS PLAIN``) and dropping columns.  Statements always
   operate on the already-open handle (``$1`` plus arcae's ``tables=[...]``
   argument) so no second lock is taken.  Cell slices, including those of
   ``TiledCellStMan`` columns, are read and written natively through arcae's
@@ -31,7 +30,8 @@ here, using two building blocks:
 
 Caveat: casacore errors raised inside ``Table.from_taql`` abort the process
 (arcae does not convert them to Python exceptions), so callers of ``_taql``
-validate their input first.
+validate their input first. An unknown data manager type in the ``dminfo``
+of a new table aborts it too.
 """
 
 import copy
@@ -661,7 +661,7 @@ class table:
         coldescs, deferred_keywords = _prepare_coldescs_for_json(
             _json_safe(_flatten_coldescs(desc))
         )
-        self._t.addcols(coldescs, _json_safe(dminfo) or None)
+        self._t.addcols(coldescs, _prepare_dminfo_for_json(dminfo))
         _write_deferred_empty_keywords(self, deferred_keywords)
 
     def removerows(self, rownrs):
@@ -1287,6 +1287,12 @@ def _prepare_coldescs_for_json(coldescs):
     return cleaned, deferred_keywords
 
 
+def _prepare_dminfo_for_json(dminfo):
+    """Data manager info for casacore's JSON parser, without its empty
+    arrays (such as the empty ``DEFAULTTILESHAPE`` of ``getdminfo``)."""
+    return _strip_empty_arrays(_json_safe(dminfo), [], ()) if dminfo else None
+
+
 def _write_deferred_empty_keywords(tab, deferred_keywords):
     """Write empty-array keywords stripped by :func:`_prepare_coldescs_for_json`.
 
@@ -1308,19 +1314,33 @@ def _write_deferred_empty_keywords(tab, deferred_keywords):
 def _create_table(tablename, tabledesc, nrow, dminfo):
     """Create a new table from a python-casacore style table descriptor.
 
-    The (empty) table is created with TaQL; columns — including their
-    keywords — and data managers are then added through arcae ``addcols``,
-    and table keywords are written afterwards.
+    Like python-casacore, columns are bound to the data managers of
+    ``dminfo``, or else of their descriptions. Table keywords are written
+    afterwards.
     """
     if os.path.exists(tablename):
         raise RuntimeError(f"Table {tablename} already exists")
-    coldescs = _flatten_coldescs(tabledesc)
-    created = _at.Table.from_taql(
-        f"CREATE TABLE {_quote_path(tablename)} () LIMIT {int(nrow)}"
+    coldescs, deferred_keywords = _prepare_coldescs_for_json(
+        _json_safe(_flatten_coldescs(tabledesc))
     )
+    # casacore's error for an unknown column of dminfo would abort the process
+    unknown = {
+        column for dm in (dminfo or {}).values() for column in dm.get("COLUMNS", [])
+    } - set(coldescs)
+    if unknown:
+        raise RuntimeError(f"Table column {sorted(unknown)[0]} is unknown")
+    try:
+        created = _at.Table.from_descriptor(
+            tablename,
+            table_desc=coldescs,
+            dminfo=_prepare_dminfo_for_json(dminfo),
+            nrow=int(nrow),
+        )
+    except Exception as exc:
+        # python-casacore raises RuntimeError for tables it cannot create
+        raise RuntimeError(str(exc)) from exc
     wrapper = table(_arcae_table=created, _name=tablename)
-    if coldescs:
-        wrapper.addcols(coldescs, dminfo or {})
+    _write_deferred_empty_keywords(wrapper, deferred_keywords)
     keywords = tabledesc.get("_keywords_")
     if keywords:
         wrapper.putkeywords(keywords)
@@ -1446,7 +1466,7 @@ def _ms_from_descriptor(name, subtable, tabdesc, dminfo, result_name):
             _json_safe(_flatten_coldescs(tabdesc))
         )
     arcae_table = _at.Table.ms_from_descriptor(
-        name, subtable, json_desc, _json_safe(dminfo) if dminfo else None
+        name, subtable, json_desc, _prepare_dminfo_for_json(dminfo)
     )
     wrapper = table(_arcae_table=arcae_table, _name=result_name)
     _write_deferred_empty_keywords(wrapper, deferred_keywords)

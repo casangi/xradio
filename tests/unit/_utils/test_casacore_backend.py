@@ -1,14 +1,17 @@
 """
 The CASA table backend of xradio (xradio._utils._casacore.backend): arcae,
 python-casacore or casatools only where XRADIO_CASACORE_BACKEND selects them,
-and no fallback. Each test runs in a new python process, as the backend is
-chosen when the module is imported.
+and no fallback. The backend is chosen when the module is imported: most
+tests run in a new python process.
 """
 
+import importlib
+import importlib.util
 import os
 import subprocess
 import sys
 import textwrap
+import types
 
 import pytest
 
@@ -224,3 +227,132 @@ def test_unknown_backend_is_an_error(tmp_path):
         "arcea",
     )
     assert result.returncode == 0, result.stderr
+
+
+# The same selection in this process: a new module object is executed from the
+# backend's source with XRADIO_CASACORE_BACKEND set and stub modules in
+# sys.modules, so the backend that xradio has imported is left unchanged.
+
+_PACKAGE = "xradio._utils._casacore"
+_TABLEUTIL = ("makearrcoldesc", "makedminfo", "makescacoldesc", "maketabdesc")
+_MS_HELPERS = (
+    "default_ms",
+    "default_ms_subtable",
+    "complete_ms_desc",
+    "required_ms_desc",
+) + _TABLEUTIL
+
+
+def _select(monkeypatch, backend: str | None):
+    if backend is None:
+        monkeypatch.delenv("XRADIO_CASACORE_BACKEND", raising=False)
+    else:
+        monkeypatch.setenv("XRADIO_CASACORE_BACKEND", backend)
+    spec = importlib.util.find_spec(f"{_PACKAGE}.backend")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def _reimport_arcae_shim(monkeypatch):
+    """Make the selection import the arcae shim again instead of reusing it."""
+    package = importlib.import_module(_PACKAGE)
+    monkeypatch.delitem(sys.modules, f"{_PACKAGE}.casacore_from_arcae", raising=False)
+    monkeypatch.delattr(package, "casacore_from_arcae", raising=False)
+
+
+def test_arcae_selected_by_default(monkeypatch):
+    pytest.importorskip("arcae", reason="the default backend is arcae")
+    from xradio._utils._casacore import casacore_from_arcae, images_from_arcae
+
+    backend = _select(monkeypatch, None)
+    assert backend.BACKEND == "arcae"
+    assert backend.tables is casacore_from_arcae
+    assert backend.images is backend.coordinates is images_from_arcae
+    for name in _MS_HELPERS:
+        assert getattr(backend, name) is getattr(casacore_from_arcae, name), name
+
+
+@pytest.mark.parametrize("missing", ["arcae", "pyarrow"])
+def test_missing_arcae_is_reported_in_process(monkeypatch, missing):
+    pytest.importorskip("arcae")
+    _reimport_arcae_shim(monkeypatch)
+    monkeypatch.setitem(sys.modules, missing, None)
+    with pytest.raises(ModuleNotFoundError, match="arcae cannot be imported") as info:
+        _select(monkeypatch, "arcae")
+    assert info.value.__cause__.name == missing
+
+
+def test_other_missing_module_of_the_arcae_shim_propagates(monkeypatch):
+    pytest.importorskip("arcae")
+    _reimport_arcae_shim(monkeypatch)
+    monkeypatch.setitem(sys.modules, "numpy", None)
+    with pytest.raises(ModuleNotFoundError) as info:
+        _select(monkeypatch, None)
+    assert info.value.name == "numpy"
+    assert "arcae cannot be imported" not in str(info.value)
+
+
+def _module(name: str, **attrs) -> types.ModuleType:
+    module = types.ModuleType(name)
+    module.__dict__.update(attrs)
+    return module
+
+
+@pytest.mark.parametrize("value", ["casacore", "python-casacore"])
+def test_python_casacore_selected_in_process(monkeypatch, value):
+    coordinates = _module("casacore.images.coordinates")
+    images = _module("casacore.images", coordinates=coordinates)
+    msutil = _module(
+        "casacore.tables.msutil", complete_ms_desc=object(), required_ms_desc=object()
+    )
+    tableutil = _module(
+        "casacore.tables.tableutil", **{name: object() for name in _TABLEUTIL}
+    )
+    tables = _module(
+        "casacore.tables",
+        default_ms=object(),
+        default_ms_subtable=object(),
+        msutil=msutil,
+        tableutil=tableutil,
+    )
+    for module in (coordinates, images, msutil, tableutil, tables):
+        monkeypatch.setitem(sys.modules, module.__name__, module)
+    monkeypatch.setitem(
+        sys.modules, "casacore", _module("casacore", tables=tables, images=images)
+    )
+
+    backend = _select(monkeypatch, value)
+    assert backend.BACKEND == "casacore"
+    assert backend.tables is tables
+    assert backend.images is images
+    assert backend.coordinates is coordinates
+    assert backend.default_ms is tables.default_ms
+    assert backend.default_ms_subtable is tables.default_ms_subtable
+    assert backend.complete_ms_desc is msutil.complete_ms_desc
+    assert backend.required_ms_desc is msutil.required_ms_desc
+    for name in _TABLEUTIL:
+        assert getattr(backend, name) is getattr(tableutil, name), name
+
+
+def test_missing_python_casacore_is_an_error(monkeypatch):
+    monkeypatch.setitem(sys.modules, "casacore", None)
+    monkeypatch.setitem(sys.modules, "casacore.tables", None)
+    with pytest.raises(ModuleNotFoundError, match="Backend 'casacore' is not"):
+        _select(monkeypatch, "python-casacore")
+
+
+def test_casatools_selected_in_process(monkeypatch):
+    shim = _module(f"{_PACKAGE}.casacore_from_casatools")
+    monkeypatch.setitem(sys.modules, shim.__name__, shim)
+    monkeypatch.delattr(
+        importlib.import_module(_PACKAGE), "casacore_from_casatools", raising=False
+    )
+    backend = _select(monkeypatch, "casatools")
+    assert backend.BACKEND == "casatools"
+    assert backend.tables is backend.images is backend.coordinates is shim
+
+
+def test_unknown_backend_is_an_error_in_process(monkeypatch):
+    with pytest.raises(ValueError, match="XRADIO_CASACORE_BACKEND='arcea'"):
+        _select(monkeypatch, "arcea")

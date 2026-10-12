@@ -37,7 +37,9 @@ if _backend == "arcae":
         )
 
         BACKEND = "arcae"
-    except ImportError as e:
+    except ModuleNotFoundError as e:
+        if (e.name or "").split(".")[0] not in ("arcae", "pyarrow"):
+            raise
         raise ModuleNotFoundError(f"arcae cannot be imported: {e}") from e
 elif _backend == "casatools":
     from xradio._utils._casacore import casacore_from_casatools as tables

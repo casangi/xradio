@@ -96,14 +96,15 @@ def test_arcae_imports_neither_casacore_nor_casatools(tmp_path):
     assert result.returncode == 0, result.stderr
 
 
-def test_without_arcae_there_is_no_fallback(tmp_path):
-    """Without arcae the conversion functions are absent and the backend
-    names arcae, even where python-casacore is installed."""
+@pytest.mark.parametrize("missing", ["arcae", "pyarrow"])
+def test_without_arcae_there_is_no_fallback(tmp_path, missing):
+    """Without arcae (or pyarrow) the conversion functions are absent and the
+    backend names arcae, even where python-casacore is installed."""
     result = _run_python(
         f"""
         import sys
 
-        sys.modules["arcae"] = None
+        sys.modules[{missing!r}] = None
 
         import pytest
 
@@ -114,6 +115,46 @@ def test_without_arcae_there_is_no_fallback(tmp_path):
             import xradio._utils._casacore.backend
         loaded = [m for m in sys.modules if m.split(".")[0] in {_CASA_PACKAGES!r}]
         assert not loaded, loaded
+        """,
+        tmp_path,
+        None,
+    )
+    assert result.returncode == 0, result.stderr
+
+
+def test_a_broken_arcae_is_not_reported_as_missing(tmp_path):
+    """An ImportError other than a missing arcae or pyarrow (here a broken
+    arcae build) propagates, so the conversion functions do not silently
+    go missing."""
+    result = _run_python(
+        """
+        import importlib
+        import importlib.abc
+        import importlib.util
+        import sys
+
+        import pytest
+
+
+        class BrokenArcae(importlib.abc.MetaPathFinder, importlib.abc.Loader):
+            def find_spec(self, name, path=None, target=None):
+                if name == "arcae":
+                    return importlib.util.spec_from_loader(name, self)
+                return None
+
+            def create_module(self, spec):
+                return None
+
+            def exec_module(self, module):
+                raise ImportError("undefined symbol: casacore")
+
+
+        sys.meta_path.insert(0, BrokenArcae())
+
+        for name in ("xradio.measurement_set", "xradio._utils._casacore.backend"):
+            with pytest.raises(ImportError, match="undefined symbol") as info:
+                importlib.import_module(name)
+            assert not isinstance(info.value, ModuleNotFoundError), info.value
         """,
         tmp_path,
         None,

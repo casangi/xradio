@@ -2,7 +2,7 @@
 The one process-wide lock of casatools reads (xradio._utils._casacore.tables):
 shared by the image and MSv2 readers, reentrant, taken only with casatools,
 and free again in a fork child. The bindings in use are set by patching
-``uses_casatools`` (the tests run with python-casacore or casatools).
+``uses_casatools``.
 """
 
 import contextlib
@@ -59,10 +59,9 @@ def test_process_lock_is_reentrant_and_exclusive():
 
 
 def test_casatools_serialized(monkeypatch):
-    from xradio.measurement_set._utils._msv2._tables import read_rows
+    from xradio._utils._casacore import backend
 
-    # casatools tables are the ones without python-casacore's in-place reads
-    assert table_utils.uses_casatools() == (not read_rows.backend_has_in_place_reads())
+    assert table_utils.uses_casatools() == (backend.BACKEND == "casatools")
     monkeypatch.setattr(table_utils, "uses_casatools", lambda: False)
     with table_utils.casatools_serialized() as ctx:
         assert ctx is None  # a null context: the lock is free

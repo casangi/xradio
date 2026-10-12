@@ -9,6 +9,8 @@ from astropy import units as u
 
 from xradio._utils._casacore.backend import coordinates, images, tables
 from xradio._utils._casacore.tables import (
+    CASATOOLS_LOCK,
+    casatools_serialized,
     extract_table_attributes,
     get_table_ro,
     open_table_ro,
@@ -1292,7 +1294,22 @@ def _read_image_array(
     return ary.transpose(transpose_list)
 
 
+# casatools table calls are not thread safe: with dask's threaded scheduler,
+# concurrent chunk reads crash (segmentation fault) or fail with FiledesIO
+# errors, so they are serialized, with the one lock of every casatools read of
+# the process (MSv2 reads included, see xradio._utils._casacore.tables).
+# Reads with the other backends are not locked.
+_CASATOOLS_READ_LOCK = CASATOOLS_LOCK
+
+
 def _read_image_chunk(
+    infile: str, shapes: tuple, starts: tuple, ninstances: int = 1
+) -> np.ndarray:
+    with casatools_serialized():
+        return _read_image_chunk_unlocked(infile, shapes, starts, ninstances)
+
+
+def _read_image_chunk_unlocked(
     infile: str, shapes: tuple, starts: tuple, ninstances: int = 1
 ) -> np.ndarray:
     if ninstances > 1:

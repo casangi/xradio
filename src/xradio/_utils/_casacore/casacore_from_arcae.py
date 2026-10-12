@@ -34,6 +34,7 @@ Caveat: casacore errors raised inside ``Table.from_taql`` abort the process
 validate their input first.
 """
 
+import copy
 import os
 import re
 import sys
@@ -170,8 +171,8 @@ class table:
         ninstances=1,
     ):
         self._closed = False
-        # value types of the columns of a read-only table (they cannot change)
-        self._valuetypes = None
+        # column descriptions of a read-only table (they cannot change)
+        self._coldescs = None
         if _arcae_table is not None:
             self._t = _arcae_table
             self._name = _name or ""
@@ -194,7 +195,7 @@ class table:
                 # python-casacore raises RuntimeError for unopenable tables
                 raise RuntimeError(str(exc)) from exc
             if readonly:
-                self._valuetypes = {}
+                self._coldescs = {}
 
     # -- lifecycle ----------------------------------------------------------
 
@@ -251,7 +252,17 @@ class table:
         return self._t.columns()
 
     def getcoldesc(self, columnname):
-        return self._t.getcoldesc(columnname)
+        if self._coldescs is None:
+            return self._t.getcoldesc(columnname)
+        return copy.deepcopy(self._coldesc(columnname))
+
+    def _coldesc(self, columnname):
+        """The column description, not to be modified (remembered if read-only)."""
+        if self._coldescs is None:
+            return self._t.getcoldesc(columnname)
+        if columnname not in self._coldescs:
+            self._coldescs[columnname] = self._t.getcoldesc(columnname)
+        return self._coldescs[columnname]
 
     def getdesc(self, actual=True):
         return self._t.tabledesc()
@@ -266,21 +277,17 @@ class table:
         raise RuntimeError(f"Column {columnname} not found in dminfo")
 
     def coldatatype(self, columnname):
-        if self._valuetypes is None:
-            return self.getcoldesc(columnname)["valueType"]
-        if columnname not in self._valuetypes:
-            self._valuetypes[columnname] = self.getcoldesc(columnname)["valueType"]
-        return self._valuetypes[columnname]
+        return self._coldesc(columnname)["valueType"]
 
     def _col_dtype(self, columnname):
         return _VALUETYPE_TO_DTYPE.get(self.coldatatype(columnname))
 
     def isscalarcol(self, columnname):
-        desc = self.getcoldesc(columnname)
+        desc = self._coldesc(columnname)
         return "ndim" not in desc and "shape" not in desc
 
     def isvarcol(self, columnname):
-        desc = self.getcoldesc(columnname)
+        desc = self._coldesc(columnname)
         return "ndim" in desc and "shape" not in desc
 
     def getcolshapestring(self, columnname, startrow=0, nrow=-1, rowincr=1):
@@ -346,7 +353,7 @@ class table:
             )
 
     def iscelldefined(self, columnname, rownr):
-        desc = self.getcoldesc(columnname)
+        desc = self._coldesc(columnname)
         if "ndim" not in desc and "shape" not in desc:
             return True  # scalar cells are always defined
         return self._cell_shapes(columnname, int(rownr), 1)[0] is not None

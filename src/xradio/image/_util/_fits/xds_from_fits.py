@@ -5,7 +5,7 @@ The reader interprets the WCS cards of the primary HDU (FITS WCS papers I to
 III, plus the AIPS conventions that casacore also reads) and a CASA style
 ``BEAMS`` binary table of per-plane restoring beams. Pixels are read lazily, in
 dask chunks, from the memory mapped primary HDU. Only astropy is used for FITS
-access: reading FITS images needs neither python-casacore nor casatools.
+access: reading FITS images does not need arcae.
 """
 
 import copy

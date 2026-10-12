@@ -291,6 +291,29 @@ class table:
         nrows = self.nrows()
         if nrow < 0:
             nrow = nrows - startrow
+        try:
+            arrow_shapes = self._t.row_shapes(
+                columnname, index=(slice(startrow, startrow + nrow),)
+            )
+        except pa.ArrowInvalid:
+            arrow_shapes = None
+        if (
+            arrow_shapes is not None
+            and len(arrow_shapes) > 0
+            and arrow_shapes.null_count == 0
+            and pa.types.is_fixed_size_list(arrow_shapes.type)
+            and arrow_shapes.type.list_size > 0
+        ):
+            # every cell defined, of one number of dimensions: format the shape
+            # of each run of cells of one shape once
+            dims = arrow_shapes.flatten().to_numpy()
+            dims = dims.reshape(len(arrow_shapes), arrow_shapes.type.list_size)
+            starts = (np.flatnonzero((dims[1:] != dims[:-1]).any(axis=1)) + 1).tolist()
+            strings = []
+            for start, stop in zip([0, *starts], [*starts, len(dims)], strict=True):
+                shape = ", ".join(map(str, dims[start].tolist()))
+                strings += ["[" + shape + "]"] * (stop - start)
+            return strings
         shapes = self._cell_shapes(columnname, startrow, nrow)
         for rownr, shape in enumerate(shapes, start=startrow):
             if shape is None:

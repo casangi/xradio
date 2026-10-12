@@ -333,6 +333,28 @@ class TestImageNinstances:
         res_env = xds_env.SKY.mean().compute(scheduler="threads", num_workers=4)
         np.testing.assert_allclose(res_env.values, res_n1.values)
 
+    @pytest.mark.parametrize(
+        "env, backend_opts, expected",
+        [
+            (None, None, 1),
+            ("3", None, 3),
+            ("3", {"ninstances": 2}, 2),
+            ("3", {}, 3),
+            ("0", None, 1),
+            ("many", None, 1),
+            (None, {"ninstances": -1}, 1),
+        ],
+    )
+    def test_ninstances_of_backend_opts_and_env(
+        self, monkeypatch, env, backend_opts, expected
+    ):
+        from xradio.image.image import _resolve_ninstances
+
+        monkeypatch.delenv("XRADIO_ARCAE_NINSTANCES", raising=False)
+        if env is not None:
+            monkeypatch.setenv("XRADIO_ARCAE_NINSTANCES", env)
+        assert _resolve_ninstances(backend_opts) == expected
+
 
 # --------------------------------------------------------------------------- #
 # TestWriteImageCasa  –  write_image (CASA format)                             #

@@ -46,6 +46,7 @@ import numpy as np
 
 from xradio._utils._casacore.backend import tables
 from xradio._utils.list_and_array import get_pad_value
+from xradio.measurement_set._utils._msv2._tables.table_lock_file import table_type
 
 # Default and maximum number of elements read by one getcolnp/getcolslicenp call
 # (python-casacore #130: keep every call at 2**29 elements or fewer).
@@ -1770,6 +1771,8 @@ class ColumnStorage:
 def is_plain_table(table: tables.table) -> bool:
     """Whether a table is a plain table (not a reference / selection or a
     concatenation of tables)."""
+    if not hasattr(table, "partnames"):  # (the arcae shim)
+        return table_type(table.name()) == "PlainTable"
     return list(table.partnames()) == [table.name()]
 
 

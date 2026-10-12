@@ -387,3 +387,13 @@ def test_iswritable(tmp_path):
         assert tb.iswritable()
     with tables.table(path) as tb:
         assert not tb.iswritable()
+
+
+def test_query_name_writes_a_reference_table(tmp_path):
+    path, ref = str(tmp_path / "plain.tbl"), str(tmp_path / "ref.tbl")
+    desc = tables.maketabdesc([tables.makescacoldesc("S", 0)])
+    with tables.table(path, desc, nrow=4, readonly=False) as tb:
+        tb.putcol("S", np.arange(4, dtype=np.int32))
+        tb.query("S > 1", name=ref).close()
+    with tables.table(ref) as tb:
+        np.testing.assert_array_equal(tb.getcol("S"), [2, 3])

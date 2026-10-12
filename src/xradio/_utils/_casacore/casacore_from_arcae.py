@@ -576,7 +576,9 @@ class table:
             command += f" LIMIT {limit}"
         if offset > 0:
             command += f" OFFSET {offset}"
-        return table(_arcae_table=self._taql(command), _name=self._name)
+        if name:
+            command += f" GIVING {_quote_path(os.path.expanduser(name))}"
+        return table(_arcae_table=self._taql(command), _name=name or self._name)
 
     # -- writing ------------------------------------------------------------
 

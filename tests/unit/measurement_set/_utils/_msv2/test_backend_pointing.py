@@ -26,9 +26,8 @@ import numpy as np
 import pytest
 import xarray as xr
 
-tables = pytest.importorskip("casacore.tables")
-
 from _xradio_xarray_backends import MSv2BackendEntrypoint  # noqa: E402
+from xradio._utils._casacore.backend import BACKEND, tables  # noqa: E402
 from xradio.measurement_set._utils._msv2 import (  # noqa: E402
     backend_pointing as bpt,
 )
@@ -78,6 +77,9 @@ LAZY_VARIANTS = (
     "varying_target",
 )
 REBUILT_VARIANTS = ("empty_encoder", "float_over_the_top")
+# arcae can neither write nor read cells of zero size ("list_size needs to be a
+# strict positive integer"): no "empty_encoder" table with arcae
+ZERO_SIZE_CELLS = BACKEND != "arcae"
 
 
 def make_pointing_ms(
@@ -181,6 +183,7 @@ def pointing_ms(tmp_path_factory):
     return {
         variant: make_pointing_ms(str(base / f"{variant}.ms"), variant)
         for variant in POINTING_VARIANTS
+        if ZERO_SIZE_CELLS or variant != "empty_encoder"
     }
 
 
@@ -259,6 +262,8 @@ def test_read_pointing_index(pointing_ms, monkeypatch):
         assert index is not None, variant
         np.testing.assert_array_equal(index.odd_rows, odd_rows(table), variant)
     for variant in REBUILT_VARIANTS + ("empty",):
+        if variant not in pointing_ms:
+            continue  # (empty_encoder with arcae)
         table = os.path.join(pointing_ms[variant], "POINTING")
         assert bpt.read_pointing_index(table, DATA_COLUMNS) is None, variant
 
@@ -633,6 +638,8 @@ def test_tables_of_other_cells(pointing_ms, variant):
     OVER_THE_TOP), or read lazily (TARGET cells of two shapes among the
     1,000 rows or more of the partition, which the converter leaves out);
     none for a table without rows."""
+    if variant not in pointing_ms:
+        pytest.skip("arcae cannot read cells of zero size")
     ms = pointing_ms[variant]
     time_min_max = (np.float64(TIME0 - 1), np.float64(TIME0 + NTIMES))
     ant_names = antenna_names(range(NANTS))
@@ -1570,7 +1577,7 @@ def test_swapped_pointing_antennas_are_read(pointing_ms, tmp_path):
         with tables.table(
             os.path.join(ms, "POINTING"), readonly=False, ack=False
         ) as tb:
-            values = tb.getcol("ANTENNA_ID")
+            values = tb.getcol("ANTENNA_ID").copy()
             values[rows] = values[rows[::-1]]
             tb.putcol("ANTENNA_ID", values)
         if clear:
@@ -1605,7 +1612,8 @@ def test_pointing_rows_are_checked_only_after_writes(
     writer = tables.table(table, readonly=False, ack=False)
     try:
         assert_bits_equal(actual.POINTING_BEAM.values, expected.POINTING_BEAM.values)
-        assert len(checks) == 1
+        # (arcae handles share no table object)
+        assert len(checks) == (BACKEND != "arcae")
     finally:
         writer.close()
     checks.clear()

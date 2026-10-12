@@ -1169,7 +1169,7 @@ def read_rows_to_grid(
     call per run instead of selectrows. No gap is bridged there in a column
     without a fixed cell shape: arcae reads rows of several cell shapes in
     one call as a variably shaped array before failing, in a time quadratic
-    in the number of rows (arcae 0.5.7: 240 s for 337,773 rows of FLAG).
+    in the number of rows.
 
     Parameters
     ----------

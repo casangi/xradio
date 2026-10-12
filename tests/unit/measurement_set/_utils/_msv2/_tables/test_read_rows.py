@@ -1216,6 +1216,22 @@ def test_time_chunk_rows_n_runs(time_ordered, time_chunks, contiguous):
     assert rr.TimeChunkRows(empty, empty, empty, time_chunks, nb).n_runs() == 0
 
 
+def test_is_plain_table(rows_table, tmp_path):
+    """A table opened from its path is plain; a selection (query, TaQL) is
+    not, also one stored as a reference table."""
+    path, _ = rows_table
+    ref = str(tmp_path / "ref.tab")
+    with tables.table(path, ack=False) as tb:
+        assert rr.is_plain_table(tb)
+        for name in ("", ref):
+            with tb.query("SCALAR_INT > 0", name=name) as sel:
+                assert not rr.is_plain_table(sel), name
+        with tables.taql("select from $tb where SCALAR_INT > 0") as sel:
+            assert not rr.is_plain_table(sel)
+    with tables.table(ref, ack=False) as tb:
+        assert not rr.is_plain_table(tb)
+
+
 # --- in-place reads ----------------------------------------------------------------
 
 

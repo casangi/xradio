@@ -767,6 +767,9 @@ class image:
                 tab.putkeywords({"masks": masks, "Image_defaultmask": maskname})
             finally:
                 tab.close()
+            # the open read-only table does not see the new keywords
+            self._tab.close()
+            self._tab = _tables.table(self._path, readonly=True, ack=False)
         mask_path = os.path.join(self._path, maskname)
         self._write_slice(mask_path, "PagedArray", ~value, blc, trc)
 

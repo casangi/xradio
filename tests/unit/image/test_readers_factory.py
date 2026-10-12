@@ -365,9 +365,11 @@ class TestCasaReaderDirection:
         path, _ = _make_casa_image(tmp_path / "slant.im", edit_coords=edit)
         world = _SLANT_SKY_POSITIONS
         xds = reader(path)
-        # 1e-9 arcsec; ignoring the projection parameters and the rotation
-        # gives arcseconds to arcminutes
-        tolerance = np.radians(1e-9 / 3600)
+        # 1e-6 arcsec, as the reference positions are fixed values and
+        # platforms' trigonometry differs by about 3e-8 arcsec here; ignoring
+        # the projection parameters and the rotation gives arcseconds to
+        # arcminutes
+        tolerance = np.radians(1e-6 / 3600)
         assert np.abs(_angle_difference(xds.right_ascension, world[..., 0])).max() < (
             tolerance
         )

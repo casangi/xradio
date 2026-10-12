@@ -129,6 +129,9 @@ def _normalize_lockoptions(lockoptions):
 
 _KEYWORD_HELPER_COLUMN = "_XRADIO_KEYWORD_HELPER_"
 
+# arcae's error for defined cells whose shape has a zero dimension
+_ZERO_SIZE_ERROR = "list_size needs to be a strict positive integer"
+
 
 class table:
     """python-casacore-compatible ``table`` on top of an arcae Table.
@@ -536,7 +539,9 @@ class table:
             raise NotImplementedError("rowincr != 1 is not supported")
         try:
             data = self._getcol(columnname, self._row_index(startrow, nrow))
-        except RuntimeError:
+        except RuntimeError as exc:
+            if _ZERO_SIZE_ERROR not in str(exc):
+                raise
             if nrow is None or nrow < 0:
                 nrow = self.nrows() - startrow
             data = self._empty_cells(columnname, int(startrow), int(nrow))
@@ -554,7 +559,9 @@ class table:
             raise RuntimeError(f"Cannot read record-valued column {columnname}")
         try:
             data = self._getcol(columnname, ([int(rownr)],))
-        except RuntimeError:
+        except RuntimeError as exc:
+            if _ZERO_SIZE_ERROR not in str(exc):
+                raise
             data = self._empty_cells(columnname, int(rownr), 1)
             if data is None:
                 raise

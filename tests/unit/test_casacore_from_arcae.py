@@ -418,6 +418,24 @@ def test_reads_of_defined_cells_without_values(tmp_path, col):
             tb.getcol(col)
 
 
+@pytest.mark.parametrize("col", VAR_COLUMNS)
+def test_failed_reads_of_undefined_cells_do_not_read_cell_shapes(
+    undefined_cells_table, col, monkeypatch
+):
+    """Only arcae's error for cells with a zero dimension makes getcol and
+    getcell read the cell shapes."""
+
+    def cell_shapes(*args):
+        raise AssertionError("cell shapes read")
+
+    with tables.table(undefined_cells_table) as tb:
+        monkeypatch.setattr(tb, "_cell_shapes", cell_shapes)
+        with pytest.raises(RuntimeError, match="not defined"):
+            tb.getcell(col, 0)
+        with pytest.raises(RuntimeError, match="not defined"):
+            tb.getcol(col)
+
+
 def test_writes_of_another_shape_reshape_variable_shaped_cells(tmp_path):
     """Like python-casacore, putcell and putcol reshape the defined cells of
     a variable-shaped column (arcae writes into the cell's shape)."""

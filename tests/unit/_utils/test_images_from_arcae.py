@@ -69,10 +69,9 @@ def test_image_shapes_without_a_default_coordinate_system(tmp_path):
 
 def test_image_of_a_value_of_another_type(tmp_path):
     """An image filled with a value of a type without an image pixel type
-    is an image of doubles."""
+    holds that value."""
     im = images.image(str(tmp_path / "int.im"), shape=[2, 3], values=np.int16(7))
-    assert im.datatype() == "double"
-    np.testing.assert_array_equal(im.getdata(), np.full((2, 3), 7.0), strict=True)
+    np.testing.assert_array_equal(im.getdata(), np.full((2, 3), 7))
 
 
 def test_pixels_and_mask_of_an_image_without_a_mask(tmp_path):

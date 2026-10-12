@@ -769,6 +769,7 @@ def test_keywords_dminfo_and_info(tmp_path):
         with pytest.raises(RuntimeError, match="keyword NOPE does not exist"):
             tb.getkeyword("NOPE")
         tb.putkeyword("K", 1)
+        assert "K" in tb.keywordnames()
         tb.removekeyword("K")
         assert "K" not in tb.keywordnames()
         group = tb.getdminfo("S")
@@ -794,12 +795,13 @@ def test_taql_with_python_values_and_table_variables(tmp_path):
         tb.putcol("N", ["a", "b", "d", "e"])
     t = tables.table(path)
     values = {"low": 1, "name": "b", "rows": [0, 3]}
-    result = tables.taql("SELECT FROM $t WHERE S > $low", locals=values)
-    np.testing.assert_array_equal(result.getcol("S"), [2, 3])
-    result = tables.taql("SELECT FROM $t WHERE N == $name", locals=values)
-    np.testing.assert_array_equal(result.getcol("S"), [1])
-    result = tables.taql("SELECT FROM $t WHERE S IN $rows", locals=values)
-    np.testing.assert_array_equal(result.getcol("S"), [0, 3])
+    for query, expected in (
+        ("SELECT FROM $t WHERE S > $low", [2, 3]),
+        ("SELECT FROM $t WHERE N == $name", [1]),
+        ("SELECT FROM $t WHERE S IN $rows", [0, 3]),
+    ):
+        with tables.taql(query, locals=values) as result:
+            np.testing.assert_array_equal(result.getcol("S"), expected)
     u = tables.table(path)
     with pytest.raises(NotImplementedError, match="more than one table"):
         tables.taql("SELECT FROM $t, $u")

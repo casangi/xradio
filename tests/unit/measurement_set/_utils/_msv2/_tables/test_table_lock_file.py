@@ -353,7 +353,7 @@ def test_fingerprint_changes(ms_copy):
     assert changed(before) == []
     # key columns
     with tables.table(msname, readonly=False, ack=False) as table:
-        field = table.getcol("FIELD_ID")
+        field = table.getcol("FIELD_ID").copy()  # getcol may be read-only
         field[:10] = 1 - field[:10]
         table.putcol("FIELD_ID", field)
     assert changed(before) == ["main"]
@@ -377,7 +377,7 @@ def test_fingerprint_changes(ms_copy):
     assert changed(before) == ["main"]
     before = fingerprint()
     with tables.table(msname, readonly=False, ack=False) as table:
-        table.copyrows(table, startrowin=0, nrow=3)
+        table.addrows(3)
     assert changed(before) == ["main"]
     assert fingerprint()["main"]["nrows"] == 1203
 

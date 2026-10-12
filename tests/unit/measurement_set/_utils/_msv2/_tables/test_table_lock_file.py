@@ -191,18 +191,17 @@ def test_data_manager_files_names(tmp_path):
 # --- rows of a table held open in this process ---------------------------------
 
 
-@pytest.mark.skipif(
-    BACKEND == "arcae",
-    reason="needs python-casacore's table object shared per path in a process",
-)
 def test_rows_of_a_table_held_open_with_rows_added_by_another_process(ms_copy):
     """casacore shares one table object per path in a process: with MAIN held
     open here, a new open does not see rows another process added (the
     'stale handle' trap). The lock file has them, and so have table_nrows and
     the fingerprint."""
+    cc_tables = pytest.importorskip(
+        "casacore.tables", reason="the handles are python-casacore's, shared per path"
+    )
     msname = ms_copy("dense")
     before = ms_fingerprint(msname, KEY_COLUMNS)
-    held = tables.table(
+    held = cc_tables.table(
         msname, readonly=True, lockoptions={"option": "usernoread"}, ack=False
     )
     try:
@@ -213,7 +212,7 @@ def test_rows_of_a_table_held_open_with_rows_added_by_another_process(ms_copy):
             "    t.copyrows(t, startrowin=0, nrow=7)\n"
         )
         subprocess.run([sys.executable, "-c", script], check=True)
-        with tables.table(
+        with cc_tables.table(
             msname, readonly=True, lockoptions={"option": "usernoread"}, ack=False
         ) as table:
             assert table.nrows() == nrows  # stale
@@ -243,7 +242,8 @@ def test_table_nrows_without_lock_file_data(ms_copy):
 
 @pytest.mark.skipif(
     BACKEND == "arcae",
-    reason="needs python-casacore's table object shared per path in a process",
+    reason="an arcae open does not see the rows another handle of the process "
+    "added and has not flushed",
 )
 def test_rows_not_flushed_by_this_process_are_kept(ms_copy, monkeypatch):
     """A table whose write lock this process holds, with rows added and not
@@ -391,24 +391,24 @@ def test_fingerprint_of_absent_sub_tables(ms_copy):
         ms_fingerprint(os.path.join(msname, "NOT_THERE"), KEY_COLUMNS)
 
 
-@pytest.mark.skipif(
-    BACKEND == "arcae",
-    reason="needs python-casacore's concatenated tables and msconcat",
-)
 def test_tables_whose_writes_the_fingerprint_cannot_follow(ms_copy, tmp_path):
     """table_type reads casacore's table type from table.dat (no table open,
     casatools has no partnames); followed_ms_fingerprint names MAINs whose
     rows live in other tables (reference, concatenated) and key columns in a
     data manager without files of its own (msconcat's ForwardColumnEngine);
     a plain MS has none."""
+    cc_tables = pytest.importorskip(
+        "casacore.tables",
+        reason="the tables are made with python-casacore's concatenation and msconcat",
+    )
     from casacore.tables import msutil
 
     msname = ms_copy("dense", name="a.ms")
     other = ms_copy("dense", name="b.ms")
     ref, concat, forward = (str(tmp_path / n) for n in ("ref", "concat", "fwd.ms"))
-    with tables.table(msname, ack=False) as main_tb:
+    with cc_tables.table(msname, ack=False) as main_tb:
         main_tb.query("ANTENNA1 >= 0", name=ref).close()
-    joined = tables.table([msname, other], ack=False)
+    joined = cc_tables.table([msname, other], ack=False)
     joined.rename(concat)
     joined.close()
     msutil.msconcat([msname, other], forward, concatTime=False)

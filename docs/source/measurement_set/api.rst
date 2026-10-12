@@ -113,7 +113,7 @@ them while that table is unchanged (no ``HISTORY`` row is written for them). ``p
 The default is the value of the environment variable ``XRADIO_MSV2_PARTITION_CACHE`` if it is set, else ``"auto"``. A
 read-only MS is opened with partitions computed in memory, and a :py:class:`PartitionCacheWarning` (once per MS and
 reason) says so; so is an MS whose MAIN table another process has locked (for example a CASA session with the MS open):
-xradio never waits for a lock. Those of reference and
+xradio never waits for a lock. With arcae the partitions are never stored (logged once). Those of reference and
 concatenated MSs (a multi-MS), and of MSs whose MAIN key columns are forwarded to other MSs (as ``msconcat`` makes them),
 are computed on every open, neither stored nor kept in memory (logged once): their rows live in other tables, whose
 changes their lock files do not show. CASA tasks that copy an MS (``split``, ``mstransform``, ``tb.copy``, ``msconcat``)

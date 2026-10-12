@@ -1173,9 +1173,6 @@ def test_time_chunk_rows_n_runs(time_ordered, time_chunks, contiguous):
 
 
 # --- in-place reads ----------------------------------------------------------------
-# The reads of tables without in-place reads (getcol and getcell calls: the
-# casatools shim) are tested with real casatools tables in
-# tests/casatools/test_casatools_read_rows.py (the casatools workflow).
 
 
 def test_has_in_place_reads(rows_tb):

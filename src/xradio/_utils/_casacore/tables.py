@@ -189,3 +189,14 @@ def clear_table_cache() -> None:
 
 
 atexit.register(clear_table_cache)
+
+
+def _reset_table_cache_after_fork() -> None:
+    """Empty the table cache and renew its lock in a fork child."""
+    global _TABLE_CACHE_LOCK
+    _TABLE_CACHE.clear()
+    _TABLE_CACHE_LOCK = threading.Lock()
+
+
+if hasattr(os, "register_at_fork"):
+    os.register_at_fork(after_in_child=_reset_table_cache_after_fork)

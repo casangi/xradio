@@ -6,6 +6,7 @@ the last test.
 """
 
 import os
+import threading
 import types
 
 import numpy as np
@@ -135,3 +136,57 @@ def test_tables_with_several_instances_read_the_table(monkeypatch, tmp_path):
     cached = table_utils.get_table_ro(path, ninstances=2)
     np.testing.assert_array_equal(cached.getcol("V", 1, 2), [1.0, 2.0])
     table_utils.clear_table_cache()
+
+
+def test_reset_table_cache_after_fork(monkeypatch):
+    """A fork child starts with an empty table cache and renewed lock, without closing parent tables."""
+    first = _Table("first.tbl")
+    cache = {("first.tbl", 1): first}
+    monkeypatch.setattr(table_utils, "_TABLE_CACHE", cache)
+
+    # Hold the lock to simulate fork happening while lock was acquired in another thread
+    table_utils._TABLE_CACHE_LOCK.acquire()
+
+    table_utils._reset_table_cache_after_fork()
+
+    assert table_utils._TABLE_CACHE == {}
+    assert not first.closed
+    assert table_utils._TABLE_CACHE_LOCK.acquire(blocking=False)
+    table_utils._TABLE_CACHE_LOCK.release()
+
+
+@pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
+def test_fork_child_gets_clean_table_cache(monkeypatch):
+    first = _Table("first.tbl")
+    monkeypatch.setattr(table_utils, "_TABLE_CACHE", {("first.tbl", 1): first})
+
+    holding, finish = threading.Event(), threading.Event()
+
+    def hold():
+        with table_utils._TABLE_CACHE_LOCK:
+            holding.set()
+            finish.wait(30)
+
+    holder = threading.Thread(target=hold)
+    holder.start()
+    try:
+        assert holding.wait(10)
+        pid = os.fork()
+        if pid == 0:
+            status = 1
+            try:
+                if (
+                    table_utils._TABLE_CACHE == {}
+                    and table_utils._TABLE_CACHE_LOCK.acquire(timeout=5)
+                ):
+                    table_utils._TABLE_CACHE_LOCK.release()
+                    status = 0
+            finally:
+                os._exit(status)
+        _, exitcode = os.waitpid(pid, 0)
+        assert os.waitstatus_to_exitcode(exitcode) == 0
+        assert not first.closed
+    finally:
+        finish.set()
+        holder.join(10)

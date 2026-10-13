@@ -139,13 +139,18 @@ def _dataarray_new(
         data = mapping.arguments["data"]
 
     # No dims specified? Select one matching the data dimensionality from
-    # the schema
+    # the schema: of several alternatives with that number of dimensions, the
+    # first one with the most dimensions among the coordinates given (e.g. u
+    # and v for the aperture plane alternative of a flag array)
     schema = dataclass.xarray_dataclass_to_array_schema(cls)
     data = _np_convert(data, schema)
-    for schema_dims in schema.dimensions:
-        if len(schema_dims) == len(data.shape):
-            dims = schema_dims
-            break
+    if dims is None:
+        given = set(coords) | {
+            name for name, value in mapping.arguments.items() if value is not None
+        }
+        candidates = [d for d in schema.dimensions if len(d) == len(data.shape)]
+        if candidates:
+            dims = max(candidates, key=lambda d: sum(1 for name in d if name in given))
 
     # If we are constructing from a data array / variable, take over attributes
     if isinstance(data, xarray.DataArray | xarray.Variable):
@@ -161,12 +166,19 @@ def _dataarray_new(
         )
 
         # Default to simple range of specified dtype if part of dimensions
-        # (that's roughly the behaviour of the xarray constructor as well)
-        if val is None and dims is not None:
+        # (that's roughly the behaviour of the xarray constructor as well).
+        # Coordinates that are not dimensions (e.g. optional non-dimension
+        # coordinates) or that have a non-numeric type (e.g. string labels
+        # such as polarization, which no range can fill) are not filled in,
+        # and the schema check below reports a missing required one (xarray
+        # presents a dimension without coordinate as an integer range, so for
+        # a string coordinate the issue is a dtype mismatch).
+        if val is None and dims is not None and coord.name in dims:
             dim_ix = dims.index(coord.name)
             if dim_ix is not None and dim_ix < len(data.shape):
                 dtype = coord.dtypes[0]
-                val = numpy.arange(data.shape[dim_ix], dtype=dtype)
+                if numpy.issubdtype(dtype, numpy.number):
+                    val = numpy.arange(data.shape[dim_ix], dtype=dtype)
 
         if val is not None:
             coords[coord.name] = val

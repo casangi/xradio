@@ -99,21 +99,70 @@ class TestImageXdsValid:
         assert np.allclose(xds_with_uv.coords["u"].values, u_expected)
         assert np.allclose(xds_with_uv.coords["v"].values, v_expected)
 
-    def test_get_uv_in_lambda_for_specific_frequency(self, image_xds_valid):
-        """get_uv_in_lambda should convert uv coordinates from meters to wavelengths."""
+    def test_add_uv_coordinates_are_in_wavelengths(self, image_xds_valid):
+        """add_uv_coordinates labels u and v in wavelengths (the schema convention)."""
 
-        xds = image_xds_valid
-        xds = xds.xr_img.add_uv_coordinates()
+        xds = image_xds_valid.xr_img.add_uv_coordinates()
+
+        assert xds.coords["u"].attrs["units"] == "lambda"
+        assert xds.coords["v"].attrs["units"] == "lambda"
+
+    def test_get_uv_in_lambda_keeps_wavelengths(self, image_xds_valid):
+        """u and v already in wavelengths do not depend on frequency."""
+
+        xds = image_xds_valid.xr_img.add_uv_coordinates()
+
+        for frequency in (1.412e9, 2.399476e11):
+            u_in_lambda, v_in_lambda = xds.xr_img.get_uv_in_lambda(frequency)
+            np.testing.assert_array_equal(u_in_lambda.values, xds.coords["u"].values)
+            np.testing.assert_array_equal(v_in_lambda.values, xds.coords["v"].values)
+
+    @pytest.mark.parametrize(
+        "attrs",
+        [
+            {"units": "wavelengths"},
+            {"units": ["lambda"]},
+            # make_empty_* factories store the u/v attrs as a quantity dict
+            {"data": 0.0, "dims": [], "attrs": {"type": "quantity", "units": "lambda"}},
+        ],
+        ids=["wavelengths", "list", "quantity_dict"],
+    )
+    def test_get_uv_in_lambda_wavelength_unit_spellings(self, image_xds_valid, attrs):
+        xds = image_xds_valid.xr_img.add_uv_coordinates()
+        xds.coords["u"].attrs = attrs
+        xds.coords["v"].attrs = attrs
+
+        u_in_lambda, _ = xds.xr_img.get_uv_in_lambda(1.412e9)
+
+        np.testing.assert_array_equal(u_in_lambda.values, xds.coords["u"].values)
+
+    @pytest.mark.parametrize("units, to_meters", [("m", 1.0), ("km", 1e3)])
+    def test_get_uv_in_lambda_converts_lengths(self, image_xds_valid, units, to_meters):
+        """u and v in a length unit are divided by the wavelength c / f."""
+
+        xds = image_xds_valid.xr_img.add_uv_coordinates()
+        xds.coords["u"].attrs = {"units": units}
+        xds.coords["v"].attrs = {"units": units}
 
         frequency = 1.412e9
         u_in_lambda, v_in_lambda = xds.xr_img.get_uv_in_lambda(frequency)
 
-        c = 299792458.0
-        wavelength = c / frequency
+        wavelength = 299792458.0 / frequency
+        np.testing.assert_allclose(
+            u_in_lambda.values, xds.coords["u"].values * to_meters / wavelength
+        )
+        np.testing.assert_allclose(
+            v_in_lambda.values, xds.coords["v"].values * to_meters / wavelength
+        )
+        assert u_in_lambda.attrs["units"] == "lambda"
 
-        # Converting back to meters should recover the original u and v.
-        assert np.allclose(u_in_lambda.values * wavelength, xds.coords["u"].values)
-        assert np.allclose(v_in_lambda.values * wavelength, xds.coords["v"].values)
+    @pytest.mark.parametrize("attrs", [{}, {"units": "Jy"}, {"units": "not a unit"}])
+    def test_get_uv_in_lambda_rejects_unknown_units(self, image_xds_valid, attrs):
+        xds = image_xds_valid.xr_img.add_uv_coordinates()
+        xds.coords["u"].attrs = attrs
+
+        with pytest.raises(ValueError, match="u coordinate"):
+            xds.xr_img.get_uv_in_lambda(1.412e9)
 
     def test_get_reference_pixel_indices_for_lm_coords(self, image_xds_valid):
         """get_reference_pixel_indices should locate the pixel where l=0 and m=0."""
@@ -141,6 +190,42 @@ class TestImageXdsValid:
         assert np.isclose(xds.coords["m"].values[m_index], 0.0)
         assert np.isclose(xds.coords["u"].values[l_index], 0.0)
         assert np.isclose(xds.coords["v"].values[m_index], 0.0)
+
+    def test_get_reference_pixel_indices_outside_the_image(self, image_xds_valid):
+        """A cutout that does not contain the reference direction has its
+        reference pixel outside the image (F5): it is extrapolated."""
+        xds = image_xds_valid
+        l_index, m_index = xds.xr_img.get_reference_pixel_indices()
+        cutout = xds.isel(l=slice(l_index + 2, l_index + 5), m=slice(0, m_index - 3))
+
+        indices = cutout.xr_img.get_reference_pixel_indices()
+
+        assert indices.dtype.kind == "i"
+        assert indices.tolist() == [-2, m_index]
+
+    def test_get_reference_pixel_indices_between_pixels(self, image_xds_valid):
+        """A reference pixel between pixels is returned as a fractional pixel."""
+        xds = image_xds_valid
+        cell = xds.xr_img.get_lm_cell_size()
+        xds = xds.assign_coords(l=xds.l + 0.25 * cell[0], m=xds.m - 0.5 * cell[1])
+        l_index, m_index = image_xds_valid.xr_img.get_reference_pixel_indices()
+
+        indices = xds.xr_img.get_reference_pixel_indices()
+
+        assert indices.dtype.kind == "f"
+        np.testing.assert_allclose(indices, [l_index - 0.25, m_index + 0.5])
+
+    def test_get_reference_pixel_indices_of_an_aperture_image(self, image_xds_valid):
+        """An image with only u and v coordinates gives the u = v = 0 pixel."""
+        xds = image_xds_valid.xr_img.add_uv_coordinates()
+        expected = xds.xr_img.get_reference_pixel_indices()
+        xds = xds.drop_vars(
+            ["l", "m", "right_ascension", "declination"], errors="ignore"
+        )
+
+        indices = xds.xr_img.get_reference_pixel_indices()
+
+        assert indices.tolist() == expected.tolist()
 
     def test_add_data_group_adds_new_group(self, image_xds_valid):
         """add_data_group should add a new data group without modifying the base group."""
@@ -211,6 +296,8 @@ class TestImageXdsValid:
             "psf": {"point_spread_function": "POINT_SPREAD_FUNCTION"},
         }
 
+        original_kwargs = copy.deepcopy(sel_kwargs)
+
         selected = xds.xr_img.sel(**sel_kwargs)
 
         assert "SKY" in selected.data_vars
@@ -218,6 +305,140 @@ class TestImageXdsValid:
         assert selected.attrs["data_groups"] == {
             "base": xds.attrs["data_groups"]["base"]
         }
+        # The selection owns its data groups and leaves the caller's alone
+        assert (
+            selected.attrs["data_groups"]["base"]
+            is not xds.attrs["data_groups"]["base"]
+        )
+        assert set(xds.attrs["data_groups"]) == {"base", "psf"}
+        assert sel_kwargs == original_kwargs
+
+
+def _image_with_data_groups():
+    """An image dataset with two data groups sharing the flag and the PSF."""
+    xds = _make_valid_image_dataset()
+    dims = ("time", "frequency", "polarization", "l", "m")
+    shape = tuple(xds.sizes[dim] for dim in dims)
+    for name, dtype in (
+        ("SKY", float),
+        ("SKY_RESIDUAL", float),
+        ("FLAG_SKY", bool),
+        ("POINT_SPREAD_FUNCTION", float),
+    ):
+        xds[name] = xr.DataArray(np.zeros(shape, dtype=dtype), dims=dims)
+    xds.attrs["data_groups"] = {
+        "base": {
+            "sky": "SKY",
+            "flag": "FLAG_SKY",
+            "point_spread_function": "POINT_SPREAD_FUNCTION",
+        },
+        "residual": {
+            "sky": "SKY_RESIDUAL",
+            "flag": "FLAG_SKY",
+            "point_spread_function": "POINT_SPREAD_FUNCTION",
+        },
+    }
+    return xds
+
+
+_DERIVED_DATASETS = [
+    pytest.param(lambda xds: xds.isel(frequency=[0]), id="isel"),
+    pytest.param(lambda xds: xds.sel(polarization=["I"]), id="sel"),
+    pytest.param(lambda xds: xds.copy(deep=False), id="shallow_copy"),
+    pytest.param(lambda xds: xds.compute(), id="compute"),
+    pytest.param(lambda xds: xds.where(xds.SKY == 0), id="where"),
+    pytest.param(lambda xds: xds.chunk(), id="chunk"),
+    pytest.param(
+        lambda xds: xds.xr_img.sel(data_group_name="residual"), id="xr_img_sel"
+    ),
+]
+
+
+class TestDataGroupsAreNotShared:
+    """Deleting variables or adding data groups changes only the dataset the
+    accessor is called on: derived datasets share the attrs dict (isel, sel)
+    or the data group dicts (copy, compute, where, chunk) with their parent."""
+
+    @pytest.mark.parametrize("derive", _DERIVED_DATASETS)
+    def test_delete_from_derived_keeps_parent(self, derive):
+        parent = _image_with_data_groups()
+        expected = copy.deepcopy(parent.attrs["data_groups"])
+        derived = derive(parent)
+
+        derived.xr_img.delete_data_variables(["FLAG_SKY"])
+
+        assert "FLAG_SKY" not in derived.data_vars
+        assert all("flag" not in g for g in derived.attrs["data_groups"].values())
+        assert "FLAG_SKY" in parent.data_vars
+        assert parent.attrs["data_groups"] == expected
+
+    @pytest.mark.parametrize("derive", _DERIVED_DATASETS)
+    def test_delete_from_parent_keeps_derived(self, derive):
+        parent = _image_with_data_groups()
+        derived = derive(parent)
+        expected = copy.deepcopy(derived.attrs["data_groups"])
+
+        parent.xr_img.delete_data_variables(["FLAG_SKY", "POINT_SPREAD_FUNCTION"])
+
+        assert parent.attrs["data_groups"] == {
+            "base": {"sky": "SKY"},
+            "residual": {"sky": "SKY_RESIDUAL"},
+        }
+        assert "FLAG_SKY" in derived.data_vars
+        assert derived.attrs["data_groups"] == expected
+
+    def test_delete_returns_the_dataset_and_keeps_other_attrs(self):
+        xds = _image_with_data_groups()
+        xds.attrs["note"] = "kept"
+
+        result = xds.xr_img.delete_data_variables("SKY_RESIDUAL")
+
+        assert result is xds
+        assert "SKY_RESIDUAL" not in xds.data_vars
+        assert xds.attrs["note"] == "kept"
+        assert xds.attrs["data_groups"]["residual"] == {
+            "flag": "FLAG_SKY",
+            "point_spread_function": "POINT_SPREAD_FUNCTION",
+        }
+
+    def test_delete_removes_attributes_naming_the_variable(self):
+        """The image attributes that name a deleted variable go too, without
+        changing datasets that share the variable objects (drop_vars)."""
+        xds = _image_with_data_groups()
+        xds["SKY"].attrs = {"flag": "FLAG_SKY", "units": "Jy/beam"}
+        xds["POINT_SPREAD_FUNCTION"].attrs = {"beam_fit_params": "FLAG_SKY"}
+        other = xds.drop_vars("SKY_RESIDUAL")
+        assert other["SKY"].variable is xds["SKY"].variable
+
+        xds.xr_img.delete_data_variables(["FLAG_SKY"])
+
+        assert xds["SKY"].attrs == {"units": "Jy/beam"}
+        assert xds["POINT_SPREAD_FUNCTION"].attrs == {}
+        assert other["SKY"].attrs == {"flag": "FLAG_SKY", "units": "Jy/beam"}
+        assert other["POINT_SPREAD_FUNCTION"].attrs == {"beam_fit_params": "FLAG_SKY"}
+        np.testing.assert_array_equal(xds["SKY"].values, other["SKY"].values)
+
+    def test_delete_unknown_variable_deletes_nothing(self):
+        xds = _image_with_data_groups()
+        expected = copy.deepcopy(xds.attrs["data_groups"])
+
+        with pytest.raises(ValueError, match="NOT_THERE"):
+            xds.xr_img.delete_data_variables(["FLAG_SKY", "NOT_THERE"])
+
+        assert "FLAG_SKY" in xds.data_vars
+        assert xds.attrs["data_groups"] == expected
+
+    @pytest.mark.parametrize("derive", _DERIVED_DATASETS)
+    def test_add_data_group_keeps_other_datasets(self, derive):
+        parent = _image_with_data_groups()
+        derived = derive(parent)
+        parent_groups = set(parent.attrs["data_groups"])
+        derived_groups = set(derived.attrs["data_groups"])
+
+        derived.xr_img.add_data_group("extra", {"sky": "SKY"})
+
+        assert set(derived.attrs["data_groups"]) == derived_groups | {"extra"}
+        assert set(parent.attrs["data_groups"]) == parent_groups
 
 
 # ---------------------------------------------------------------------------

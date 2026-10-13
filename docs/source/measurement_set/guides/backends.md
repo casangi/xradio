@@ -126,13 +126,12 @@ from toolviper.dask.client import local_client
 # Use processes=True or set n_workers > 0 and threads_per_worker=1
 # serial_execution=False enables parallelism
 viper_client = local_client(
-    cores=8,             # Total number of cores (processes) for the cluster
+    cores=8,  # Total number of cores (processes) for the cluster
     memory_limit="4GB",  # Memory limit per worker process
     serial_execution=False,
 )
 
-print(viper_client) # Display cluster information
-
+print(viper_client)  # Display cluster information
 ```
 
 * Adjust logging verbosity (optional):
@@ -141,5 +140,5 @@ print(viper_client) # Display cluster information
 import toolviper.utils.logger as logger
 
 viperlog = logger.get_logger()
-viperlog.setLevel('DEBUG') # Set desired level (e.g., INFO, DEBUG, WARNING)
+viperlog.setLevel("DEBUG")  # Set desired level (e.g., INFO, DEBUG, WARNING)
 ```

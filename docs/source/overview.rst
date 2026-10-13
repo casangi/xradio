@@ -56,9 +56,9 @@ astronomy data:
      - ``.ps.zarr``
      - Interferometer data (Visibilities) and Single Dish data (Spectrum)
      - Released
-   * - Sky and Aperture Images
-     - 0.0.0
-     - ?
+   * - :doc:`Sky and Aperture Images <image_data/overview>`
+     - |IMAGE_SCHEMA_VERSION|
+     - ``.img.zarr``
      - Representation of celestial objects and antenna patterns
      - Schema design in progress
    * - Calibration Data
@@ -106,8 +106,9 @@ v3 <https://casacore.github.io/casacore-notes/264.pdf>`__ (which was
 never fully implemented).
 
 An XRADIO release will be tied to specific versions of each available
-schema. All generated data will include both the XRADIO version and the
-schema version in the attribute section.
+schema. All generated data include the schema version in their attributes
+(``schema_version``); Measurement Set v4 data also include the XRADIO
+version that created them (``creator``).
 
 Installation
 ~~~~~~~~~~~~

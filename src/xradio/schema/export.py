@@ -95,9 +95,11 @@ def export_schema_json_file(schema: metamodel.DatasetSchema, fname: str):
             f"export_schema_json_file: Expected DatasetSchema, but got {type(schema)}!"
         )
 
-    # Perform export
+    # Perform export. End with a newline, as text files in the repository do
+    # (the end-of-file-fixer pre-commit hook adds it otherwise).
     with open(fname, "w", encoding="utf8") as f:
         json.dump(schema, f, cls=DataclassEncoder, ensure_ascii=False, indent="  ")
+        f.write("\n")
 
 
 def import_schema_json_file(fname: str):

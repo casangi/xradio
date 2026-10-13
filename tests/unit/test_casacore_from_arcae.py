@@ -83,6 +83,26 @@ def test_putcellslice_tiled_cell_column(tiled_cell_table, blc, trc, inc):
             )
 
 
+def test_putcell_tiled_cell_column(tiled_cell_table, monkeypatch):
+    path, data = tiled_cell_table
+    new_value = (np.ones(SHAPE) * 42.0 * (1 - 1j)).astype(np.complex64)
+
+    with tables.table(path, readonly=False) as tb:
+
+        def _fail_taql(*args, **kwargs):
+            raise AssertionError(
+                "_put_rows_via_taql should not be called for fixed-shape tiled cell write"
+            )
+
+        monkeypatch.setattr(tb, "_put_rows_via_taql", _fail_taql)
+        tb.putcell("DATA", 1, new_value)
+
+    with tables.table(path) as tb:
+        np.testing.assert_array_equal(tb.getcell("DATA", 1), new_value, strict=True)
+        np.testing.assert_array_equal(tb.getcell("DATA", 0), data[0], strict=True)
+        np.testing.assert_array_equal(tb.getcell("DATA", 2), data[2], strict=True)
+
+
 def test_string_column_descriptions():
     """A string default makes a string column, as in python-casacore."""
     assert tables.makescacoldesc("S", "none")["desc"]["valueType"] == "string"

@@ -730,10 +730,14 @@ class table:
 
     def putcell(self, columnname, rownr, value):
         data = self._convert_write(columnname, value, expect_cell=True)
-        if self._is_tiled(columnname) or self._reshapes(columnname, data, int(rownr)):
-            self._put_rows_via_taql(columnname, np.ascontiguousarray(data), int(rownr))
+        if not self._reshapes(columnname, data, int(rownr)):
+            if self._is_tiled(columnname):
+                cell_index = tuple(slice(0, int(s)) for s in data.shape[1:])
+                self._t.putcol(columnname, data, index=([int(rownr)],) + cell_index)
+                return
+            self._t.putcol(columnname, data, index=([int(rownr)],))
             return
-        self._t.putcol(columnname, data, index=([int(rownr)],))
+        self._put_rows_via_taql(columnname, np.ascontiguousarray(data), int(rownr))
 
     def putcellslice(self, columnname, rownr, value, blc, trc, inc=[]):  # noqa: B006
         inc_list = list(inc) if inc is not None and len(inc) > 0 else [1] * len(blc)

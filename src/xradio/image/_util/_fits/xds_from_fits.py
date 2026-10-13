@@ -10,6 +10,7 @@ access: reading FITS images needs neither python-casacore nor casatools.
 
 import copy
 import re
+import uuid
 import warnings
 
 import dask
@@ -843,9 +844,10 @@ def _fits_header_to_xds_attrs(
             )
     primary = None
     ignored = []
-    for hdu in hdulist:
+    for index, hdu in enumerate(hdulist):
         if hdu.name == "PRIMARY":
             primary = hdu
+            primary_info = hdulist.fileinfo(index)
             # Memory map support check
             # avoid possibly non-existent hdu.scale_type attribute check and check header instead
             header = hdu.header
@@ -903,6 +905,11 @@ def _fits_header_to_xds_attrs(
     helpers["polarization"] = _get_pol_values(helpers)
     helpers["spectral"] = _spectral_metadata(helpers, header)
     helpers["dtype"] = _dtype_from_bitpix(header)
+    # Offset of the pixels in the file, for reading them without astropy;
+    # None for compressed files (e.g. gzip), which astropy decompresses
+    helpers["data_offset"] = (
+        primary_info["datLoc"] if primary_info["file"].compression is None else None
+    )
     helpers["has_mask"] = False
     if compute_mask and np.dtype(helpers["dtype"]).kind == "f":
         # primary.data is a memory-mapped numpy array (fits.open uses memmap=True
@@ -1534,9 +1541,6 @@ def _add_sky_or_aperture(
 def _read_image_array(
     img_full_path: str, chunks: dict, helpers: dict, verbose: bool
 ) -> da.array:
-    # memmap = True allows only part of data to be loaded into memory
-    # may also need to pass mode='denywrite'
-    # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
     if isinstance(chunks, dict):
         mychunks = _get_chunk_list(chunks, helpers)
     else:
@@ -1545,46 +1549,20 @@ def _read_image_array(
         )
     transpose_list, new_axes = _get_transpose_list(helpers)
     data_type = helpers["dtype"]
-    rshape = helpers["shape"][::-1]
-    full_chunks = mychunks + tuple([1 for rr in range(5) if rr >= len(mychunks)])
-    d0slices = []
-    blc = tuple(5 * [0])
-    trc = tuple(rshape) + tuple([1 for rr in range(5) if rr >= len(mychunks)])
-    for d0 in range(blc[0], trc[0], full_chunks[0]):
-        d0len = min(full_chunks[0], trc[0] - d0)
-        d1slices = []
-        for d1 in range(blc[1], trc[1], full_chunks[1]):
-            d1len = min(full_chunks[1], trc[1] - d1)
-            d2slices = []
-            for d2 in range(blc[2], trc[2], full_chunks[2]):
-                d2len = min(full_chunks[2], trc[2] - d2)
-                d3slices = []
-                for d3 in range(blc[3], trc[3], full_chunks[3]):
-                    d3len = min(full_chunks[3], trc[3] - d3)
-                    d4slices = []
-                    for d4 in range(blc[4], trc[4], full_chunks[4]):
-                        d4len = min(full_chunks[4], trc[4] - d4)
-                        shapes = tuple(
-                            [d0len, d1len, d2len, d3len, d4len][: len(rshape)]
-                        )
-                        starts = tuple([d0, d1, d2, d3, d4][: len(rshape)])
-                        delayed_array = dask.delayed(_read_image_chunk)(
-                            img_full_path, shapes, starts, data_type
-                        )
-                        d4slices += [da.from_delayed(delayed_array, shapes, data_type)]
-                    d3slices += (
-                        [da.concatenate(d4slices, axis=4)]
-                        if len(rshape) > 4
-                        else d4slices
-                    )
-                d2slices += (
-                    [da.concatenate(d3slices, axis=3)] if len(rshape) > 3 else d3slices
-                )
-            d1slices += (
-                [da.concatenate(d2slices, axis=2)] if len(rshape) > 2 else d2slices
-            )
-        d0slices += [da.concatenate(d1slices, axis=1)] if len(rshape) > 1 else d1slices
-    ary = da.concatenate(d0slices, axis=0)
+    rshape = tuple(helpers["shape"][::-1])
+    # One graph layer for any number of blocks. The name is unique to this
+    # open, so that arrays of a file rewritten in place never share keys.
+    ary = da.map_blocks(
+        _read_image_block,
+        img_full_path,
+        data_type,
+        helpers["data_offset"],
+        rshape,
+        chunks=da.core.normalize_chunks(mychunks, rshape),
+        dtype=data_type,
+        meta=np.empty((0,) * len(rshape), dtype=data_type),
+        name=f"read-fits-image-{uuid.uuid4().hex}",
+    )
     ary = da.expand_dims(ary, new_axes)
     return ary.transpose(transpose_list)
 
@@ -1652,8 +1630,33 @@ def _get_transpose_list(helpers: dict) -> tuple:
     return transpose_list, new_axes
 
 
+def _read_image_block(
+    img_full_path: str,
+    dtype: str,
+    data_offset: int | None,
+    shape: tuple,
+    block_info=None,
+) -> np.ndarray:
+    """Read the block of pixels that ``block_info`` locates (the function
+    mapped over the blocks of the image by ``_read_image_array``)."""
+    location = block_info[None]["array-location"]
+    return _read_image_chunk(
+        img_full_path,
+        tuple(stop - start for start, stop in location),
+        tuple(start for start, _ in location),
+        dtype,
+        data_offset=data_offset,
+        shape=shape,
+    )
+
+
 def _read_image_chunk(
-    img_full_path, shapes: tuple, starts: tuple, dtype: str | None = None
+    img_full_path,
+    shapes: tuple,
+    starts: tuple,
+    dtype: str | None = None,
+    data_offset: int | None = None,
+    shape: tuple | None = None,
 ) -> np.ndarray:
     """
     Read a block of pixels from the primary HDU of a FITS file.
@@ -1668,6 +1671,12 @@ def _read_image_chunk(
         Index of the first pixel of the block on each axis.
     dtype : str, optional
         Declared dtype of the pixels (by default the file's).
+    data_offset : int, optional
+        Byte offset of the pixels in the (uncompressed) file. If given, the
+        pixels are memory mapped directly, without opening the file with
+        astropy; ``dtype`` and ``shape`` are then required.
+    shape : tuple of int, optional
+        Shape of the whole image, in FITS (reversed) axis order.
 
     Returns
     -------
@@ -1683,6 +1692,19 @@ def _read_image_chunk(
         slice(start, start + length)
         for start, length in zip(starts, shapes, strict=False)
     )
+    if data_offset is not None:
+        # The reader refuses scaled data (BSCALE, BZERO), so the bytes are
+        # the pixel values, big-endian
+        pixels = np.memmap(
+            img_full_path,
+            dtype=np.dtype(dtype).newbyteorder(">"),
+            mode="r",
+            offset=data_offset,
+            shape=shape,
+        )
+        return np.ascontiguousarray(
+            pixels[slices], dtype=np.dtype(dtype).newbyteorder("=")
+        )
     with fits.open(img_full_path, memmap=True) as hdulist:
         chunk = hdulist[0].data[slices]
         native = np.dtype(chunk.dtype if dtype is None else dtype).newbyteorder("=")

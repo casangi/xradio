@@ -19,6 +19,7 @@ import dask.array as da
 import numpy as np
 import pytest
 import xarray as xr
+import zarr
 
 from xradio._utils._casacore.tables import open_table_ro
 from xradio.image import image as image_api
@@ -969,6 +970,113 @@ class TestZarrWriter:
         xds = xr.Dataset({"SKY": (_DIMS, data)})
         with pytest.raises(ValueError, match="too large for compression"):
             write_image(xds, str(tmp_path / "big.img.zarr"), "zarr")
+        assert _listing(tmp_path) == []
+
+    def test_chunk_size_guard_checks_the_zarr_chunk(self, tmp_path):
+        data = da.zeros(
+            (1, 1, 1, 16384, 16384), dtype=np.float32, chunks=(1, 1, 1, 1024, 1024)
+        )
+        xds = xr.Dataset({"SKY": (_DIMS, data)})
+        with pytest.raises(ValueError, match="reduce the chunks passed to write_image"):
+            write_image(xds, str(tmp_path / "big.img.zarr"), "zarr", chunks={})
+        assert _listing(tmp_path) == []
+
+
+# --------------------------------------------------------------------------- #
+# TestZarrLayout                                                               #
+# --------------------------------------------------------------------------- #
+
+
+def _zarr_array(store: str, name: str):
+    return zarr.open_array(os.path.join(store, name), mode="r")
+
+
+class TestZarrLayout:
+    """write_image's chunks, shards and compressor for zarr output."""
+
+    def test_chunks_and_shards(self, tmp_path):
+        xds = _empty_image(n_chan=8)
+        _add_image(xds, "SKY", 1.0, "sky")
+        _add_flag(xds, "FLAG_SKY", 2)
+        xds = xds.chunk({"frequency": 1})
+        path = str(tmp_path / "sharded.img.zarr")
+        write_image(
+            xds,
+            path,
+            "zarr",
+            chunks={"frequency": 2, "l": 4},
+            shards={"frequency": 4},
+        )
+        for name in ("SKY", "FLAG_SKY"):
+            array = _zarr_array(path, name)
+            # m is one chunk; l is one shard of whole chunks
+            assert array.chunks == (1, 2, 1, 4, 6)
+            assert array.shards == (1, 4, 1, 8, 6)
+        got = open_image(path)
+        for name in ("SKY", "FLAG_SKY"):
+            np.testing.assert_array_equal(got[name].values, xds[name].values)
+        # the caller's dask chunks are not changed
+        assert xds["SKY"].chunks[1] == (1,) * 8
+
+    def test_none_and_zero_mean_one_chunk(self, tmp_path):
+        xds = single_image_dataset().chunk({"l": 2})
+        path = str(tmp_path / "whole.img.zarr")
+        write_image(xds, path, "zarr", chunks={"l": None, "m": 0, "frequency": 1})
+        assert _zarr_array(path, "SKY").chunks == (1, 1, 1, 8, 6)
+        np.testing.assert_array_equal(open_image(path)["SKY"].values, xds["SKY"].values)
+
+    def test_aligned_dask_chunks_are_kept(self):
+        data = da.zeros((12, 6), chunks=((8, 4), (6,)))
+        assert (
+            xds_to_zarr._align_dask_chunks("A", data, ("x", "y"), (4, 6), "shard")
+            is data
+        )
+        # misaligned: the multiple of the shard closest to the largest chunk
+        data = da.zeros((12, 6), chunks=((3, 3, 3, 3), (3, 3)))
+        aligned = xds_to_zarr._align_dask_chunks("A", data, ("x", "y"), (4, 6), "chunk")
+        assert aligned.chunks == ((4, 4, 4), (6,))
+
+    @pytest.mark.parametrize(
+        "compressor, expected",
+        [
+            (xds_to_zarr.DEFAULT_COMPRESSOR, ["BloscCodec"]),
+            (None, []),
+            (zarr.codecs.ZstdCodec(level=3), ["ZstdCodec"]),
+        ],
+    )
+    def test_compressor(self, tmp_path, compressor, expected):
+        path = str(tmp_path / "compressed.img.zarr")
+        write_image(single_image_dataset(), path, "zarr", compressor=compressor)
+        for name in ("SKY", "FLAG_SKY", "frequency", "polarization"):
+            codecs = _zarr_array(path, name).compressors
+            assert [type(codec).__name__ for codec in codecs] == expected
+
+    @pytest.mark.parametrize(
+        "kwargs, error, match",
+        [
+            ({"shards": {"l": 4}}, ValueError, "shards needs chunks"),
+            ({"chunks": {"freq": 1}}, ValueError, "no dimension 'freq'"),
+            ({"chunks": {"l": -1}}, ValueError, "non-negative integer"),
+            ({"chunks": {"l": 2}, "shards": {"l": 3}}, ValueError, "not a multiple"),
+            ({"compressor": "zstd"}, TypeError, "bytes-to-bytes codec"),
+        ],
+    )
+    def test_invalid_options(self, tmp_path, kwargs, error, match):
+        with pytest.raises(error, match=match):
+            write_image(
+                single_image_dataset(), str(tmp_path / "x.img.zarr"), "zarr", **kwargs
+            )
+        assert _listing(tmp_path) == []
+
+    @pytest.mark.parametrize(
+        "kwargs",
+        [{"chunks": {"l": 4}}, {"shards": {"l": 4}}, {"compressor": None}],
+    )
+    def test_zarr_only(self, tmp_path, kwargs):
+        with pytest.raises(ValueError, match="apply to zarr output only"):
+            write_image(
+                single_image_dataset(), str(tmp_path / "x.fits"), "fits", **kwargs
+            )
         assert _listing(tmp_path) == []
 
 

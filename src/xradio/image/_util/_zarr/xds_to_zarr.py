@@ -16,9 +16,9 @@ from xradio.image._util._zarr.common import _top_level_sub_xds
 # dask chunks of the data being written (or the chunks passed to write_image)
 _CHUNK_ENCODINGS = ("chunks", "preferred_chunks", "shards")
 
-#: Default compressor of write_image's zarr stores, as of
-#: convert_msv2_to_processing_set
-DEFAULT_COMPRESSOR = zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle")
+#: Default compressor of write_image's zarr stores. Byte shuffle matters for
+#: float pixels: without it Blosc barely compresses them.
+DEFAULT_COMPRESSOR = zarr.codecs.BloscCodec(cname="zstd", clevel=5, shuffle="shuffle")
 
 
 def _check_zarr_options(
@@ -38,21 +38,20 @@ def _check_zarr_options(
         for dim, length in (lengths or {}).items():
             if dim not in xds.dims:
                 raise ValueError(f"{kind}: the dataset has no dimension {dim!r}")
-            if length is not None and not (
-                isinstance(length, int | np.integer) and length >= 0
+            if not (
+                isinstance(length, int | np.integer) and (length > 0 or length == -1)
             ):
                 raise ValueError(
-                    f"{kind}: the length of {dim!r} must be a non-negative "
-                    f"integer or None, not {length!r}"
+                    f"{kind}: the length of {dim!r} must be a positive integer "
+                    f"or -1 (the whole axis), not {length!r}"
                 )
 
 
 def _chunk_shape(dims: tuple, shape: tuple, chunks: dict) -> tuple[int, ...]:
     """Zarr chunk shape of a variable: a dimension missing from chunks, or
-    given as None or 0, is one chunk (whereas in DataArray.chunk, None keeps
-    the current chunks)."""
+    given as -1, is one chunk over the whole axis."""
     return tuple(
-        max(int(min(chunks.get(dim) or size, size)), 1)
+        max(min(size if chunks.get(dim, -1) == -1 else int(chunks[dim]), size), 1)
         for dim, size in zip(dims, shape, strict=True)
     )
 
@@ -60,12 +59,14 @@ def _chunk_shape(dims: tuple, shape: tuple, chunks: dict) -> tuple[int, ...]:
 def _shard_shape(
     name: str, dims: tuple, shape: tuple, chunk_shape: tuple, shards: dict
 ) -> tuple[int, ...]:
-    """Zarr shard shape of a variable, with the convention of _chunk_shape: a
-    dimension in one shard has the length of whole chunks covering it."""
+    """Zarr shard shape of a variable: a dimension missing from shards is not
+    sharded (its shard length is the chunk length, as in zarr's automatic
+    shards), and -1, or a length of at least the axis, is one shard of whole
+    chunks covering the axis."""
     shard_shape = []
     for dim, size, chunk in zip(dims, shape, chunk_shape, strict=True):
-        shard = int(shards.get(dim) or size)
-        if shard >= size:
+        shard = int(shards.get(dim, chunk))
+        if shard == -1 or shard >= size:
             shard = max(-(-size // chunk), 1) * chunk
         elif shard % chunk:
             raise ValueError(

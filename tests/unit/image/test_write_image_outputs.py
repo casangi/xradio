@@ -994,34 +994,37 @@ def _zarr_array(store: str, name: str):
 class TestZarrLayout:
     """write_image's chunks, shards and compressor for zarr output."""
 
-    def test_chunks_and_shards(self, tmp_path):
+    @pytest.mark.parametrize(
+        "shards, expected",
+        [
+            # l and m are not sharded: their shard length is the chunk length
+            ({"frequency": 4}, (1, 4, 1, 4, 6)),
+            # -1: one shard of whole chunks over the axis
+            ({"frequency": 4, "l": -1}, (1, 4, 1, 8, 6)),
+        ],
+    )
+    def test_chunks_and_shards(self, tmp_path, shards, expected):
         xds = _empty_image(n_chan=8)
         _add_image(xds, "SKY", 1.0, "sky")
         _add_flag(xds, "FLAG_SKY", 2)
         xds = xds.chunk({"frequency": 1})
         path = str(tmp_path / "sharded.img.zarr")
-        write_image(
-            xds,
-            path,
-            "zarr",
-            chunks={"frequency": 2, "l": 4},
-            shards={"frequency": 4},
-        )
+        write_image(xds, path, "zarr", chunks={"frequency": 2, "l": 4}, shards=shards)
         for name in ("SKY", "FLAG_SKY"):
             array = _zarr_array(path, name)
-            # m is one chunk; l is one shard of whole chunks
+            # m is one chunk
             assert array.chunks == (1, 2, 1, 4, 6)
-            assert array.shards == (1, 4, 1, 8, 6)
+            assert array.shards == expected
         got = open_image(path)
         for name in ("SKY", "FLAG_SKY"):
             np.testing.assert_array_equal(got[name].values, xds[name].values)
         # the caller's dask chunks are not changed
         assert xds["SKY"].chunks[1] == (1,) * 8
 
-    def test_none_and_zero_mean_one_chunk(self, tmp_path):
+    def test_minus_one_means_one_chunk(self, tmp_path):
         xds = single_image_dataset().chunk({"l": 2})
         path = str(tmp_path / "whole.img.zarr")
-        write_image(xds, path, "zarr", chunks={"l": None, "m": 0, "frequency": 1})
+        write_image(xds, path, "zarr", chunks={"l": -1, "frequency": 1})
         assert _zarr_array(path, "SKY").chunks == (1, 1, 1, 8, 6)
         np.testing.assert_array_equal(open_image(path)["SKY"].values, xds["SKY"].values)
 
@@ -1056,7 +1059,10 @@ class TestZarrLayout:
         [
             ({"shards": {"l": 4}}, ValueError, "shards needs chunks"),
             ({"chunks": {"freq": 1}}, ValueError, "no dimension 'freq'"),
-            ({"chunks": {"l": -1}}, ValueError, "non-negative integer"),
+            ({"chunks": {"l": None}}, ValueError, "positive integer or -1"),
+            ({"chunks": {"l": 0}}, ValueError, "positive integer or -1"),
+            ({"chunks": {"l": -2}}, ValueError, "positive integer or -1"),
+            ({"chunks": {"l": 2}, "shards": {"l": None}}, ValueError, "or -1"),
             ({"chunks": {"l": 2}, "shards": {"l": 3}}, ValueError, "not a multiple"),
             ({"compressor": "zstd"}, TypeError, "bytes-to-bytes codec"),
         ],

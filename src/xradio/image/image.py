@@ -388,20 +388,21 @@ def write_image(
     chunks : dict, optional
         Zarr only: the zarr chunk length by dimension of every data variable,
         e.g. ``{"frequency": 16, "l": 256, "m": 256}``. A dimension that is
-        missing, or given as None or 0, is one chunk. By default (None) the
-        chunks follow the dask chunks of each data variable. Dask chunks that
-        are not whole numbers of zarr chunks (of shards, with ``shards``) are
-        rechunked before writing, with a log message; see the ``chunks`` of
-        :func:`open_image` to avoid that.
+        missing, or given as -1, is one chunk over the whole axis. By default
+        (None) the chunks follow the dask chunks of each data variable. Dask
+        chunks that are not whole numbers of zarr chunks (of shards, with
+        ``shards``) are rechunked before writing, with a log message; see the
+        ``chunks`` of :func:`open_image` to avoid that.
     shards : dict, optional
-        Zarr only: the shard length by dimension of every data variable, with
-        the convention of ``chunks``, which it needs. Each shard length must
-        be a multiple of the chunk length; a dimension in one shard is
-        covered by whole chunks. By default (None) the store is not sharded.
+        Zarr only: the shard length by dimension of every data variable,
+        which needs ``chunks``. Each shard length must be a multiple of the
+        chunk length. A dimension that is missing is not sharded (its shard
+        length is the chunk length); -1, or a length of at least the axis, is
+        one shard of whole chunks covering the axis. By default (None) the
+        store is not sharded.
     compressor : zarr.abc.codec.BytesBytesCodec, optional
         Zarr only: the codec of every data variable and coordinate, by default
-        ``zarr.codecs.BloscCodec(cname="lz4", clevel=5, shuffle="noshuffle")``
-        as in :func:`xradio.measurement_set.convert_msv2_to_processing_set`.
+        ``zarr.codecs.BloscCodec(cname="zstd", clevel=5, shuffle="shuffle")``.
         None disables compression.
 
     Returns

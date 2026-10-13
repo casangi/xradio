@@ -58,7 +58,7 @@ def open_asdm(
 
     Returns
     -------
-    xr.DataTree
+    xarray.DataTree
         DataTree with a processing set of MSv4s populated from the input ASDM.
         Each node of the tree represents a partition of the original ASDM data.
         The DataTree has a ``type`` attribute set to ``"processing_set"``. Node

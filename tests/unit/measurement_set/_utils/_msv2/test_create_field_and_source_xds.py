@@ -64,6 +64,36 @@ def test_create_field_and_source_xds_minimal(ms_minimal_required):
     )
 
 
+def test_create_field_and_source_xds_observer_position_metres(
+    ms_minimal_required, tmp_path
+):
+    """
+    OBSERVER_POSITION (ephemeris fields) holds plain float64 metres, not an
+    astropy Quantity: the dataset equals what zarr gives back (the values
+    written are unchanged).
+    """
+    field_and_source_xds, *_ = create_field_and_source_xds(
+        ms_minimal_required.fname,
+        np.arange(0, 1),
+        0,
+        np.arange(0, 1),
+        False,
+        (0, 1e10),
+        True,
+    )
+    position = field_and_source_xds["OBSERVER_POSITION"].variable
+    assert type(position.data) is np.ndarray
+    assert position.dtype == np.float64
+    assert position.dims == ("cartesian_pos_label",)
+    assert position.attrs["units"] == "m"
+    # an ITRS position on the Earth's surface, in metres
+    assert 6.3e6 < np.linalg.norm(position.values) < 6.4e6
+    store = str(tmp_path / "field_and_source.zarr")
+    field_and_source_xds.to_zarr(store)
+    with xr.open_zarr(store) as back:
+        xr.testing.assert_identical(back["OBSERVER_POSITION"].variable, position)
+
+
 def test_create_field_and_source_xds_misbehaved(ms_minimal_misbehaved):
     field_and_source_xds, source_id, num_lines, field_names = (
         create_field_and_source_xds(

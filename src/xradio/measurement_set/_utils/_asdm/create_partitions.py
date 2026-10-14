@@ -297,7 +297,10 @@ def finalize_partitions_groupby(
         Added for uid___A002_X997a62_X8c-short and the like
         This should go away.
         """
-        print(f" = applying lists->ndarray fix, {partitions_list=}")
+        xradio_logger().info(
+            f"Note: tricky/possibly manipulated ASDM => applying lists->ndarray fix, {partitions_list=}"
+        )
+
         new_list = []
         for partition_descr in partitions_list:
             new_dict = {}
@@ -330,7 +333,7 @@ def finalize_partitions_groupby(
         #     partitions_list_d2.append(partition_descr)
         # partitions_list = partitions_list_d2
 
-        print(f" ===> After lists->ndarray fix, {partitions_list=}")
+        xradio_logger().info(f" ===> After lists->ndarray fix, {partitions_list=}")
         return partitions_list
 
     partition_groups = partitioning_df.groupby(partition_columns)

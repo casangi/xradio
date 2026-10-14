@@ -228,7 +228,11 @@ open_image(store, chunks=None, verbose=False, do_sky_coords=True, selection=None
 #   xradio <= 1.2.3, or without schema_version or with an older one, are upgraded on read
 #   (image/_util/legacy.py). NOTE: open_image, not read_image.
 load_image(store, block_des=None, do_sky_coords=True) -> xr.Dataset    # CASA & Zarr only (NOT FITS); CASA pixels read EAGERLY, zarr stays LAZY (dask, like open_image(selection=...))
-write_image(xds, imagename, out_format="casa", overwrite=False) -> list[str]  # "casa" | "fits" | "zarr"; the paths written
+write_image(xds, imagename, out_format="casa", overwrite=False, chunks=None, shards=None, compressor=<Blosc zstd 5, shuffle>) -> list[str]  # "casa" | "fits" | "zarr"; the paths written
+#   zarr only: chunks / shards = {dim: length} for every data variable; -1 = whole axis, None/0 raise. A dim missing from
+#   chunks is one chunk, from shards is not sharded (shard = chunk); shards need chunks, multiples of them.
+#   compressor = BytesBytesCodec (default Blosc zstd clevel 5 with byte shuffle, None = uncompressed).
+#   Dask chunks not on chunk (shard) boundaries are rechunked with an INFO log; the 0.95 GiB guard checks the zarr chunk.
 make_empty_sky_image(phase_center, image_size, cell_size, frequency_coords, pol_coords, time_coords, ...) -> xr.Dataset
 make_empty_aperture_image(...) -> xr.Dataset
 make_empty_lmuv_image(...) -> xr.Dataset      # carries BOTH lm and uv coords

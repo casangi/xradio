@@ -10,8 +10,8 @@ from xradio.image._util.common import _to_canonical_polarization_order
 from xradio.image._util.legacy import upgrade_legacy_image_attrs
 
 
-def _xds_to_zarr(xds: xr.Dataset, zarr_store: str):
-    _write_zarr(xds, zarr_store)
+def _xds_to_zarr(xds: xr.Dataset, zarr_store: str, **kwargs):
+    _write_zarr(xds, zarr_store, **kwargs)
 
 
 def _xds_from_zarr(

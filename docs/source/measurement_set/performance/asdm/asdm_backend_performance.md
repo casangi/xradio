@@ -16,6 +16,10 @@ stabilizes. In particular, the following optimizations are expected to significa
   various access patterns (partially related to the next point).
 * **Use-Case optimizations:** Targeted performance tuning tailored to specific use cases.
 
+
+**Units:** sizes of individual datasets are given in GiB (2<sup>30</sup> bytes) throughout this document.
+The aggregate sizes of large collections of datasets (in TB) are approximate totals.
+
 ---
 
 ## Datasets
@@ -24,10 +28,12 @@ The benchmarks rely on the following sets of ASDM datasets.
 
 ### Pipeline Data
 The largest dataset collection is pulled from the ALMA Pipeline Working Group benchmark set (2025 version),
-totaling 209 ASDMs with a aggregate size of 3.9 TB.
+totaling 209 ASDMs with an aggregate size of 3.9 TB.
 
-A representative subset of 12 ASDMs (ranging from 0.6 GB to 175 GB) is designated as the
+A representative subset of 12 ASDMs (ranging from 0.6 GiB to 175 GiB) is designated as the
 **ALMA ASDM Benchmark Compact** set. This subset includes observations from both the 7-meter and 12-meter arrays.
+Not every benchmark could be run on exactly the same datasets, so the figures below can show slightly different
+selections of ASDMs.
 
 ### TelCal Unit Tests
 
@@ -39,19 +45,21 @@ for various ALMA array configurations.
 
 A selection of four among the largest ASDMs available in the ALMA archive for Cycles 1–11 (up to March 2026):
 
-| ASDM (ExecBlock UID) | Size (GB) |
+| ASDM (ExecBlock UID) | Size (GiB) |
 |---|---|
 | `uid___A002_Xc3412f_X4a1a` | 232 |
 | `uid___A002_X10ac6bc_X38c2` | 324 |
 | `uid___A002_X12f828c_X15a38` | 383 |
 | `uid___A002_Xf2e8ae_X3fe` | 408 |
 
-These datasets were selected as a few representative cases from the histogram of ASDM sizes below:
+These datasets were selected as a few representative cases from the following histograms of ASDM sizes:
 
-![Histogram of sizes of all ALMA ASDMs (cycles 1-11 + 12/ongoing)](asdm_size_histogram_all_12m_cycles_1_to_11.png "Histogram of sizes of all ALMA ASDMs")
+![Histogram of sizes of all ALMA ASDMs (cycles 1-11 + 12/ongoing)](asdm_size_histogram_all_cycles_1_to_11.png "Histogram of sizes of all ALMA ASDMs")
+
+![Histogram of sizes of all ALMA ASDMs (cycles 1-11 + 12/ongoing)](asdm_size_histogram_all_12m_cycles_1_to_11.png "Histogram of sizes of ALMA ASDMs (only 12 meters array)")
 
 Note: These very large ASDMs are not used consistently across all benchmark runs due to memory constraints in
-the MSv2 $\rightarrow$ MSv4 converter and impractical execution times within shared test environments,
+the MSv2=>MSv4 converter and impractical execution times within shared test environments,
 especially given the opportunistic approach used to run benchmarks tests in the available hardware.
 
 ### Aggregated Dataset Metrics
@@ -70,7 +78,10 @@ The total size of the set of ASDMs is, in the different formats used:
 
 The following bar plot shows the sizes of the ~60 larger ASDMs, in the different formats used:
 
-![Dataset sizes in ASDM, MSv2, and MSv4 formats](barplot_sizes_asdm_msv2_ps_msv4_formats.png "Comparative sizes of the ~60 largest ASDMs across formats")
+![Dataset sizes in ASDM, MSv2, and MSv4 formats, for the ~60 largest ASDMs](barplot_sizes_asdm_msv2_ps_msv4_formats.png "Comparative sizes of the ~60 largest ASDMs across formats")
+
+Note: the tick labels of this figure show only the last characters of the ASDM UIDs (they are cut off at the
+bottom).
 
 ---
 
@@ -103,7 +114,7 @@ to use a simpler system rather than the lustre file systems used at the ALMA exe
 performance peculiarities and complications.
 
 Most of the tests and comparisons described below have been run on the "dev07" / "perf07" hardware. The competing
-workload has been at times signficant and largely unpredictable, with very intense short-lived processes (for
+workload has been at times significant and largely unpredictable, with very intense short-lived processes (for
 example 8-10 processes for a few minutes or tens of minutes), and longer milder workload. As such the run times
 should be taken as approximate estimates rather than strict hard baselines.
 
@@ -120,7 +131,7 @@ data variables of the MSv4s:
 
 1. **Full Partition Loading:** Loading all data for a single MSv4 partition at once.
 2. **Single-Item Slicing:** That is, loading all the data for one integration, or one baseline,
-   or one frequency, or one polarization.
+   or one frequency, or, as a more special case, one polarization.
 3. **Chunk-Emulated Slicing:** Loading the data in slices that emulate the chunks of the Processing Set/Zarr
    format, in particular slices for a given chunk size with balanced dimension lenghts, as produced in the MSv4
    converter (`main_chunksize`) parameter.
@@ -132,8 +143,8 @@ data variables of the MSv4s:
 An initial comparison of the ASDM backend against the PS/Zarr format of XRADIO was performed using the simplest
 access pattern or approach to loading the data: load full partitions at once.
 
-The following bar plot shows the ratio between an open operation in the ASDM backend versus and open operation
-on a Zarr version of the equivalent Processing Set:
+The following bar plot shows the ratio between the time to open an ASDM with the ASDM backend and the time to
+open a Zarr version of the equivalent Processing Set:
 
 ![Time to open an ASDM versus time to open a PS](barplot_ratio_open_time_asdm_vs_ps_zarr.png "Open time ratio: ASDM vs PS/Zarr")
 
@@ -141,12 +152,14 @@ on a Zarr version of the equivalent Processing Set:
 
 As the ASDM backend has been and is expected to keep evolving, this is a first reference comparison. These
 comparisons date back to early 2026 (Jan-Feb). They need to be updated as backend development progresses.
+For example, the Processing Sets in Zarr format used Zarr v2 and Zstd as compressor. Later versions of
+Xradio upgraded to Zarr v3 and use Blosc as compressor.
 
 ---
 
 ### 2. Single-item slicing by time, baseline, and frequency
 
-This approach defines slices that are as as thin as possible along one dimension at a time, while taking all the
+This approach defines slices that are as thin as possible along one dimension at a time, while taking all the
 data along the other dimensions.
 
 The load time results for the "ALMA ASDM benchmark compact", when loading the data:
@@ -165,7 +178,7 @@ highest potential for overheads and slow downs, particularly for partitions with
 
 For the first and second case (loading by time and by baseline), the partitions with only one frequency were
 skipped to reduce the overheads of repeated loads for tiny amounts of data, at least partially. Such partitions
-are produced from the input ASDMs for channel average or WVR SPWs for example).
+are produced from the input ASDMs for channel average or WVR SPWs for example.
 
 The load times for the "ALMA ASDM benchmark compact" are summarized in the following bar plot:
 
@@ -173,13 +186,14 @@ The load times for the "ALMA ASDM benchmark compact" are summarized in the follo
 ![Barplot of ASDM vs. PS/Zarr performance when loading by 1 time, 1 baseline, or 1 frequency](barplot_compact_set_ps_and_asdm_load_chunked_by_time_baseline_frequency.png "Load performance comparison by time, baseline, and frequency")
 
 
-Note: Missing (green) bars for some of the larger datasets correspond to runs that took overly long and had to be
-stopped before finishing (for example more than 86 hours for the 41.5 GB ASDM, or more than 135 hours for the
-164.6 GB ASDM).
+Note: The bars (green color) that are cropped at the top for some of the larger datasets correspond to runs
+that took overly long and had to be stopped before finishing. For example more than 86 hours for the 41.5 GB
+ASDM, or more than 135 hours for the 164.6 GB ASDM). Green bars that are missing correspond to runs that
+were stopped early for this reason, in favor of other more relevant tests.
 
 ---
 
-### 3. Slicing by Polarization
+### 3. Single-item slicing by polarization
 
 This represents a more rare case that could perhaps be of interest for single dish data processing. The load time
 results for the "ALMA ASDM benchmark compact", when loading the data in pieces of 1 polarization (all times,
@@ -189,7 +203,7 @@ baselines and frequencies at once) are summarized in the following bar plot:
 
 ---
 
-### 4. Emulated Chunk-Size Slicing
+### 4. Emulated chunk-size slicing
 
 These benchmarks evaluate how the ASDM backend responds to chunking patterns typical of Zarr-backed Processing
 Sets in the VIPER/RADPS processing framework.
@@ -198,7 +212,7 @@ Unlike Zarr, the chunks do not represent or relate directly to the format on dis
 binary data format that does not consider chunking.
 The data arrays are loaded in slices. These slices emulate the chunks of Zarr-backed Processing Sets. The slice
 lengths along every dimension are calculated using the same mechanism as in the `main_chunksize` parameters of
-the MSv2 $\rightarrow$ MSv4 converter (function `mem_chunksize_to_dict()` included in the converter).
+the MSv2=>MSv4 converter (function `mem_chunksize_to_dict()` included in the converter).
 
 The following graph shows the data load times of the ASDM Backend when using different chunk sizes, for the
 "ALMA ASDM benchmark compact". To be done: scan a wider range of chunk sizes.

@@ -42,6 +42,12 @@ To install the casacore backend along with the zarr backend which enables conver
 pip install "xradio[casacore]"
 ```
 
+To install the ASDM backend use:
+```sh
+pip install "xradio[asdm]"
+```
+With this backend one can open ASDMs (ALMA Science Data Model) as Processing Sets via `xarray.open_datatree(..., engine="xradio_asdm")`.
+
 To installs all the needed packages to run the unit tests:
 ```sh
 pip install "xradio[test]"
@@ -58,7 +64,7 @@ To install a more complete set of dependencies:
 pip install "xradio[all]"
 ```
 This will include the dependencies required to run the interactive Jupyter notebooks, run tests, build documentation,
-and python-casacore to enable MSv2=>MSv4 functionality on Linux.
+python-casacore to enable MSv2=>MSv4 functionality on Linux, and pyasdm for the ASDM backend.
 
 Instruction of how to setup a developer environment can be found at [Development](https://xradio.readthedocs.io/en/latest/development.html).
 

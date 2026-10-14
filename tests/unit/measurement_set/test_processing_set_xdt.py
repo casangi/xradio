@@ -8,7 +8,7 @@ from xradio.measurement_set.processing_set_xdt import (
     InvalidAccessorLocation,
     ProcessingSetXdt,
 )
-from xradio.schema.check import check_datatree
+from xradio.schema.check import ExtensionTypeWarning, check_datatree
 
 # Define input MS path for testing
 # input_ms = "Antennae_North.cal.lsrk.split.ms"
@@ -440,3 +440,83 @@ class TestFunctionsAfterPreviousCalls:
 
 if __name__ == "__main__":
     pytest.main(["-v", "-s", __file__])
+
+
+class TestProcessingSetXdtWithExtension:
+    """
+    Extension datasets (type "extension:<type>.<namespace>") stored next to
+    the MSv4s of a processing set must be ignored by the accessor and loader.
+    """
+
+    ms_custom = TestFunctionsAfterPreviousCalls.ms_custom_with_corrected
+
+    @staticmethod
+    def _extension_xds():
+        return xr.Dataset(
+            {"gains": ("antenna_name", np.ones(3, dtype=complex))},
+            coords={"antenna_name": ["a", "b", "c"]},
+            attrs={"type": "extension:gains.xradio_tests"},
+        )
+
+    @pytest.mark.parametrize(
+        "processing_set_from_custom_ms",
+        [ms_custom],
+        scope="class",
+        indirect=True,
+    )
+    def test_accessors_ignore_extension(self, processing_set_from_custom_ms):
+        ps_xdt = xr.open_datatree(processing_set_from_custom_ms, engine="zarr")
+        ms_names = list(ps_xdt.children)
+        expected_summary = ps_xdt.xr_ps.summary()
+        expected_max_dims = ps_xdt.xr_ps.get_max_dims()
+        expected_freq_axis = ps_xdt.xr_ps.get_freq_axis()
+
+        ext_ps_xdt = ps_xdt.copy()
+        # Insert first, so it would be picked up as "first MSv4"
+        ext_ps_xdt.children = {
+            "gains": xr.DataTree(dataset=self._extension_xds()),
+            **ext_ps_xdt.children,
+        }
+        # The extension adds no schema issues (the synthetic MS may have some)
+        with pytest.warns(ExtensionTypeWarning, match="/gains"):
+            ext_issues = check_datatree(ext_ps_xdt)
+        assert repr(ext_issues) == repr(check_datatree(ps_xdt))
+
+        pd.testing.assert_frame_equal(ext_ps_xdt.xr_ps.summary(), expected_summary)
+        assert ext_ps_xdt.xr_ps.get_max_dims() == expected_max_dims
+        assert (ext_ps_xdt.xr_ps.get_freq_axis() == expected_freq_axis).all()
+        assert ext_ps_xdt.xr_ps.get_ms_xdt().path == f"/{ms_names[0]}"
+        assert not ext_ps_xdt.xr_ps.get_combined_antenna_xds().identical(xr.Dataset())
+        ext_ps_xdt.xr_ps.get_combined_field_and_source_xds()
+
+        # Queries select among the MSv4s and keep extension datasets
+        queried = ext_ps_xdt.xr_ps.query(data_group_name="corrected")
+        assert list(queried.children) == ["gains", *ms_names]
+        xr.testing.assert_identical(
+            queried["gains"].to_dataset(), self._extension_xds()
+        )
+        queried = ext_ps_xdt.xr_ps.query(name=ms_names[0])
+        assert list(queried.children) == ["gains", ms_names[0]]
+
+    @pytest.mark.parametrize(
+        "processing_set_from_custom_ms",
+        [ms_custom],
+        scope="class",
+        indirect=True,
+    )
+    def test_load_ignores_extension(self, processing_set_from_custom_ms, tmp_path):
+        import shutil
+
+        ps_path = tmp_path / "ps_with_extension.ps.zarr"
+        shutil.copytree(processing_set_from_custom_ms, ps_path)
+        self._extension_xds().to_zarr(ps_path, group="gains", mode="w")
+
+        ps_xdt = load_processing_set(
+            str(ps_path), data_group_name="corrected", load_sub_datasets=False
+        )
+        assert "gains" in ps_xdt.children
+        xr.testing.assert_equal(ps_xdt["gains"].to_dataset(), self._extension_xds())
+        for name, ms_xdt in ps_xdt.children.items():
+            if name == "gains":
+                continue
+            assert list(ms_xdt.attrs["data_groups"]) == ["corrected"]

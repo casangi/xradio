@@ -3,6 +3,8 @@ import time
 
 import xarray as xr
 
+from xradio.schema.check import is_extension_type
+
 
 def load_processing_set(
     ps_store: str,
@@ -63,28 +65,21 @@ def load_processing_set(
             if isinstance(file_system, s3fs.core.S3FileSystem):
                 ms_store = s3fs.S3Map(root=ms_store, s3=file_system, check=False)
 
+            # Each tree is bound to a local before its accessor is used, which
+            # keeps the steps readable. (xr_ms is a non-cached accessor that
+            # holds its tree strongly, so chained calls on a temporary tree
+            # would also work; see AGENT.md, Writing xarray Accessors.)
+            ms_xdt = xr.open_datatree(
+                ms_store,
+                engine="zarr",
+                drop_variables=drop_variables,
+                cache=False,
+                chunks=None,
+                consolidated=False,
+            )
             if ms_xds_isel:
-                ms_xdt = (
-                    xr.open_datatree(
-                        ms_store,
-                        engine="zarr",
-                        drop_variables=drop_variables,
-                        cache=False,
-                        chunks=None,
-                        consolidated=False,
-                    )
-                    .isel(ms_xds_isel)
-                    .xr_ms.sel(data_group_name=data_group_name)
-                )
-            else:
-                ms_xdt = xr.open_datatree(
-                    ms_store,
-                    engine="zarr",
-                    drop_variables=drop_variables,
-                    cache=False,
-                    chunks=None,
-                    consolidated=False,
-                ).xr_ms.sel(data_group_name=data_group_name)
+                ms_xdt = ms_xdt.isel(ms_xds_isel)
+            ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
             if include_variables is not None:
                 vars_to_drop = [
@@ -106,6 +101,8 @@ def load_processing_set(
 
         if (include_variables is not None) or data_group_name:
             for ms_name, ms_xdt in ps_xdt.items():
+                if is_extension_type(ms_xdt.attrs.get("type")):
+                    continue
                 ms_xdt = ms_xdt.xr_ms.sel(data_group_name=data_group_name)
 
                 if include_variables is not None:
@@ -116,6 +113,8 @@ def load_processing_set(
 
     if not load_sub_datasets:
         for ms_xdt in ps_xdt.children.values():
+            if is_extension_type(ms_xdt.attrs.get("type")):
+                continue
             ms_xdt_names = list(ms_xdt.keys())
             for sub_xds_name in ms_xdt_names:
                 if "xds" in sub_xds_name:

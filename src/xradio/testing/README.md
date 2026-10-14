@@ -39,7 +39,7 @@ benchmarks, and third-party projects that use `xradio.image`.
 | Function | Signature | Purpose |
 |---|---|---|
 | `normalize_image_coords_for_compare` | `(coords, factor=180*60/π)→None` | Convert direction coordinates from radians to arcminutes in-place so a round-tripped CASA image can be compared with the original. Modifies `coords` in place. |
-| `assert_image_block_equal` | `(xds, output_path, zarr=False)→None` | Attach a synthetic `BEAM_FIT_PARAMS` variable to `xds`, write to `output_path`, reload a fixed spatial block, and assert equality via `assert_xarray_datasets_equal`. |
+| `assert_image_block_equal` | `(xds, output_path, selection, zarr=False, do_sky_coords=True)→None` | Write `xds` (a single image; add extra variables such as `BEAM_FIT_PARAMS` before calling) to `output_path` as a CASA image, or with `zarr=True` as a zarr store, which gets the `.img.zarr` extension (`out` becomes `out.img.zarr`). Then reload the block given by `selection` with `load_image`, from the path `write_image` returns, and assert equality with the same slice of `xds` via `assert_xarray_datasets_equal`. |
 
 All nine public names are re-exported from the package's `__init__.py`:
 
@@ -110,11 +110,10 @@ from xradio.testing.measurement_set.msv2_io import (
     gen_minimal_ms,
     make_ms_empty,
     build_minimal_msv4_xdt,
-    build_processing_set_from_msv2
+    build_processing_set_from_msv2,
 )
-from xradio.testing.measurement_set.io import (
-    download_measurement_set
-)
+from xradio.testing.measurement_set.io import download_measurement_set
+
 
 @pytest.fixture
 def convert_measurement_set_to_processing_set(request, tmp_path):
@@ -159,20 +158,23 @@ from pathlib import Path
 from xradio.measurement_set import load_processing_set
 from xradio.schema.check import check_datatree
 
+
 class TestLoadProcessingSet:
     """Tests for load_processing_set using real data"""
 
     @pytest.mark.parametrize(
-        "convert_measurement_set_to_processing_set", ["Antennae_North.cal.lsrk.split.ms"], indirect=True
+        "convert_measurement_set_to_processing_set",
+        ["Antennae_North.cal.lsrk.split.ms"],
+        indirect=True,
     )
     def test_check_datatree(self, convert_measurement_set_to_processing_set):
         """Test that the converted MS to PS complies with the datatree schema checker"""
         ps_xdt = load_processing_set(str(convert_measurement_set_to_processing_set))
         issues = check_datatree(ps_xdt)
         # The check_datatree function returns a SchemaIssues object, not a string
-        assert (
-            str(issues) == "No schema issues found"
-        ), f"Schema validation failed: {issues}"
+        assert str(issues) == "No schema issues found", (
+            f"Schema validation failed: {issues}"
+        )
 ```
 
 > Because `convert_measurement_set_to_processing_set` is defined in `conftest.py`, you can use it in your test function without any import. Additionally, `@pytest.mark.parametrize` is a pytest decorator used to run a test multiple times with different values for a given input. `indirect=True` tells pytest not to pass the value directly to the test function. Instead, pytest will look for a fixture named convert_measurement_set_to_processing_set. The value "Antennae_North.cal.lsrk.split.ms" will be passed to that fixture (not to the test itself). The return value of the convert_measurement_set_to_processing_set fixture will be passed to the test function.
@@ -197,8 +199,9 @@ even though the tests are stored in an external project.
 from xradio.testing.measurement_set.io import download_measurement_set
 from xradio.testing.measurement_set.msv2_io import (
     build_processing_set_from_msv2,
-    build_minimal_msv4_xdt
+    build_minimal_msv4_xdt,
 )
+
 
 class TestLoadProcessingSet:
     MeasurementSet = "Antennae_North.cal.lsrk.split.ms"
@@ -228,7 +231,6 @@ class TestLoadProcessingSet:
     def time_basic_load(self):
         """Test basic loading of processing set without parameters"""
         ps_xdt = load_processing_set(self.processing_set)
-
 ```
 
 # Running Tests

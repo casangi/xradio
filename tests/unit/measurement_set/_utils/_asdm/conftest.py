@@ -1,3 +1,6 @@
+import shutil
+from pathlib import Path
+
 import pyasdm
 import pytest
 
@@ -47,6 +50,7 @@ def make_asdm_with_spw_simple():
     <assocSpectralWindowId> 1 1 SpectralWindow_0  </assocSpectralWindowId>
   </row>
     """
+    # chanWidth manually changed to negative sign
     spw_row_spec_8 = """
   <row>
     <spectralWindowId> SpectralWindow_8 </spectralWindowId>
@@ -61,7 +65,7 @@ def make_asdm_with_spw_simple():
     <windowFunction>HANNING</windowFunction>
     <chanFreqStart> 9.701318940734863E10 </chanFreqStart>
     <chanFreqStep> -1.5625E7 </chanFreqStep>
-    <chanWidth> 1.5625E7 </chanWidth>
+    <chanWidth> -1.5625E7 </chanWidth>
     <effectiveBw> 4.1671875E7 </effectiveBw>
     <name> X0000000000#ALMA_RB_03#BB_1#SW-01#FULL_RES </name>
     <quantization> false </quantization>
@@ -1180,3 +1184,17 @@ def mock_sd_asdm_set_from_file():
         add_sd_sbsummary_table(self)
 
     return _function_mock_sd_asdm_set_from_file
+
+
+@pytest.fixture(scope="session")
+def empty_asdm_on_disk(tmp_path_factory) -> Path:
+    """Creates the minimum structure of ASDM files/dirs on disk. tmp_path_factory based session-scope fixture"""
+
+    asdm_path = (
+        tmp_path_factory.getbasetemp() / "empty_asdm_saved_for_xradio_testing_purposes"
+    )
+    empty_asdm = pyasdm.ASDM()
+    empty_asdm.toFile(asdm_path)
+    (asdm_path / "ASDMBinary").mkdir(exist_ok=True)
+    yield asdm_path
+    shutil.rmtree(asdm_path)

@@ -44,15 +44,9 @@ def convert_time_asdm_to_unix(times_asdm: np.ndarray) -> np.ndarray:
     MJD_TO_UNIX_TIME_DELTA_NS = MJD_TO_UNIX_TIME_DELTA * 1e9
 
     if len(times_asdm) > 0 and isinstance(times_asdm[0], pyasdm.types.ArrayTime):
-        asdm_times_float = np.array(
-            [asdm_interval.get() for asdm_interval in times_asdm]
-        )
+        asdm_times_ns = np.array([asdm_interval.get() for asdm_interval in times_asdm])
+        times_unix = (asdm_times_ns - MJD_TO_UNIX_TIME_DELTA_NS) / 1e9
     else:
-        asdm_times_float = times_asdm
-
-    times_unix = (asdm_times_float - MJD_TO_UNIX_TIME_DELTA_NS) / 1e9
-
-    # alternatively convert via pd:
-    # return pd.to_datetime(time_values, unit="s")
+        times_unix = times_asdm - MJD_TO_UNIX_TIME_DELTA
 
     return times_unix

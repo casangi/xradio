@@ -98,6 +98,9 @@ def test_get_chan_width_simple(asdm_with_spw_simple):
     chan_width = get_chan_width(asdm_with_spw_simple, 0)
     assert chan_width == 2000000000.0
 
+    chan_width = get_chan_width(asdm_with_spw_simple, 1)
+    assert chan_width == 15625000.0
+
 
 def test_get_reference_frame_empty(asdm_empty):
     from xradio.measurement_set._utils._asdm._utils.spectral_window import (

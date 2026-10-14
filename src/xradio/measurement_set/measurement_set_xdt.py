@@ -1,4 +1,3 @@
-import weakref
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -9,6 +8,9 @@ from xradio._utils.list_and_array import to_python_type
 from xradio._utils.xarray_helpers import (
     create_new_data_group,
     get_data_group_name,
+    register_uncached_accessor,
+    remove_variables_from_data_groups,
+    replace_data_groups,
 )
 
 MS_DATASET_TYPES = {"visibility", "spectrum", "radiometer"}
@@ -32,6 +34,12 @@ class MeasurementSetXdt:
           group.
         - sel(): select data by dimension labels, for example by data group and polaritzation
 
+    Registered as ``xr.DataTree.xr_ms`` without xarray's accessor cache: every
+    ``xdt.xr_ms`` builds a new accessor that holds the node strongly and is
+    never stored on it. Chained calls on temporaries
+    (``xdt.isel(...).xr_ms.sel(...)``) therefore work, and there is no
+    ``node -> accessor -> node`` reference cycle (the 2026-08 memory
+    diagnosis).
     """
 
     def __init__(self, datatree: xr.DataTree):
@@ -44,34 +52,8 @@ class MeasurementSetXdt:
             The MSv4 DataTree node to construct a MeasurementSetXdt accessor.
         """
 
-        self._xdt_strong: xr.DataTree | None = datatree
-        self._xdt_ref: weakref.ref | None = None
+        self._xdt: xr.DataTree = datatree
         self.meta = {"summary": {}}
-
-    @property
-    def _xdt(self) -> xr.DataTree:
-        if self._xdt_strong is not None:
-            return self._xdt_strong
-        xdt = self._xdt_ref() if self._xdt_ref is not None else None
-        if xdt is None:
-            raise ReferenceError(
-                "The DataTree behind this MeasurementSetXdt accessor no longer exists. "
-                "Access the accessor as xdt.xr_ms.<method>() rather than "
-                "keeping the accessor object alive beyond its DataTree."
-            )
-        return xdt
-
-    def _weaken(self) -> "MeasurementSetXdt":
-        """Switch to a WEAK back-reference; called by the accessor-protocol
-        factory below. xarray caches accessor instances on the DataTree node,
-        so a strong back-reference would form a reference cycle keeping the
-        node and every array under it alive until a full gc pass (the 2026-08
-        memory diagnosis). Directly constructed instances keep their strong
-        reference: wrapper semantics, e.g. MeasurementSetXdt(xr.DataTree())."""
-        if self._xdt_strong is not None:
-            self._xdt_ref = weakref.ref(self._xdt_strong)
-            self._xdt_strong = None
-        return self
 
     def sel(
         self,
@@ -109,11 +91,11 @@ class MeasurementSetXdt:
         ], "The type of the xdt must be 'visibility', 'spectrum' or 'radiometer'."
 
         if "data_group_name" in indexers_kwargs:
-            data_group_name = indexers_kwargs["data_group_name"]
-            del indexers_kwargs["data_group_name"]
+            data_group_name = indexers_kwargs.pop("data_group_name")
         elif (indexers is not None) and ("data_group_name" in indexers):
-            data_group_name = indexers["data_group_name"]
-            del indexers["data_group_name"]
+            # Copy rather than edit the caller's indexers mapping
+            indexers = dict(indexers)
+            data_group_name = indexers.pop("data_group_name")
         else:
             data_group_name = None
 
@@ -142,8 +124,6 @@ class MeasurementSetXdt:
 
             data_variables_to_drop = list(set(data_variables_to_drop))
 
-            sel_ms_xdt = self._xdt
-
             # print("Data variables to drop: ", data_variables_to_drop)
             # print("Field and source to drop: ", field_and_source_to_drop)
 
@@ -151,11 +131,22 @@ class MeasurementSetXdt:
                 indexers, method, tolerance, drop, **indexers_kwargs
             ).drop_vars(data_variables_to_drop)
 
+            # Build the selection on a shallow copy of the node (and its
+            # children): assigning .ds to self._xdt itself would replace the
+            # data of the caller's tree.
+            sel_ms_xdt = self._xdt.copy(deep=False)
             sel_ms_xdt.ds = sel_corr_xds
 
-            sel_ms_xdt.attrs["data_groups"] = {
-                data_group_name: self._xdt.attrs["data_groups"][data_group_name]
-            }
+            # Replace the attrs mapping and copy the selected group, so that
+            # nothing is shared with the caller's data_groups.
+            replace_data_groups(
+                sel_ms_xdt,
+                {
+                    data_group_name: dict(
+                        self._xdt.attrs["data_groups"][data_group_name]
+                    )
+                },
+            )
 
             return sel_ms_xdt
         else:
@@ -254,6 +245,12 @@ class MeasurementSetXdt:
     def delete_data_variables(self, variables: list[str]) -> xr.DataTree:
         """Delete data variables from the MSv4 dataset and all data groups.
 
+        The variables are deleted from this DataTree node in place (names that
+        are not data variables of the node are ignored), and every data group
+        role that refers to one of them is removed. Trees that share data with
+        this one (e.g. made with ``isel``, ``sel``, ``copy`` or :meth:`sel`)
+        keep their variables and data groups.
+
         Parameters
         ----------
         variables : list of str
@@ -269,20 +266,17 @@ class MeasurementSetXdt:
                 f"{self._xdt.path} is not a MSv4 node (type {self._xdt.attrs.get('type')})."
             )
 
-        xds = self._xdt.ds
-        variables_to_delete = [var for var in variables if var in xds.data_vars]
+        if isinstance(variables, str):
+            variables = [variables]
+        variables_to_delete = [var for var in variables if var in self._xdt.data_vars]
 
+        # Delete from the node itself: self._xdt.ds is a view built from a
+        # copy of the node's variables, so deleting from it leaves the tree
+        # unchanged.
         for var in variables_to_delete:
-            del xds[var]
+            del self._xdt[var]
 
-        data_groups = self._xdt.attrs.get("data_groups")
-        if isinstance(data_groups, dict):
-            deleted = set(variables_to_delete)
-            for data_group in data_groups.values():
-                if isinstance(data_group, dict):
-                    for key, value in list(data_group.items()):
-                        if value in deleted:
-                            del data_group[key]
+        remove_variables_from_data_groups(self._xdt, variables_to_delete)
 
         return self._xdt
 
@@ -326,7 +320,12 @@ class MeasurementSetXdt:
             data_group_dv_shared_with=data_group_dv_shared_with,
         )
 
-        self._xdt.attrs["data_groups"][new_data_group_name] = new_data_group
+        # Replace the attrs mapping: the data_groups dict may be shared with
+        # the trees this one was derived from (or derived into).
+        replace_data_groups(
+            self._xdt,
+            {**self._xdt.attrs["data_groups"], new_data_group_name: new_data_group},
+        )
         return self._xdt
 
         # data_group_dv_shared_with = get_data_group_name(
@@ -386,9 +385,4 @@ class MeasurementSetXdt:
         # return self._xdt
 
 
-def _xr_ms_accessor_factory(datatree: xr.DataTree) -> MeasurementSetXdt:
-    """Accessor-protocol factory: weak-referenced MeasurementSetXdt (no cache cycle)."""
-    return MeasurementSetXdt(datatree)._weaken()
-
-
-xr.register_datatree_accessor("xr_ms")(_xr_ms_accessor_factory)
+register_uncached_accessor("xr_ms", xr.DataTree)(MeasurementSetXdt)

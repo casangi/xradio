@@ -2,6 +2,7 @@ import builtins
 import dataclasses
 import functools
 import inspect
+import re
 import typing
 import warnings
 
@@ -182,11 +183,18 @@ def check_dataset(
     allow_superflous_dims: set[str] = frozenset(),
 ) -> SchemaIssues:
     """
-    Check whether an xarray DataArray conforms to a schema
+    Check whether an xarray Dataset conforms to a schema
 
-    :param array: DataArray to check
-    :param schema: Schema to check against
+    :param dataset: Dataset to check
+    :param schema: Dataset schema to check against (a class decorated with
+       :py:func:`~xradio.schema.bases.xarray_dataset_schema`, for example
+       :py:class:`xradio.image.schema.ImageXds`, or a
+       :py:class:`~xradio.schema.metamodel.DatasetSchema`)
+    :param allow_superflous_dims: Dimensions that may be present although the
+       schema does not mention them
     :returns: :py:class:`SchemaIssues` found
+    :raises TypeError: If ``dataset`` is not a Dataset or ``schema`` is not a
+       dataset schema
     """
 
     # Check that this is actually a Dataset
@@ -197,9 +205,7 @@ def check_dataset(
     if bases.is_dataset_schema(schema):
         schema = xarray_dataclass_to_dataset_schema(schema)
     if not isinstance(schema, metamodel.DatasetSchema):
-        raise TypeError(
-            f"check_dataset: Expected DatasetSchema, but got {type(schema)}!"
-        )
+        raise TypeError(_not_a_dataset_schema_message(schema))
 
     # Check dimensions. Order does not matter on datasets
     issues = check_dimensions(
@@ -219,6 +225,45 @@ def check_dataset(
     issues += check_data_vars(dataset.data_vars, schema.data_vars, "data_vars")
 
     return issues
+
+
+def _not_a_dataset_schema_message(schema: typing.Any) -> str:
+    """
+    Explain why ``schema`` cannot be used as a dataset schema
+
+    Classes that are not dataset schemas are named explicitly. If a
+    registered dataset schema has the same class name (for example the image
+    accessor ``xradio.image.ImageXds`` and the schema
+    ``xradio.image.schema.ImageXds``), it is suggested.
+
+    :param schema: Object passed as the schema
+    :returns: Error message
+    """
+
+    if not isinstance(schema, type):
+        return f"check_dataset: Expected DatasetSchema, but got {type(schema)}!"
+
+    class_name = f"{schema.__module__}.{schema.__qualname__}"
+    message = (
+        f"check_dataset: Expected DatasetSchema, but got the class {class_name}, "
+        "which is not a dataset schema (a class decorated with "
+        "xradio.schema.bases.xarray_dataset_schema)!"
+    )
+    if bases.is_dataarray_schema(schema):
+        message += " It is a data array schema: use check_array to check arrays."
+    elif bases.is_dict_schema(schema):
+        message += " It is a dictionary schema: use check_dict to check dictionaries."
+    suggestions = sorted(
+        {
+            registered.schema_name
+            for registered in _DATASET_TYPES.values()
+            if registered.schema_name.rsplit(".", 1)[-1] == schema.__qualname__
+            and registered.schema_name != class_name
+        }
+    )
+    if suggestions:
+        message += f" Did you mean the dataset schema {' or '.join(suggestions)}?"
+    return message
 
 
 def check_dimensions(
@@ -382,21 +427,12 @@ def check_data_vars(
 
     issues = SchemaIssues()
     for data_var_schema in data_vars_schema:
-        allow_multiple_versions = False
-        for attr in data_var_schema.attributes:
-            if hasattr(attr, "name"):
-                if attr.name == "allow_multiple_versions":
-                    allow_multiple_versions = attr.default
-
-        data_vars_names = []
-        if allow_multiple_versions:
-            for data_var_name in data_vars:
-                if data_var_schema.name in data_var_name:
-                    data_vars_names.append(data_var_name)
+        if _allows_multiple_versions(data_var_schema):
+            data_vars_names = _matching_data_var_names(data_vars, data_var_schema)
         else:
             data_vars_names = [data_var_schema.name]
 
-        if (len(data_vars_names) == 0) and ~data_var_schema.optional:
+        if (len(data_vars_names) == 0) and not data_var_schema.optional:
             data_vars_names = [data_var_schema.name]
 
         for data_var_name in data_vars_names:
@@ -421,14 +457,59 @@ def check_data_vars(
                     )
                 continue
 
-            # Check array schema
+            # Check array schema. Report issues under the name of the
+            # variable that was checked, which differs from the schema name
+            # for versions such as "SKY_RESIDUAL"
             issues += check_array(data_var, data_var_schema).at_path(
-                data_var_kind, data_var_schema.name
+                data_var_kind, data_var_name
             )
 
     # Extra data_varinates / data variables are always okay
 
     return issues
+
+
+def _allows_multiple_versions(data_var_schema: metamodel.ArraySchemaRef) -> bool:
+    """
+    Whether a data variable schema allows multiple versions
+
+    :param data_var_schema: Schema of the data variable
+    :returns: Value of its ``allow_multiple_versions`` attribute default
+    """
+
+    for attr in data_var_schema.attributes:
+        if getattr(attr, "name", None) == "allow_multiple_versions":
+            return bool(attr.default)
+    return False
+
+
+def _matching_data_var_names(
+    data_var_names: typing.Iterable[str], data_var_schema: metamodel.ArraySchemaRef
+) -> list[str]:
+    """
+    Names of the data variables that :py:func:`check_data_vars` checks
+    against a data variable schema
+
+    A data variable whose schema allows multiple versions (see
+    ``allow_multiple_versions``) is matched by its canonical name and by the
+    canonical name followed by a ``"_"`` separated suffix: ``"SKY"`` matches
+    ``"SKY"`` and ``"SKY_DECONVOLVED"``, but not ``"FLAG_SKY"``. Other data
+    variables are matched by their canonical name only.
+
+    :param data_var_names: Names of the data variables present
+    :param data_var_schema: Schema of the data variable
+    :returns: Names of the present data variables that the schema applies to
+    """
+
+    name = data_var_schema.name
+    if not _allows_multiple_versions(data_var_schema):
+        return [name] if name in data_var_names else []
+    return [
+        data_var_name
+        for data_var_name in data_var_names
+        if isinstance(data_var_name, str)
+        and (data_var_name == name or data_var_name.startswith(name + "_"))
+    ]
 
 
 def check_dict(dct: dict, schema: type | metamodel.DictSchema) -> SchemaIssues:
@@ -565,6 +646,42 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
                     )
                 ]
             )
+    elif schema.type == "list[float]":
+        if not isinstance(val, list) or any(
+            not isinstance(v, int | float) or isinstance(v, bool) for v in val
+        ):
+            expected = [list[float]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list of floats!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
+    elif schema.type == "list[list[float]]":
+        if not isinstance(val, list) or any(
+            not isinstance(row, list)
+            or any(not isinstance(v, int | float) or isinstance(v, bool) for v in row)
+            for row in val
+        ):
+            expected = [list[list[float]]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list of lists of floats!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
     elif schema.type in ["bool", "str", "int", "float"]:
         type_to_check = getattr(builtins, schema.type)
         if not isinstance(val, type_to_check):
@@ -604,6 +721,44 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
 
 
 _DATASET_TYPES = {}
+
+
+class ExtensionTypeWarning(UserWarning):
+    """
+    Warning issued by :py:func:`check_datatree` when it skips a dataset with
+    an unregistered extension type (see :py:func:`is_extension_type`)
+    """
+
+
+# Prefix of dataset ``type`` attributes that denote extension datasets
+EXTENSION_TYPE_PREFIX = "extension:"
+
+_EXTENSION_TYPE_RE = re.compile(r"^extension:[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*)+$")
+
+
+def is_extension_type(typ: typing.Any) -> bool:
+    """
+    Check whether a dataset ``type`` attribute denotes a well-formed
+    extension dataset type
+
+    Extension types allow applications to store their own datasets
+    alongside xradio datasets. They have the form
+    ``extension:<type>.<namespace>``, with the most specific component
+    first, for example ``extension:gains.quartical``. ``<type>`` may have
+    sub-kinds (``extension:delay.gains.quartical``), and ``<namespace>``
+    should be a name controlled by the producer, normally its package
+    name, optionally followed by a domain in normal DNS order
+    (``extension:gains.quartical.sarao.ac.za``).
+
+    Components consist of lower-case letters, digits and underscores,
+    must start with a letter and are separated by ``.``. At least two
+    components are required. Versions should not be part of the type, but
+    given in a separate ``schema_version`` attribute.
+
+    :param typ: Value of the ``type`` attribute
+    :returns: Whether ``typ`` is a well-formed extension type
+    """
+    return isinstance(typ, str) and _EXTENSION_TYPE_RE.match(typ) is not None
 
 
 def register_dataset_type(schema: metamodel.DatasetSchema):
@@ -653,6 +808,11 @@ def check_datatree(
     must have a :py:class:`typing.Literal` type annotation specifying
     the name of the dataset schema.
 
+    Datasets with an extension type (see :py:func:`is_extension_type`) are
+    checked if a schema has been registered for that type, and skipped
+    with an :py:class:`ExtensionTypeWarning` otherwise. Malformed extension
+    types are reported as issues.
+
     :param datatree: Data to check for schema conformance
     """
 
@@ -667,6 +827,29 @@ def check_datatree(
         # Look up schema
         typ = node.attrs.get("type")
         schema = _DATASET_TYPES.get(typ)
+        if schema is None and is_extension_type(typ):
+            # Unregistered extension dataset: not ours to check
+            warnings.warn(
+                f"Skipping schema check of {xds_name}: "
+                f"no schema registered for extension type {typ!r}",
+                ExtensionTypeWarning,
+                stacklevel=2,
+            )
+            continue
+        if (
+            schema is None
+            and isinstance(typ, str)
+            and typ.startswith(EXTENSION_TYPE_PREFIX)
+        ):
+            issues.add(
+                SchemaIssue(
+                    [("", xds_name)],
+                    message="Malformed extension dataset type!",
+                    found=typ,
+                    expected=["extension:<type>.<namespace>"],
+                )
+            )
+            continue
         if schema is None:
             issues.add(
                 SchemaIssue(

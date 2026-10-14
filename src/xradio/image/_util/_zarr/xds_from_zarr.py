@@ -62,7 +62,10 @@ def _read_zarr(
 
 
 def _decode(xds: xr.Dataset, zarr_store: str, id_dict: dict) -> xr.Dataset:
+    # the writer encodes the attrs of the dataset and of its data variables
     xds.attrs = _decode_dict(xds.attrs, "")
+    for name in xds.data_vars:
+        xds[name].attrs = _decode_dict(xds[name].attrs, name)
     _decode_sub_xdses(xds, zarr_store, id_dict)
     return xds
 

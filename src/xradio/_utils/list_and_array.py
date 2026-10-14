@@ -113,11 +113,18 @@ def check_if_consistent(
     _type_
         _description_
     """
+    if array.size == 0:
+        return array
+
     if array.ndim == 0:
         return array.item()
 
     array_unique = unique_1d(array)
-    assert len(array_unique) == 1, array_name + " is not consistent." + err_msg
+    if len(array_unique) != 1:
+        raise RuntimeError(
+            f"{array_name} is not consistent, {err_msg=}.\n{len(array)=}, {len(array_unique)=}, {array_unique=}"
+        )
+
     return array_unique[0]
 
 

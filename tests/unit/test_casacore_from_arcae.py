@@ -198,6 +198,21 @@ def test_putcol_tiled_columns_keep_cell_shapes(tiled_cell_table, tiled_shape_tab
                 )
 
 
+def test_getcol_tiled_cell_column_several_rows(tiled_cell_table):
+    """Reads of several rows of a TiledCellStMan column (one arcae call fails
+    for those) return the cells of every row."""
+    path, data = tiled_cell_table
+    with tables.table(path) as tb:
+        np.testing.assert_array_equal(tb.getcol("DATA"), data, strict=True)
+        np.testing.assert_array_equal(tb.getcol("DATA", 1, 2), data[1:], strict=True)
+        np.testing.assert_array_equal(
+            tb.getcolrows("DATA", [0, 2]), data[[0, 2]], strict=True
+        )
+        np.testing.assert_array_equal(
+            tb.getcolslice("DATA", [1, 0], [4, 2]), data[:, 1:5, 0:3], strict=True
+        )
+
+
 def test_string_column_descriptions():
     """A string default makes a string column, as in python-casacore."""
     assert tables.makescacoldesc("S", "none")["desc"]["valueType"] == "string"

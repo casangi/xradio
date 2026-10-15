@@ -516,8 +516,30 @@ class table:
             data = data.astype(str)
         return data
 
+    def _tiled_cell_rows(self, columnname, index):
+        """The rows ``index`` selects when it selects several rows of a
+        TiledCellStMan column, else None. arcae cannot read more than one row
+        of such a column in one call (casacore "TiledStMan: calcCacheSize:
+        invalid arguments"); each row is a hypercube of its own and reads fine."""
+        selection = index[0] if index else slice(None)
+        if not isinstance(selection, slice) and np.size(selection) <= 1:
+            return None  # one cell (getcell, getcellslice)
+        if self._coldesc(columnname).get("dataManagerType") != "TiledCellStMan":
+            return None
+        if isinstance(selection, slice):
+            rows = range(*selection.indices(self.nrows()))
+        else:
+            rows = [int(r) for r in np.ravel(selection)]
+        return rows if len(rows) > 1 else None
+
     def _getcol(self, columnname, index):
         try:
+            rows = self._tiled_cell_rows(columnname, index)
+            if rows is not None:
+                cells = tuple(index[1:]) if index else ()
+                return np.concatenate(
+                    [self._t.getcol(columnname, index=([r],) + cells) for r in rows]
+                )
             return self._t.getcol(columnname, index=index)
         except pa.ArrowInvalid as exc:
             # python-casacore raises RuntimeError, e.g. for an undefined cell

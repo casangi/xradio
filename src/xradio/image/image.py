@@ -7,6 +7,7 @@ import os
 
 import numpy as np
 import xarray as xr
+import zarr
 
 from xradio._utils.logging import xradio_logger
 from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
@@ -16,6 +17,7 @@ from xradio.image._util._write_plan import (
     write_outputs_atomically,
     zarr_store_name,
 )
+from xradio.image._util._zarr.xds_to_zarr import DEFAULT_COMPRESSOR
 from xradio.image._util.image_factory import (
     _make_empty_aperture_image,
     _make_empty_lmuv_image,
@@ -182,7 +184,10 @@ def open_image(
         images, this parameter is ignored and the chunk size used to store the arrays
         in the zarr image is used. 'l' represents the longitude like dimension, and 'm'
         represents the latitude like dimension. For aperture images, 'u' may be used in
-        place of 'l', and 'v' in place of 'm'.
+        place of 'l', and 'v' in place of 'm'. To write the image to zarr with
+        :func:`write_image`'s ``chunks`` or ``shards``, use chunks that are whole
+        numbers of them (FITS reads fastest with whole rows, i.e. 'l' left out):
+        other chunks are rechunked when written.
     verbose : bool
         emit debugging messages? Default is False.
     do_sky_coords : bool
@@ -339,7 +344,13 @@ def load_image(
 
 
 def write_image(
-    xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
+    xds: xr.Dataset,
+    imagename: str,
+    out_format: str = "casa",
+    overwrite: bool = False,
+    chunks: dict | None = None,
+    shards: dict | None = None,
+    compressor: zarr.abc.codec.BytesBytesCodec | None = DEFAULT_COMPRESSOR,
 ) -> list[str]:
     """
     Write an xradio image dataset as CASA, FITS or zarr images.
@@ -361,7 +372,7 @@ def write_image(
       the canonical order).
     * ``"zarr"`` writes the whole dataset, with all its data variables,
       data groups and attributes (including ``schema_version``), to one zarr
-      store.
+      store, with the chunks, shards and compressor given below.
 
     Zarr store names: image zarr stores have the extension ``.img.zarr``, as
     processing sets have ``.ps.zarr``. An ``imagename`` that ends in
@@ -417,6 +428,25 @@ def write_image(
         (in any case).
     overwrite : bool
         If True, replace existing outputs. Default is False.
+    chunks : dict, optional
+        Zarr only: the zarr chunk length by dimension of every data variable,
+        e.g. ``{"frequency": 16, "l": 256, "m": 256}``. A dimension that is
+        missing, or given as -1, is one chunk over the whole axis. By default
+        (None) the chunks follow the dask chunks of each data variable. Dask
+        chunks that are not whole numbers of zarr chunks (of shards, with
+        ``shards``) are rechunked before writing, with a log message; see the
+        ``chunks`` of :func:`open_image` to avoid that.
+    shards : dict, optional
+        Zarr only: the shard length by dimension of every data variable,
+        which needs ``chunks``. Each shard length must be a multiple of the
+        chunk length. A dimension that is missing is not sharded (its shard
+        length is the chunk length); -1, or a length of at least the axis, is
+        one shard of whole chunks covering the axis. By default (None) the
+        store is not sharded.
+    compressor : zarr.abc.codec.BytesBytesCodec, optional
+        Zarr only: the codec of every data variable and coordinate, by default
+        ``zarr.codecs.BloscCodec(cname="zstd", clevel=5, shuffle="shuffle")``.
+        None disables compression.
 
     Returns
     -------
@@ -431,9 +461,13 @@ def write_image(
     ------
     FileExistsError
         If an output exists and ``overwrite`` is False.
+    TypeError
+        If ``compressor`` is neither a zarr v3 bytes-to-bytes codec nor None.
     ValueError
-        If ``out_format`` is not supported, ``imagename`` is a URL, or the
-        dataset holds no image the format can store.
+        If ``out_format`` is not supported, ``imagename`` is a URL, the
+        dataset holds no image the format can store, or ``chunks``,
+        ``shards`` or ``compressor`` are given for CASA or FITS, or cannot be
+        applied.
     """
     imagename = os.fspath(imagename)
     if isinstance(imagename, bytes):
@@ -467,6 +501,13 @@ def write_image(
             f"Writing to format {out_format} is not supported. "
             'out_format must be either "casa", "fits" or "zarr".'
         )
+    if my_format != "zarr" and (
+        chunks is not None or shards is not None or compressor is not DEFAULT_COMPRESSOR
+    ):
+        raise ValueError(
+            "chunks, shards and compressor apply to zarr output only, not to "
+            f"{out_format}"
+        )
 
     if my_format == "zarr":
         store_name = zarr_store_name(imagename)
@@ -476,7 +517,13 @@ def write_image(
             # called once the overwrite check has passed, as writing starts
             if store_name != imagename:
                 _log_zarr_store_name(imagename, store_name)
-            _xds_to_zarr(xds, os.path.join(directory, os.path.basename(store_name)))
+            _xds_to_zarr(
+                xds,
+                os.path.join(directory, os.path.basename(store_name)),
+                chunks=chunks,
+                shards=shards,
+                compressor=compressor,
+            )
 
     else:
         plan = plan_image_outputs(xds, imagename, my_format)

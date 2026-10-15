@@ -168,8 +168,10 @@ XRADIO is built using the following core packages:
   to convert data from MS v2 to MS v4 in Zarr format and to read/write
   CASA images.
 - Optionally, `pyasdm <https://github.com/casangi/pyasdm>`__ (under
-  development): A Python-based storage backend in progress, designed for
-  accessing ASDM (Astronomy Science Data Model) data.
+  development): A pure Python library to access ASDM (ALMA Science Data
+  Model) data, used by the ASDM backend (the ``xradio_asdm`` Xarray
+  engine).
+
 
 Schema Conventions
 ------------------

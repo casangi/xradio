@@ -180,11 +180,7 @@ def make_skycoord_dict(
             f"axis_labels must contain exactly two values, got {len(labels)}."
         )
     return {
-        "attrs": {
-            "frame": frame.lower(),
-            "type": "sky_coord",
-            "units": ensure_units_are_consistent(units),
-        },
+        "attrs": make_sky_coord_measure_attrs(units, frame),
         "data": to_python_type(data),
         "dims": "sky_dir_label",
         "coords": {
@@ -194,6 +190,35 @@ def make_skycoord_dict(
             }
         },
     }
+
+
+def make_sky_coord_measure_attrs(units: str | list[str], frame: str) -> dict:
+    """
+    Create a dictionary of sky coordinate measure attributes.
+    Parameters
+    ----------
+    units : str or list
+        Units for sky coordinate measure. Can be a single string or list of strings.
+    frame : str
+        Reference frame for sky coordinate measure.
+    Returns
+    -------
+    dict
+        Dictionary containing the measure attributes with the following keys:
+        - units: list of units
+        - frame: reference frame
+        - type: fixed to "sky_coord"
+    Examples
+    --------
+    >>> make_sky_coord_measure_attrs("rad", "ICRS")
+    {'units': 'rad', 'frame': 'icrs', 'type': 'sky_coord'}
+    """
+    sky_coord_measure_attrs = {
+        "units": ensure_units_are_consistent(units),
+        "frame": frame.lower(),
+        "type": "sky_coord",
+    }
+    return sky_coord_measure_attrs
 
 
 def make_direction_location_dict(data: list[float], units: str, frame: str) -> dict:

@@ -738,7 +738,10 @@ class table:
         data = self._convert_write(columnname, data)
         if data.shape[0] == 0:
             return  # nothing to write (and arrow cannot type empty arrays)
-        if self._is_tiled(columnname) or self._reshapes(columnname, data, startrow):
+        tiled = self._is_tiled(columnname)
+        if tiled:
+            self._check_tiled_cell_shapes(columnname, data, int(startrow))
+        if tiled or self._reshapes(columnname, data, startrow):
             # whole-cell writes to tiled columns go through TaQL
             self._put_rows_via_taql(columnname, np.ascontiguousarray(data), startrow)
             return

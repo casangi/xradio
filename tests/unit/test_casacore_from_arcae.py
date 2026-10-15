@@ -184,6 +184,20 @@ def test_putcell_tiled_shape_column_undefined_cell(tmp_path):
         np.testing.assert_array_equal(tb.getcell("DATA", 1), value, strict=True)
 
 
+def test_putcol_tiled_columns_keep_cell_shapes(tiled_cell_table, tiled_shape_table):
+    """putcol raises python-casacore's error instead of aborting the process
+    when it would change the shape of tiled cells, and writes nothing."""
+    for path, data in (tiled_cell_table, tiled_shape_table):
+        with tables.table(path, readonly=False) as tb:
+            with pytest.raises(RuntimeError, match="Table array conformance error"):
+                tb.putcol("DATA", np.ones((NROWS, 2, 3), np.complex64))
+        with tables.table(path) as tb:
+            for row in range(NROWS):
+                np.testing.assert_array_equal(
+                    tb.getcell("DATA", row), data[row], strict=True
+                )
+
+
 def test_string_column_descriptions():
     """A string default makes a string column, as in python-casacore."""
     assert tables.makescacoldesc("S", "none")["desc"]["valueType"] == "string"

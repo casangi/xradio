@@ -708,6 +708,23 @@ class table:
         shapes = self._cell_shapes(columnname, startrow, data.shape[0])
         return any(s is not None and tuple(s) != data.shape[1:] for s in shapes)
 
+    def _check_tiled_cell_shapes(self, columnname, data, startrow):
+        """Raise python-casacore's error when writing ``data`` (rows first) from
+        ``startrow`` would change the shape of a defined cell of a tiled column.
+        casacore cannot reshape those cells (fixed shape, or TiledShapeStMan):
+        a TaQL update would abort the process and a cell-sliced write would
+        fill part of the cell."""
+        shapes = self._cell_shapes(columnname, startrow, data.shape[0])
+        for offset, shape in enumerate(shapes):
+            if shape is not None and tuple(shape) != data.shape[1:]:
+                # casacore prints shapes in Fortran order
+                raise RuntimeError(
+                    f"ArrayColumn::put for row {startrow + offset} in column "
+                    f"{columnname}: Table array conformance error "
+                    f"(shape={list(data.shape[1:][::-1])}, "
+                    f"expected {list(shape)[::-1]})"
+                )
+
     def putcol(self, columnname, value, startrow=0, nrow=-1, rowincr=1):
         if rowincr != 1:
             raise NotImplementedError("rowincr != 1 is not supported")
@@ -730,14 +747,18 @@ class table:
 
     def putcell(self, columnname, rownr, value):
         data = self._convert_write(columnname, value, expect_cell=True)
-        if not self._reshapes(columnname, data, int(rownr)):
-            if self._is_tiled(columnname):
-                cell_index = tuple(slice(0, int(s)) for s in data.shape[1:])
-                self._t.putcol(columnname, data, index=([int(rownr)],) + cell_index)
-                return
-            self._t.putcol(columnname, data, index=([int(rownr)],))
+        rownr = int(rownr)
+        if self._is_tiled(columnname):
+            # a cell of the value's shape (or an undefined one): write it in
+            # place, without a TaQL helper table
+            self._check_tiled_cell_shapes(columnname, data, rownr)
+            cell_index = tuple(slice(0, int(s)) for s in data.shape[1:])
+            self._t.putcol(columnname, data, index=([rownr],) + cell_index)
             return
-        self._put_rows_via_taql(columnname, np.ascontiguousarray(data), int(rownr))
+        if self._reshapes(columnname, data, rownr):
+            self._put_rows_via_taql(columnname, np.ascontiguousarray(data), rownr)
+            return
+        self._t.putcol(columnname, data, index=([rownr],))
 
     def putcellslice(self, columnname, rownr, value, blc, trc, inc=[]):  # noqa: B006
         inc_list = list(inc) if inc is not None and len(inc) > 0 else [1] * len(blc)

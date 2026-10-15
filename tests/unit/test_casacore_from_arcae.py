@@ -103,6 +103,87 @@ def test_putcell_tiled_cell_column(tiled_cell_table, monkeypatch):
         np.testing.assert_array_equal(tb.getcell("DATA", 2), data[2], strict=True)
 
 
+@pytest.fixture
+def tiled_shape_table(tmp_path):
+    """A variable-shaped TiledShapeStMan column (as MS DATA), cells of SHAPE."""
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc(
+                "DATA",
+                np.complex64(0),
+                ndim=len(SHAPE),
+                datamanagertype="TiledShapeStMan",
+                datamanagergroup="TSS",
+            )
+        ]
+    )
+    dminfo = {
+        "*1": {
+            "TYPE": "TiledShapeStMan",
+            "NAME": "TSS",
+            "COLUMNS": ["DATA"],
+            "SPEC": {"DEFAULTTILESHAPE": [2, 3, 2]},
+        }
+    }
+    data = (np.arange(NROWS * np.prod(SHAPE)).reshape(NROWS, *SHAPE) * (1 - 1j)).astype(
+        np.complex64
+    )
+    path = str(tmp_path / "tiled_shape.tbl")
+    with tables.table(path, desc, nrow=NROWS, dminfo=dminfo, readonly=False) as tb:
+        tb.putcol("DATA", data)
+        assert tb.getdminfo("DATA")["TYPE"] == "TiledShapeStMan"
+    return path, data
+
+
+@pytest.mark.parametrize("shape", [(3, 4), (6, 2), (7, 4)])
+def test_putcell_tiled_cell_column_other_shape(tiled_cell_table, shape):
+    """A value of another shape than the cell raises python-casacore's error
+    and leaves the cell unchanged (a cell-sliced write would fill part of it)."""
+    path, data = tiled_cell_table
+    with tables.table(path, readonly=False) as tb:
+        with pytest.raises(RuntimeError, match="Table array conformance error"):
+            tb.putcell("DATA", 1, np.ones(shape, np.complex64))
+    with tables.table(path) as tb:
+        np.testing.assert_array_equal(tb.getcell("DATA", 1), data[1], strict=True)
+
+
+def test_putcell_tiled_shape_column(tiled_shape_table):
+    """casacore cannot reshape a defined TiledShapeStMan cell: putcell raises
+    python-casacore's error (a TaQL update would abort the process); a value
+    of the cell's shape is written in place."""
+    path, data = tiled_shape_table
+    with tables.table(path, readonly=False) as tb:
+        with pytest.raises(RuntimeError, match="Table array conformance error"):
+            tb.putcell("DATA", 1, np.ones((2, 3), np.complex64))
+        tb.putcell("DATA", 2, data[2] * 2)
+    with tables.table(path) as tb:
+        np.testing.assert_array_equal(tb.getcell("DATA", 1), data[1], strict=True)
+        np.testing.assert_array_equal(tb.getcell("DATA", 2), data[2] * 2, strict=True)
+
+
+def test_putcell_tiled_shape_column_undefined_cell(tmp_path):
+    """putcell defines an undefined TiledShapeStMan cell with the value's shape."""
+    desc = tables.maketabdesc(
+        [
+            tables.makearrcoldesc(
+                "DATA",
+                np.complex64(0),
+                ndim=2,
+                datamanagertype="TiledShapeStMan",
+                datamanagergroup="TSS",
+            )
+        ]
+    )
+    dminfo = {"*1": {"TYPE": "TiledShapeStMan", "NAME": "TSS", "COLUMNS": ["DATA"]}}
+    path = str(tmp_path / "undefined.tbl")
+    value = (np.arange(6).reshape(2, 3) * (1 + 1j)).astype(np.complex64)
+    with tables.table(path, desc, nrow=NROWS, dminfo=dminfo, readonly=False) as tb:
+        tb.putcell("DATA", 1, value)
+    with tables.table(path) as tb:
+        assert not tb.iscelldefined("DATA", 0)
+        np.testing.assert_array_equal(tb.getcell("DATA", 1), value, strict=True)
+
+
 def test_string_column_descriptions():
     """A string default makes a string column, as in python-casacore."""
     assert tables.makescacoldesc("S", "none")["desc"]["valueType"] == "string"

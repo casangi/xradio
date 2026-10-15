@@ -1,3 +1,6 @@
+import gc
+
+import numpy as np
 import pytest
 import xarray as xr
 
@@ -294,6 +297,95 @@ class TestProcessingSetIterator:
         # But the data should be equivalent
         assert first_item.dims == second_item.dims
         assert set(first_item.ds.data_vars) == set(second_item.ds.data_vars)
+
+
+def _write_small_processing_set(ps_store):
+    """Write a processing set of one MSv4 to ``ps_store``.
+
+    The MSv4 node has two sub-dataset children, like a converted MS, so a
+    temporary copy of it is kept alive only by its parent<->child cycle.
+    """
+    shape = (2, 3, 4, 2)  # time, baseline_id, frequency, polarization
+    dims = ("time", "baseline_id", "frequency", "polarization")
+    ms_xds = xr.Dataset(
+        {
+            "VISIBILITY": (dims, np.ones(shape, dtype=np.complex128)),
+            "WEIGHT": (dims, np.ones(shape)),
+            "FLAG": (dims, np.zeros(shape, dtype=bool)),
+        },
+        coords={
+            "time": [0.0, 1.0],
+            "baseline_id": [0, 1, 2],
+            "frequency": [1.0e9, 1.1e9, 1.2e9, 1.3e9],
+            "polarization": ["XX", "YY"],
+        },
+        attrs={
+            "type": "visibility",
+            "data_groups": {
+                "base": {
+                    "correlated_data": "VISIBILITY",
+                    "weight": "WEIGHT",
+                    "flag": "FLAG",
+                    "field_and_source": "field_and_source_base_xds",
+                    "description": "",
+                    "date": "",
+                }
+            },
+        },
+    )
+    ms_xdt = xr.DataTree(
+        dataset=ms_xds,
+        children={
+            "antenna_xds": xr.DataTree(
+                xr.Dataset({"ANTENNA_POSITION": ("antenna_name", [0.0, 1.0, 2.0])})
+            ),
+            "field_and_source_base_xds": xr.DataTree(
+                xr.Dataset({"FIELD_PHASE_CENTER": ("sky_dir_label", [0.0, 1.0])})
+            ),
+        },
+    )
+    ms_xdt.to_zarr(f"{ps_store}/ms_0", consolidated=False)
+
+
+@pytest.mark.parametrize(
+    ("ms_isel", "n_frequency"), [({"frequency": slice(1, 3)}, 2), ({}, 4)]
+)
+def test_load_processing_set_survives_gc_inside_accessor_call(
+    tmp_path, monkeypatch, ms_isel, n_frequency
+):
+    """load_processing_set must hold every tree it calls ``.xr_ms.sel`` on.
+
+    The ``xr_ms`` accessor keeps only a weak reference to its tree (AGENT.md,
+    accessor rule 2), so the tree must be bound to a name for the duration of
+    the call. A garbage collection can start inside the call at any time
+    (another thread's allocations suffice); running one at the entry of
+    ``sel`` makes that race deterministic. Covers both selection branches:
+    with an ``isel`` dict and with an empty one.
+    """
+    from xradio.measurement_set.measurement_set_xdt import MeasurementSetXdt
+
+    ps_store = str(tmp_path / "small.ps.zarr")
+    _write_small_processing_set(ps_store)
+
+    original_sel = MeasurementSetXdt.sel
+    calls = []
+
+    def sel_after_gc(self, *args, **kwargs):
+        calls.append(gc.collect())
+        return original_sel(self, *args, **kwargs)
+
+    monkeypatch.setattr(MeasurementSetXdt, "sel", sel_after_gc)
+    ps_xdt = load_processing_set(
+        ps_store,
+        sel_parms={"ms_0": ms_isel},
+        data_group_name="base",
+        load_sub_datasets=False,
+    )
+
+    assert len(calls) == 1
+    assert ps_xdt.attrs["type"] == "processing_set"
+    assert ps_xdt["ms_0"].sizes["frequency"] == n_frequency
+    assert set(ps_xdt["ms_0"].data_vars) == {"VISIBILITY", "WEIGHT", "FLAG"}
 
 
 if __name__ == "__main__":

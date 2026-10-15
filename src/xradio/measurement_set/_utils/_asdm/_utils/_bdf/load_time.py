@@ -49,23 +49,30 @@ def load_times_from_partition_bdfs(
         time_centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
             load_times_from_bdfs(bdf_paths)
         )
-        for time_var in time_centers, durations, actual_times, actual_durations:
-            time_var = convert_time_asdm_to_unix(time_var)
+        time_centers = convert_time_asdm_to_unix(time_centers)
+        actual_times = convert_time_asdm_to_unix(actual_times)
 
     except RuntimeError as exc:
         xradio_logger().warning(
             f"Could not read nominal and actual times and durations from BDFs. {exc=}"
         )
         raise exc
-        time_centers = convert_time_asdm_to_unix(
-            scans_metadata["startTime"].values
-        ) + convert_time_asdm_to_unix(scans_metadata["endTime"].values)
-        durations = np.zeros(2)
-
-        actual_times = np.zeros(2)
-        actual_durations = np.zeros(2)
 
     return time_centers, durations, actual_times, actual_durations, time_indices_by_bdf
+
+
+def save_all_blob_infos(bdf_paths: list[str]):
+    for bdf_path in bdf_paths:
+        bdf_reader = pyasdm.bdf.BDFReader()
+        try:
+            bdf_reader.open(bdf_path)
+            bdf_header = bdf_reader.getHeader()
+            # xradio_logger().debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: ")
+            # xradio_logger().debug(bdf_header)
+            blob_info = make_blob_info(bdf_header)
+            save_blob_info("xradio_asdm_blob_header_info_etc.csv", blob_info)
+        finally:
+            bdf_reader.close()
 
 
 def make_blob_info(bdf_header: pyasdm.bdf.BDFHeader) -> dict:
@@ -163,19 +170,11 @@ def load_times_from_bdfs(
         "bdf_start": [],
     }
     time_index = 0
-    for bdf_path in bdf_paths:
-        bdf_reader = pyasdm.bdf.BDFReader()
-        try:
-            bdf_reader.open(bdf_path)
-            bdf_header = bdf_reader.getHeader()
-            # xradio_logger().debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: *")
-            # xradio_logger().debug(bdf_header)
-            if config.do_save_blob_info:
-                blob_info = make_blob_info(bdf_header)
-                save_blob_info("xradio_asdm_blob_header_info_etc.csv", blob_info)
-        finally:
-            bdf_reader.close()
 
+    if config.do_save_blob_info:
+        save_all_blob_infos()
+
+    for bdf_path in bdf_paths:
         midpoint, interval, actual_times, actual_durations = load_times_bdf(bdf_path)
         all_time_centers.append(midpoint)
         all_durations.append(interval)

@@ -25,8 +25,10 @@ from xradio.measurement_set._utils._asdm._utils._bdf.basebands_spws import (
     find_spw_in_basebands_list,
 )
 from xradio.measurement_set._utils._asdm._utils._bdf.bdf_description_checks import (
+    check_apc,
     check_basebands,
     check_correlation_mode,
+    check_num_bin,
     ensure_presence_binary_components,
     exclude_unsupported_axis_names,
 )
@@ -117,6 +119,8 @@ def load_visibilities_from_bdf(
     ensure_presence_binary_components(
         ["crossData", "autoData"], bdf_descr["binary_types"], bdf_path
     )
+    check_apc(bdf_descr, bdf_path)
+    check_num_bin(bdf_descr, bdf_path)
 
     baseband_spw_idxs = find_spw_in_basebands_list(
         spw_id, bdf_descr["basebands"], bdf_path
@@ -260,7 +264,7 @@ def _expand_frequency_in_flags_subset(
         or not array_slice[2]
         or (
             isinstance(array_slice[2], slice)
-            and (not array_slice[2].start or not array_slice[2].stop)
+            and (array_slice[2].start is None or array_slice[2].stop is None)
         )
     ):
         frequency_len = bdf_descr["basebands"][baseband_idx]["spectralWindows"][

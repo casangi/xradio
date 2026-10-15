@@ -15,12 +15,12 @@ class ASDMBackendArray(xr.backends.BackendArray):
     """To support lazy loading and indexing in the Xarray Backend for
     ASDM data."""
 
-    def __init__(self, shape: tuple[int], dtype):
+    def __init__(self, shape: tuple[int, ...], dtype):
         self._shape = shape
         self._dtype = dtype
 
     @property
-    def shape(self) -> tuple[int]:
+    def shape(self) -> tuple[int, ...]:
         return self._shape
 
     @property
@@ -38,8 +38,23 @@ class ASDMBackendArray(xr.backends.BackendArray):
             key,
             self.shape,
             xr.core.indexing.IndexingSupport.BASIC,
-            self._raw_indexing_method,
+            self._basic_indexing_method,
         )
+
+    def _basic_indexing_method(self, key: tuple) -> np.ndarray:
+        """Loads with step-1 slices, then applies the steps and integer indices."""
+        slice_key = []
+        residual_key = []
+        for dim_key in key:
+            if isinstance(dim_key, int | np.integer):
+                slice_key.append(slice(dim_key, dim_key + 1))
+                residual_key.append(0)
+            else:
+                slice_key.append(slice(dim_key.start, dim_key.stop))
+                residual_key.append(slice(None, None, dim_key.step))
+        residual_key = tuple(residual_key)
+
+        return self._raw_indexing_method(tuple(slice_key))[residual_key]
 
     def _raw_indexing_method(self, key: tuple):
         raise NotImplementedError
@@ -50,7 +65,7 @@ class VisibilityArray(ASDMBackendArray):
 
     def __init__(
         self,
-        shape: tuple[int],
+        shape: tuple[int, ...],
         bdf_paths: list[str],
         bdf_spw_id: int,
         time_indices_by_bdf: dict,
@@ -63,7 +78,7 @@ class VisibilityArray(ASDMBackendArray):
     def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" VisibilityArray._raw_indexing_method, {key=}")
         try:
-            visibility = load_visibilities_from_partition_bdfs(
+            selected_visibility = load_visibilities_from_partition_bdfs(
                 self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
@@ -73,20 +88,27 @@ class VisibilityArray(ASDMBackendArray):
                 f"Traceback: {trace}"
             )
             raise exc
-        return visibility
+        return selected_visibility
 
 
 class WeightArray(ASDMBackendArray):
-    """For the MSv4 WEIGHT data var"""
+    """For the MSv4 WEIGHT data var. There are no weights in the ASDM.
+    Client code should rather ignore the WEIGHT data var if loading data from an
+    ASDM."""
 
-    def __init__(self, shape: tuple[int]):
-        super().__init__(shape, np.dtype("float64"))
+    def __init__(self, shape: tuple[int, ...]):
+        super().__init__(shape, np.dtype("float32"))
 
     def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" WeightArray._raw_indexing_method, {key=}")
-        weight = np.ones(shape=self.shape, dtype=self.dtype)
-        weight = weight[key]
-        return weight
+        selected_shape = np.broadcast_to(
+            np.empty((), dtype=self.dtype), shape=self.shape
+        )[key].shape
+        selected_weight = np.broadcast_to(
+            np.ones((), dtype=self.dtype), shape=selected_shape
+        )
+
+        return selected_weight
 
 
 class FlagArray(ASDMBackendArray):
@@ -94,7 +116,7 @@ class FlagArray(ASDMBackendArray):
 
     def __init__(
         self,
-        shape: tuple[int],
+        shape: tuple[int, ...],
         bdf_paths: list[str],
         bdf_spw_id: int,
         time_indices_by_bdf: dict,
@@ -107,7 +129,7 @@ class FlagArray(ASDMBackendArray):
     def _raw_indexing_method(self, key: tuple) -> np.ndarray:
         xradio_logger().debug(f" FlagArray._raw_indexing_method, {key=}")
         try:
-            flags = load_flags_from_partition_bdfs(
+            selected_flags = load_flags_from_partition_bdfs(
                 self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
@@ -117,7 +139,7 @@ class FlagArray(ASDMBackendArray):
                 f"Traceback: {trace}"
             )
             raise exc
-        return flags
+        return selected_flags
 
 
 class UVWArray(ASDMBackendArray):
@@ -125,7 +147,7 @@ class UVWArray(ASDMBackendArray):
 
     def __init__(
         self,
-        shape: tuple[int],
+        shape: tuple[int, ...],
         time: xr.DataArray,
         baseline_antenna1_name: xr.DataArray,
         baseline_antenna2_name: xr.DataArray,

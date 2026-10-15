@@ -10,8 +10,15 @@ from xradio.image.image import (
 )
 from xradio.image.image_xds import ImageXds
 
+# Importing the schema module registers the "image_dataset" type with the
+# schema checker (xradio.schema.check.check_datatree). The dataset schema
+# class itself is xradio.image.schema.ImageXds (not to be confused with the
+# xr_img accessor class ImageXds exported here).
+from xradio.image.schema import check_image
+
 __all__ = [
     "ImageXds",
+    "check_image",
     "load_image",
     "make_empty_aperture_image",
     "make_empty_lmuv_image",

@@ -5,6 +5,27 @@ import pytest
 
 
 @pytest.mark.parametrize(
+    "input_apc, expected_error",
+    [
+        ([], no_raises()),
+        (["AP_UNCORRECTED"], no_raises()),
+        (
+            ["AP_UNCORRECTED", "AP_CORRECTED"],
+            no_raises(),
+        ),
+    ],
+)
+def test_check_apc(input_apc, expected_error):
+    from xradio.measurement_set._utils._asdm._utils._bdf.bdf_description_checks import (
+        check_apc,
+    )
+
+    bdf_descr = {"apc": input_apc}
+    with expected_error:
+        check_apc(bdf_descr, "/nonexistent/path/foo")
+
+
+@pytest.mark.parametrize(
     "input_correlation_mode, expected_error",
     [
         (
@@ -22,6 +43,26 @@ def test_check_correlation_mode(input_correlation_mode, expected_error):
 
     with expected_error:
         check_correlation_mode(input_correlation_mode)
+
+
+@pytest.mark.parametrize(
+    "input_num_bin, expected_error",
+    [
+        (1, no_raises()),
+        (0, no_raises()),
+        (2, no_raises()),
+    ],
+)
+def test_check_num_bin(input_num_bin, expected_error):
+    from xradio.measurement_set._utils._asdm._utils._bdf.bdf_description_checks import (
+        check_num_bin,
+    )
+
+    bdf_descr = {
+        "basebands": [{"spectralWindows": [{"numBin": 1}, {"numBin": input_num_bin}]}],
+    }
+    with expected_error:
+        check_num_bin(bdf_descr, "/nonexistant/path/foo")
 
 
 @pytest.mark.parametrize(

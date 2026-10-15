@@ -620,3 +620,36 @@ def test__try_alternatives_guessed_shape_oversized():
         _new_shape, _new_baseband_spw_idxs = _try_alternatives_guessed_shape(
             guessed_shape, flags_actual_size, baseband_spw_idxs
         )
+
+
+def test_load_flags_subset_with_int_flag_words_to_bool():
+    """Ensures that int32 flag arrays from pyasdm subsets are loaded correctly as bool"""
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        _load_flags_subset,
+        define_flag_shape,
+    )
+
+    spw = {"crossPolProducts": ["XX", "YY"], "sdPolProducts": ["XX", "YY"]}
+    bdf_descr = {
+        "correlation_mode": pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO,
+        "num_antenna": 3,
+        "dimensionality": 1,
+        "num_time": 0,
+        "basebands": [{"spectralWindows": [spw, spw]}],
+    }
+    # rows: cross baselines 0-2, then antennas 0-2; per row: spw 0, 1; per spw: 2 pols
+    flag_words = np.zeros(24, dtype="int32")
+    flag_words[[6, 23, 5]] = [16, 2**30, 1]
+    subset_with_flags = {"flags": {"present": True, "arr": flag_words}}
+    expected = np.zeros((1, 6, 2), dtype=bool)
+    expected[0, 1, 0] = expected[0, 5, 1] = True
+
+    flags = _load_flags_subset(
+        subset_with_flags,
+        define_flag_shape(bdf_descr, (0, 1)),
+        (0, 1),
+        (slice(None),) * 4,
+    )
+
+    assert flags.dtype == bool
+    np.testing.assert_array_equal(flags, expected)

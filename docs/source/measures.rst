@@ -1,7 +1,12 @@
 Schemas
 =======
 
-Definitions not specific to a particular dataset schema.
+Definitions not specific to a particular dataset schema. The quantities and
+measures shared by the measurement set and image schemas are defined in
+:py:mod:`xradio.schema.measures` (they can also be imported from
+``xradio.measurement_set.schema``, where earlier releases defined them);
+quantities used only by the measurement set schema are defined in
+``xradio.measurement_set.schema``.
 
 .. \_quantities:
 
@@ -13,35 +18,35 @@ Quantity
 encode general-purpose data that relates to certain physical quantities.
 They are typically associated with an SI unit.
 
-.. autoclass:: xradio.measurement_set.schema.QuantityInSecondsArray()
+.. autoclass:: xradio.schema.measures.QuantityInSecondsArray()
    :members:
    :show-inheritance:
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInSecondsArray
+.. xradio_array_schema_table:: xradio.schema.measures.QuantityInSecondsArray
 
-.. autoclass:: xradio.measurement_set.schema.QuantityInHertzArray()
+.. autoclass:: xradio.schema.measures.QuantityInHertzArray()
    :members:
    :show-inheritance:
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInHertzArray
+.. xradio_array_schema_table:: xradio.schema.measures.QuantityInHertzArray
 
-.. autoclass:: xradio.measurement_set.schema.QuantityInMetersArray()
+.. autoclass:: xradio.schema.measures.QuantityInMetersArray()
    :members:
    :show-inheritance:
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInMetersArray
+.. xradio_array_schema_table:: xradio.schema.measures.QuantityInMetersArray
 
-.. autoclass:: xradio.measurement_set.schema.QuantityInMetersPerSecondArray()
+.. autoclass:: xradio.schema.measures.QuantityInMetersPerSecondArray()
    :members:
    :show-inheritance:
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInMetersPerSecondArray
+.. xradio_array_schema_table:: xradio.schema.measures.QuantityInMetersPerSecondArray
 
-.. autoclass:: xradio.measurement_set.schema.QuantityInRadiansArray()
+.. autoclass:: xradio.schema.measures.QuantityInRadiansArray()
    :members:
    :show-inheritance:
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.QuantityInRadiansArray
+.. xradio_array_schema_table:: xradio.schema.measures.QuantityInRadiansArray
 
 .. autoclass:: xradio.measurement_set.schema.QuantityInKelvinArray()
    :members:
@@ -76,33 +81,36 @@ As with `python-casacore
 measures <https://casacore.github.io/python-casacore/casacore_measures.html>`__,
 measures are quantities that are interpreted in relation to a specified
 reference frame (such as UTC for
-`TimeArray <measures.rst#xradio.measurement_set.schema.TimeArray>`__
+:py:class:`~xradio.schema.measures.TimeArray`
 or FK5 for
-`SkyCoordArray <measures.rst#xradio.measurement_set.schema.SkyCoordArray>`__).
+:py:class:`~xradio.schema.measures.SkyCoordArray`).
 Measure definitions are aligned with `astropy
 coordinate <https://docs.astropy.org/en/stable/coordinates/index.html>`__
 naming conventions as much as possible. The table below outlines the
 different types of XRADIO measures:
 
-.. autoclass:: xradio.measurement_set.schema.TimeArray()
+.. autoclass:: xradio.schema.measures.TimeArray()
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.TimeArray
+.. xradio_array_schema_table:: xradio.schema.measures.TimeArray
 
-.. autoclass:: xradio.measurement_set.schema.SpectralCoordArray()
+.. autoclass:: xradio.schema.measures.SpectralCoordArray()
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.SpectralCoordArray
+.. xradio_array_schema_table:: xradio.schema.measures.SpectralCoordArray
 
-.. autoclass:: xradio.measurement_set.schema.SkyCoordArray()
+.. autodata:: xradio.schema.measures.AllowedSpectralCoordFrames
+   :no-value:
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.SkyCoordArray
+.. autoclass:: xradio.schema.measures.SkyCoordArray()
 
-.. autoclass:: xradio.measurement_set.schema.LocationArray()
+.. xradio_array_schema_table:: xradio.schema.measures.SkyCoordArray
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.LocationArray
+.. autoclass:: xradio.schema.measures.LocationArray()
 
-.. autoclass:: xradio.measurement_set.schema.DopplerArray()
+.. xradio_array_schema_table:: xradio.schema.measures.LocationArray
 
-.. xradio_array_schema_table:: xradio.measurement_set.schema.DopplerArray
+.. autoclass:: xradio.schema.measures.DopplerArray()
+
+.. xradio_array_schema_table:: xradio.schema.measures.DopplerArray
 
 .. raw:: html
 

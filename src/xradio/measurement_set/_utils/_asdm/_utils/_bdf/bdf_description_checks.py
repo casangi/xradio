@@ -4,6 +4,17 @@ Sanity checks of various fields of the BDF description dict (BDF header metadata
 
 import pyasdm
 
+from xradio._utils.logging import xradio_logger
+
+
+def check_apc(bdf_descr: dict, bdf_path: str):
+    if len(bdf_descr["apc"]) > 1:
+        xradio_logger().info(
+            f"BDF {bdf_path}: the APC axis is present and has multiple elements: "
+            f"{' '.join(map(str, bdf_descr['apc']))}. This is currently not "
+            "properly supported. Visibility values might not be correct."
+        )
+
 
 def check_basebands(basebands: list[dict]):
     # TODO: working check for what's out there...
@@ -15,6 +26,19 @@ def check_basebands(basebands: list[dict]):
 def check_correlation_mode(correlation_mode: pyasdm.enumerations.CorrelationMode):
     if correlation_mode == pyasdm.enumerations.CorrelationMode.CROSS_ONLY:
         raise RuntimeError(f" Unexpected {correlation_mode=}")
+
+
+def check_num_bin(bdf_descr: dict, bdf_path: str):
+    all_spws_num_bin = [
+        spw["numBin"]
+        for baseband in bdf_descr["basebands"]
+        for spw in baseband["spectralWindows"]
+    ]
+    if any(num_bin > 1 for num_bin in all_spws_num_bin):
+        xradio_logger().info(
+            f"BDF {bdf_path}: has numBin > 1 for some SPWs. This is currently not"
+            f"properly supported. Visibility values might not be correct."
+        )
 
 
 def ensure_presence_binary_components(

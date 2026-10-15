@@ -34,10 +34,10 @@ def test_load_times_from_partition_bdfs():
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False, True, False]
         subset_times = {
-            "midpointInNanoSeconds": 1e10,
-            "intervalInNanoSeconds": 1e9,
-            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones(100)},
-            "actualDurations": {"present": True, "arr": 1.01e9 * np.ones(100)},
+            "midpointInNanoSeconds": 5e18,
+            "intervalInNanoSeconds": 1.1e9,
+            "actualTimes": {"present": True, "arr": 10.1e18 * np.ones(100)},
+            "actualDurations": {"present": True, "arr": 1.05e9 * np.ones(100)},
         }
         mock_bdf_reader.return_value.getSubset.side_effect = [subset_times] * 2
 
@@ -45,10 +45,11 @@ def test_load_times_from_partition_bdfs():
         centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
             load_times_from_partition_bdfs(bdf_paths, pd.DataFrame())
         )
-        assert (centers == [10] * 2).all()
-        assert (durations == [1] * 2).all()
-        assert (actual_times == [10.1] * 2).all()
-        assert (actual_durations == [1.01] * 2).all()
+        MJD_TO_UNIX_TIME_DELTA = 3_506_716_800
+        assert (centers == [5e9 - MJD_TO_UNIX_TIME_DELTA] * 2).all()
+        assert (durations == [1.1] * 2).all()
+        assert (actual_times == [10.1e9 - MJD_TO_UNIX_TIME_DELTA] * 2).all()
+        assert (actual_durations == [1.05] * 2).all()
         assert time_indices_by_bdf == {
             "bdf_names": ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"],
             "bdf_start": [0, 1, 2],
@@ -173,6 +174,18 @@ def test_make_blob_info():
 
         assert isinstance(info, pd.DataFrame)
         assert info.shape == (1, 22)
+
+
+def test_save_all_blob_infos():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        save_all_blob_infos,
+    )
+
+    with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        save_all_blob_infos(["/inexistent/path/foo", "/inexistent/path/noop"])
+        assert mock_bdf_reader.return_value.open.call_count == 2
+        assert mock_bdf_reader.return_value.getHeader.call_count == 2
+        assert mock_bdf_reader.return_value.getSubset.call_count == 0
 
 
 def test_save_blob_info():

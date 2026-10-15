@@ -144,6 +144,8 @@ def get_chan_width(asdm: pyasdm.ASDM, spw_id: int) -> float:
     else:
         chan_width = spw_row.getChanWidthArray()[0].get()
 
+    chan_width = abs(chan_width)
+
     return chan_width
 
 

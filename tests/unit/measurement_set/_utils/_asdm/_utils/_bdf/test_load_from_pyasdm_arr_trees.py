@@ -74,18 +74,77 @@ basebands_example = [
 ]
 
 
+subset_empty = {}
+subset_for_load_vis_all_subsets = {
+    "autoData": {
+        "present": True,
+        "arr": np.zeros((1000000), dtype="float32"),
+    },
+    "crossData": {
+        "present": False,
+        "arr": None,
+    },
+}
+
+
 @pytest.mark.parametrize(
-    "input_slice",
+    "input_subset, input_slice, expected_error",
     [
-        ((slice(None), slice(None), slice(None), slice(None))),
-        ((slice(2, 3), slice(None), slice(None), slice(None))),
-        ((slice(None), slice(1, 5), slice(None), slice(None))),
-        ((slice(None), slice(None), slice(100, 200), slice(None))),
-        ((slice(None), slice(None), slice(None), slice(0, 1))),
-        ((slice(1, 2), slice(0, 3), slice(900, 960), slice(0, 1))),
+        (
+            subset_empty,
+            (slice(None), slice(None), slice(None), slice(None)),
+            pytest.raises(RuntimeError, match="not present"),
+        ),
+        (
+            subset_for_load_vis_all_subsets,
+            (slice(None), slice(None), slice(None), slice(None)),
+            no_raises(),
+        ),
+        (
+            subset_empty,
+            (slice(2, 3), slice(None), slice(None), slice(None)),
+            no_raises(),
+        ),
+        (
+            subset_empty,
+            (slice(None), slice(1, 5), slice(None), slice(None)),
+            pytest.raises(RuntimeError, match="not present"),
+        ),
+        (
+            subset_for_load_vis_all_subsets,
+            (slice(None), slice(1, 5), slice(None), slice(None)),
+            no_raises(),
+        ),
+        (
+            subset_empty,
+            (slice(None), slice(None), slice(100, 200), slice(None)),
+            pytest.raises(RuntimeError, match="not present"),
+        ),
+        (
+            subset_for_load_vis_all_subsets,
+            (slice(None), slice(None), slice(100, 200), slice(None)),
+            no_raises(),
+        ),
+        (
+            subset_empty,
+            (slice(None), slice(None), slice(None), slice(0, 1)),
+            pytest.raises(RuntimeError, match="not present"),
+        ),
+        (
+            subset_for_load_vis_all_subsets,
+            (slice(None), slice(None), slice(None), slice(0, 1)),
+            no_raises(),
+        ),
+        (
+            subset_empty,
+            (slice(1, 2), slice(0, 3), slice(900, 960), slice(0, 1)),
+            no_raises(),
+        ),
     ],
 )
-def test_load_visibilities_all_subsets_from_trees(input_slice):
+def test_load_visibilities_all_subsets_from_trees(
+    input_subset, input_slice, expected_error
+):
     from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_visibilities_all_subsets_from_trees,
     )
@@ -100,9 +159,13 @@ def test_load_visibilities_all_subsets_from_trees(input_slice):
         mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader,
         mock.patch("pyasdm.bdf.BDFHeader") as mock_bdf_header,
     ):
-        with pytest.raises(RuntimeError, match="not present"):
-            # Test with load_one_spw_from_file=False => load_vis_subset_from_tree() (also below)
-            load_visibilities_all_subsets_from_trees(
+        mock_bdf_reader.hasSubset.side_effect = [True, False]
+        mock_bdf_reader.getSubset.side_effect = [input_subset, None]
+
+        # Test with load_one_spw_from_file=False => use the loader from trees /
+        # load_vis_subset_from_tree() (also below)
+        with expected_error:
+            visibilities = load_visibilities_all_subsets_from_trees(
                 mock_bdf_reader,
                 (2, 45, 2, 64, 2, 2),
                 (0, 0),
@@ -110,6 +173,9 @@ def test_load_visibilities_all_subsets_from_trees(input_slice):
                 input_slice,
                 load_one_spw_from_file=False,
             )
+            assert visibilities.dtype == np.dtype("complex64")
+            # assert visibilities.shape == (1, 2)
+
         mock_bdf_header.getBasebandsList.assert_not_called()
         mock_bdf_header.getSubset.assert_not_called()
         mock_bdf_header.hasSubset.assert_not_called()
@@ -320,7 +386,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
         mock_bdf_reader.hasSubset.side_effect = [True, False]
         if input_load_one_spw_from_file:
             mock_bdf_reader.getNDArrays.side_effect = [
-                {"visibilities": np.ones(shape=(1, 9, 1024, 2), dtype="complex128")}
+                {"visibilities": np.ones(shape=(1, 9, 1024, 2), dtype="float64")}
             ]
         else:
             mock_bdf_reader.getSubset.side_effect = [
@@ -347,7 +413,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e(input_load_one_spw_from_
         )
 
         assert isinstance(visibilities, np.ndarray)
-        assert visibilities.dtype == np.dtype("complex128")
+        assert visibilities.dtype == np.dtype("float64")
 
         assert mock_bdf_reader.hasSubset.call_count == 2
         if input_load_one_spw_from_file:
@@ -480,7 +546,7 @@ bdf_descr_X136e_simplified = {
                         pyasdm.enumerations.StokesParameter.YY,
                     ],
                     "scaleFactor": None,
-                    "numSpectralPoint": 512,
+                    "numSpectralPoint": 64,
                     "numBin": 1,
                     "sideband": pyasdm.enumerations.NetSideband.LSB,
                     "sw": "1",
@@ -497,7 +563,7 @@ bdf_descr_X136e_simplified = {
                         pyasdm.enumerations.StokesParameter.YY,
                     ],
                     "scaleFactor": None,
-                    "numSpectralPoint": 512,
+                    "numSpectralPoint": 64,
                     "numBin": 1,
                     "sideband": pyasdm.enumerations.NetSideband.LSB,
                     "sw": "1",
@@ -514,7 +580,7 @@ bdf_descr_X136e_simplified = {
                         pyasdm.enumerations.StokesParameter.YY,
                     ],
                     "scaleFactor": None,
-                    "numSpectralPoint": 512,
+                    "numSpectralPoint": 64,
                     "numBin": 1,
                     "sideband": pyasdm.enumerations.NetSideband.LSB,
                     "sw": "1",
@@ -533,9 +599,10 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
         load_visibilities_all_subsets_from_trees,
     )
 
-    frequency_len = 512
+    frequency_len = 64
     polarization_len = 2
     all_basebands_len = 9
+    auto_only_data_type = "float32"
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         # For load_vis_subset, etc.
         mock_bdf_reader.hasSubset.side_effect = [True, False]
@@ -545,7 +612,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
                 {
                     "visibilities": np.ones(
                         shape=(1, all_basebands_len, frequency_len, polarization_len),
-                        dtype="complex128",
+                        dtype=auto_only_data_type,
                     )
                 }
             ]
@@ -554,7 +621,7 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
                 {
                     "autoData": {
                         "present": True,
-                        "arr": np.zeros((50000), dtype="float64"),
+                        "arr": np.zeros((10000), dtype=auto_only_data_type),
                     },
                     "crossData": {"present": False, "arr": None},
                 },
@@ -578,7 +645,8 @@ def test_load_visibilities_all_subsets_from_trees_X136e_simplified(
             frequency_len,
             polarization_len,
         )
-        assert visibilities.dtype == np.dtype("complex128")
+        assert visibilities.dtype == np.dtype("float32")
+        assert visibilities.shape == (1, 9, 64, 2)
 
         assert mock_bdf_reader.hasSubset.call_count == 2
         if input_load_one_spw_from_file:
@@ -1060,8 +1128,8 @@ def test_load_vis_subset_cross_data_from_tree(
             [32, 5, 16, 8],
             2,
             ((slice(0, 1), slice(3, 5), slice(8, 16), slice(1, 2))),
-            16,
-            (1, 2, 8, 1),
+            32,
+            (2, 2, 8, 1),
         ),
     ],
 )
@@ -1096,6 +1164,88 @@ def test_load_vis_subset_auto_data_from_tree(
         assert visibilities.dtype == np.dtype("float64")
 
 
+class _SubsetsReader:
+    """ """
+
+    def __init__(self, subsets):
+        self._subsets = list(subsets)
+
+    def hasSubset(self):
+        return bool(self._subsets)
+
+    def getSubset(self, loadOnlyComponents=None):
+        return self._subsets.pop(0)
+
+    def getPath(self):
+        return "/no_path/nonexistant/foo"
+
+
+def _two_spw_bdf_descr():
+    spw = {
+        "crossPolProducts": ["XX", "YY"],
+        "sdPolProducts": ["XX", "YY"],
+        "scaleFactor": 1,
+    }
+    return {
+        "correlation_mode": pyasdm.enumerations.CorrelationMode.CROSS_AND_AUTO,
+        "processor_type": pyasdm.enumerations.ProcessorType.CORRELATOR,
+        "num_antenna": 3,
+        "dimensionality": 1,
+        "num_time": 0,
+        "basebands": [
+            {
+                "spectralWindows": [
+                    {**spw, "numSpectralPoint": 4},
+                    {**spw, "numSpectralPoint": 6},
+                ]
+            }
+        ],
+    }
+
+
+def _vis_subset(integration):
+    cross, auto = [], []
+    for row in range(3):
+        for spw, channel_len in enumerate([4, 6]):
+            for channel in range(channel_len):
+                for pol in range(2):
+                    value = 10000 * integration + 1000 * row + 100 * spw
+                    value += 10 * channel + pol
+                    cross += [value, -value]
+                    auto.append(value + 0.5)
+    return {
+        "crossData": {"present": True, "arr": np.array(cross, dtype="complex64")},
+        "autoData": {"present": True, "arr": np.array(auto, dtype="float64")},
+    }
+
+
+def test_load_visibilities_all_subsets_from_trees_with_pattern():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_visibilities_all_subsets_from_trees,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_visibility_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    visibilities = load_visibilities_all_subsets_from_trees(
+        _SubsetsReader([_vis_subset(integration) for integration in range(3)]),
+        define_visibility_shape(bdf_descr, (0, 1)),
+        (0, 1),
+        bdf_descr,
+        (slice(1, 3), slice(None), slice(2, 5), slice(None)),
+        False,
+    )
+
+    integration = np.array([1, 2])[:, None, None, None]
+    row = np.arange(3)[None, :, None, None]
+    channel = np.arange(2, 5)[None, None, :, None]
+    pol = np.arange(2)[None, None, None, :]
+    value = 10000 * integration + 1000 * row + 100 + 10 * channel + pol
+    expected_pattern = np.concatenate([value - 1j * value, value + 0.5], axis=1)
+    np.testing.assert_array_equal(visibilities, expected_pattern)
+
+
 def test_load_flags_all_subsets_from_trees_error():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
         load_flags_all_subsets_from_trees,
@@ -1116,10 +1266,10 @@ def test_load_flags_all_subsets_from_trees_error():
             "cross": (2, 36, 4, 2, 64, 2, 2),
         }
         empty_slice = (slice(None), slice(None), slice(None), slice(None))
-        vis = load_flags_all_subsets_from_trees(
+        flags = load_flags_all_subsets_from_trees(
             mock_bdf_reader, guessed_shape, (0, 0), bdf_descr, empty_slice
         )
-        assert vis is None
+        assert flags is None
         mock_bdf_header.getBasebandsList.assert_not_called()
         assert mock_bdf_reader.getSubset.call_count == 1
         assert mock_bdf_reader.hasSubset.call_count == 1
@@ -1292,3 +1442,114 @@ def test_load_flags_subset_from_tree(
         assert flags.dtype == np.dtype("bool")
         assert flags.size == expected_size
         assert flags.shape == expected_shape
+
+
+def _flags_subset(flagged):
+    # rows: cross baselines 0-2, then antennas 0-2; per row: spw 0, 1; per spw: 2 pols
+    flags = np.zeros(24, dtype="int32")
+    for row, spw, pol, word in flagged:
+        flags[row * 4 + spw * 2 + pol] = word
+    return {"flags": {"present": True, "arr": flags}}
+
+
+@pytest.mark.parametrize(
+    "input_baseline_slice, input_polarization_slice, expected_true",
+    [
+        (slice(None), slice(None), [(1, 0), (5, 1)]),
+        (slice(1, 6), slice(None), [(0, 0), (4, 1)]),
+        (slice(1, 6), slice(0, 2), [(0, 0), (4, 1)]),
+        (slice(1, 6), slice(0, 1), [(0, 0)]),
+        (slice(2, 5), slice(None), []),
+        (slice(None), slice(1, 2), [(5, 0)]),
+        (slice(None), slice(0, 1), [(1, 0)]),
+    ],
+)
+def test_load_flags_subset_from_tree_with_pattern(
+    input_baseline_slice, input_polarization_slice, expected_true
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_flags_subset_from_tree,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_flag_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    FLAGGED = [(1, 1, 0, 16), (5, 1, 1, 2**30), (1, 0, 1, 1), (3, 0, 0, 1)]
+    flags = load_flags_subset_from_tree(
+        _flags_subset(FLAGGED),
+        define_flag_shape(bdf_descr, (0, 1)),
+        bdf_descr,
+        (0, 1),
+        (slice(None), input_baseline_slice, slice(None), input_polarization_slice),
+    )
+
+    expected = np.zeros(
+        (
+            1,
+            len(range(6)[input_baseline_slice]),
+            len(range(2)[input_polarization_slice]),
+        ),
+        dtype=bool,
+    )
+    for row, pol in expected_true:
+        expected[0, row, pol] = True
+    np.testing.assert_array_equal(flags, expected)
+
+
+def test_load_flags_all_subsets_from_trees_time_selection():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_flags_all_subsets_from_trees,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_flag_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    subsets = [_flags_subset([(row, 1, 0, 1)]) for row in range(3)]
+    flags = load_flags_all_subsets_from_trees(
+        _SubsetsReader(subsets),
+        define_flag_shape(bdf_descr, (0, 1)),
+        bdf_descr,
+        (0, 1),
+        (slice(1, 3), slice(None), slice(None), slice(None)),
+    )
+
+    expected = np.zeros((2, 6, 2), dtype=bool)
+    expected[0, 1, 0] = expected[1, 2, 0] = True
+    np.testing.assert_array_equal(flags, expected)
+
+
+@pytest.mark.parametrize(
+    "input_polarization_slice, expected_true",
+    [(slice(None), [(1, 0), (2, 1)]), (slice(0, 1), [(1, 0)]), (slice(1, 2), [(2, 0)])],
+)
+def test_load_flags_subset_from_tree_auto_only_values(
+    input_polarization_slice, expected_true
+):
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_arr_trees import (
+        load_flags_subset_from_tree,
+    )
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_from_pyasdm_subset_array import (
+        define_flag_shape,
+    )
+
+    bdf_descr = _two_spw_bdf_descr()
+    bdf_descr["correlation_mode"] = pyasdm.enumerations.CorrelationMode.AUTO_ONLY
+    for spw in bdf_descr["basebands"][0]["spectralWindows"]:
+        spw["crossPolProducts"] = []
+    # rows: antennas 0-2; per row: spw 0, 1; per spw: 2 pols
+    flag_words = np.zeros(12, dtype="int32")
+    flag_words[[1 * 4 + 2 + 0, 2 * 4 + 2 + 1, 0 * 4 + 0 + 1]] = [16, 2**30, 1]
+    flags = load_flags_subset_from_tree(
+        {"flags": {"present": True, "arr": flag_words}},
+        define_flag_shape(bdf_descr, (0, 1)),
+        bdf_descr,
+        (0, 1),
+        (slice(None), slice(None), slice(None), input_polarization_slice),
+    )
+
+    expected = np.zeros((1, 3, len(range(2)[input_polarization_slice])), dtype=bool)
+    for row, pol in expected_true:
+        expected[0, row, pol] = True
+    np.testing.assert_array_equal(flags, expected)

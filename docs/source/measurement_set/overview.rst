@@ -389,16 +389,25 @@ future. The WSU ASDM is an update of the
 `ASDM <https://drive.google.com/file/d/1PMrZFbkrMVfe57K6AAh1dR1FalS35jP2/view>`__
 implementation required by `ALMA
 WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
-where the spectral windows are no longer interleaved. Both zarr and
-NetCDF support cloud storage, and
+where the spectral windows are no longer interleaved. The ASDM backend is under
+development and its performance is being evaluated as development progresses
+(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__).
+
+Both zarr and NetCDF support cloud storage, and
 `open_processing_set <api.rst#xradio.measurement_set.open_processing_set>`__
 and
 `load_processing_set <api.rst#xradio.measurement_set.load_processing_set>`__
 support accessing data on `Amazon S3 <https://aws.amazon.com/s3/>`__.
-There are no plans to support direct access to MS v2, since the repeated
-reordering of data to MS v4 has been found to be computationally
-prohibitively expensive. Rather, data should be converted using the
-`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__.
+An MS v2 can be converted to a processing set with
+`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__,
+or opened directly, without converting it, with the ``xradio_msv2``
+Xarray engine
+(`open_msv2 <api.rst#xradio.measurement_set.open_msv2>`__): it gives the
+processing set that the conversion would write, and reads the data
+from the MS v2 when they are accessed. Converting is the better choice
+when the data are read in full several times, or from cloud storage:
+every read from an MS v2 reorders its data into the MS v4 layout, which
+the converted processing set stores once, chunked and compressed.
 
 .. raw:: html
 

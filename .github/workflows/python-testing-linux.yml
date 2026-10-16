@@ -28,8 +28,5 @@ jobs:
       # Pull requests and pushes to main: 3.12-3.14; other branch pushes: 3.13.
       python-versions: '["3.12", "3.13", "3.14"]'
       push-python-versions: '["3.13"]'
-      # TODO: remove once toolviper, xradio and graphviper releases with
-      # requires-python "<3.15" are on PyPI (needed for the 3.14 job).
-      ignore-requires-python: true
     secrets:
       CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}

@@ -7,11 +7,7 @@ import numpy as np
 import xarray as xr
 from astropy import units as apu
 
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
+from xradio._utils._casacore.backend import tables
 from xradio._utils._casacore.tables import open_table_rw
 from xradio._utils.logging import xradio_logger
 from xradio.image._util import conventions

@@ -1,6 +1,6 @@
-"""``open_image`` and ``load_image`` need python-casacore or casatools only
-for CASA images: a FITS image is read with astropy, and ``write_image``
-writes FITS images with astropy only."""
+"""``open_image`` and ``load_image`` need arcae only for CASA images: a FITS
+image is read with astropy, and ``write_image`` writes FITS images with
+astropy only."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import pytest
 from xradio.image import load_image, open_image, write_image
 from xradio.testing.image.io import download_image
 
-_CASACORE_PACKAGES = ("casacore", "casatools", "casaconfig")
+_CASACORE_PACKAGES = ("arcae", "casacore", "casatools", "casaconfig")
 _XRADIO_CASACORE_MODULES = (
     "xradio.image._util.casacore",
     "xradio.image._util._casacore",
@@ -29,8 +29,9 @@ def fits_image(tmp_path_factory):
 
 @pytest.fixture
 def without_casacore(monkeypatch):
-    """python-casacore and casatools cannot be imported during the test, and
-    xradio's modules built on them are imported afresh."""
+    """No casacore table package (arcae, python-casacore, casatools) can be
+    imported during the test, and xradio's modules built on them are imported
+    afresh."""
     for name in list(sys.modules):
         if name.split(".")[0] in _CASACORE_PACKAGES or name.startswith(
             _XRADIO_CASACORE_MODULES
@@ -52,9 +53,9 @@ def test_casa_image_without_casacore_names_the_missing_packages(
     casa_image = tmp_path / "image.im"
     casa_image.mkdir()
     (casa_image / "table.info").write_text("")
-    with pytest.raises(ModuleNotFoundError, match="python-casacore or casatools"):
+    with pytest.raises(ModuleNotFoundError, match="needs arcae"):
         open_image(str(casa_image))
-    with pytest.raises(ModuleNotFoundError, match="python-casacore or casatools"):
+    with pytest.raises(ModuleNotFoundError, match="needs arcae"):
         load_image(str(casa_image))
 
 
@@ -62,7 +63,7 @@ def test_casa_write_without_casacore_names_the_missing_packages(
     fits_image, tmp_path, without_casacore
 ):
     xds = open_image(str(fits_image))
-    with pytest.raises(ModuleNotFoundError, match="python-casacore or casatools"):
+    with pytest.raises(ModuleNotFoundError, match="needs arcae"):
         write_image(xds, str(tmp_path / "out.im"), out_format="casa")
     assert list(tmp_path.iterdir()) == []
 
@@ -73,7 +74,7 @@ _FITS_WITHOUT_CASACORE = textwrap.dedent(
     """
     import sys
 
-    for name in ("casacore", "casatools", "casaconfig"):
+    for name in ("arcae", "casacore", "casatools", "casaconfig"):
         sys.modules[name] = None
 
     import numpy as np
@@ -91,7 +92,7 @@ _FITS_WITHOUT_CASACORE = textwrap.dedent(
         name
         for name, module in sys.modules.items()
         if module is not None
-        and name.split(".")[0] in ("casacore", "casatools", "casaconfig")
+        and name.split(".")[0] in ("arcae", "casacore", "casatools", "casaconfig")
     )
     assert not loaded, f"casacore packages were imported: {loaded}"
     print("FITS without casacore: OK")

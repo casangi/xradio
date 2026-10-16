@@ -9,7 +9,7 @@ from xradio.measurement_set._utils._msv2._tables import subtable_cache as sc
 
 
 def test_resolve_subtable_cache():
-    assert sc.subtable_cache_supported()  # python-casacore
+    assert sc.subtable_cache_supported()
     shared = sc.SubtableCache()
     assert sc.resolve_subtable_cache(shared) is shared
     own = sc.resolve_subtable_cache(None)

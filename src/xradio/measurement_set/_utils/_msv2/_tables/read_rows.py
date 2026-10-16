@@ -30,13 +30,13 @@ trap):
 
 Backends: python-casacore reads into the caller's buffers (``getcolnp``,
 ``getcolslicenp``) and makes reference tables of scattered rows
-(``selectrows``). The casatools shim (``casacore_from_casatools``, used where
-python-casacore is not installed, e.g. on macOS) has none of these: there every
+(``selectrows``). The arcae shim (``casacore_from_arcae``, the default backend)
+has no ``getcolslicenp`` or ``selectrows``: there every
 call is a ``getcol`` (or a ``getcell`` for a one-row table) into a temporary
 that is copied into the buffer, with the same rules (ascending rows, at most
 ``max_elems`` elements per call, never the whole column), and scattered rows
-are read with one call per run of consecutive rows instead of ``selectrows``
-(see ``has_in_place_reads``).
+are read with one ``getcolrows`` call (a getcol of an array of row numbers)
+instead of ``selectrows`` (see ``has_in_place_reads``, ``has_row_reads``).
 """
 
 import dataclasses
@@ -44,12 +44,9 @@ from typing import Any
 
 import numpy as np
 
+from xradio._utils._casacore.backend import tables
 from xradio._utils.list_and_array import get_pad_value
-
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
+from xradio.measurement_set._utils._msv2._tables.table_lock_file import table_type
 
 # Default and maximum number of elements read by one getcolnp/getcolslicenp call
 # (python-casacore #130: keep every call at 2**29 elements or fewer).
@@ -93,10 +90,16 @@ MAX_GAP_FRACTION = 0.125
 MIN_SLICE_COPY_BYTES = 64 * 1024
 
 # python-casacore table methods that read into the caller's buffer or select
-# rows; a table without all of them (the casatools shim) is read with getcol
+# rows; a table without all of them (the arcae shim) is read with getcol
 IN_PLACE_READ_METHODS = ("getcolnp", "getcolslicenp", "selectrows")
 # Bound of the temporary of one getcol call (tables without in-place reads)
 GETCOL_MAX_BYTES = 16 * 1024 * 1024
+# arcae shim method reading the cells of an array of row numbers with one call
+ROW_READ_METHOD = "getcolrows"
+# Runs of scattered rows averaging at least this many bytes are read with one
+# getcol each rather than one ROW_READ_METHOD call (slower for long runs of
+# large cells)
+ROW_READ_MAX_RUN_BYTES = 1024 * 1024
 
 # casacore column value type -> numpy dtype that python-casacore uses for it
 CASACORE_TO_NUMPY_DTYPE = {
@@ -113,7 +116,7 @@ def has_in_place_reads(table: Any) -> bool:
     """
     Whether a table (or table class) reads columns into the caller's buffers
     and selects rows (python-casacore's ``getcolnp``, ``getcolslicenp`` and
-    ``selectrows``). The casatools shim does not: the reads here then use
+    ``selectrows``). The arcae shim does not: the reads here then use
     ``getcol`` and a copy.
 
     Parameters
@@ -129,10 +132,25 @@ def has_in_place_reads(table: Any) -> bool:
     return all(hasattr(table, name) for name in IN_PLACE_READ_METHODS)
 
 
+def has_row_reads(table: Any, dst: np.ndarray, n_runs: int) -> bool:
+    """
+    Whether ``n_runs`` runs of scattered rows of a table without in-place
+    reads are read into ``dst`` with one call (``ROW_READ_METHOD``) rather
+    than one per run: not for cells without elements, which only ``getcol``
+    reads, nor for runs of ROW_READ_MAX_RUN_BYTES or more of ``dst`` on
+    average.
+    """
+    return (
+        dst.size > 0
+        and dst.nbytes < n_runs * ROW_READ_MAX_RUN_BYTES
+        and hasattr(table, ROW_READ_METHOD)
+    )
+
+
 def backend_has_in_place_reads() -> bool:
     """
-    Whether the casacore bindings in use (python-casacore, or the casatools
-    shim when python-casacore is not installed) read in place
+    Whether the casacore bindings in use (``backend.tables``: the arcae
+    shim, or python-casacore) read in place
     (``has_in_place_reads`` of their table class).
     """
     return has_in_place_reads(tables.table)
@@ -410,13 +428,16 @@ def _read_cells_getcol(
     slicer: tuple[list[int], list[int]] | None,
     row0: int,
     nrow: int,
+    rows: np.ndarray | None = None,
 ) -> int:
     """
     The getcol version of a getcolnp / getcolslicenp call, for tables without
     in-place reads: the rows [row0, row0 + nrow) are read with getcol calls of
     at most GETCOL_MAX_BYTES (whole cells, also for a channel / polarization
     range) and copied into dst. Errors are raised as RuntimeError (as casacore
-    raises them for undefined cells or cells of another shape).
+    raises them for undefined cells or cells of another shape). With ``rows``
+    (ascending, ``nrow`` of them from ``row0``), the cells of these rows are
+    read instead, with ``ROW_READ_METHOD`` calls.
 
     Returns
     -------
@@ -434,7 +455,10 @@ def _read_cells_getcol(
         n_calls = 0
         for r0 in range(0, nrow, step):
             n = min(step, nrow - r0)
-            values = table.getcol(col, row0 + r0, n)
+            if rows is None:
+                values = table.getcol(col, row0 + r0, n)
+            else:
+                values = getattr(table, ROW_READ_METHOD)(col, rows[r0 : r0 + n])
             n_calls += 1
             if not isinstance(values, np.ndarray) or values.shape[1:] != cell_shape:
                 shape = values.shape if isinstance(values, np.ndarray) else type(values)
@@ -539,7 +563,11 @@ def _read_rows_unchecked(
         batch = rows[b0 : b0 + batch_rows]
         dst = out[b0 : b0 + batch.size]
         starts, lengths = rows_to_runs(batch)
-        if starts.size <= FRAGMENTED_RUNS or not in_place:
+        if not in_place and starts.size > 1 and has_row_reads(table, dst, starts.size):
+            stats["calls"] = stats.get("calls", 0) + _read_cells_getcol(
+                table, col, dst, slicer, int(batch[0]), batch.size, batch
+            )
+        elif starts.size <= FRAGMENTED_RUNS or not in_place:
             offset = 0
             for start, length in zip(starts.tolist(), lengths.tolist(), strict=True):
                 _read_run(
@@ -587,8 +615,9 @@ def read_rows(
     call each on the base table. When a batch of rows is fragmented into many
     runs, it is read with one ``selectrows`` reference table and one call
     instead. No call reads more than ``max_elems`` elements. A table without
-    in-place reads (``has_in_place_reads``) is read with one ``getcol`` call
-    (and a copy) per run.
+    in-place reads (``has_in_place_reads``) is read with ``getcol`` calls
+    (and a copy): one per run, or one for the runs of a batch
+    (``has_row_reads``).
 
     Parameters
     ----------
@@ -1168,8 +1197,12 @@ def read_rows_to_grid(
     storage managers keeps about one row-slab of tiles.
 
     A table without in-place reads (``has_in_place_reads``) is read the same
-    way with getcol calls (and copies), and a fragmented temporary with one
-    call per run instead of selectrows.
+    way with getcol calls (and copies), and a temporary of several pieces
+    with one ``ROW_READ_METHOD`` call of its partition rows
+    (``has_row_reads``; else one call per run) instead of selectrows. No gap
+    is bridged there in a column without a fixed cell shape: arcae reads rows
+    of several cell shapes in one call as a variably shaped array before
+    failing, in a time quadratic in the number of rows.
 
     Parameters
     ----------
@@ -1276,6 +1309,7 @@ def read_rows_to_grid(
         tmp_rows = max(
             1, min(rows_per_call, MAX_SELECTROWS_ROWS, int(max_tmp_bytes) // row_bytes)
         )
+        bridge = bridge and (in_place or not table.isvarcol(col))
         pieces = _tmp_pieces(tmp_rows_t, tmp_pos, row_bytes, tmp_rows, bridge=bridge)
         batches, tmp_n = _tmp_batches(pieces, tmp_rows)
         tmp_full = np.empty((tmp_n,) + cell_shape, dtype=col_dt)
@@ -1311,6 +1345,22 @@ def read_rows_to_grid(
                 ref.close()
             stats["calls"] = stats.get("calls", 0) + 1
             stats["selectrows_calls"] = stats.get("selectrows_calls", 0) + 1
+            return np.arange(b - a, dtype=np.int64)
+        if (
+            not in_place
+            and n_pieces > 1
+            and has_row_reads(table, tmp_full[: b - a], n_pieces)
+        ):
+            # several pieces: one call for the partition rows
+            stats["calls"] = stats.get("calls", 0) + _read_cells_getcol(
+                table,
+                col,
+                tmp_full[: b - a],
+                slicer,
+                int(tmp_rows_t[a]),
+                b - a,
+                tmp_rows_t[a:b],
+            )
             return np.arange(b - a, dtype=np.int64)
         parts = []
         offset = 0
@@ -1774,6 +1824,8 @@ class ColumnStorage:
 def is_plain_table(table: tables.table) -> bool:
     """Whether a table is a plain table (not a reference / selection or a
     concatenation of tables)."""
+    if not hasattr(table, "partnames"):  # (the arcae shim)
+        return table_type(table.name()) == "PlainTable"
     return list(table.partnames()) == [table.name()]
 
 

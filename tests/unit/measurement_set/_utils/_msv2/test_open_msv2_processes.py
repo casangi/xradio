@@ -28,6 +28,7 @@ import pytest
 import xarray as xr
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
+from xradio._utils._casacore.backend import BACKEND
 from xradio._utils._casacore.tables import CASATOOLS_LOCK
 from xradio.measurement_set._utils._msv2 import (
     backend_arrays,
@@ -214,15 +215,19 @@ def test_fork_while_other_threads_hold_the_locks(opened, ms_copy):
             msname, engine=ENGINE, chunks={}, **(OPTIONS | {"partition_cache": "auto"})
         )
         values = compute(lazy_variables(tree), **in_new_threads(4))
-        return digests(values) == expected and os.path.isdir(
-            os.path.join(msname, partition_cache.SUBTABLE_NAME)
-        )
+        stored = os.path.isdir(os.path.join(msname, partition_cache.SUBTABLE_NAME))
+        # (stored with python-casacore only)
+        return digests(values) == expected and stored == (BACKEND != "arcae")
 
     with held_by_another_thread(backend_locks(msname)):
         assert fork_and_check(child) == 0
 
 
 @pytest.mark.skipif(not hasattr(os, "fork"), reason="needs os.fork")
+@pytest.mark.skipif(
+    BACKEND == "arcae",
+    reason="channel-sliced reads need python-casacore (the arcae shim reads whole cells)",
+)
 @pytest.mark.filterwarnings("ignore:This process .* is multi-threaded")
 def test_fork_child_reads_through_every_lock(ms_copy, monkeypatch):
     """
@@ -236,7 +241,7 @@ def test_fork_child_reads_through_every_lock(ms_copy, monkeypatch):
     (POINTING_BUILD_MEMO: a POINTING column the lazy reads cannot describe).
     They give the values read in the parent.
     """
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     narrow, rich = ms_copy("narrow_tiles"), ms_copy("rich")
     with tables.table(os.path.join(rich, "POINTING"), readonly=False, ack=False) as tb:

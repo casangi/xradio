@@ -22,9 +22,9 @@ import warnings
 import numpy as np
 import pytest
 import xarray as xr
-from casacore import tables
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
+from xradio._utils._casacore.backend import BACKEND
 from xradio.measurement_set import convert_msv2_to_processing_set, open_processing_set
 from xradio.measurement_set._utils._msv2 import partition_cache
 from xradio.measurement_set._utils._msv2.backend_errors import PartitionCacheWarning
@@ -39,10 +39,15 @@ from xradio.measurement_set._utils._msv2.partition_cache import (
 from xradio.testing.measurement_set.equivalence import assert_nodes_identical
 
 ENGINE = MSv2BackendEntrypoint
+NOT_STORED = "the partition cache is stored with python-casacore only, not with arcae"
+tables = pytest.importorskip("casacore.tables", reason=NOT_STORED)
 
-pytestmark = pytest.mark.skipif(
-    not sys.platform.startswith("linux"), reason="Linux (fcntl locks, /proc)"
-)
+pytestmark = [
+    pytest.mark.skipif(
+        not sys.platform.startswith("linux"), reason="Linux (fcntl locks, /proc)"
+    ),
+    pytest.mark.skipif(BACKEND == "arcae", reason=NOT_STORED),
+]
 
 
 @pytest.fixture(autouse=True)

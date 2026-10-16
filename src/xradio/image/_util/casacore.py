@@ -13,14 +13,8 @@ import dask.array as da
 import numpy as np
 import xarray as xr
 
+from xradio._utils._casacore.backend import tables
 from xradio._utils.logging import xradio_logger
-
-try:
-    from casacore import tables
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as tables
-
-
 from xradio.image._util._casacore.common import _beam_fit_params, _open_image_ro
 from xradio.image._util._casacore.xds_from_casacore import (
     _add_mask,
@@ -100,8 +94,16 @@ def _get_casa_image_metadata(infile: str, do_sky_coords: bool, image_type: str) 
 
 
 def _load_casa_image_block(
-    infile: str, block_des: dict, do_sky_coords: bool, image_type: str
+    infile: str,
+    block_des: dict,
+    do_sky_coords: bool,
+    image_type: str,
+    ninstances: int = 1,
+    backend_opts: dict | None = None,
+    **kwargs,
 ) -> xr.Dataset:
+    if backend_opts and "ninstances" in backend_opts:
+        ninstances = backend_opts["ninstances"]
     md = _get_casa_image_metadata(infile, do_sky_coords, image_type)
     # The dataset's polarization axis is in canonical order (see
     # _to_canonical_polarization_order), which the selection indexes: for an
@@ -125,7 +127,12 @@ def _load_casa_image_block(
     starts, shapes, slices = _get_starts_shapes_slices(block_des, coords, cshape)
     transpose_list, new_axes = _get_transpose_list(coords)
     block = _get_persistent_block(
-        image_full_path, shapes, starts, transpose_list, new_axes
+        image_full_path,
+        shapes,
+        starts,
+        transpose_list,
+        new_axes,
+        ninstances=ninstances,
     )
     block = _squeeze_if_needed(block, image_type)
     xds = _add_sky_or_aperture(
@@ -135,7 +142,12 @@ def _load_casa_image_block(
     for m in mymasks:
         full_path = os.sep.join([image_full_path, m])
         block = _get_persistent_block(
-            full_path, shapes, starts, transpose_list, new_axes
+            full_path,
+            shapes,
+            starts,
+            transpose_list,
+            new_axes,
+            ninstances=ninstances,
         )
         block = _squeeze_if_needed(block, image_type)
         # data vars are all caps by convention
@@ -171,13 +183,20 @@ def _open_casa_image(
     masks: bool = True,
     history: bool = False,
     image_type: str = "SKY",
+    ninstances: int = 1,
+    backend_opts: dict | None = None,
+    **kwargs,
 ) -> xr.Dataset:
+    if backend_opts and "ninstances" in backend_opts:
+        ninstances = backend_opts["ninstances"]
     md = _get_casa_image_metadata(infile, do_sky_coords, image_type)
     xds = md["xds"]
     dimorder = md["dimorder"]
     sphr_dims = md["sphr_dims"]
     img_full_path = md["image_full_path"]
-    ary = _read_image_array(img_full_path, chunks, verbose=verbose)
+    ary = _read_image_array(
+        img_full_path, chunks, verbose=verbose, ninstances=ninstances
+    )
     ary = _squeeze_if_needed(ary, image_type)
     xds = _add_sky_or_aperture(
         xds,
@@ -191,7 +210,13 @@ def _open_casa_image(
     if masks:
         mymasks = _get_mask_names(img_full_path)
         for m in mymasks:
-            ary = _read_image_array(img_full_path, chunks, mask=m, verbose=verbose)
+            ary = _read_image_array(
+                img_full_path,
+                chunks,
+                mask=m,
+                verbose=verbose,
+                ninstances=ninstances,
+            )
             # masks have the image's shape, so squeeze them like the image
             ary = _squeeze_if_needed(ary, image_type)
             # data var names are all caps by convention

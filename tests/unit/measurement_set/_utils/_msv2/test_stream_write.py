@@ -3,10 +3,9 @@ import types
 import numpy as np
 import pytest
 
-tables = pytest.importorskip("casacore.tables")
-
-from xradio.measurement_set._utils._msv2 import stream_write as sw  # noqa: E402
-from xradio.measurement_set._utils._msv2._tables import read_rows as rr  # noqa: E402
+from xradio._utils._casacore.backend import BACKEND, tables
+from xradio.measurement_set._utils._msv2 import stream_write as sw
+from xradio.measurement_set._utils._msv2._tables import read_rows as rr
 
 NROWS = 300
 NCHAN = 4
@@ -449,6 +448,10 @@ def test_check_partition_cells_does_not_scan_indirect_arrays(cells_table):
     assert calls == [(0, 1), (0, 1)]  # the first cell only
 
 
+@pytest.mark.skipif(
+    BACKEND == "arcae",
+    reason="needs python-casacore's selectrows and concatenated tables",
+)
 @pytest.mark.parametrize("kind", ["selectrows", "persistent_ref", "concat"])
 def test_check_partition_cells_reference_and_concat_tables(cells_table, kind, tmp_path):
     """

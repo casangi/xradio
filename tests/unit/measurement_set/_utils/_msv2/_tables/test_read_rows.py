@@ -5,10 +5,14 @@ import textwrap
 import numpy as np
 import pytest
 
-tables = pytest.importorskip("casacore.tables")
+from xradio._utils._casacore.backend import BACKEND, tables
+from xradio.measurement_set._utils._msv2._tables import read_rows as rr
 
-from xradio.measurement_set._utils._msv2._tables import read_rows as rr  # noqa: E402
-
+needs_in_place_reads = pytest.mark.skipif(
+    not rr.backend_has_in_place_reads(),
+    reason="tests python-casacore's in-place reads (getcolnp, selectrows), "
+    "which the arcae shim lacks",
+)
 NROWS = 200
 NCHAN = 6
 NPOL = 2
@@ -34,7 +38,7 @@ def rows_table(tmp_path_factory):
     path = str(tmp_path_factory.mktemp("read_rows") / "rows.tab")
     desc = tables.maketabdesc(
         [
-            tables.makescacoldesc("SCALAR_INT", 0),
+            tables.makescacoldesc("SCALAR_INT", 0, valuetype="int"),
             tables.makescacoldesc("SCALAR_DOUBLE", 0.0),
             tables.makescacoldesc("NAME", "none"),
             tables.makearrcoldesc("SSM_WEIGHT", 0.0, shape=[NPOL], valuetype="float"),
@@ -186,17 +190,22 @@ def test_read_rows_matches_reference(rows_tb, selection, col, max_elems):
     rows_per_call = max(1, max_elems // cell_elems)
     starts, lengths = rr.rows_to_runs(rows)
     if starts.size <= rr.FRAGMENTED_RUNS and rows_per_call >= rows.size:
-        # one call per run, but never one call over the whole column
+        # one call per run, but never one call over the whole column (one call
+        # for several runs where the table reads rows: has_row_reads)
         whole_column = rows.size == NROWS
-        assert stats["calls"] == starts.size + whole_column
+        if starts.size > 1 and rr.has_row_reads(tb, out, starts.size):
+            assert stats["calls"] == 1
+        else:
+            assert stats["calls"] == starts.size + whole_column
         assert stats.get("selectrows_calls", 0) == 0
     if selection == "fragmented" and rows_per_call > rr.FRAGMENTED_RUNS:
-        assert stats["selectrows_calls"] >= 1
+        assert bool(stats.get("selectrows_calls")) == rr.has_in_place_reads(tb)
     if max_elems < rr.DEFAULT_MAX_ELEMS and starts.size <= rr.FRAGMENTED_RUNS:
         # max_elems caps every call
         assert stats["calls"] >= int(np.ceil(rows.size / rows_per_call))
 
 
+@needs_in_place_reads
 def test_read_rows_max_elems_bounds_every_call(rows_tb, monkeypatch):
     tb, ref = rows_tb
     calls = []
@@ -243,7 +252,7 @@ def test_read_rows_cell_slice(rows_tb, selection, chan, pol, max_elems):
     )
     np.testing.assert_array_equal(out, expected)
     if selection == "fragmented" and max_elems == rr.DEFAULT_MAX_ELEMS:
-        assert stats["selectrows_calls"] >= 1
+        assert bool(stats.get("selectrows_calls")) == rr.has_in_place_reads(tb)
 
 
 @pytest.mark.parametrize(
@@ -341,7 +350,7 @@ def test_read_rows_whole_column_with_undefined_cells_raises(rows_table, tmp_path
     code = textwrap.dedent(
         f"""
         import numpy as np
-        from casacore import tables
+        from xradio._utils._casacore.backend import tables
         from xradio.measurement_set._utils._msv2._tables.read_rows import read_rows
 
         def check(tb, nrows):
@@ -382,7 +391,7 @@ def test_read_rows_to_grid_whole_column_with_undefined_cells_raises(
     code = textwrap.dedent(
         f"""
         import numpy as np
-        from casacore import tables
+        from xradio._utils._casacore.backend import tables
         from xradio.measurement_set._utils._msv2._tables import read_rows as rr
 
         def check(tb, nrows):
@@ -592,6 +601,7 @@ def assert_one_ascending_pass(spy, rows, max_elems=rr.DEFAULT_MAX_ELEMS):
     return extra
 
 
+@needs_in_place_reads
 @pytest.mark.parametrize("seed", range(4))
 @pytest.mark.parametrize("n_dup", [0, 5])
 @pytest.mark.parametrize("max_tmp_bytes", [rr.DEFAULT_MAX_TMP_BYTES, 200])
@@ -631,6 +641,7 @@ def test_read_rows_to_grid_reads_rows_in_one_ascending_pass(
     np.testing.assert_array_equal(grid, expected)
 
 
+@needs_in_place_reads
 @pytest.mark.parametrize("seed", range(6))
 @pytest.mark.parametrize("n_dup", [0, 7])
 @pytest.mark.parametrize("shuffle_cells", [False, True])
@@ -883,6 +894,7 @@ def test_read_rows_to_grid_last_row_wins_around_slice_copies(rows_tb, monkeypatc
         )
 
 
+@needs_in_place_reads
 def test_read_rows_to_grid_bridges_small_gaps(rows_tb, monkeypatch):
     """
     Gaps of other rows between long runs are read (and discarded) with them,
@@ -957,6 +969,7 @@ def test_read_rows_to_grid_bridge_fallback(rows_tb, monkeypatch):
         rr.read_rows_to_grid(tb, "TSM_UNDEF", plan, grid)
 
 
+@needs_in_place_reads
 def test_read_rows_to_grid_bridge_fallback_other_shape(tmp_path):
     """A bridged gap over cells of another shape (rows of another DDI in a
     TiledShapeStMan column) fails to read; the partition rows are read again
@@ -992,6 +1005,139 @@ def test_read_rows_to_grid_bridge_fallback_other_shape(tmp_path):
     # partition rows
     np.testing.assert_array_equal(spy.rows_read[0], np.arange(nrows - 1))
     np.testing.assert_array_equal(np.concatenate(spy.rows_read[1:]), rows)
+
+
+class GetcolSpy:
+    """Table proxy with the read API of the arcae shim (no in-place reads) that
+    records the rows of every getcol (and getcolrows) call."""
+
+    def __init__(self, tb):
+        self._tb = tb
+        self.rows_read: list[np.ndarray] = []
+
+    def __getattr__(self, name):
+        if name in rr.IN_PLACE_READ_METHODS:
+            raise AttributeError(name)
+        method = getattr(self._tb, name)
+        if name != rr.ROW_READ_METHOD:
+            return method
+
+        def getcolrows(col, rownrs):
+            self.rows_read.append(np.asarray(rownrs))
+            return method(col, rownrs)
+
+        return getcolrows
+
+    def getcol(self, col, startrow, nrow):
+        self.rows_read.append(np.arange(startrow, startrow + nrow))
+        return self._tb.getcol(col, startrow, nrow)
+
+
+def test_read_rows_to_grid_without_in_place_reads_bridges_fixed_shapes_only(
+    rows_tb,
+):
+    """Without in-place reads (arcae) gaps are bridged in columns of a fixed
+    cell shape only: arcae reads a bridged gap of cells of another shape in a
+    time quadratic in the number of rows before the read fails."""
+    tb, ref = rows_tb
+    rows = np.r_[0:60, 62:130, 131:199]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    # (one getcolrows call for the runs of TSM_DATA where the table has it)
+    tsm_calls = (
+        [(0, 196)]
+        if hasattr(tb, rr.ROW_READ_METHOD)
+        else [(0, 60), (62, 68), (131, 68)]
+    )
+    for col, calls, gap_rows in (
+        ("SSM_WEIGHT", [(0, 199)], 3),
+        ("TSM_DATA", tsm_calls, 0),
+    ):
+        spy = GetcolSpy(tb)
+        grid = np.zeros((rows.size, 1) + ref[col].shape[1:], ref[col].dtype)
+        stats = rr.read_rows_to_grid(spy, col, plan, grid)
+        np.testing.assert_array_equal(grid[::-1, 0], ref[col][rows])
+        assert [(c[0], c.size) for c in spy.rows_read] == calls
+        assert stats.get("gap_rows", 0) == gap_rows
+
+
+@pytest.mark.parametrize("chan", [None, slice(1, 4)])
+def test_read_rows_without_in_place_reads_bounds_every_getcol(
+    rows_tb, monkeypatch, chan
+):
+    """Without in-place reads (arcae) the runs are read with getcolrows calls
+    (getcol calls of every run where the table has no getcolrows) of at most
+    GETCOL_MAX_BYTES of whole cells (also for a channel range), in one
+    ascending pass."""
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "GETCOL_MAX_BYTES", 7 * DATA_ROW_BYTES)
+    rows = ROW_SELECTIONS["few_runs"]
+    expected = ref["TSM_DATA"][rows][:, chan or slice(None)]
+    spy = GetcolSpy(tb)
+    out = sentinel_buffer(expected.shape, np.complex64)
+    stats = rr.read_rows(spy, "TSM_DATA", rows, out, chan=chan)
+    np.testing.assert_array_equal(out, expected)
+    np.testing.assert_array_equal(np.concatenate(spy.rows_read), rows)
+    if hasattr(tb, rr.ROW_READ_METHOD):  # one getcolrows for the runs
+        sizes = [7] * 14 + [1]
+    else:
+        sizes = [7] * 5 + [2, 1] + [7] * 8 + [4, 1]
+    assert [c.size for c in spy.rows_read] == sizes
+    assert stats["calls"] == len(spy.rows_read)
+
+
+def test_read_rows_to_grid_without_in_place_reads_bounds_every_getcol(
+    rows_tb, monkeypatch
+):
+    """Without in-place reads (arcae) the reads of a grid, bridged or not,
+    are getcol or getcolrows calls of at most GETCOL_MAX_BYTES, in one
+    ascending pass."""
+    tb, ref = rows_tb
+    monkeypatch.setattr(rr, "GETCOL_MAX_BYTES", 7 * DATA_ROW_BYTES)
+    rows = np.r_[0:60, 62:130, 131:199]
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    for col, read_order, sizes in (
+        # fixed cell shape (8 bytes): gaps bridged, 84 rows per call
+        ("SSM_WEIGHT", np.arange(199), [84, 84, 31]),
+        # variably shaped: no gap bridged, 7 rows per call
+        (
+            "TSM_DATA",
+            rows,
+            [7] * 28
+            if hasattr(tb, rr.ROW_READ_METHOD)  # one getcolrows of the pieces
+            else [7] * 8 + [4] + ([7] * 9 + [5]) * 2,
+        ),
+    ):
+        spy = GetcolSpy(tb)
+        grid = np.zeros((rows.size, 1) + ref[col].shape[1:], ref[col].dtype)
+        stats = rr.read_rows_to_grid(spy, col, plan, grid)
+        np.testing.assert_array_equal(grid[::-1, 0], ref[col][rows])
+        np.testing.assert_array_equal(np.concatenate(spy.rows_read), read_order)
+        assert [c.size for c in spy.rows_read] == sizes
+        assert stats["calls"] == len(sizes)
+
+
+def test_row_reads_only_for_runs_below_max_run_bytes(rows_tb, monkeypatch):
+    """Without in-place reads (arcae) the runs of scattered rows are read with
+    one getcolrows call while they average fewer than ROW_READ_MAX_RUN_BYTES,
+    else with getcol calls of every run (read_rows and read_rows_to_grid)."""
+    tb, ref = rows_tb
+    rows = ROW_SELECTIONS["few_runs"]
+    starts, lengths = rr.rows_to_runs(rows)
+    run_bytes = rows.size * DATA_ROW_BYTES / starts.size
+    per_run = list(zip(starts.tolist(), lengths.tolist(), strict=True))
+    one_call = [(int(rows[0]), rows.size)] if hasattr(tb, rr.ROW_READ_METHOD) else None
+    # grid in reversed row order: every row read through the temporary
+    plan = rr.make_row_grid_plan(rows, np.arange(rows.size)[::-1], rows.size)
+    for max_run_bytes, calls in ((run_bytes, per_run), (run_bytes + 1, one_call)):
+        monkeypatch.setattr(rr, "ROW_READ_MAX_RUN_BYTES", max_run_bytes)
+        spy = GetcolSpy(tb)
+        out = sentinel_buffer(ref["TSM_DATA"][rows].shape, np.complex64)
+        rr.read_rows(spy, "TSM_DATA", rows, out)
+        grid = np.zeros((rows.size, 1) + out.shape[1:], np.complex64)
+        rr.read_rows_to_grid(spy, "TSM_DATA", plan, grid)
+        np.testing.assert_array_equal(out, ref["TSM_DATA"][rows])
+        np.testing.assert_array_equal(grid[::-1, 0], ref["TSM_DATA"][rows])
+        assert [(int(c[0]), c.size) for c in spy.rows_read] == 2 * (calls or per_run)
 
 
 def test_tmp_pieces():
@@ -1168,16 +1314,31 @@ def test_time_chunk_rows_n_runs(time_ordered, time_chunks, contiguous):
     assert rr.TimeChunkRows(empty, empty, empty, time_chunks, nb).n_runs() == 0
 
 
+def test_is_plain_table(rows_table, tmp_path):
+    """A table opened from its path is plain; a selection (query, TaQL) is
+    not, also one stored as a reference table."""
+    path, _ = rows_table
+    ref = str(tmp_path / "ref.tab")
+    with tables.table(path, ack=False) as tb:
+        assert rr.is_plain_table(tb)
+        for name in ("", ref):
+            with tb.query("SCALAR_INT > 0", name=name) as sel:
+                assert not rr.is_plain_table(sel), name
+        with tables.taql("select from $tb where SCALAR_INT > 0") as sel:
+            assert not rr.is_plain_table(sel)
+    with tables.table(ref, ack=False) as tb:
+        assert not rr.is_plain_table(tb)
+
+
 # --- in-place reads ----------------------------------------------------------------
-# The reads of tables without in-place reads (getcol and getcell calls: the
-# casatools shim) are tested with real casatools tables in
-# tests/casatools/test_casatools_read_rows.py (the casatools workflow).
 
 
 def test_has_in_place_reads(rows_tb):
     tb, _ = rows_tb
-    assert rr.has_in_place_reads(tb) and rr.has_in_place_reads(tables.table)
-    assert rr.backend_has_in_place_reads()  # python-casacore
+    # python-casacore reads in place, the arcae shim does not
+    in_place = BACKEND != "arcae"
+    assert rr.has_in_place_reads(tb) == rr.has_in_place_reads(tables.table) == in_place
+    assert rr.backend_has_in_place_reads() == in_place
 
 
 def test_read_row_range(rows_tb):
@@ -1207,6 +1368,7 @@ def test_read_rows_other_cell_shape_raises(rows_tb):
             rr.read_rows(tb, "TSM_DATA", np.arange(5), out)
 
 
+@needs_in_place_reads
 def test_read_rows_one_row_table(tmp_path):
     """The cell of a one-row table is read through a selectrows reference
     table of the row (a getcolnp of its row would be casacore's whole-column

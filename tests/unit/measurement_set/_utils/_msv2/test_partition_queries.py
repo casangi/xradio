@@ -3,8 +3,8 @@ import shutil
 import numpy as np
 import pandas as pd
 import pytest
-from casacore import tables
 
+from xradio._utils._casacore.backend import tables
 from xradio.measurement_set._utils._msv2._tables.read_rows import runs_to_rows
 from xradio.measurement_set._utils._msv2.conversion import create_taql_query_where
 from xradio.measurement_set._utils._msv2.partition_queries import (
@@ -141,7 +141,7 @@ def ms_edge_rows(ms_minimal_required, tmp_path_factory):
         main_tb.putcol("FIELD_ID", ((rows // 13) % 2).astype(np.int32))
         main_tb.putcol("SCAN_NUMBER", (1 + (rows // 90) % 3).astype(np.int32))
         ant1 = main_tb.getcol("ANTENNA1")
-        ant2 = main_tb.getcol("ANTENNA2")
+        ant2 = main_tb.getcol("ANTENNA2").copy()  # getcol may be read-only
         ant2[rows % 4 == 0] = ant1[rows % 4 == 0]
         main_tb.putcol("ANTENNA2", ant2)
     yield path
@@ -150,12 +150,14 @@ def ms_edge_rows(ms_minimal_required, tmp_path_factory):
 
 def taql_rows(ms: str, partition: dict) -> np.ndarray:
     """Rows of the partition's TaQL selection (create_taql_query_where)."""
-    with tables.table(ms, readonly=True, ack=False) as main_tb:
+    with tables.table(ms, readonly=True, ack=False) as main_tb:  # noqa: F841
+        # ROWID(): the MAIN rows (rownumbers() of the arcae shim counts the
+        # selection's rows from 0)
         query = tables.taql(
-            f"select * from $1 {create_taql_query_where(partition)}", tables=[main_tb]
+            f"select ROWID() AS R from $main_tb {create_taql_query_where(partition)}"
         )
         try:
-            return np.asarray(query.rownumbers(), dtype=np.int64)
+            return np.asarray(query.getcol("R") if query.nrows() else [], np.int64)
         finally:
             query.close()
 
@@ -246,7 +248,7 @@ def ms_key_variants(ms_edge_rows, tmp_path_factory):
         else:
             with tables.table(path + "/FIELD", readonly=False, ack=False) as tb:
                 tb.removecols("EPHEMERIS_ID")
-                tb.addcols(tables.makescacoldesc("EPHEMERIS_ID", 0))
+                tb.addcols(tables.maketabdesc(tables.makescacoldesc("EPHEMERIS_ID", 0)))
                 tb.putcol("EPHEMERIS_ID", np.array([0, 3], dtype=np.int32))
         paths[variant] = path
     yield paths

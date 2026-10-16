@@ -1,3 +1,4 @@
+import functools
 from typing import Union
 
 import xarray as xr
@@ -229,6 +230,30 @@ casa_frequency_frames = [
 casa_frequency_frames_codes = [0, 1, 2, 3, 4, 5, 6, 7, 8, 64]
 
 
+@functools.cache
+def _type_hints(cls: type) -> dict:
+    """Return ``typing.get_type_hints(cls)``, evaluated once per class.
+
+    The ``DataGroupDict`` classes annotate their fields with strings, so every
+    evaluation compiles one new code object per annotation. The classes do not
+    change at run time, so the result is cached.
+
+    Parameters
+    ----------
+    cls : type
+        The class whose type hints are returned.
+
+    Returns
+    -------
+    dict
+        The type hints of ``cls``, by field name. Shared between calls; do not
+        modify it.
+    """
+    from typing import get_type_hints
+
+    return get_type_hints(cls)
+
+
 def get_data_group_keys(schema_name: str) -> list[tuple[str, bool]]:
     """Return (name, is_optional) pairs for data group keys for the given schema.
 
@@ -248,7 +273,7 @@ def get_data_group_keys(schema_name: str) -> list[tuple[str, bool]]:
         If the schema name is unknown.
     """
     from types import UnionType
-    from typing import get_args, get_origin, get_type_hints
+    from typing import get_args, get_origin
 
     if schema_name == "msv4":
         from xradio.measurement_set.schema import DataGroupDict
@@ -261,7 +286,7 @@ def get_data_group_keys(schema_name: str) -> list[tuple[str, bool]]:
     else:
         raise ValueError(f"Unknown schema name: {schema_name}")
 
-    annotations = get_type_hints(cls)
+    annotations = _type_hints(cls)
     keys_with_optional = {}
     for name, anno in annotations.items():
         origin = get_origin(anno)

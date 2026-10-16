@@ -19,11 +19,10 @@ selection. With a cache active (see ``activate_subtable_cache``):
 The output is identical to the uncached reads. The MS must not change during a
 conversion.
 
-Backends: the cache is used with python-casacore only
+Backends: the cache is used with python-casacore and with the arcae shim
 (``subtable_cache_supported``). Its loaders reproduce the values and dtypes of
-python-casacore's ``tables.row()`` / ``getcol()`` with in-place column reads;
-with the casatools shim every partition reads the sub-tables itself, as
-without cache.
+python-casacore's ``tables.row()`` / ``getcol()`` with bounded column reads (in
+place with python-casacore, getcol calls with the arcae shim).
 
 Whole-table values (POINTING, sorted columns) only pay off when several
 partitions use them: a cache that only one partition of this process is known
@@ -55,10 +54,6 @@ from collections.abc import Callable, Generator, Hashable
 from typing import Any
 
 import xarray as xr
-
-from xradio.measurement_set._utils._msv2._tables.read_rows import (
-    backend_has_in_place_reads,
-)
 
 # Sub-tables whose load_generic_table results are memoized: partitions typically
 # load them with identical arguments (same antennas, spectral window, ...).
@@ -404,10 +399,9 @@ def active_subtable_cache() -> SubtableCache | None:
 def subtable_cache_supported() -> bool:
     """
     Whether sub-table reads are cached with the casacore bindings in use:
-    with python-casacore, not with the casatools shim (no in-place column
-    reads, see the module docstring).
+    always (python-casacore and the arcae shim, see the module docstring).
     """
-    return backend_has_in_place_reads()
+    return True
 
 
 def resolve_subtable_cache(

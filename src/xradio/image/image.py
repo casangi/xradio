@@ -7,6 +7,7 @@ import os
 
 import numpy as np
 import xarray as xr
+import zarr
 
 from xradio._utils.logging import xradio_logger
 from xradio.image._util._fits.xds_from_fits import _fits_image_to_xds
@@ -16,6 +17,7 @@ from xradio.image._util._write_plan import (
     write_outputs_atomically,
     zarr_store_name,
 )
+from xradio.image._util._zarr.xds_to_zarr import DEFAULT_COMPRESSOR
 from xradio.image._util.image_factory import (
     _make_empty_aperture_image,
     _make_empty_lmuv_image,
@@ -30,14 +32,27 @@ from xradio.image._util.zarr import (
 # warnings.filterwarnings("ignore", category=FutureWarning)
 
 
+def _resolve_ninstances(backend_opts: dict | None) -> int:
+    """Resolve ninstances from backend_opts or XRADIO_ARCAE_NINSTANCES env var."""
+    if backend_opts and "ninstances" in backend_opts:
+        return max(1, int(backend_opts["ninstances"]))
+    env_val = os.environ.get("XRADIO_ARCAE_NINSTANCES")
+    if env_val is not None:
+        try:
+            return max(1, int(env_val))
+        except ValueError:
+            pass
+    return 1
+
+
 def _casa_image_reader_unavailable(exc: ImportError):
-    """Stand-in for the CASA image readers when neither python-casacore nor
-    casatools can be imported: it fails when a CASA image is read, so FITS and
-    zarr images open without those packages."""
+    """Stand-in for the CASA image readers when arcae cannot be imported: it
+    fails when a CASA image is read, so FITS and zarr images open without
+    arcae."""
 
     def read_casa_image(store, **kwargs):
         raise ModuleNotFoundError(
-            f"Reading the CASA image {store} needs python-casacore or casatools: {exc}"
+            f"Reading the CASA image {store} needs arcae: {exc}"
         ) from exc
 
     return read_casa_image
@@ -89,6 +104,7 @@ def open_image(
     do_sky_coords: bool = True,
     selection: dict | None = None,
     compute_mask: bool = True,
+    backend_opts: dict | None = None,
 ) -> xr.Dataset:
     """
     Open CASA, FITS or zarr images lazily as an xradio image dataset.
@@ -97,9 +113,8 @@ def open_image(
 
     Supported formats:
 
-    * CASA images (casacore tables), read with python-casacore or casatools;
-    * FITS images, read with astropy only (python-casacore and casatools are
-      not needed);
+    * CASA images (casacore tables), read with arcae;
+    * FITS images, read with astropy only (arcae is not needed);
     * zarr stores written by :func:`write_image` (``out_format="zarr"``,
       named with the extension ``.img.zarr``), which hold a whole image
       dataset; zarr stores with other names open too. Stores written by
@@ -169,7 +184,10 @@ def open_image(
         images, this parameter is ignored and the chunk size used to store the arrays
         in the zarr image is used. 'l' represents the longitude like dimension, and 'm'
         represents the latitude like dimension. For aperture images, 'u' may be used in
-        place of 'l', and 'v' in place of 'm'.
+        place of 'l', and 'v' in place of 'm'. To write the image to zarr with
+        :func:`write_image`'s ``chunks`` or ``shards``, use chunks that are whole
+        numbers of them (FITS reads fastest with whole rows, i.e. 'l' left out):
+        other chunks are rechunked when written.
     verbose : bool
         emit debugging messages? Default is False.
     do_sky_coords : bool
@@ -196,13 +214,18 @@ def open_image(
         for applications that are not designed to handle missing data. It is the user's responsibility,
         not the software's, to ensure that the mask is computed if it is necessary. Currently only
         implemented for FITS images.
+    backend_opts : dict, optional
+        Format- or engine-specific options. For CASA images using arcae,
+        pass {'ninstances': N} to pool N C++ table instances for concurrent
+        multi-threaded table reads. Can also be configured globally via the
+        XRADIO_ARCAE_NINSTANCES environment variable. Default is None.
 
     Returns
     -------
     xarray.Dataset
     """
-    # python-casacore and casatools are optional: FITS images are read with
-    # astropy and zarr images with zarr, so only a CASA image needs them.
+    # arcae is optional: FITS images are read with astropy and zarr images
+    # with zarr, so only a CASA image needs it.
     try:
         from xradio.image._util.casacore import _open_casa_image
     except ImportError as exc:
@@ -212,10 +235,18 @@ def open_image(
         chunks = {}
     selection = _int_selections_to_slices(selection)
 
+    ninstances = _resolve_ninstances(backend_opts)
+
     img_xds = create_image_xds_from_store(
         store,
         _open_casa_image,
-        {"chunks": chunks, "verbose": verbose, "do_sky_coords": do_sky_coords},
+        {
+            "chunks": chunks,
+            "verbose": verbose,
+            "do_sky_coords": do_sky_coords,
+            "ninstances": ninstances,
+            "backend_opts": backend_opts,
+        },
         _fits_image_to_xds,
         {
             "chunks": chunks,
@@ -230,7 +261,12 @@ def open_image(
     return img_xds
 
 
-def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dataset:
+def load_image(
+    store: str,
+    block_des: dict = None,
+    do_sky_coords=True,
+    backend_opts: dict | None = None,
+) -> xr.Dataset:
     """
     Load an image or portion of an image (subimage).
 
@@ -272,6 +308,11 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
         images will have these coordinates added if they were saved with the zarr dataset,
         and if zarr image didn't have these coordinates when it was written, the resulting
         xr.Dataset will not.
+    backend_opts : dict, optional
+        Format- or engine-specific options. For CASA images using arcae,
+        pass {'ninstances': N} to pool N C++ table instances. Can also be
+        configured globally via the XRADIO_ARCAE_NINSTANCES environment
+        variable. Default is None.
     Returns
     -------
     xarray.Dataset
@@ -283,10 +324,17 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
     except ImportError as exc:
         _load_casa_image_block = _casa_image_reader_unavailable(exc)
 
+    ninstances = _resolve_ninstances(backend_opts)
+
     img_xds = create_image_xds_from_store(
         store,
         _load_casa_image_block,
-        {"block_des": selection, "do_sky_coords": do_sky_coords},
+        {
+            "block_des": selection,
+            "do_sky_coords": do_sky_coords,
+            "ninstances": ninstances,
+            "backend_opts": backend_opts,
+        },
         None,
         {},
         _xds_from_zarr,
@@ -296,7 +344,13 @@ def load_image(store: str, block_des: dict = None, do_sky_coords=True) -> xr.Dat
 
 
 def write_image(
-    xds: xr.Dataset, imagename: str, out_format: str = "casa", overwrite: bool = False
+    xds: xr.Dataset,
+    imagename: str,
+    out_format: str = "casa",
+    overwrite: bool = False,
+    chunks: dict | None = None,
+    shards: dict | None = None,
+    compressor: zarr.abc.codec.BytesBytesCodec | None = DEFAULT_COMPRESSOR,
 ) -> list[str]:
     """
     Write an xradio image dataset as CASA, FITS or zarr images.
@@ -305,10 +359,10 @@ def write_image(
 
     Supported formats:
 
-    * ``"casa"`` (the default) writes casacore image tables and needs
-      python-casacore or casatools. Sky plane images (l and m dimensions) and
-      aperture plane images (u and v dimensions) are written; the
-      normalization images, which have neither, are skipped with a warning.
+    * ``"casa"`` (the default) writes casacore image tables and needs arcae.
+      Sky plane images (l and m dimensions) and aperture plane images (u and
+      v dimensions) are written; the normalization images, which have
+      neither, are skipped with a warning.
       A sky image's flags become its default mask and its beam fit
       parameters its restoring beam(s).
     * ``"fits"`` writes FITS files with astropy only. Only sky plane images
@@ -318,7 +372,7 @@ def write_image(
       the canonical order).
     * ``"zarr"`` writes the whole dataset, with all its data variables,
       data groups and attributes (including ``schema_version``), to one zarr
-      store.
+      store, with the chunks, shards and compressor given below.
 
     Zarr store names: image zarr stores have the extension ``.img.zarr``, as
     processing sets have ``.ps.zarr``. An ``imagename`` that ends in
@@ -374,6 +428,25 @@ def write_image(
         (in any case).
     overwrite : bool
         If True, replace existing outputs. Default is False.
+    chunks : dict, optional
+        Zarr only: the zarr chunk length by dimension of every data variable,
+        e.g. ``{"frequency": 16, "l": 256, "m": 256}``. A dimension that is
+        missing, or given as -1, is one chunk over the whole axis. By default
+        (None) the chunks follow the dask chunks of each data variable. Dask
+        chunks that are not whole numbers of zarr chunks (of shards, with
+        ``shards``) are rechunked before writing, with a log message; see the
+        ``chunks`` of :func:`open_image` to avoid that.
+    shards : dict, optional
+        Zarr only: the shard length by dimension of every data variable,
+        which needs ``chunks``. Each shard length must be a multiple of the
+        chunk length. A dimension that is missing is not sharded (its shard
+        length is the chunk length); -1, or a length of at least the axis, is
+        one shard of whole chunks covering the axis. By default (None) the
+        store is not sharded.
+    compressor : zarr.abc.codec.BytesBytesCodec, optional
+        Zarr only: the codec of every data variable and coordinate, by default
+        ``zarr.codecs.BloscCodec(cname="zstd", clevel=5, shuffle="shuffle")``.
+        None disables compression.
 
     Returns
     -------
@@ -388,9 +461,13 @@ def write_image(
     ------
     FileExistsError
         If an output exists and ``overwrite`` is False.
+    TypeError
+        If ``compressor`` is neither a zarr v3 bytes-to-bytes codec nor None.
     ValueError
-        If ``out_format`` is not supported, ``imagename`` is a URL, or the
-        dataset holds no image the format can store.
+        If ``out_format`` is not supported, ``imagename`` is a URL, the
+        dataset holds no image the format can store, or ``chunks``,
+        ``shards`` or ``compressor`` are given for CASA or FITS, or cannot be
+        applied.
     """
     imagename = os.fspath(imagename)
     if isinstance(imagename, bytes):
@@ -412,7 +489,7 @@ def write_image(
             from xradio.image._util.casacore import _xds_to_multiple_casa_images
         except ImportError as exc:
             raise ModuleNotFoundError(
-                f"Writing CASA images needs python-casacore or casatools: {exc}"
+                f"Writing CASA images needs arcae: {exc}"
             ) from exc
         write_images = _xds_to_multiple_casa_images
     elif my_format == "fits":
@@ -424,6 +501,13 @@ def write_image(
             f"Writing to format {out_format} is not supported. "
             'out_format must be either "casa", "fits" or "zarr".'
         )
+    if my_format != "zarr" and (
+        chunks is not None or shards is not None or compressor is not DEFAULT_COMPRESSOR
+    ):
+        raise ValueError(
+            "chunks, shards and compressor apply to zarr output only, not to "
+            f"{out_format}"
+        )
 
     if my_format == "zarr":
         store_name = zarr_store_name(imagename)
@@ -433,7 +517,13 @@ def write_image(
             # called once the overwrite check has passed, as writing starts
             if store_name != imagename:
                 _log_zarr_store_name(imagename, store_name)
-            _xds_to_zarr(xds, os.path.join(directory, os.path.basename(store_name)))
+            _xds_to_zarr(
+                xds,
+                os.path.join(directory, os.path.basename(store_name)),
+                chunks=chunks,
+                shards=shards,
+                compressor=compressor,
+            )
 
     else:
         plan = plan_image_outputs(xds, imagename, my_format)

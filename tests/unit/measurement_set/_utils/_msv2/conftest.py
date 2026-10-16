@@ -57,7 +57,7 @@ def _add_tiled_shape_column(main_tb, col, values, tile_rows, rows=None):
     """Add a TiledShapeStMan column (2-D cells) and write ``values`` into it;
     only ``rows`` (all by default) are written, the other cells stay
     undefined."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     valuetype = {"b": "boolean", "f": "float", "c": "complex"}[values.dtype.kind]
     desc = tables.makearrcoldesc(
@@ -91,7 +91,7 @@ def _add_narrow_tiled_column(main_tb, col, blocks, tile_shape):
     ``tile_shape`` (Fortran order) and write ``blocks``: (first row, values)
     of consecutive rows, whose cells may have different shapes (one
     hypercube per cell shape)."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     first = blocks[0][1]
     valuetype = {"b": "boolean", "f": "float", "c": "complex"}[first.dtype.kind]
@@ -122,7 +122,7 @@ def _write_narrow_tiles(msname: str, main_tb, ddi: np.ndarray, rng) -> None:
     tiles of NARROW_TILE_SHAPES, the rows of SPW 1 with
     N_CHANNELS_SPW1_NARROW channels (two hypercubes per column).
     """
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     with tables.table(os.path.join(msname, "DATA_DESCRIPTION"), ack=False) as dd_tb:
         spw_of_ddi = dd_tb.getcol("SPECTRAL_WINDOW_ID")
@@ -181,7 +181,7 @@ def _grid_indices(variant: str, pos: np.ndarray, ddi: np.ndarray, rng) -> tuple:
 def _rewrite_pointing(msname: str, time0: float, rng) -> None:
     """A POINTING table with rows of every antenna at times around those of
     MAIN (one row per antenna and second, plus a few outside)."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     times = time0 - 3.0 + np.arange(N_TIMES + 40, dtype=float)
     antennas = np.arange(N_ANTENNAS, dtype=np.int32)
@@ -191,7 +191,7 @@ def _rewrite_pointing(msname: str, time0: float, rng) -> None:
     with tables.table(
         os.path.join(msname, "POINTING"), readonly=False, ack=False
     ) as tbl:
-        tbl.removerows(np.arange(tbl.nrows()))
+        tables.taql("DELETE FROM $tbl").close()
         tbl.addrows(nrows)
         tbl.putcol("ANTENNA_ID", ant_col)
         tbl.putcol("TIME", time_col)
@@ -240,8 +240,7 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
     str
         ``msname``.
     """
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
 
     if variant not in BACKEND_MS_VARIANTS:
@@ -371,7 +370,9 @@ def make_per_column_dm_copy(msname: str, copy_name: str) -> str:
     str
         ``copy_name``.
     """
-    from casacore import tables
+    tables = pytest.importorskip(
+        "casacore.tables", reason="the copy needs python-casacore's copy(dminfo=)"
+    )
 
     with tables.table(msname, ack=False) as main_tb:
         dminfo = {}

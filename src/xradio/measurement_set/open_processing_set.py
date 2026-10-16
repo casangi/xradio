@@ -52,8 +52,6 @@ def open_processing_set(
             chunked_array_type=chunked_array_type,
         )
 
-    # Future work is to add ASDM backend
-
     if scan_intents is None:
         return ps_xdt
     else:

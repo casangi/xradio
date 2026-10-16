@@ -1,6 +1,6 @@
 [project]
 name = "xradio"
-version = "v1.2.5"
+version = "v1.3.0"
 
 description = " Xarray Radio Astronomy Data IO"
 authors = [
@@ -46,13 +46,16 @@ test = [
     'zarr>=3,<4',
     'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
+    'pyasdm',
     'psutil',
     'pytest',
     'pytest-cov',
     'pytest-html',
-    'python_casacore>=3.6.1; sys_platform != "darwin"'
+    'arcae>=0.5.7'
 ]
 
+# casacore table access (MSv2 conversion and CASA image IO) through arcae,
+# which ships self-contained wheels for Linux and macOS
 casacore = [
     'astropy',
     'toolviper>=0.1.3',
@@ -63,7 +66,14 @@ casacore = [
     'numcodecs>=0.16', # see the zarr extra
     'pyarrow',
     'psutil',
-    'python_casacore>=3.6.1; sys_platform != "darwin"'
+    'arcae>=0.5.7'
+]
+
+asdm = [
+    'astropy',
+    'pyasdm',
+    'toolviper',
+    'xarray',
 ]
 
 interactive = [
@@ -110,7 +120,8 @@ all = [
     'pytest',
     'pytest-cov',
     'pytest-html',
-    'python_casacore>=3.6.1; sys_platform != "darwin" ',
+    'arcae>=0.5.7',
+    'pyasdm',
     'matplotlib',
     'prettytable',
     'jupyterlab',
@@ -130,6 +141,7 @@ all = [
 ]
 
 [project.entry-points."xarray.backends"]
+xradio_asdm = "xradio.measurement_set._utils._asdm.asdm_backend_entrypoint:ASDMBackendEntryPoint"
 # _xradio_xarray_backends is a top level module (src/_xradio_xarray_backends.py),
 # so that loading the entry points does not import the xradio package
 xradio_casa_image = "_xradio_xarray_backends:CasaImageBackendEntrypoint"
@@ -139,7 +151,9 @@ xradio_msv2 = "_xradio_xarray_backends:MSv2BackendEntrypoint"
 [tool.pytest.ini_options]
 addopts = [
     "--import-mode=importlib",
-    "--strict-markers"
+    "--strict-markers",
+    "-ra",  # extra test summary info for (a)ll except passed
+    "-v",  # increase verbosity
 ]
 testpaths = [
     "tests"

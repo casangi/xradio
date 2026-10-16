@@ -382,15 +382,18 @@ documentation <api.rst>`__).
 Figure 3 summarizes the available and planned future functionality. The
 sub-package currently allows direct opening of data from
 `zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__ and
-will support ASDM pre- and post- WSU (ALMA Wide Band Sensitivity
+ASDM. It will support ASDM pre- and post- WSU (ALMA Wide Band Sensitivity
 Upgrade) and possibly
 `NetCDF <https://www.unidata.ucar.edu/software/netcdf/>`__ in the
 future. The WSU ASDM is an update of the
 `ASDM <https://drive.google.com/file/d/1PMrZFbkrMVfe57K6AAh1dR1FalS35jP2/view>`__
 implementation required by `ALMA
 WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
-where the spectral windows are no longer interleaved. Both zarr and
-NetCDF support cloud storage, and
+where the spectral windows are no longer interleaved. The ASDM backend is under
+development and its performance is being evaluated as development progresses
+(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__).
+
+Both zarr and NetCDF support cloud storage, and
 `open_processing_set <api.rst#xradio.measurement_set.open_processing_set>`__
 and
 `load_processing_set <api.rst#xradio.measurement_set.load_processing_set>`__
@@ -430,7 +433,7 @@ Schema-related:
 Software-related:
 
 - Expand and refine Processing Set methods
-- Add ASDM and WSU-ASDM backend
+- Complete the ASDM and WSU-ASDM backend
 - Possibly add a NetCDF backend
 - Replace python-casacore backend with a more lightweight (possibly pure
   Python) package

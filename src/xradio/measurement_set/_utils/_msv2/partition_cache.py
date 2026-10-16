@@ -93,6 +93,7 @@ from typing import Any
 
 import numpy as np
 
+from xradio._utils._casacore.backend import BACKEND
 from xradio._utils._casacore.tables import casatools_serialized, uses_casatools
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.table_lock_file import (
@@ -1251,6 +1252,8 @@ def why_not_writable(
     """
     if uses_casatools():
         return "casatools only", False  # (the shim cannot create tables)
+    if BACKEND == "arcae":
+        return "arcae backend", False  # (the shim has no table locks)
 
     if not os.access(path, os.W_OK | os.X_OK):
         return "MS directory not writable", True
@@ -1435,7 +1438,7 @@ def _create_subtable(path: str) -> str | None:
     place (never at its final name: casacore would replace a table there).
     Returns its path, or None if another writer's is already there.
     """
-    from casacore import tables
+    tables = _tables_module()
 
     final = subtable_path(path)
     tmp = _tmp_subtable_path(path)

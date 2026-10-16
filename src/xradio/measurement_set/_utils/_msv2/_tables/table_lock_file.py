@@ -25,6 +25,8 @@ import dataclasses
 import os
 import struct
 from collections.abc import Mapping
+from contextlib import ExitStack
+from typing import Any
 
 import numpy as np
 
@@ -383,6 +385,7 @@ def followed_table_fingerprint(
     table_path: str,
     key_columns: list[str] | tuple[str, ...] | None = None,
     followed_columns: list[str] | tuple[str, ...] | None = None,
+    table: Any = None,
 ) -> tuple[dict | None, str | None]:
     """
     The fingerprint of one table (``table_fingerprint``) and why it cannot
@@ -408,6 +411,11 @@ def followed_table_fingerprint(
     followed_columns : list[str] | tuple[str, ...] | None, optional
         The columns whose data managers must have files of their own (default
         ``key_columns``; none if both are None).
+    table : Any, optional
+        The table, already opened (e.g. by the read that the fingerprint is
+        checked for): its data managers are taken from it instead of a new
+        open if the lock file is readable (otherwise the table is opened and
+        re-synchronized here, as without it).
 
     Returns
     -------
@@ -421,7 +429,9 @@ def followed_table_fingerprint(
         return None, None
     lock = read_table_lock(table_path)
     lock_ok = lock is not None and lock.lock_ok
-    with casatools_serialized(), open_table_ro(table_path) as table:
+    with casatools_serialized(), ExitStack() as stack:
+        if table is None or not lock_ok:
+            table = stack.enter_context(open_table_ro(table_path))
         if not lock_ok:
             # (the rows of this process if it holds the table's write lock)
             resync_unless_write_locked(table)
@@ -538,11 +548,14 @@ def followed_ms_fingerprint(
     main_key_columns: list[str] | tuple[str, ...],
     subtables: tuple[str, ...] = ("FIELD", "STATE", "SOURCE"),
     subtable_columns: Mapping[str, tuple[str, ...]] | None = None,
+    main_table: Any = None,
 ) -> tuple[dict, str | None]:
     """
     ``ms_fingerprint`` and why it cannot tell the writes of the tables it
     describes, if it cannot (``followed_table_fingerprint`` of MAIN, for its
     key columns, and of every sub-table, for its ``subtable_columns``).
+    ``main_table``: MAIN, already opened (``table`` of
+    ``followed_table_fingerprint``).
 
     Returns
     -------
@@ -550,7 +563,9 @@ def followed_ms_fingerprint(
         (fingerprint, None, or the reason, e.g. "MAIN is a reference or
         concatenated table", "MAIN uses ForwardColumnEngine").
     """
-    main, unfollowed = followed_table_fingerprint(ms_path, list(main_key_columns))
+    main, unfollowed = followed_table_fingerprint(
+        ms_path, list(main_key_columns), table=main_table
+    )
     if main is None:
         raise FileNotFoundError(f"No MAIN table in {ms_path}")
     reason = None if unfollowed is None else f"MAIN {unfollowed}"

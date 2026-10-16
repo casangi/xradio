@@ -8,6 +8,8 @@ the optional casacore export test, neither python-casacore nor casatools.
 
 from __future__ import annotations
 
+import gzip
+import shutil
 import subprocess
 import sys
 import textwrap
@@ -301,7 +303,9 @@ def test_casa_export_layout_rr_ll_rl_lr(tmp_path):
 def test_casacore_export_opens_in_canonical_order(tmp_path):
     """A FITS file written by casacore from a CASA image with polarizations
     RR, LL, RL, LR opens as RR, RL, LR, LL with the matching pixels."""
-    pytest.importorskip("casacore.images")
+    pytest.importorskip(
+        "casacore.images", reason="python-casacore writes the FITS file"
+    )
     from casacore.images import coordinates
     from casacore.images import image as casa_image
 
@@ -864,6 +868,43 @@ def test_pixels_in_native_byte_order_with_declared_dtype(tmp_path, dtype):
     assert chunk.flags["C_CONTIGUOUS"]
     np.testing.assert_array_equal(chunk, data[1:3, 0:2, 1:4, 2:6])
     assert "FLAG_SKY" not in xds
+    # the same block mapped from the pixels' offset, without astropy
+    with fits.open(path) as hdulist:
+        offset = hdulist.fileinfo(0)["datLoc"]
+    chunk = _read_image_chunk(
+        path,
+        (2, 2, 3, 4),
+        (1, 0, 1, 2),
+        np.dtype(dtype).name,
+        data_offset=offset,
+        shape=data.shape,
+    )
+    assert chunk.dtype == np.dtype(dtype) and chunk.dtype.isnative
+    assert chunk.flags["C_CONTIGUOUS"]
+    np.testing.assert_array_equal(chunk, data[1:3, 0:2, 1:4, 2:6])
+
+
+def test_pixels_read_in_one_graph_layer(tmp_path):
+    path, data = write_fits(tmp_path / "blocks.fits")
+    sky = read(path, chunks={"frequency": 1, "polarization": 1, "l": 2}).SKY
+    graph = sky.data.__dask_graph__()
+    # the read, expand_dims and transpose, whatever the number of blocks
+    assert len(graph.layers) == 3
+    assert len(graph) == 3 * sky.data.npartitions
+    np.testing.assert_array_equal(
+        sky.values, expected_sky(data, (RA, DEC, FREQ, stokes_axis()))
+    )
+
+
+def test_gzipped_file_is_read_through_astropy(tmp_path):
+    path, data = write_fits(tmp_path / "plain.fits")
+    gzipped = tmp_path / "plain.fits.gz"
+    with open(path, "rb") as plain, gzip.open(gzipped, "wb") as compressed:
+        shutil.copyfileobj(plain, compressed)
+    sky = read(gzipped, chunks={"frequency": 2, "l": 3}).SKY
+    np.testing.assert_array_equal(
+        sky.values, expected_sky(data, (RA, DEC, FREQ, stokes_axis()))
+    )
 
 
 # --------------------------------------------------------------------------- #

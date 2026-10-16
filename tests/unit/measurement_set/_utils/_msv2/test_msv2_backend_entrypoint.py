@@ -252,7 +252,7 @@ def _run_python(code: str, cwd, *options: str) -> subprocess.CompletedProcess:
 def test_loading_and_guessing_imports_no_reader(backend_ms, tmp_path):
     """Loading the entry point and guessing (also on an MS), as an
     engine-less open does, imports none of xradio, zarr, dask, astropy,
-    casacore or casatools."""
+    arcae, casacore or casatools."""
     result = _run_python(
         f"""
         import sys
@@ -268,7 +268,9 @@ def test_loading_and_guessing_imports_no_reader(backend_ms, tmp_path):
         assert not backend.guess_can_open("missing.ms")
         heavy = [
             name
-            for name in ("xradio", "zarr", "dask", "astropy", "casacore", "casatools")
+            for name in (
+                "xradio", "zarr", "dask", "astropy", "arcae", "casacore", "casatools"
+            )
             if name in sys.modules
         ]
         assert not heavy, heavy
@@ -288,7 +290,7 @@ def test_entry_point_loads_on_an_xarray_only_install(backend_ms, tmp_path):
 
         for name in (
             "dask", "astropy", "zarr", "numcodecs", "toolviper", "distributed",
-            "casacore", "casatools", "casaconfig",
+            "arcae", "casacore", "casatools", "casaconfig",
         ):
             sys.modules[name] = None
 
@@ -300,7 +302,7 @@ def test_entry_point_loads_on_an_xarray_only_install(backend_ms, tmp_path):
         try:
             xr.open_datatree(msname, engine=MSv2BackendEntrypoint)
         except ImportError as exc:
-            assert "python-casacore or casatools" in str(exc), exc
+            assert "arcae, which is not installed" in str(exc), exc
         else:
             raise AssertionError("no ImportError")
         """,

@@ -44,7 +44,9 @@ def get_pad_value(col_dtype: np.dtype) -> object:
         return complex(np.nan, np.nan)
     elif np.issubdtype(col_dtype, np.bool_):
         return False
-    elif np.issubdtype(col_dtype, str):
+    elif np.issubdtype(col_dtype, str) or isinstance(
+        col_dtype, getattr(np.dtypes, "StringDType", ())
+    ):
         return ""
     else:
         raise RuntimeError(
@@ -113,11 +115,18 @@ def check_if_consistent(
     _type_
         _description_
     """
+    if array.size == 0:
+        return array
+
     if array.ndim == 0:
         return array.item()
 
     array_unique = unique_1d(array)
-    assert len(array_unique) == 1, array_name + " is not consistent." + err_msg
+    if len(array_unique) != 1:
+        raise RuntimeError(
+            f"{array_name} is not consistent, {err_msg=}.\n{len(array)=}, {len(array_unique)=}, {array_unique=}"
+        )
+
     return array_unique[0]
 
 

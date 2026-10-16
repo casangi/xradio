@@ -55,8 +55,7 @@ def test_utimes_tol_from_times_of_partitions(
 ):
     """Unique times and tolerance of the TIME values of a partition (the rows
     of a TaQL selection), the same as TaQL's DISTINCT gives."""
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.measurement_set._utils._msv2._tables.read_main_table import (
         utimes_tol_from_times,
     )
@@ -64,11 +63,11 @@ def test_utimes_tol_from_times_of_partitions(
     from xradio.measurement_set._utils._msv2._tables.table_query import open_table_ro
 
     with open_table_ro(ms_minimal_required.fname) as mtable:
-        with tables.taql(f"select * from $1 {where}", tables=[mtable]) as query:
-            rows = np.asarray(query.rownumbers(), dtype=np.int64)
-        with tables.taql(
-            f"select DISTINCT TIME from $1 {where}", tables=[mtable]
-        ) as query:
+        # ROWID(): the MAIN rows (rownumbers() of the arcae shim counts the
+        # selection's rows from 0)
+        with tables.taql(f"select ROWID() AS R from $mtable {where}") as query:
+            rows = np.asarray(query.getcol("R") if query.nrows() else [], np.int64)
+        with tables.taql(f"select DISTINCT TIME from $mtable {where}") as query:
             distinct = np.sort(query.getcol("TIME", 0, -1)) if rows.size else []
         utimes, tol = utimes_tol_from_times(MainTableRows(mtable, rows).getcol("TIME"))
     assert all(utimes == expected_output[0])

@@ -954,8 +954,8 @@ def _casa_image_plane(store: str) -> str | None:
         ``"SKY"`` for a CASA image with a direction coordinate,
         ``"APERTURE"`` for one with a linear ``UU``/``VV`` coordinate, and
         ``None`` when ``store`` is not a CASA image or its coordinates cannot
-        be read (for example without python-casacore and casatools; the image
-        reader then reports the problem).
+        be read (for example without arcae; the image reader then reports
+        the problem).
     """
     if not os.path.isfile(os.path.join(store, "table.info")):
         return None

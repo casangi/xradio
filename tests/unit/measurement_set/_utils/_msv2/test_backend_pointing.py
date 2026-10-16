@@ -26,9 +26,8 @@ import numpy as np
 import pytest
 import xarray as xr
 
-tables = pytest.importorskip("casacore.tables")
-
 from _xradio_xarray_backends import MSv2BackendEntrypoint  # noqa: E402
+from xradio._utils._casacore.backend import BACKEND, tables  # noqa: E402
 from xradio.measurement_set._utils._msv2 import (  # noqa: E402
     backend_pointing as bpt,
 )
@@ -159,8 +158,8 @@ def make_pointing_ms(
         else:
             tb.putcol("TARGET", rng.normal(size=(nrows, n_poly, 2)))
         if variant == "empty_encoder":
-            for row in range(nrows):
-                tb.putcell("ENCODER", row, np.zeros(0))
+            # (arcae cannot write cells of zero size)
+            tables.taql("UPDATE $tb SET ENCODER = array(0., [0])")
         elif variant == "int_encoder":
             tb.putcol("ENCODER", rng.integers(-(2**30), 2**30, size=(nrows, 2)))
         elif variant != "no_encoder":
@@ -1570,7 +1569,7 @@ def test_swapped_pointing_antennas_are_read(pointing_ms, tmp_path):
         with tables.table(
             os.path.join(ms, "POINTING"), readonly=False, ack=False
         ) as tb:
-            values = tb.getcol("ANTENNA_ID")
+            values = tb.getcol("ANTENNA_ID").copy()
             values[rows] = values[rows[::-1]]
             tb.putcol("ANTENNA_ID", values)
         if clear:
@@ -1605,7 +1604,8 @@ def test_pointing_rows_are_checked_only_after_writes(
     writer = tables.table(table, readonly=False, ack=False)
     try:
         assert_bits_equal(actual.POINTING_BEAM.values, expected.POINTING_BEAM.values)
-        assert len(checks) == 1
+        # (arcae handles share no table object)
+        assert len(checks) == (BACKEND != "arcae")
     finally:
         writer.close()
     checks.clear()

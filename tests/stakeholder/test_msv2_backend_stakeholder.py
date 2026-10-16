@@ -95,7 +95,7 @@ def _file_states(path: pathlib.Path) -> dict:
 def test_engine_equals_the_converted_processing_set(
     ms_name: str, tmp_path: pathlib.Path
 ):
-    from xradio._utils._casacore.tables import uses_casatools
+    from xradio._utils._casacore.backend import BACKEND
     from xradio.measurement_set._utils._msv2 import partition_cache
 
     partition_schemes, expected_secondary_xds = CASES[ms_name]
@@ -154,6 +154,6 @@ def test_engine_equals_the_converted_processing_set(
         )
         assert_nodes_identical(engine, reference)
     stored = os.path.isdir(copy / partition_cache.SUBTABLE_NAME)
-    assert stored != uses_casatools()  # (never stored with casatools)
+    assert stored == (BACKEND == "casacore")  # (stored with python-casacore only)
     shutil.rmtree(ps_name)
     shutil.rmtree(copy)

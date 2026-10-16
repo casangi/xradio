@@ -14,7 +14,7 @@ package, so that loading the entry points does not run ``xradio/__init__.py``
 image is actually opened. The implementation, with the documentation of the
 parameters, is in :mod:`xradio.image.backends`, which re-exports the entry
 point classes. Likewise the MSv2 reader (the converter's code, with zarr, dask
-and casacore or casatools) is imported only when an MS is opened (see
+and arcae) is imported only when an MS is opened (see
 :func:`xradio.measurement_set.open_msv2`).
 """
 
@@ -290,13 +290,10 @@ def _msv2_driver():
     except ModuleNotFoundError as exc:
         import importlib.util
 
-        if all(
-            importlib.util.find_spec(name) is None for name in ("casacore", "casatools")
-        ):
+        if importlib.util.find_spec("arcae") is None:
             raise ImportError(
-                "The xradio_msv2 engine reads MeasurementSets with python-casacore "
-                "or casatools, and neither is installed (pip install "
-                "'xradio[casacore]', or install casatools)."
+                "The xradio_msv2 engine reads MeasurementSets with arcae, which is "
+                "not installed (pip install 'xradio[casacore]')."
             ) from exc
         raise
     return open_msv2_tree

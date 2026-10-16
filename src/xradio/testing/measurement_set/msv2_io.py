@@ -13,11 +13,18 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any
 
-import casacore.tables as tables
 import numpy as np
-from casacore.tables import default_ms, default_ms_subtable
-from casacore.tables.msutil import complete_ms_desc, makearrcoldesc, required_ms_desc
-from casacore.tables.tableutil import makedminfo, maketabdesc
+
+from xradio._utils._casacore.backend import (
+    complete_ms_desc,
+    default_ms,
+    default_ms_subtable,
+    makearrcoldesc,
+    makedminfo,
+    maketabdesc,
+    required_ms_desc,
+    tables,
+)
 
 # Start of the MAIN table TIME column of the generated test MSs, in casacore
 # time (seconds since MJD 0, 1858-11-17). Also used as the TIME of the rows of
@@ -289,7 +296,7 @@ def make_ms_empty(name: str, descr: dict = None, complete: bool = False):
     else:
         tabdesc = required_ms_desc("MAIN")
 
-    datacoldesc = tables.makearrcoldesc(
+    datacoldesc = makearrcoldesc(
         "DATA",
         0.1 + 0.1j,
         valuetype="complex",
@@ -299,9 +306,9 @@ def make_ms_empty(name: str, descr: dict = None, complete: bool = False):
         comment="The data column",
     )
     del datacoldesc["desc"]["shape"]
-    tabdesc.update(tables.maketabdesc(datacoldesc))
+    tabdesc.update(maketabdesc(datacoldesc))
 
-    weightspeccoldesc = tables.makearrcoldesc(
+    weightspeccoldesc = makearrcoldesc(
         "WEIGHT_SPECTRUM",
         1.0,
         valuetype="float",
@@ -311,9 +318,9 @@ def make_ms_empty(name: str, descr: dict = None, complete: bool = False):
         comment="Weight for each data point",
     )
     del weightspeccoldesc["desc"]["shape"]
-    tabdesc.update(tables.maketabdesc(weightspeccoldesc))
+    tabdesc.update(maketabdesc(weightspeccoldesc))
 
-    vis = tables.default_ms(name, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
+    vis = default_ms(name, tabdesc=tabdesc, dminfo=makedminfo(tabdesc))
     assert vis.nrows() == 0
 
 
@@ -396,7 +403,7 @@ def gen_main_table(
         ms_data_man_info = makedminfo(ms_desc, dmgroups_spec)
 
     if "STATE" not in descr:
-        vis = tables.default_ms(mspath, tabdesc=ms_desc, dminfo=makedminfo(ms_desc))
+        vis = default_ms(mspath, tabdesc=ms_desc, dminfo=makedminfo(ms_desc))
         assert vis.nrows() == 0
         return
     # else:
@@ -945,7 +952,7 @@ def open_opt_subtable(
     Generator[tables.table, None, None]
         context for an optional subtable created as per MSv2 specs
     """
-    subt_desc = tables.complete_ms_desc(tbl_name)
+    subt_desc = complete_ms_desc(tbl_name)
     # table = tables.table(mspath + "/" + tbl_name, tabledesc=subt_desc,
     #                dminfo=makedminfo(subt_desc), ack=False, readonly=False)
     table = default_ms_subtable(tbl_name, mspath + "/" + tbl_name, subt_desc)

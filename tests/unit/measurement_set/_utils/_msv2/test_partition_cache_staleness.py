@@ -17,9 +17,9 @@ import shutil
 import numpy as np
 import pytest
 import xarray as xr
-from casacore import tables
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
+from xradio._utils._casacore.backend import BACKEND
 from xradio.measurement_set import convert_msv2_to_processing_set, open_processing_set
 from xradio.measurement_set._utils._msv2 import (
     backend_open,
@@ -36,6 +36,9 @@ from xradio.measurement_set._utils._msv2.partition_cache import (
 from xradio.testing.measurement_set.equivalence import assert_nodes_identical
 
 ENGINE = MSv2BackendEntrypoint
+NOT_STORED = "the partition cache is stored with python-casacore only, not with arcae"
+tables = pytest.importorskip("casacore.tables", reason=NOT_STORED)
+pytestmark = pytest.mark.skipif(BACKEND == "arcae", reason=NOT_STORED)
 # The scheme of the scenarios, and the partitions opened and converted: those
 # of DDI 0 and field 0, which the modifications change (the stored rows
 # describe all 16 partitions)

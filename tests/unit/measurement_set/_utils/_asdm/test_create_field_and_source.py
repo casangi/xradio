@@ -126,12 +126,36 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     issues_if = check_dataset(if_field_and_source_xds, FieldSourceXds)
     assert not issues_if
 
+    phase_center_name = "FIELD_PHASE_CENTER_DIRECTION"
+    assert phase_center_name in if_field_and_source_xds.data_vars
+    expected_phase_center = xr.DataArray(
+        data=[[1.14870304, -0.02343136]],
+        dims=["field_name", "sky_dir_label"],
+        coords={
+            "field_name": ["J0423-0120_0"],
+            "source_name": ("field_name", ["J0423-0120"]),
+            "sky_dir_label": ["ra", "dec"],
+        },
+    )
+    xr.testing.assert_allclose(
+        if_field_and_source_xds[phase_center_name], expected_phase_center
+    )
+    assert if_field_and_source_xds[phase_center_name].attrs["frame"] == "icrs"
+
     # SD
     sd_field_and_source_xds = create_field_and_source_xds(
         asdm_with_source_field, {"fieldId": [0]}, 0, True
     )
     issues_sd = check_dataset(sd_field_and_source_xds, FieldSourceXds)
     assert not issues_sd
+
+    reference_center_name = "FIELD_REFERENCE_CENTER_DIRECTION"
+    expected_reference_center = expected_phase_center
+    assert reference_center_name in sd_field_and_source_xds.data_vars
+    xr.testing.assert_allclose(
+        sd_field_and_source_xds[reference_center_name], expected_reference_center
+    )
+    assert sd_field_and_source_xds[reference_center_name].attrs["frame"] == "icrs"
 
     # IF with lineinfo in Source
     asdm_with_source_field_with_lineinfo = copy.deepcopy(asdm_with_spw_simple)
@@ -159,6 +183,37 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     )
     issues_field_source = check_dataset(field_and_source_xds, FieldSourceXds)
     assert not issues_field_source
+
+    assert phase_center_name in field_and_source_xds.data_vars
+    xr.testing.assert_allclose(
+        field_and_source_xds[phase_center_name], expected_phase_center
+    )
+    assert field_and_source_xds[phase_center_name].attrs["frame"] == "icrs"
+
+    assert "line_label" in field_and_source_xds.coords
+    rest_freq_name = "LINE_REST_FREQUENCY"
+    sys_vel_name = "LINE_SYSTEMIC_VELOCITY"
+    for data_var in [rest_freq_name, sys_vel_name]:
+        assert data_var in field_and_source_xds.data_vars
+    expected_dims = ["field_name", "line_label"]
+    expected_coords = {
+        "field_name": ["J0423-0120_0"],
+        "source_name": ("field_name", ["J0423-0120"]),
+        "line_label": ["0"],
+        "line_name": (["field_name", "line_label"], [['"cii_blue(ID=0)"']]),
+    }
+    expected_rest_freq = xr.DataArray(
+        data=[[1.894942370e12]], dims=expected_dims, coords=expected_coords
+    )
+    expected_sys_vel = xr.DataArray(
+        data=[[0.0]], dims=expected_dims, coords=expected_coords
+    )
+    xr.testing.assert_allclose(
+        field_and_source_xds.data_vars[rest_freq_name], expected_rest_freq
+    )
+    xr.testing.assert_allclose(
+        field_and_source_xds.data_vars[sys_vel_name].values == expected_sys_vel
+    )
 
 
 def test_extract_source_info_empty():

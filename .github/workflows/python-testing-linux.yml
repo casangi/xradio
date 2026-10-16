@@ -21,7 +21,7 @@ concurrency:
 
 jobs:
   call-testing-linux:
-    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-linux-template.yml@17-ci-python-312-314-push-pr-split
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-linux-template.yml@main
     with:
       cov_project: "xradio"
       test-path: "tests/"

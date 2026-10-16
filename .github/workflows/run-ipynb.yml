@@ -21,6 +21,6 @@ concurrency:
 jobs:
 
   call-testing-linux:
-    uses: nrao/gh-actions-templates-public/.github/workflows/run-ipynb-template.yml@17-ci-python-312-314-push-pr-split
+    uses: nrao/gh-actions-templates-public/.github/workflows/run-ipynb-template.yml@main
     with:
       python-version: "3.13"

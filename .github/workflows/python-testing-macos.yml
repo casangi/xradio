@@ -17,7 +17,7 @@ concurrency:
 
 jobs:
   call-testing-macos:
-    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-macos-template.yml@17-ci-python-312-314-push-pr-split
+    uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-macos-template.yml@main
     with:
       python-versions: '["3.12", "3.13", "3.14"]'
       # TODO: remove once toolviper, xradio and graphviper releases with

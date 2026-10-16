@@ -42,7 +42,7 @@ pip install "xradio[casacore]"   # MSv2->MSv4 conversion + CASA image IO (pulls 
 - **Base `pip install xradio` pulls only `xarray`** → schema-check + JSON export only (no zarr I/O, no conversion).
 - Optional extras: `zarr`, `casacore`, `interactive`, `test`, `docs`, `all` (combinable, e.g. `[interactive,casacore,test]`).
 - **CASA-table backend: [arcae](https://github.com/ska-sa/arcae)** (Arrow-based casacore table bindings with self-contained wheels for Linux and macOS). Backend selection lives in `src/xradio/_utils/_casacore/backend.py`: arcae (via the `casacore_from_arcae` / `images_from_arcae` shims that emulate the python-casacore `tables`/`images` API — arcae has no image API, so CASA images are read/written through table access + TaQL). `casatools` is no longer supported.
-- `requires-python = ">=3.11, <3.14"` (3.11 / 3.12 / 3.13).
+- `requires-python = ">=3.11, <3.15"`; CI tests 3.12 / 3.13 / 3.14 (3.11 is still allowed but untested).
 - **Editable installs must be reinstalled** (`pip install -e . --no-deps`) after a change to `pyproject.toml` entry points (for example the xarray backends), because the installed `entry_points.txt` is only written at install time.
 
 ---

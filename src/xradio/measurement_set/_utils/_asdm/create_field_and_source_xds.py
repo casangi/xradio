@@ -141,23 +141,21 @@ def extract_source_info(
         "spectralWindowId",
         "direction",
         "sourceName",
-        # "directionCode",  it is optional, get it via a helper func
     ]
     sdm_source_optional_attrs = [
+        "directionCode",
         "numLines",
         "transition",
         "restFrequency",
         "sysVel",
+        "frequencyRefCode",
     ]
-    try:
-        source_df = exp_asdm_table_to_df(
-            asdm,
-            "Source",
-            sdm_source_required_attrs + sdm_source_optional_attrs,
-            optional_per_row=True,
-        )
-    except ValueError as _exc:
-        source_df = exp_asdm_table_to_df(asdm, "Source", sdm_source_required_attrs)
+    source_df = exp_asdm_table_to_df(
+        asdm,
+        "Source",
+        sdm_source_required_attrs + sdm_source_optional_attrs,
+        optional_per_row=True,
+    )
 
     source_id = field_df["sourceId"].unique()
     source_df = source_df.loc[
@@ -203,11 +201,11 @@ def extract_source_info(
             .explode()
             .to_numpy(dtype="float64")[np.newaxis, :]
         )
-        # TODO: frequencyRefCode
+        frequency_frame = _retrieve_frequency_frame(source_df)
         xds["LINE_REST_FREQUENCY"] = (
             ["field_name", "line_label"],
             rest_freq,
-            make_spectral_coord_measure_attrs("Hz", observer="TOPO"),
+            make_spectral_coord_measure_attrs("Hz", observer=frequency_frame),
         )
         sys_vel = source_df["sysVel"].explode().to_numpy(dtype="float64")[np.newaxis, :]
         xds["LINE_SYSTEMIC_VELOCITY"] = (
@@ -217,6 +215,23 @@ def extract_source_info(
         )
 
     return xds
+
+
+def _retrieve_frequency_frame(source_df: pd.DataFrame) -> str:
+    try:
+        frequency_ref_code = source_df["frequencyRefCode"].item().getName()
+    except AttributeError as _exc:
+        frequency_ref_code = ""
+
+    # frequencyRefCode doc: "The reference code for frequency (if not LSRK)"
+    if frequency_ref_code and frequency_ref_code != "NaN":
+        frequency_frame = casacore_to_msv4_measure_type["frequency"]["Ref_map"].get(
+            frequency_ref_code, frequency_ref_code.lower()
+        )
+    else:
+        frequency_frame = "lsrk"
+
+    return frequency_frame
 
 
 def _retrieve_direction_frame(field_df: pd.DataFrame, field_id: int) -> str:

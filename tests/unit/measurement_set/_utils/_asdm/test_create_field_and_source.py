@@ -166,6 +166,7 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     <transition> 1 1 &quot;cii_blue(ID=0)&quot;  </transition>
     <restFrequency> 1 1 1.8949423708552605E12  </restFrequency>
     <sysVel> 1 1 0.0  </sysVel>
+    <frequencyRefCode>GEO</frequencyRefCode>
   </row>
     """
     source_table = asdm_with_source_field_with_lineinfo.getSource()
@@ -205,15 +206,19 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     expected_rest_freq = xr.DataArray(
         data=[[1.894942370e12]], dims=expected_dims, coords=expected_coords
     )
+    xr.testing.assert_allclose(
+        field_and_source_xds.data_vars[rest_freq_name], expected_rest_freq
+    )
+    print(f"{field_and_source_xds[rest_freq_name].attrs=}")
+    assert field_and_source_xds[rest_freq_name].attrs["observer"] == "gcrs"
+
     expected_sys_vel = xr.DataArray(
         data=[[0.0]], dims=expected_dims, coords=expected_coords
     )
     xr.testing.assert_allclose(
-        field_and_source_xds.data_vars[rest_freq_name], expected_rest_freq
+        field_and_source_xds.data_vars[sys_vel_name], expected_sys_vel
     )
-    xr.testing.assert_allclose(
-        field_and_source_xds.data_vars[sys_vel_name].values == expected_sys_vel
-    )
+    assert field_and_source_xds[sys_vel_name].attrs["units"] == "m/s"
 
 
 def test_extract_source_info_empty():

@@ -5,7 +5,10 @@ import numpy as np
 import pytest
 import xarray as xr
 
-tables = pytest.importorskip("casacore.tables")
+tables = pytest.importorskip(
+    "casacore.tables",
+    reason="the tests make and open their tables with python-casacore",
+)
 
 from xradio.measurement_set._utils._msv2._tables import (  # noqa: E402
     read_pointing as rp,
@@ -284,6 +287,7 @@ def test_create_pointing_xds_not_cacheable(pointing_ms, variant):
 
 def test_select_pointing_rows_matches_taql(pointing_ms):
     """The numpy selection picks the rows of the TaQL WHERE of the uncached read."""
+    from xradio._utils._casacore import backend
     from xradio.measurement_set._utils._msv2._tables.read import (
         make_taql_where_between_min_max,
     )
@@ -301,8 +305,10 @@ def test_select_pointing_rows_matches_taql(pointing_ms):
             ants = np.unique(rng.integers(0, NANTS + 2, 3))
             where = make_taql_where_between_min_max((lo, hi), ms, "POINTING", "TIME")
             where += f" AND (ANTENNA_ID IN [{','.join(map(str, ants))}])"
-            with tables.taql(f"select * from $tb {where}") as sel:
-                expected = np.asarray(sel.rownumbers())
+            # ROWID(): the table's rows (rownumbers() of the arcae shim counts
+            # the selection's rows from 0)
+            with backend.tables.taql(f"select ROWID() AS R from $tb {where}") as sel:
+                expected = np.asarray(sel.getcol("R") if sel.nrows() else [], int)
             idx = rp.select_pointing_rows(pointing_columns, (lo, hi), ants)
             np.testing.assert_array_equal(np.sort(pointing_columns.row[idx]), expected)
 

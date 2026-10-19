@@ -14,8 +14,8 @@ so copies of two of them are re-tiled that way (one with DATA and FLAG in one
 data manager) for the channel-sliced reads of real MSs.
 
 Slow (about 7 minutes, and the MSs are downloaded into ``MS_DIR``, which the
-stakeholder and casatools tests share): marked ``slow`` and run only with the
-environment variable ``XRADIO_SLOW_TESTS=1``.
+stakeholder tests share): marked ``slow`` and run only with the environment
+variable ``XRADIO_SLOW_TESTS=1``.
 """
 
 import os
@@ -46,8 +46,8 @@ pytestmark = [
 ]
 
 ENGINE = MSv2BackendEntrypoint
-# The MSs are downloaded here (once), as in the stakeholder and casatools
-# tests; the tests open and convert copies (opening may store partitions)
+# The MSs are downloaded here (once), as in the stakeholder tests; the tests
+# open and convert copies (opening may store partitions)
 MS_DIR = pathlib.Path("/tmp/test")
 
 VLASS = "VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms"

@@ -185,7 +185,7 @@ def test_writers_run_one_small_graph_per_batch(tmp_path, monkeypatch, out_format
     """The writers compute the regions of a reader graph (one layer per
     chunk) through the region reader: one small graph per batch."""
     if out_format == "casa":
-        pytest.importorskip("casacore.tables")
+        pytest.importorskip("xradio._utils._casacore.backend")
     nchan = 60
     path = str(tmp_path / "cube.fits")
     _cube(path, nchan)
@@ -209,7 +209,7 @@ def test_writers_under_a_distributed_client(tmp_path, dask_client_module, out_fo
     """With a distributed client the batches run on its workers and the
     writing process writes the results."""
     if out_format == "casa":
-        pytest.importorskip("casacore.tables")
+        pytest.importorskip("xradio._utils._casacore.backend")
     path = str(tmp_path / "cube.fits")
     _cube(path, 12)
     xds = open_image(path, chunks={"frequency": 2})

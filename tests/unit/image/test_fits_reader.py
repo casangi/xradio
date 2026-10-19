@@ -303,7 +303,9 @@ def test_casa_export_layout_rr_ll_rl_lr(tmp_path):
 def test_casacore_export_opens_in_canonical_order(tmp_path):
     """A FITS file written by casacore from a CASA image with polarizations
     RR, LL, RL, LR opens as RR, RL, LR, LL with the matching pixels."""
-    pytest.importorskip("casacore.images")
+    pytest.importorskip(
+        "casacore.images", reason="python-casacore writes the FITS file"
+    )
     from casacore.images import coordinates
     from casacore.images import image as casa_image
 

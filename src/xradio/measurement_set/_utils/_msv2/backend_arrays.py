@@ -543,7 +543,7 @@ def partition_grouping(
     return tuple(grouping)
 
 
-def keys_token(ms_path: str) -> str | None:
+def keys_token(ms_path: str, main_table: Any = None) -> str | None:
     """
     A token of what the partitions of an MS and their (time, baseline) grids
     are made from (``followed_ms_fingerprint``): the storage of MAIN's
@@ -554,13 +554,15 @@ def keys_token(ms_path: str) -> str | None:
     flushed since. None if that cannot be told: a lock file of these tables
     cannot be read, or their files do not follow their rows (a reference or
     concatenated MAIN, key columns in a data manager without files of its
-    own, e.g. forwarded to another MS).
+    own, e.g. forwarded to another MS). ``main_table``: MAIN, already opened
+    (its data managers are taken from it, see followed_table_fingerprint).
     """
     fingerprint, unfollowed = followed_ms_fingerprint(
         ms_path,
         ROW_KEY_COLUMNS,
         FINGERPRINT_SUBTABLES,
         FINGERPRINT_SUBTABLE_COLUMNS,
+        main_table,
     )
     tables_found = [fingerprint["main"]] + [
         fingerprint[name] for name in FINGERPRINT_SUBTABLES if fingerprint[name]
@@ -583,7 +585,7 @@ def current_keys_token(table: Any, ms_path: str) -> str | None:
             return None
     except Exception:
         return None
-    return keys_token(ms_path)
+    return keys_token(ms_path, table)
 
 
 class _CheckMemo:

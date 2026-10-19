@@ -9,8 +9,8 @@ held in memory as a whole (unless the input itself is a single chunk). The
 regions are computed in batches with the active dask scheduler (see
 :mod:`xradio.image._util._blocks`).
 
-FITS only needs astropy: this module must not import python-casacore or
-casatools.
+FITS only needs astropy: this module must not import arcae or any other
+casacore package.
 """
 
 import contextlib

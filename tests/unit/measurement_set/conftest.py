@@ -329,8 +329,8 @@ def taql_reference_column(ms_path: str, partition_info: dict, col: str):
         The (time, baseline, ...) grid.
     """
     import numpy as np
-    from casacore import tables
 
+    from xradio._utils._casacore.backend import tables
     from xradio._utils.list_and_array import get_pad_value, unique_1d
     from xradio.measurement_set._utils._msv2._tables.read_main_table import (
         get_baseline_indices,
@@ -341,12 +341,10 @@ def taql_reference_column(ms_path: str, partition_info: dict, col: str):
     )
 
     where = create_taql_query_where(partition_info)
-    with tables.table(ms_path, ack=False) as main_tb:
-        with tables.taql(
-            f"select DISTINCT TIME from $1 {where}", tables=[main_tb]
-        ) as q:
+    with tables.table(ms_path, ack=False) as main_tb:  # noqa: F841 ($main_tb)
+        with tables.taql(f"select DISTINCT TIME from $main_tb {where}") as q:
             utimes = unique_1d(q.getcol("TIME", 0, -1))
-        with tables.taql(f"select * from $1 {where}", tables=[main_tb]) as sel:
+        with tables.taql(f"select * from $main_tb {where}") as sel:
             tidxs = np.searchsorted(utimes, sel.getcol("TIME"))
             baselines = get_baselines(sel)
             ant = np.column_stack((sel.getcol("ANTENNA1"), sel.getcol("ANTENNA2")))

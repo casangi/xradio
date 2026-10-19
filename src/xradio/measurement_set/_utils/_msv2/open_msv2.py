@@ -97,21 +97,19 @@ def open_msv2(
           every node of every MSv4 (and of its data groups).
         - partition_cache : str | None. By default the environment variable
           XRADIO_MSV2_PARTITION_CACHE, or "auto". The partitions of an MS
-          (``create_partitions``) are computed on its first open and stored
-          inside the MS: a sub-table XRADIO_PARTITIONS, linked by a MAIN
-          keyword of that name, and a HISTORY row. Later opens use them while
-          the MS is unchanged (a fingerprint of the tables they are computed
-          from, and no newer HISTORY rows). "auto": use, compute and store
-          (an MS that cannot be written is opened with partitions computed in
-          memory, with a PartitionCacheWarning once per MS and reason);
-          "read": use, never write; "rebuild": compute again and store; "off":
-          compute, neither use nor store. Partitions are also kept in memory
-          (per process) while the MS is unchanged (not with "off", nor for an
-          MS whose MAIN rows live in other tables: a reference or
-          concatenated MS). The shapes of the cells of the POINTING array
-          columns, which the first open scans, are stored and used the same
-          way (a row of XRADIO_PARTITIONS, no HISTORY row), while the
-          POINTING table is unchanged (its fingerprint).
+          (``create_partitions``) are computed on its first open in a process
+          and never stored in the MS (logged once per MS). Later opens use
+          them, or partitions stored in the MS (a sub-table
+          XRADIO_PARTITIONS), while the MS is unchanged (a fingerprint of the
+          tables they are computed from, and no newer HISTORY rows). "auto":
+          use or compute; "read": as "auto", without the log; "rebuild":
+          compute again; "off": compute, neither use nor keep. Partitions are
+          kept in memory (per process) while the MS is unchanged (not with
+          "off", nor for an MS whose MAIN rows live in other tables: a
+          reference or concatenated MS). The shapes of the cells of the
+          POINTING array columns, which the first open in a process scans,
+          are kept in memory the same way, while the POINTING table is
+          unchanged (its fingerprint).
         - on_partition_error : str. "skip" (default): a partition that cannot
           be opened is left out (logged with its traceback, and a
           RuntimeWarning); a RuntimeError is raised only if none can be

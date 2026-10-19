@@ -16,7 +16,6 @@ Tutorials and Guides
    guides/SKA_low
    guides/VLBA
    guides/VLBI
-   guides/backends
    guides/ALMA_ASDM_IF
 
 .. toctree::

@@ -219,9 +219,8 @@ def test_open_reads_the_first_cell_of_each_column(backend_ms, monkeypatch):
     build takes the dtype from it: _partition_cell_shape_and_dtype), with
     getcell, and no other value (api.rst, "What is read when").
     """
-    from casacore import tables
-
     from _xradio_xarray_backends import MSv2BackendEntrypoint
+    from xradio._utils._casacore.backend import tables
 
     msname = os.path.realpath(backend_ms("rich"))
     columns = {
@@ -248,7 +247,8 @@ def test_open_reads_the_first_cell_of_each_column(backend_ms, monkeypatch):
         return spy
 
     for method in VALUE_READ_METHODS:
-        monkeypatch.setattr(tables.table, method, spying(method))
+        if hasattr(tables.table, method):
+            monkeypatch.setattr(tables.table, method, spying(method))
     tree = xr.open_datatree(msname, engine=MSv2BackendEntrypoint, partition_cache="off")
     opened = list(reads)
     _, runs = create_partitions_with_main_rows(msname, [])
@@ -399,34 +399,6 @@ def test_no_table_left_open(backend_ms, tmp_path, monkeypatch):
     with pytest.raises(ValueError, match="simulated"):
         _open(msname, idx=1)
     assert _ms_fds(msname) == []
-
-
-def test_build_holds_the_casatools_lock(backend_ms, monkeypatch):
-    """The build of a partition runs in casatools_serialized (the
-    process-wide casatools lock with casatools, a no-op otherwise)."""
-    from contextlib import contextmanager
-
-    held = []
-    build = backend_partition.build_partition
-
-    @contextmanager
-    def serialized():
-        held.append("lock")
-        try:
-            yield
-        finally:
-            held.append("unlock")
-
-    @contextmanager
-    def spy(*args, **kwargs):
-        held.append("build")
-        with build(*args, **kwargs) as built:
-            yield built
-
-    monkeypatch.setattr(backend_partition, "casatools_serialized", serialized)
-    monkeypatch.setattr(backend_partition, "build_partition", spy)
-    _open(backend_ms("dense"))
-    assert held == ["lock", "build", "unlock"]
 
 
 def test_index_is_seeded(backend_ms):

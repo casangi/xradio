@@ -12,6 +12,10 @@ on:
       - '**.md'
       - '**.rst'
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.ref == 'refs/heads/main' && github.run_id || github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
 jobs:
   test:
     uses: nrao/gh-actions-templates-public/.github/workflows/python-testing-integration-template.yml@main

@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from xradio._utils._casacore.backend import BACKEND
 from xradio.measurement_set._utils._msv2 import backend_arrays, conversion, stream_write
 from xradio.measurement_set._utils._msv2._tables.read_rows import ColumnStorage
 from xradio.measurement_set._utils._msv2.backend_arrays import (
@@ -34,6 +35,11 @@ from xradio.measurement_set._utils._msv2.backend_errors import (
 )
 from xradio.measurement_set._utils._msv2.partition_queries import (
     create_partitions_with_main_rows,
+)
+
+channel_sliced_reads = pytest.mark.skipif(
+    BACKEND == "arcae",
+    reason="channel-sliced reads need python-casacore (the arcae shim reads whole cells)",
 )
 
 # --- the base class (cases adapted from the ASDM backend's tests) ------------
@@ -695,8 +701,7 @@ def test_channel_tiling_of_generated_columns(backend_ms):
     hypercubes per column, one per cell shape), as the arrays get it when
     the MS is opened; whole cells for MODEL_DATA (tiles of all channels) and
     for the columns of the other MSs."""
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.measurement_set._utils._msv2._tables.read_rows import column_storage
 
     expected = {
@@ -807,7 +812,8 @@ def test_channel_sliced_reads_equal_the_converter_reads(backend_ms, monkeypatch,
     channel ranges that straddle tiles, single channels, lists and steps,
     also through dask chunks; MODEL_DATA (tiles of all channels) and a
     selection of every channel are read in whole cells. The read channels
-    are the selection's range rounded out to whole tiles.
+    are the selection's range rounded out to whole tiles (with arcae: whole
+    cells).
     """
     lazy, reference, _ = lazy_and_reference(backend_ms("narrow_tiles"), idx)
     sliced = []
@@ -843,7 +849,7 @@ def test_channel_sliced_reads_equal_the_converter_reads(backend_ms, monkeypatch,
                 channels = np.sort(n_chan - 1 - channels)
             c0 = channels[0] // width * width if width else 0
             c1 = min(n_chan, -(-(channels[-1] + 1) // width) * width) if width else 0
-            if width and (c0, c1) != (0, n_chan):
+            if width and (c0, c1) != (0, n_chan) and BACKEND != "arcae":
                 assert sliced and all(chan == slice(c0, c1) for _, chan in sliced), (
                     name,
                     sel,
@@ -860,13 +866,14 @@ def test_channel_sliced_reads_equal_the_converter_reads(backend_ms, monkeypatch,
             )
 
 
+@channel_sliced_reads
 def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
     """A channel-sliced read bounds the column's tile cache
     (setmaxcachesize, MiB) to twice the tiles of its bands for the rows of a
     tile, at least CHANNEL_SLICE_MIN_CACHE_MIB, and sets the maximum before
     (getdmprop) again when it ends; its time sub-blocks are sized on the
-    read channels; with the casatools read API (no in-place reads) whole
-    cells are read."""
+    read channels; without in-place reads (the arcae shim) whole cells are
+    read."""
     lazy, reference, _ = lazy_and_reference(backend_ms("narrow_tiles"), 0)
     open_table_ro = backend_arrays.open_table_ro
     calls = []
@@ -923,7 +930,7 @@ def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
     assert steps == [3] * (n_times // 3) + [n_times % 3] * bool(n_times % 3)
     monkeypatch.setattr(backend_arrays.PartitionIndex, "select_outer", select_outer)
     monkeypatch.setattr(backend_arrays, "SUB_BLOCK_BYTES", 128 * 2**20)
-    # without in-place reads (the casatools shim): whole cells
+    # without in-place reads (the arcae shim): whole cells
     Recording.hidden = ("getcolnp", "getcolslicenp", "selectrows")
     calls.clear()
     sliced = []
@@ -941,6 +948,7 @@ def test_channel_sliced_reads_bound_the_tile_cache(backend_ms, monkeypatch):
     assert calls == [] and sliced == []
 
 
+@channel_sliced_reads
 def test_channel_sliced_reads_set_the_tile_cache_bound_back(backend_ms, monkeypatch):
     """
     A channel-sliced read bounds the column's tile cache only while it
@@ -1002,7 +1010,9 @@ def shared_dm_narrow_tiles(backend_ms, tmp_path_factory):
     in one TiledShapeStMan (SHARED_DM, as DATA and FLAG of some MSs of the
     test corpus), in tiles of 3 of the 16 channels: one tile cache for the
     three columns."""
-    from casacore import tables
+    tables = pytest.importorskip(
+        "casacore.tables", reason="the copy needs python-casacore's copy(dminfo=)"
+    )
 
     base = tmp_path_factory.mktemp("shared_dm")
     msname = str(base / "shared_dm.ms")
@@ -1023,6 +1033,7 @@ def shared_dm_narrow_tiles(backend_ms, tmp_path_factory):
     shutil.rmtree(base, ignore_errors=True)
 
 
+@channel_sliced_reads
 def test_channel_sliced_reads_bound_the_tile_cache_of_the_data_manager(
     shared_dm_narrow_tiles, monkeypatch
 ):
@@ -1134,7 +1145,9 @@ def interleaved_narrow_tiles(backend_ms, tmp_path_factory):
     - "one_shape": the rows of SPW 0 only (DDIs 0 and 1, other partitions
       of cells of one shape), interleaved.
     """
-    from casacore import tables
+    tables = pytest.importorskip(
+        "casacore.tables", reason="the copies need python-casacore's selectrows"
+    )
 
     msname = backend_ms("narrow_tiles")
     base = tmp_path_factory.mktemp("interleaved")
@@ -1162,6 +1175,7 @@ def interleaved_narrow_tiles(backend_ms, tmp_path_factory):
     shutil.rmtree(base, ignore_errors=True)
 
 
+@channel_sliced_reads
 @pytest.mark.parametrize(
     "kind, idx",
     [("two_shapes", 0), ("two_shapes", 1), ("two_shapes", 3), ("one_shape", 0)],
@@ -1224,6 +1238,7 @@ def test_channel_sliced_reads_of_interleaved_rows(
         assert not stats.get("gap_rows") and not stats.get("bridge_fallbacks")
 
 
+@channel_sliced_reads
 @pytest.mark.skipif(
     not os.path.exists("/proc/self/io"), reason="needs /proc/self/io (Linux)"
 )
@@ -1317,7 +1332,7 @@ LAYOUTS = ("shared", "per_column")
 
 
 def _update_main(msname, column, change):
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     with tables.table(msname, readonly=False, ack=False) as main_tb:
         values = main_tb.getcol(column)
@@ -1407,7 +1422,7 @@ def test_rows_are_checked_only_after_writes(ms_copy, layout, monkeypatch):
     has MAIN open for writing (its writes are seen before they are flushed).
     With a data manager per key column, a write of another column (FLAG_ROW)
     is no write of them, and a write of any one key column is."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     msname = ms_copy("dense", layout)
     lazy, reference, index = lazy_and_reference(msname, 0)
@@ -1425,7 +1440,8 @@ def test_rows_are_checked_only_after_writes(ms_copy, layout, monkeypatch):
     writer = tables.table(msname, readonly=False, ack=False)
     try:
         assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
-        assert checks == [300]
+        # (arcae handles share no table object)
+        assert checks == ([] if BACKEND == "arcae" else [300])
     finally:
         writer.close()
     checks.clear()
@@ -1461,7 +1477,7 @@ def _partition_of(msname, scheme, **keys):
 
 def _update_subtable(subtable, column, row, value):
     def change(msname):
-        from casacore import tables
+        from xradio._utils._casacore.backend import tables
 
         with tables.table(
             os.path.join(msname, subtable), readonly=False, ack=False
@@ -1479,7 +1495,7 @@ def _update_rows(column, value):
 
 
 def _remove_field_ephemeris_id(msname):
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     with tables.table(os.path.join(msname, "FIELD"), readonly=False, ack=False) as t:
         t.removecols(["EPHEMERIS_ID"])
@@ -1617,7 +1633,7 @@ def test_partition_is_checked_once_per_state(ms_copy, monkeypatch):
     MS (CHECK_MEMO, by keys_token), not on every read; a further write checks
     it again; while a handle of this process has MAIN open for writing (its
     writes are not flushed), on every read."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     msname = ms_copy("rich")
     lazy, reference, _ = lazy_and_reference(msname, 0)
@@ -1639,7 +1655,8 @@ def test_partition_is_checked_once_per_state(ms_copy, monkeypatch):
     try:
         for count in (1, 2):
             assert_same_values(lazy["FLAG"].values, reference["FLAG"].values)
-            assert stats["checks"] == checks + 2 + count
+            # (arcae handles share no table object)
+            assert stats["checks"] == checks + 2 + (BACKEND != "arcae") * count
     finally:
         writer.close()
 
@@ -1762,7 +1779,7 @@ def _copy_ms(backend_ms, variant, tmp_path):
 
 
 def test_rows_added_after_the_open_raise_changed(backend_ms, tmp_path):
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     msname = _copy_ms(backend_ms, "dense", tmp_path)
     lazy, reference, _ = lazy_and_reference(msname, 0)
@@ -1776,12 +1793,12 @@ def test_rows_added_after_the_open_raise_changed(backend_ms, tmp_path):
 
 
 def test_rebuilt_index_with_other_baselines_raises_changed(backend_ms, tmp_path):
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     msname = _copy_ms(backend_ms, "dense", tmp_path)
     lazy, _, _ = lazy_and_reference(msname, 0)
     with tables.table(msname, readonly=False, ack=False) as main_tb:
-        ant2 = main_tb.getcol("ANTENNA2")
+        ant2 = main_tb.getcol("ANTENNA2").copy()
         ant2[:300] = 4 - (ant2[:300] % 2)  # other baselines in partition 0
         main_tb.putcol("ANTENNA2", ant2)
     backend_arrays.clear_index_memo()
@@ -1791,12 +1808,12 @@ def test_rebuilt_index_with_other_baselines_raises_changed(backend_ms, tmp_path)
 
 def test_rebuilt_index_with_other_times_raises_changed(backend_ms, tmp_path):
     """The same grid shape, other times: the token of the grid tells."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     msname = _copy_ms(backend_ms, "dense", tmp_path)
     lazy, _, _ = lazy_and_reference(msname, 0)
     with tables.table(msname, readonly=False, ack=False) as main_tb:
-        times = main_tb.getcol("TIME")
+        times = main_tb.getcol("TIME").copy()
         times[:300] += 0.5  # (partition 0: its times shifted)
         main_tb.putcol("TIME", times)
     backend_arrays.clear_index_memo()
@@ -1833,33 +1850,6 @@ class GetcolOnlyTable:
         if name in ("getcolnp", "getcolslicenp", "selectrows"):
             raise AttributeError(name)
         return getattr(self._table, name)
-
-
-def test_reads_without_in_place_reads_and_with_the_casatools_lock(
-    backend_ms, monkeypatch
-):
-    """With the read API of the casatools shim (getcol only) the values are
-    the same, and every read and index rebuild holds casatools_serialized."""
-    lazy, reference, _ = lazy_and_reference(backend_ms("sparse_dup"), 0)
-    open_table_ro = backend_arrays.open_table_ro
-    entered = []
-
-    @contextlib.contextmanager
-    def getcol_only(path):
-        with open_table_ro(path) as table:
-            yield GetcolOnlyTable(table)
-
-    @contextlib.contextmanager
-    def serialized():
-        entered.append(True)
-        yield
-
-    monkeypatch.setattr(backend_arrays, "open_table_ro", getcol_only)
-    monkeypatch.setattr(backend_arrays, "casatools_serialized", serialized)
-    backend_arrays.clear_index_memo()
-    for name in ("VISIBILITY", "FLAG", "WEIGHT", "UVW"):
-        assert_same_values(lazy[name].values, reference[name].values, name)
-    assert len(entered) == 4 + 1  # four reads and one rebuild
 
 
 def test_index_token():

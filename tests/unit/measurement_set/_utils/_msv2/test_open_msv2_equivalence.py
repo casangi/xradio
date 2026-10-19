@@ -21,6 +21,7 @@ import pytest
 import xarray as xr
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
+from xradio._utils._casacore.backend import BACKEND
 from xradio.measurement_set import (
     convert_msv2_to_processing_set,
     open_msv2,
@@ -36,6 +37,8 @@ from xradio.testing.measurement_set.equivalence import (
 )
 
 ENGINE = MSv2BackendEntrypoint
+# The partition cache is stored with python-casacore only (why_not_writable)
+STORES_PARTITIONS = BACKEND != "arcae"
 
 
 def _ddi(*ddis):
@@ -139,7 +142,8 @@ def test_engine_equals_the_converted_processing_set(
     The engine's processing set equals the converted one, on a copy of the
     MS: with chunks={} against array_backend="dask" (cold: the partitions
     are computed and stored in the copy), with chunks=None against
-    array_backend="xarray" (warm: the partitions read from the copy), and
+    array_backend="xarray" (warm: the partitions read from the copy; with
+    arcae computed again), and
     with the partition cache off. Same nodes, identical datasets (dates
     aside), the converter's dask chunks of the main data variables, lazy
     selections and accessors.
@@ -154,7 +158,10 @@ def test_engine_equals_the_converted_processing_set(
         msname, engine=ENGINE, chunks={}, partition_cache="auto", **options
     )
     assert PARTITIONS_MEMO.stats["computed"] == 1
-    assert os.path.isdir(os.path.join(msname, partition_cache.SUBTABLE_NAME))
+    assert (
+        os.path.isdir(os.path.join(msname, partition_cache.SUBTABLE_NAME))
+        == STORES_PARTITIONS
+    )
     assert_processing_sets_equivalent(
         cold, open_processing_set(reference, array_backend="dask")
     )
@@ -163,8 +170,8 @@ def test_engine_equals_the_converted_processing_set(
     warm = xr.open_datatree(
         msname, engine=ENGINE, chunks=None, partition_cache="auto", **options
     )
-    assert PARTITIONS_MEMO.stats["stored hits"] == 1
-    assert PARTITIONS_MEMO.stats["computed"] == 0
+    assert PARTITIONS_MEMO.stats["stored hits"] == STORES_PARTITIONS
+    assert PARTITIONS_MEMO.stats["computed"] == (not STORES_PARTITIONS)
     assert_processing_sets_equivalent(
         warm,
         open_processing_set(reference, array_backend="xarray"),
@@ -173,7 +180,8 @@ def test_engine_equals_the_converted_processing_set(
     )
 
     off = xr.open_datatree(msname, engine=ENGINE, chunks={}, **options)
-    assert PARTITIONS_MEMO.stats["computed"] == 0  # (off: not memoised)
+    # (off: not memoised)
+    assert PARTITIONS_MEMO.stats["computed"] == (not STORES_PARTITIONS)
     assert_nodes_identical(off, open_processing_set(reference))
     if case == "antenna1_without_autocorrelations":
         assert not cold.children and cold.attrs == {"type": "processing_set"}
@@ -324,7 +332,7 @@ def test_drop_variables_equal_deleted_variables(backend_ms, converted):
 def _bad_cells(msname: str, column: str, rows) -> None:
     """Give ``rows`` of a MAIN column cells of half the channels (a
     StandardStMan column: only a read finds them)."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     with tables.table(msname, readonly=False, ack=False) as main_tb:
         if column not in main_tb.colnames():  # WEIGHT_SPECTRUM, StandardStMan
@@ -396,8 +404,7 @@ def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, k
       WEIGHT_SPECTRUM has undefined cells in the middle of every DDI (time
       10).
     """
-    from casacore import tables
-
+    from xradio._utils._casacore.backend import tables
     from xradio.measurement_set import MSv2ReadError
     from xradio.measurement_set._utils._msv2 import backend_arrays
 
@@ -447,6 +454,10 @@ def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, k
     assert scans == ["WEIGHT_SPECTRUM"] * (len(names) + len(bad))
 
 
+@pytest.mark.skipif(
+    BACKEND == "arcae",
+    reason="needs python-casacore's haslock and resync (the arcae shim has no locks)",
+)
 @pytest.mark.parametrize("mode", ["off", "auto"])
 def test_open_while_main_is_written(ms_copy, monkeypatch, mode):
     """An open that sees MAIN with fewer rows than its lock file tells, also
@@ -633,11 +644,11 @@ def test_empty_main_is_an_empty_processing_set(backend_ms, tmp_path):
     """An MS without MAIN rows opens as the empty processing set that the
     converter writes for it (with any cache mode); a partition_filter
     raises, as in the converter."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     msname = str(tmp_path / "empty.ms")
     with tables.table(backend_ms("dense"), ack=False) as main_tb:
-        none = main_tb.selectrows([])
+        none = main_tb.query("FALSE")
         none.copy(msname, deep=True).close()  # (MAIN without rows, sub-tables)
         none.close()
     out = str(tmp_path / "empty.ps.zarr")
@@ -656,50 +667,6 @@ def test_empty_main_is_an_empty_processing_set(backend_ms, tmp_path):
                 xr.open_datatree(msname, engine=ENGINE, partition_filter=_target)
             else:
                 opener(msname, out, partition_filter=_target, persistence_mode="w")
-
-
-def test_every_table_open_holds_the_casatools_lock(ms_copy, monkeypatch):
-    """With casatools, every table of the MS that an open reads is opened
-    holding the process-wide casatools lock: partitions computed, read from
-    the stored row and from the memo (simulated here: casatools_serialized
-    gives the lock, and python-casacore's table opens are recorded)."""
-    from casacore import tables
-
-    from xradio._utils._casacore import tables as xradio_tables
-
-    msname = os.path.abspath(ms_copy("rich"))
-    partition_cache.clear_partition_memo()
-    xr.open_datatree(msname, engine=ENGINE, partition_cache="auto")  # stores
-    partition_cache.clear_partition_memo()
-
-    lock = xradio_tables.CASATOOLS_LOCK
-    unlocked = []
-    table_init = tables.table.__init__
-
-    def spy(self, tablename="", *args, **kwargs):
-        name = os.path.abspath(str(tablename))
-        if name.startswith(msname) and not getattr(lock._held, "locks", None):
-            unlocked.append(os.path.relpath(name, msname))
-        table_init(self, tablename, *args, **kwargs)
-
-    monkeypatch.setattr(xradio_tables, "uses_casatools", lambda: True)
-    monkeypatch.setattr(tables.table, "__init__", spy)
-    sources = []
-    load = backend_open.load_or_create_partitions
-
-    def recorded(*args, **kwargs):
-        result = load(*args, **kwargs)
-        sources.append(result.source)
-        return result
-
-    monkeypatch.setattr(backend_open, "load_or_create_partitions", recorded)
-    for mode in ("read", "read", "off"):
-        tree = xr.open_datatree(
-            msname, engine=ENGINE, partition_cache=mode, partition_scheme=[]
-        )
-        assert tree.children
-    assert sources == ["stored", "memo", "fresh"]
-    assert unlocked == []
 
 
 def test_option_errors(backend_ms, monkeypatch):
@@ -774,7 +741,7 @@ def test_memo_follows_changes_of_the_ms(backend_ms, tmp_path):
     """A change of a MAIN key column makes the next open compute the
     partitions again (the tree then equals the converter's of the changed
     MS)."""
-    from casacore import tables
+    from xradio._utils._casacore.backend import tables
 
     msname = str(tmp_path / "changed.ms")
     shutil.copytree(backend_ms("dense"), msname)
@@ -784,7 +751,7 @@ def test_memo_follows_changes_of_the_ms(backend_ms, tmp_path):
     )
     assert len(before.children) == 4
     with tables.table(msname, readonly=False, ack=False) as main_tb:
-        field = main_tb.getcol("FIELD_ID")
+        field = main_tb.getcol("FIELD_ID").copy()
         field[::2] = 1
         main_tb.putcol("FIELD_ID", field)
     after = xr.open_datatree(

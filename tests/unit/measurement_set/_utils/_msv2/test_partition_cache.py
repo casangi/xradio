@@ -23,9 +23,9 @@ import warnings
 import numpy as np
 import pytest
 import xarray as xr
-from casacore import tables
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
+from xradio._utils._casacore.backend import BACKEND
 from xradio.measurement_set import (
     convert_msv2_to_processing_set,
     remove_msv2_partition_cache,
@@ -65,6 +65,9 @@ from xradio.measurement_set._utils._msv2.partition_queries import (
 from xradio.testing.measurement_set.equivalence import assert_nodes_identical
 
 ENGINE = MSv2BackendEntrypoint
+NOT_STORED = "the partition cache is stored with python-casacore only, not with arcae"
+tables = pytest.importorskip("casacore.tables", reason=NOT_STORED)
+pytestmark = pytest.mark.skipif(BACKEND == "arcae", reason=NOT_STORED)
 # (variant, scheme) of the generated MSs whose partitions round trip
 ROUND_TRIP_CASES = [
     ("dense", []),
@@ -1297,7 +1300,7 @@ def _notices(caplog, recwarn):
 @pytest.mark.parametrize(
     "setup, reason, warn",
     [
-        ("casatools", "casatools only", False),
+        ("arcae", "arcae backend", False),
         ("runs", "too many runs", False),
         ("data manager", "MAIN uses StandardStMan", False),
         ("no history", "HISTORY missing", True),
@@ -1308,8 +1311,8 @@ def test_not_stored_notices(setup, reason, warn, ms_copy, monkeypatch, caplog, r
     """Why partitions are not stored: a PartitionCacheWarning (or an INFO
     log for reasons that are no user error), once per MS and reason."""
     msname = ms_copy("dense")
-    if setup == "casatools":
-        monkeypatch.setattr(partition_cache, "uses_casatools", lambda: True)
+    if setup == "arcae":
+        monkeypatch.setattr(partition_cache, "BACKEND", "arcae")
     elif setup == "runs":
         monkeypatch.setattr(partition_cache, "MAX_STORED_RUNS", 3)
     elif setup == "data manager":

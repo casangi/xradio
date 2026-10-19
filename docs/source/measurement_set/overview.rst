@@ -435,5 +435,3 @@ Software-related:
 - Expand and refine Processing Set methods
 - Complete the ASDM and WSU-ASDM backend
 - Possibly add a NetCDF backend
-- Replace python-casacore backend with a more lightweight (possibly pure
-  Python) package

@@ -22,9 +22,11 @@ import numpy as np
 import pytest
 import xarray as xr
 
-tables = pytest.importorskip("casacore.tables")
+NOT_STORED = "the partition cache is stored with python-casacore only, not with arcae"
+tables = pytest.importorskip("casacore.tables", reason=NOT_STORED)
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint  # noqa: E402
+from xradio._utils._casacore.backend import BACKEND  # noqa: E402
 from xradio.measurement_set._utils._msv2 import (  # noqa: E402
     backend_pointing as bpt,
 )
@@ -40,6 +42,7 @@ from xradio.measurement_set._utils._msv2.partition_cache import (  # noqa: E402
     row_checksum,
 )
 
+pytestmark = pytest.mark.skipif(BACKEND == "arcae", reason=NOT_STORED)
 ENGINE = MSv2BackendEntrypoint
 # The array columns of the generated MSs' POINTING whose description does
 # not fix the cell shape (scanned)

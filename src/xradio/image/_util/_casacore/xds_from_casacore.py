@@ -7,23 +7,12 @@ import numpy as np
 import xarray as xr
 from astropy import units as u
 
-from xradio._utils.list_and_array import to_python_type
-from xradio._utils.logging import xradio_logger
-
-try:
-    from casacore import tables
-    from casacore.images import coordinates
-    from casacore.images import image as casa_image
-except ImportError:
-    import xradio._utils._casacore.casacore_from_casatools as coordinates
-    import xradio._utils._casacore.casacore_from_casatools as tables
-    from xradio._utils._casacore.casacore_from_casatools import image as casa_image
-
-
+from xradio._utils._casacore.backend import coordinates, images, tables
 from xradio._utils._casacore.tables import (
     CASATOOLS_LOCK,
     casatools_serialized,
     extract_table_attributes,
+    get_table_ro,
     open_table_ro,
 )
 from xradio._utils.coord_math import _deg_to_rad
@@ -36,6 +25,8 @@ from xradio._utils.dict_helpers import (
     make_spectral_coord_reference_dict,
     make_time_measure_dict,
 )
+from xradio._utils.list_and_array import to_python_type
+from xradio._utils.logging import xradio_logger
 from xradio.image._util._casacore.common import (
     _object_name,
     _open_image_ro,
@@ -61,6 +52,8 @@ from xradio.image._util.conventions import (
     spectral_frame_to_observer,
 )
 from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
+
+casa_image = images.image
 
 # Lowercase prefixes of the casacore axis names of the l (u) and m (v) image
 # axes: equatorial (Right Ascension, Declination), galactic (Longitude,
@@ -701,8 +694,9 @@ def _get_persistent_block(
     starts: tuple,
     transpose_list: list,
     new_axes: list,
+    ninstances: int = 1,
 ) -> da.Array:
-    block = _read_image_chunk(infile, shapes, starts)
+    block = _read_image_chunk(infile, shapes, starts, ninstances=ninstances)
     block = np.expand_dims(block, new_axes)
     block = block.transpose(transpose_list)
     block = da.from_array(block, chunks=block.shape)
@@ -1139,6 +1133,7 @@ def _read_image_array(
     verbose: bool = False,
     blc=None,
     trc=None,
+    ninstances: int = 1,
 ) -> dask.array:
     """
     Read an array of image pixels into a dask array. The returned dask array
@@ -1268,7 +1263,10 @@ def _read_image_array(
                         )
                         starts = tuple([d0, d1, d2, d3, d4][: len(cshape)])
                         delayed_array = dask.delayed(_read_image_chunk)(
-                            img_full_path, shapes, starts
+                            img_full_path,
+                            shapes,
+                            starts,
+                            ninstances=ninstances,
                         )
                         d4slices += [
                             dask.array.from_delayed(delayed_array, shapes, data_type)
@@ -1300,21 +1298,34 @@ def _read_image_array(
 # concurrent chunk reads crash (segmentation fault) or fail with FiledesIO
 # errors, so they are serialized, with the one lock of every casatools read of
 # the process (MSv2 reads included, see xradio._utils._casacore.tables).
-# python-casacore reads run concurrently without problems and are not locked.
+# Reads with the other backends are not locked.
 _CASATOOLS_READ_LOCK = CASATOOLS_LOCK
 
 
-def _read_image_chunk(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:
+def _read_image_chunk(
+    infile: str, shapes: tuple, starts: tuple, ninstances: int = 1
+) -> np.ndarray:
     with casatools_serialized():
-        return _read_image_chunk_unlocked(infile, shapes, starts)
+        return _read_image_chunk_unlocked(infile, shapes, starts, ninstances)
 
 
-def _read_image_chunk_unlocked(infile: str, shapes: tuple, starts: tuple) -> np.ndarray:
-    with open_table_ro(infile) as tb_tool:
+def _read_image_chunk_unlocked(
+    infile: str, shapes: tuple, starts: tuple, ninstances: int = 1
+) -> np.ndarray:
+    if ninstances > 1:
+        tb_tool = get_table_ro(infile, ninstances=ninstances)
         data: np.ndarray = tb_tool.getcellslice(
             tb_tool.colnames()[0],
             0,
             starts,
             tuple(np.array(starts) + np.array(shapes) - 1),
         )
+    else:
+        with open_table_ro(infile) as tb_tool:
+            data: np.ndarray = tb_tool.getcellslice(
+                tb_tool.colnames()[0],
+                0,
+                starts,
+                tuple(np.array(starts) + np.array(shapes) - 1),
+            )
     return data

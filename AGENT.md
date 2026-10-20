@@ -265,15 +265,19 @@ check_datatree(dt) -> SchemaIssues             # dispatches per-node via attrs["
 **Convert one MSv2 → Processing Set, then open & summarize:**
 ```python
 import xarray as xr
-import xradio                                   # registers .xr_ps / .xr_ms / .xr_img accessors
+import xradio  # registers .xr_ps / .xr_ms / .xr_img accessors
 from xradio.measurement_set import (
-    estimate_conversion_memory_and_cores, convert_msv2_to_processing_set, open_processing_set,
+    estimate_conversion_memory_and_cores,
+    convert_msv2_to_processing_set,
+    open_processing_set,
 )
 import toolviper
 
 msv2_name = "Antennae_North.cal.lsrk.split.ms"
 mem, max_cores, suggested_cores = estimate_conversion_memory_and_cores(msv2_name)
-viper_client = toolviper.dask.local_client(cores=suggested_cores)   # size the Dask client
+viper_client = toolviper.dask.local_client(
+    cores=suggested_cores
+)  # size the Dask client
 
 convert_msv2_to_processing_set(
     in_file=msv2_name,
@@ -283,7 +287,7 @@ convert_msv2_to_processing_set(
 )
 
 ps_xdt = open_processing_set("Antennae_North.cal.lsrk.split.ps.zarr")
-ps_xdt.xr_ps.summary()                          # -> pandas.DataFrame; 'name' column gives MS v4 names
+ps_xdt.xr_ps.summary()  # -> pandas.DataFrame; 'name' column gives MS v4 names
 ```
 
 **Convert MULTIPLE MSv2 into a single PS (append with `persistence_mode="a"`):**
@@ -294,7 +298,10 @@ msv2_list = ["small_lofar.ms", "AA2-Mid-sim_00000.ms"]
 outfile = "combined_lofar_aa2.ps.zarr"
 for msv2 in msv2_list:
     convert_msv2_to_processing_set(
-        in_file=msv2, out_file=outfile, parallel_mode="partition", persistence_mode="a",
+        in_file=msv2,
+        out_file=outfile,
+        parallel_mode="partition",
+        persistence_mode="a",
     )
 
 ps = open_processing_set(outfile)
@@ -303,11 +310,11 @@ ps.xr_ps.summary()
 
 **Explore / select / compute:**
 ```python
-sub = ps_xdt.xr_ps.query(field_name=[...], scan_name=["17"])     # subset PS
+sub = ps_xdt.xr_ps.query(field_name=[...], scan_name=["17"])  # subset PS
 ms_xdt = ps_xdt.xr_ps.query(execution_block_UID="uid://...").xr_ps.get_ms_xdt()
-cor_xds = ms_xdt.ds                                              # the VisibilityXds / SpectrumXds
-antenna_xds = ms_xdt.antenna_xds.ds                             # a sub-dataset
-ms_xdt.isel(frequency=slice(1, 4))                              # standard xarray still works
+cor_xds = ms_xdt.ds  # the VisibilityXds / SpectrumXds
+antenna_xds = ms_xdt.antenna_xds.ds  # a sub-dataset
+ms_xdt.isel(frequency=slice(1, 4))  # standard xarray still works
 ms_xdt.ds.VISIBILITY.max().compute()
 ```
 
@@ -437,9 +444,11 @@ requirement for XRADIO objects. XRADIO uses two cycle-free designs:
 4. **Prove cycle-free death in a unit test** for every new accessor
    (`tests/unit/test_accessor_lifecycle.py`):
    ```python
-   ds = make_dataset(); ds.xr_x  # touch the accessor
-   wr = weakref.ref(ds); del ds
-   assert wr() is None            # died by refcount, NO gc.collect() needed
+   ds = make_dataset()
+   ds.xr_x  # touch the accessor
+   wr = weakref.ref(ds)
+   del ds
+   assert wr() is None  # died by refcount, NO gc.collect() needed
    ```
 5. **Never mutate `attrs["data_groups"]` or a group dict in place.** `isel`,
    `sel` and `load` return datasets that share the attrs dict itself;

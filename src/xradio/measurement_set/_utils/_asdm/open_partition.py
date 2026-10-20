@@ -747,13 +747,17 @@ def _create_frequency_coord_attrs(
 def _create_field_name_coord(
     asdm: pyasdm.ASDM, time_centers: np.ndarray, partition_descr: dict
 ) -> tuple:
-    # field_name will be created from field_and_source_xds?
+    # TODO: this should be shared/taken from create_field_and_source
+    # That will be done in follow-up tickets together with multi-field support.
     sdm_field_attrs = ["fieldId", "fieldName"]
     field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_attrs)
 
-    fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])][
-        "fieldName"
-    ].to_numpy(dtype="str")
+    selected_fields = field_df.loc[field_df["fieldId"].isin(partition_descr["fieldId"])]
+    fields = (
+        selected_fields["fieldName"].astype("str").str.strip()
+        + "_"
+        + selected_fields["fieldId"].astype("str")
+    ).to_numpy(dtype="str")
 
     field_name_coord = (["time"], np.resize(fields, len(time_centers)))
     return field_name_coord

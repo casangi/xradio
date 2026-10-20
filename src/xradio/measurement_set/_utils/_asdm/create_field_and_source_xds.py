@@ -217,7 +217,7 @@ def extract_source_info(
             source_df["transition"].explode().str.strip('"').to_numpy(dtype="str")
         )
         line_name = line_name[np.newaxis, :] if line_name.ndim < 2 else line_name
-        line_label = [f"{idx}" for idx in np.arange(len(line_name))]
+        line_label = [f"{idx}" for idx in np.arange(line_name.shape[-1])]
         line_coords = {
             "line_label": line_label,
             "line_name": (["field_name", "line_label"], line_name),

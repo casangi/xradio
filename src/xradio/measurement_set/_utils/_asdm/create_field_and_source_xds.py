@@ -10,8 +10,11 @@ from xradio._utils.dict_helpers import (
 )
 from xradio._utils.list_and_array import to_np_array
 from xradio._utils.logging import xradio_logger
-from xradio._utils.schema import casacore_to_msv4_measure_type
-from xradio.measurement_set._utils._asdm._utils.field_source import get_direction_codes
+from xradio.measurement_set._utils._asdm._utils.field_source import (
+    get_source_direction_code,
+    retrieve_field_direction_frame,
+    retrieve_source_frequency_frame,
+)
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
@@ -108,7 +111,7 @@ def create_field_and_source_xds(
         phase_or_ref_dir,
     )
 
-    direction_frame = _retrieve_direction_frame(field_df, field_id)
+    direction_frame = retrieve_field_direction_frame(field_df, field_id)
     xds.data_vars[center_direction_dv].attrs.update(
         make_sky_coord_measure_attrs("rad", direction_frame)
     )
@@ -175,19 +178,21 @@ def extract_source_info(
         source_df["timeInterval"].item(),
         source_df["spectralWindowId"].item(),
     )
-    dir_code = get_direction_codes(asdm, source_key)
+    direction_code = get_source_direction_code(asdm, source_key)
 
     xds["SOURCE_DIRECTION"] = (
         ["field_name", "sky_dir_label"],
         [[source_direction[0].get(), source_direction[1].get()]],
-        make_sky_coord_measure_attrs("rad", dir_code),
+        make_sky_coord_measure_attrs("rad", direction_code),
     )
 
     line_info_available = (
         pd.to_numeric(source_df["numLines"], errors="coerce") > 0
     ).any()
     if line_info_available:
-        line_name = source_df["transition"].explode().to_numpy(dtype="str")
+        line_name = (
+            source_df["transition"].explode().str.strip('"').to_numpy(dtype="str")
+        )
         line_name = line_name[np.newaxis, :] if line_name.ndim < 2 else line_name
         line_label = [f"{idx}" for idx in np.arange(len(line_name))]
         line_coords = {
@@ -201,7 +206,7 @@ def extract_source_info(
             .explode()
             .to_numpy(dtype="float64")[np.newaxis, :]
         )
-        frequency_frame = _retrieve_frequency_frame(source_df)
+        frequency_frame = retrieve_source_frequency_frame(source_df)
         xds["LINE_REST_FREQUENCY"] = (
             ["field_name", "line_label"],
             rest_freq,
@@ -215,42 +220,3 @@ def extract_source_info(
         )
 
     return xds
-
-
-def _retrieve_frequency_frame(source_df: pd.DataFrame) -> str:
-    try:
-        frequency_ref_code = source_df["frequencyRefCode"].item().getName()
-    except AttributeError as _exc:
-        frequency_ref_code = ""
-
-    # frequencyRefCode doc: "The reference code for frequency (if not LSRK)"
-    if frequency_ref_code and frequency_ref_code != "NaN":
-        frequency_frame = casacore_to_msv4_measure_type["frequency"]["Ref_map"].get(
-            frequency_ref_code, frequency_ref_code.lower()
-        )
-    else:
-        frequency_frame = "lsrk"
-
-    return frequency_frame
-
-
-def _retrieve_direction_frame(field_df: pd.DataFrame, field_id: int) -> str:
-    try:
-        direction_code = (
-            field_df.loc[field_df["fieldId"] == field_id]["directionCode"]
-            .item()
-            .getName()
-        )
-    except AttributeError as _exc:
-        direction_code = ""
-
-    # directionCode doc: "The common reference code for directions in the row, if not J2000."
-    if direction_code and direction_code != "NaN":
-        # Seen so far: ICRS, J2000, which are in this map:
-        direction_frame = casacore_to_msv4_measure_type["direction"]["Ref_map"].get(
-            direction_code, direction_code.lower()
-        )
-    else:
-        direction_frame = "fk5"
-
-    return direction_frame

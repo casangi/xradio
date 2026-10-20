@@ -1,22 +1,43 @@
 import copy
 
+import pandas as pd
 import pyasdm
 import pytest
 
-from xradio.measurement_set._utils._asdm._utils.field_source import get_direction_codes
+from xradio.measurement_set._utils._asdm._utils.field_source import (
+    get_source_direction_code,
+    retrieve_field_direction_frame,
+    retrieve_source_frequency_frame,
+)
+
+input_field_rows = [
+    {"fieldId": 0, "directionCode": "J2000"},
+    {"fieldId": 1, "directionCode": "ICRS"},
+    {"fieldId": 2, "directionCode": "AZELSWGEO"},
+]
 
 
-def test_get_direction_codes_empty(asdm_empty):
+@pytest.mark.parametrize(
+    "input_field_id, expected_frame",
+    [(0, "fk5"), (1, "icrs"), (2, "azelswgeo")],
+)
+def test_retrieve_field_direction_frame(input_field_id, expected_frame):
+    input_field_df = pd.DataFrame.from_records(input_field_rows)
+    frame = retrieve_field_direction_frame(input_field_df, input_field_id)
+    assert frame == expected_frame
+
+
+def test_get_source_direction_code_empty(asdm_empty):
     with pytest.raises(AttributeError, match="has no attribute"):
-        get_direction_codes(asdm_empty, (0, 0, 1))
+        get_source_direction_code(asdm_empty, (0, 0, 1))
 
 
-def test_get_direction_codes_asdm_with_spw_default(asdm_with_spw_default):
+def test_get_source_direction_code_asdm_with_spw_default(asdm_with_spw_default):
     with pytest.raises(AttributeError, match="has no attribute"):
-        get_direction_codes(asdm_with_spw_default, (0, 0, 1))
+        get_source_direction_code(asdm_with_spw_default, (0, 0, 1))
 
 
-def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
+def test_get_source_direction_code_asdm_with_spw_simple(asdm_with_spw_simple):
     asdm_with_source = copy.deepcopy(asdm_with_spw_simple)
 
     # directionCode was ICRS - chanced for testing purposes
@@ -43,7 +64,7 @@ def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
     source_row_0.setFromXML(source_row_0_xml)
     source_table.add(source_row_0)
 
-    get_direction_codes(
+    get_source_direction_code(
         asdm_with_source,
         (
             0,
@@ -69,7 +90,7 @@ def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
     source_row_1.setFromXML(source_row_1_xml)
     source_table.add(source_row_1)
 
-    get_direction_codes(
+    get_source_direction_code(
         asdm_with_source,
         (
             1,
@@ -79,3 +100,20 @@ def test_get_direction_codes_asdm_with_spw_simple(asdm_with_spw_simple):
             0,
         ),
     )
+
+
+@pytest.mark.parametrize(
+    "input_source_row, expected_frame",
+    [
+        ({"sourceId": 0, "frequencyRefCode": "LSRD"}, "lsrd"),
+        ({"sourceId": 1, "frequencyRefCode": "LSRK"}, "lsrk"),
+        ({"sourceId": 2, "frequencyRefCode": "BARY"}, "BARY"),
+        ({"sourceId": 5, "frequencyRefCode": "REST"}, "REST"),
+        ({"sourceId": 4, "frequencyRefCode": "GEO"}, "gcrs"),
+        ({"sourceId": 3, "frequencyRefCode": "TOPO"}, "TOPO"),
+    ],
+)
+def test_retrieve_source_frequency_frame(input_source_row, expected_frame):
+    input_source_df = pd.DataFrame.from_records([input_source_row])
+    frame = retrieve_source_frequency_frame(input_source_df)
+    assert frame == expected_frame

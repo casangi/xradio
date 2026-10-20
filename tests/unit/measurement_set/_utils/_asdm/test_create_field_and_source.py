@@ -201,7 +201,7 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
         "field_name": ["J0423-0120_0"],
         "source_name": ("field_name", ["J0423-0120"]),
         "line_label": ["0"],
-        "line_name": (["field_name", "line_label"], [['"cii_blue(ID=0)"']]),
+        "line_name": (["field_name", "line_label"], [["cii_blue(ID=0)"]]),
     }
     expected_rest_freq = xr.DataArray(
         data=[[1.894942370e12]], dims=expected_dims, coords=expected_coords

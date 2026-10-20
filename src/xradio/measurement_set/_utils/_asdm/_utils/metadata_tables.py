@@ -1,9 +1,11 @@
+from typing import Any
+
 import numpy as np
 import pandas as pd
 import pyasdm
 
-# TODO: do the get() also for Angle, Length, etc. quantities
-#  Also types: PolarizationType
+# TODO: check if all cases are covered, liek the the get() also for
+# Angle, Length, etc. quantities. Also types: PolarizationType
 
 
 def load_asdm_col(
@@ -73,7 +75,7 @@ def load_asdm_col(
     return col_values
 
 
-def _decode_attribute_value(row: object, get_col_function_name: str) -> object:
+def _decode_attribute_value(row: Any, get_col_function_name: str) -> Any:
     """ """
     get_col_function = getattr(row, get_col_function_name)
     value = get_col_function()
@@ -160,11 +162,11 @@ def _decode_attribute_value(row: object, get_col_function_name: str) -> object:
             pyasdm.enumerations.ProcessorType,
             pyasdm.enumerations.ProcessorSubType,
             pyasdm.enumerations.SpectralResolutionType,
+            pyasdm.enumerations.DirectionReferenceCode,
+            pyasdm.enumerations.FrequencyReferenceCode,
         ]
         or ()
     ):
-        # this branch could/would also include
-        # pyasdm.enumerations.FrequencyReferenceCode, etc. enumerations
         value = value.getName()
 
     return value

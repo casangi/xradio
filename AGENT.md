@@ -24,7 +24,7 @@ conda run -n zinc python -m pytest tests/stakeholder
 conda run -n zinc python -c "from xradio._utils.zarr.config import ZARR_FORMAT; print(ZARR_FORMAT)"
 
 # Lint and format with ruff (the version pinned in .pre-commit-config.yaml)
-uvx ruff@0.12.5 check --fix <files> && uvx ruff@0.12.5 format <files>
+uvx ruff@0.16.10 check --fix <files> && uvx ruff@0.16.10 format <files>
 pre-commit run --all-files   # every hook CI runs (ruff, pyupgrade, absolufy-imports, hygiene)
 ```
 
@@ -54,7 +54,7 @@ xradio/
 ├── pyproject.toml            # SOLE packaging/config file. NO [build-system] table (legacy setuptools fallback).
 │                             #   version = "v1.2.4"; base dep xarray; extras; xarray backend entry points;
 │                             #   [tool.pytest]; [tool.ruff]
-├── .pre-commit-config.yaml   # hooks CI runs (pre-commit.yml): ruff 0.12.5 check + format, pyupgrade, absolufy-imports, hygiene
+├── .pre-commit-config.yaml   # hooks CI runs (pre-commit.yml): ruff 0.16.10 check + format, pyupgrade, absolufy-imports, hygiene
 ├── Makefile                  # python-format (legacy Black target), schema-export
 ├── MANIFEST.in               # sdist include list
 ├── .readthedocs.yaml         # RTD build (installs docs/sphinx.txt + .[casacore])
@@ -402,7 +402,7 @@ PATH=<env>/bin:$PATH PYTHONPATH=src make schema-export   # regenerate schemas/{V
   - `xradio.testing.image`: `download_image`, `download_and_open_image`, `create_empty_test_image`, `assert_image_block_equal`, `remove_path`
 - **Test data** downloads via `toolviper.utils.data.download` (default to `/tmp` for MS assets — avoids Dropbox table-locking issues).
 - **Schema checking:** validate data with `check_dataset` / `check_array` / `check_dict` / `check_datatree`; call `.expect()` on the returned `SchemaIssues` to raise.
-- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, integration, basic-schema-install, run-ipynb) plus `pre-commit.yml`, which runs every hook of `.pre-commit-config.yaml` on all files (ruff 0.12.5 check + format, pyupgrade, absolufy-imports, hygiene hooks). `cov_project="xradio"`, test path `tests/`.
+- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, integration, basic-schema-install, run-ipynb) plus `pre-commit.yml`, which runs every hook of `.pre-commit-config.yaml` on all files (ruff 0.16.10 check + format, pyupgrade, absolufy-imports, hygiene hooks). `cov_project="xradio"`, test path `tests/`.
 
 ---
 
@@ -479,7 +479,7 @@ requirement for XRADIO objects. XRADIO uses two cycle-free designs:
 - **No `[build-system]` table** in `pyproject.toml` (pip then builds with setuptools' legacy `__legacy__` backend); no `setup.py`/`setup.cfg`. The `[project.entry-points]` (xarray backends) work through that fallback: built wheels contain `entry_points.txt`, and setuptools' automatic src-layout discovery packages `src/xradio` and the top level module `src/_xradio_xarray_backends.py`. Add `[build-system]` before anything the legacy backend cannot express (dynamic version, explicit package discovery).
 - **No `xradio.__version__`.** Version is hardcoded `version = "v1.2.4"` in `pyproject.toml` (note leading `v`; pip normalizes to `1.2.4`).
 - **`persistence_mode` defaults to `"w-"`** (fail if `.ps.zarr` exists). Use `"a"` to append, `"w"` to overwrite.
-- **Lint and format with ruff, through pre-commit** (`[tool.ruff]` in `pyproject.toml`, ruff pinned to 0.12.5 in `.pre-commit-config.yaml`; notebooks are linted too). CI runs every hook on all files. `make python-format` still calls Black and is not what CI checks.
+- **Lint and format with ruff, through pre-commit** (`[tool.ruff]` in `pyproject.toml`, ruff pinned to 0.16.10 in `.pre-commit-config.yaml`; notebooks are linted too). CI runs every hook on all files. `make python-format` still calls Black and is not what CI checks.
 - **`--strict-markers` is on** — `@pytest.mark.<custom>` without registration will error. The only custom marker, `slow`, is registered in `tests/unit/measurement_set/_utils/_msv2/conftest.py` (`pytest_configure`, not `pyproject.toml`).
 - **Two divergent docs dep lists**: the pyproject `docs` extra vs `docs/sphinx.txt` (the latter, pinned `Sphinx==7.2.6` etc., is what RTD actually installs — and RTD installs the `casacore` extra, not `docs`).
 - **Notebooks under `docs/source/**/guides` and tutorials are executed by `run-ipynb` CI** — breaking the public API can fail notebook CI even when pytest passes.

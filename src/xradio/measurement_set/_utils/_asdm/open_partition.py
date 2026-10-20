@@ -103,12 +103,13 @@ def open_partition(
 
     # phased_array_xds
 
+    is_spectrum_xds = correlated_xds.attrs["type"] == "spectrum"
+
     # field_and_source_xds
     field_and_source_xds = create_field_and_source_xds(
-        asdm, partition_descr, spw_id, is_single_dish
+        asdm, partition_descr, spw_id, is_spectrum_xds
     )
 
-    is_spectrum_xds = correlated_xds.attrs["type"] == "spectrum"
     if not is_spectrum_xds:
         uvw_data_var = _create_uvw_data_var(
             correlated_xds.sizes,

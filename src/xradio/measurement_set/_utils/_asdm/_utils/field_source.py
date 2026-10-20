@@ -24,7 +24,7 @@ def retrieve_field_direction_frame(field_df: pd.DataFrame, field_id: int) -> str
         direction_code = field_df.loc[field_df["fieldId"] == field_id][
             "directionCode"
         ].item()
-    except AttributeError as _exc:
+    except (AttributeError, ValueError) as _exc:
         direction_code = ""
 
     # directionCode doc: "The common reference code for directions in the row, if not J2000."
@@ -100,10 +100,7 @@ def retrieve_source_frequency_frame(source_df: pd.DataFrame) -> str:
         The mapped frame name, or ``"lsrk"`` if the reference code is missing
         or is NaN. An unmapped code is returned in lowercase.
     """
-    try:
-        frequency_ref_code = source_df["frequencyRefCode"].item()
-    except AttributeError as _exc:
-        frequency_ref_code = ""
+    frequency_ref_code = source_df["frequencyRefCode"].item()
 
     # frequencyRefCode doc: "The reference code for frequency (if not LSRK)"
     if frequency_ref_code and not pd.isna(frequency_ref_code):

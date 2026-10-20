@@ -14,12 +14,13 @@ input_field_rows = [
     {"fieldId": 0, "directionCode": "J2000"},
     {"fieldId": 1, "directionCode": "ICRS"},
     {"fieldId": 2, "directionCode": "AZELSWGEO"},
+    {"fieldId": 3, "directionCode": None},
 ]
 
 
 @pytest.mark.parametrize(
     "input_field_id, expected_frame",
-    [(0, "fk5"), (1, "icrs"), (2, "azelswgeo")],
+    [(0, "fk5"), (1, "icrs"), (2, "azelswgeo"), (3, "fk5"), (55, "fk5")],
 )
 def test_retrieve_field_direction_frame(input_field_id, expected_frame):
     input_field_df = pd.DataFrame.from_records(input_field_rows)
@@ -111,6 +112,7 @@ def test_get_source_direction_code_asdm_with_spw_simple(asdm_with_spw_simple):
         ({"sourceId": 5, "frequencyRefCode": "REST"}, "REST"),
         ({"sourceId": 4, "frequencyRefCode": "GEO"}, "gcrs"),
         ({"sourceId": 3, "frequencyRefCode": "TOPO"}, "TOPO"),
+        ({"sourceId": 3, "frequencyRefCode": None}, "lsrk"),
     ],
 )
 def test_retrieve_source_frequency_frame(input_source_row, expected_frame):

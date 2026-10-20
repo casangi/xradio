@@ -45,28 +45,31 @@ def open_partition(
     with_pointing: bool = False,
     pointing_for_only_spectral_resolution_types: list[str] = None,
 ) -> xr.DataTree:
-    """
-    Open an ASDM partition as an MSv4 DataTree.
+    """Open an ASDM partition and assemble its MSv4 DataTree.
+
+    The tree contains the correlated data, antenna metadata, and field/source
+    metadata. It also includes pointing data when requested and permitted by
+    the spectral-type filter.
 
     Parameters
     ----------
-    asdm:
-        Input ASDM object
-    partition_descr:
-        description of partition IDs in a dictionary of "ID ASDM key/attribute" -> numeric IDs
-    with_pointing:
-        whether to read the Pointing table from the ASDM into a pointing xds sub-dataset
-    pointing_for_only_spectral_resolution_types:
-        When with_pointing is enabled, this parameter can be used to give a list of the spectral
-        resolution types for which the pointing dataset should be created. The MSv4 created
-        for this partition will not have a pointing dataset if its spectral resolution type is
-        not included in the list. When the list is not given or is empty, the pointing dataset
-        is created regardless of the spectral resolution type.
+    asdm : pyasdm.ASDM
+        ASDM object containing the partition's metadata and data.
+    partition_descr : dict[str, np.ndarray]
+        Partition description mapping ASDM keys or attributes to their IDs.
+    with_pointing : bool, default False
+        Whether to include a pointing dataset in the tree. Under development and
+        unstable.
+    pointing_for_only_spectral_resolution_types : list[str] or None, default None
+        Optional allowlist of partition ``spectralType`` values for which
+        pointing data should be included. The filter applies only when
+        ``with_pointing`` is true. If this is ``None`` or empty, pointing data
+        is included for every partition when requested.
 
     Returns
     -------
     xr.DataTree
-        DataTree with MSv4 populated from the ASDM partition.
+        DataTree containing the partition's correlated data and metadata.
     """
 
     # correlated_xds with already populated coordinates, data variables and info_dicts
@@ -137,41 +140,40 @@ def create_correlated_xds(
     partition_descr: dict[str, np.ndarray],
 ) -> tuple[xr.DataTree, int, int, bool]:
     """
-    Create a correlated data xarray Dataset from ASDM data.
-    This function creates an xarray Dataset containing correlated visibility data
-    from an ASDM (ALMA Science Data Model) object. It sets up the necessary coordinates,
-    data variables, and metadata attributes according to the MSv4 schema.
+    Create an MSv4 dataset for a partition of correlated ASDM data.
+
+    The dataset includes coordinates, time variables, visibility-related data
+    variables, and metadata derived from the ASDM and its BDFs. Its ``type``
+    attribute is set to ``"visibility"``, ``"spectrum"``, or ``"radiometer"``
+    according to the observation metadata.
 
     Parameters
     ----------
     asdm : pyasdm.ASDM
         The ASDM object containing the raw data.
     partition_descr : dict[str, np.ndarray]
-        Dictionary containing partition descriptions for the ASDM data.
+        Partition description containing the ASDM metadata and BDF paths.
 
     Returns
     -------
     tuple[xr.DataTree, int, int, bool]
-        A tuple containing:
+        A tuple containing the dataset, antenna count, spectral window ID, and
+        whether the ASDM contains single-dish data, respectively.
+
         - xds : xr.Dataset
-            The xarray Dataset containing the correlated visibility data with
-            appropriate coordinates, variables, and metadata.
+            Dataset with coordinates, data variables, and MSv4 metadata.
         - num_antenna : int
-            The number of antennas in the dataset.
+            Number of antennas in the partition.
         - spw_id : int
-            The spectral window ID.
-        - is_single_dish : int
-            Whether the ASDM has single dish or interferometric data
+            Spectral window ID for the partition.
+        - is_single_dish : bool
+            ``True`` if the referenced configurations are single-dish;
+            otherwise ``False``.
     Notes
     -----
-    The created Dataset follows the MSv4 schema and includes:
-        - Basic metadata (schema version, creator info, creation date)
-        - Coordinate systems
-        - Time variables
-        - Data variables for visibility data
-        - Data group definitions
-        - Additional metadata from the ASDM
-    The function sets up a non-single-dish observation structure.
+    The dataset follows the MSv4 schema and contains schema and creator
+    metadata, coordinates, time variables, data variables, and a base data
+    group definition.
     """
 
     datetime_now = datetime.datetime.now(datetime.UTC).isoformat()
@@ -286,40 +288,42 @@ def create_data_vars(
     time_indices_by_bdf: dict,
 ) -> dict[str, tuple]:
     """
-    Create a dictionary of data variables for a radio astronomy dataset.
-    This function initializes the fundamental data structures needed for radio interferometry
-    data, including visibilities, weights, flags, and UVW coordinates.
+    Create lazy-backed data-variable definitions for a partition.
+
+    Visibility or spectrum values and flags are read from the partition's BDFs
+    when accessed. The WEIGHT variable is a placeholder of ones because ASDM
+    does not provide weights.
+
     Parameters
     ----------
     xds : xr.Dataset
-        Input xarray Dataset containing the dimension sizes for 'time', 'baseline_id',
-        'frequency', 'polarization', and 'uvw_label'.
+        Dataset whose sizes define the data-variable shapes. It must include
+        ``time``, ``frequency``, and ``polarization``, plus ``antenna_name``
+        for spectrum data or ``baseline_id`` otherwise.
     is_spectrum_xds : bool
-        Whether this MSv4 is of "spectrum" type (true => SpectrumXds schema) or ["visibility",
-        "radiometer"] (false => VisibilityXds)
+        Whether to create a ``SPECTRUM`` variable over ``antenna_name``.
+        Otherwise, create a ``VISIBILITY`` variable over ``baseline_id``.
     bdf_paths : list[str]
-        Paths to BDFs with data/flags for the partition
+        Paths to the partition's BDFs, used to load visibility/spectrum values
+        and flags.
     bdf_spw_id : int
-        Index of the SPW to load (index in the BDF, derived from the metadata SPW index)
+        Spectral-window index within the BDFs.
     time_indices_by_bdf : dict
-        Dictionary that gives the list of BDFs and their respective time
-        indices (start, stop)
-
+        Mapping of BDFs to their corresponding time-index ranges.
 
     Returns
     -------
     dict[str, tuple]
-        A dictionary containing the following data variables (the (dims, array, attrs) tuples that define them):
-        - VISIBILITY : Complex visibility data with shape (time, baseline_id, frequency, polarization)
-        - WEIGHT : Visibility weights with shape (time, baseline_id, frequency, polarization)
-        - FLAG : Boolean flags with shape (time, baseline_id, frequency, polarization)
-        - UVW : UVW coordinates with shape (time, baseline_id, uvw_label)
+        Mapping of variable names to xarray variable definitions, represented
+        as ``(dims, data[, attrs])`` tuples. It contains ``SPECTRUM`` or
+        ``VISIBILITY``, ``WEIGHT``, and ``FLAG``. Their dimensions are
+        ``(time, antenna_name, frequency, polarization)`` for spectrum data
+        and ``(time, baseline_id, frequency, polarization)`` otherwise.
 
     Notes
     -----
-    All arrays are initialized with ones. The actual data should be filled in later.
-    VISIBILITY includes metadata for units and field/source information.
-    UVW includes metadata specifying the coordinate frame (ICRS) and units (meters).
+    The data variables use lazy indexing, so BDF data is loaded on access.
+    UVW is not created by this function.
     """
 
     data_vars = {}
@@ -398,50 +402,46 @@ def create_coordinates(
     is_spectrum_xds: bool = False,
 ) -> tuple[dict, dict, int, int, dict]:
     """
-    Create coordinate systems and associated metadata from ASDM data.
+    Create partition coordinates, coordinate attributes, and time variables.
 
-    This function extracts and processes coordinate information from an ALMA Science Data Model
-    (ASDM) dataset, including time, frequency, polarization, baseline, and field coordinates.
-    It handles both interferometric and single-dish observations.
+    Coordinate values are derived from the ASDM metadata and BDF time data.
+    Spectrum data uses antenna coordinates; other data uses baseline
+    coordinates and also includes a UVW-label coordinate.
 
     Parameters
     ----------
     asdm : pyasdm.ASDM
-        Input ASDM object containing the observation data
+        ASDM object containing the observation metadata.
     partition_descr : dict[str, np.ndarray]
-        Dictionary mapping ASDM keys/attributes to their corresponding numeric IDs.
-        Expected keys include 'scanNumber', 'BDFPath', 'configDescriptionId',
-        'fieldId', and 'dataDescriptionId'
-    is_spectrum_xds : bool, optional
-        Flag indicating whether we are creating coordinates for an SpectrumXds or VisibilityXds type
-        of correlated data xds. If False, baseline_id and UVW related coordinates will be included.
-        Default is False.
+        Partition metadata used to select ASDM rows and BDFs. Includes keys
+        such as ``scanNumber``, ``BDFPath``, ``configDescriptionId``,
+        ``fieldId``, and ``dataDescriptionId``.
+    is_spectrum_xds : bool, default False
+        If true, create antenna coordinates for spectrum data. Otherwise,
+        create baseline and UVW-label coordinates.
 
     Returns
     -------
-    coords : dict
-        Dictionary of coordinate arrays and their dimensions, ready for xarray
-        dataset creation. Includes coordinates for time, scan, baseline,
-        polarization, frequency, and field name.
-    attrs : dict
-        Dictionary of coordinate attributes including units, reference frames,
-        and other metadata.
-    num_antenna : int
-        Number of antennas in the observation.
-    spw_id : int
-        Spectral window ID.
-    time_vars : dict
-        Dictionary containing time-related variables including effective
-        integration time and time centroid information.
-    time_indices_by_bdf : dict
-        Dictionary that gives the list of BDFs and their respective time
-        indices (start, stop)
+    tuple
+        Seven values, in order:
+
+        - ``coords``: coordinate definitions for time, scan name,
+          antenna or baseline, polarization, frequency, field name, and
+          (for non-spectrum data) UVW labels.
+        - ``attrs``: coordinate attributes, including units and reference
+          frames where applicable.
+        - ``num_antenna``: antenna count for the partition.
+        - ``spw_id``: ASDM spectral-window ID.
+        - ``bdf_spw_id``: corresponding spectral-window index within the BDFs.
+        - ``time_vars``: definitions for ``EFFECTIVE_INTEGRATION_TIME`` and
+          ``TIME_CENTROID``.
+        - ``time_indices_by_bdf``: mapping of BDFs to their time-index ranges.
 
     Notes
     -----
-    The function processes various ASDM tables including Scan, Main, DataDescription,
-    Polarization, SpectralWindow, and Field to create a complete coordinate system
-    suitable for radio astronomy data analysis.
+    Time coordinates are loaded from the partition BDFs. ASDM metadata tables
+    provide scan, antenna/baseline, polarization, frequency, and field
+    information.
     """
 
     # Closest to time is the Scan/startTime,endTime,etc. but time values will probably will be

@@ -98,6 +98,11 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
     partition_issues = check_datatree(partition)
     assert not partition_issues
 
+    for var in ["EFFECTIVE_INTEGRATION_TIME", "TIME_CENTROID"]:
+        for dimension in ["time", "baseline_id"]:
+            assert dimension in partition.data_vars[var].dims
+    assert partition.attrs["data_groups"]["base"]["correlated_data"] == "VISIBILITY"
+
     visibility_selection = partition.data_vars["VISIBILITY"][0, 0, 0, 0]
     assert isinstance(visibility_selection, xr.DataArray)
 
@@ -158,6 +163,10 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple_pointing_selectio
 
     assert "antenna_xds" in partition
     assert "pointing_xds" not in partition
+    for var in ["EFFECTIVE_INTEGRATION_TIME", "TIME_CENTROID"]:
+        for dimension in ["time", "baseline_id"]:
+            assert dimension in partition.data_vars[var].dims
+    assert partition.attrs["data_groups"]["base"]["correlated_data"] == "VISIBILITY"
 
 
 def test_correlated_xds_default(asdm_with_spw_default):
@@ -296,6 +305,8 @@ def test_create_coordinates_monkeypatched_bdf_with_spw_simple(
     assert isinstance(time_vars, dict)
     for var in ["EFFECTIVE_INTEGRATION_TIME", "TIME_CENTROID"]:
         assert var in time_vars
+        for dimension in ["time", "baseline_id"]:
+            assert dimension in time_vars[var][0]
     assert time_indices_by_bdf == {}
 
 

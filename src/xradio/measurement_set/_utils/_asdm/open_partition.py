@@ -130,7 +130,7 @@ def open_partition(
         msv4_xdt["/pointing_xds"] = pointing_xds
 
     xradio_logger().debug(
-        "Openend partition, {is_spectrum_xds=} {is_single_dish=}, {spw_id=}, {num_antenna=}"
+        f"Openend partition, {is_spectrum_xds=} {is_single_dish=}, {spw_id=}, {num_antenna=}"
     )
 
     return msv4_xdt
@@ -221,8 +221,10 @@ def create_correlated_xds(
         )
     )
 
+    is_spectrum_xds = xds.attrs["type"] == "spectrum"
+    correlated_data_name = "SPECTRUM" if is_spectrum_xds else "VISIBILITY"
     data_group_base = {
-        "correlated_data": "VISIBILITY",
+        "correlated_data": correlated_data_name,
         "flag": "FLAG",
         "weight": "WEIGHT",
         "field_and_source": "field_and_source_base_xds",
@@ -487,8 +489,12 @@ def create_coordinates(
 
     coords["field_name"] = _create_field_name_coord(asdm, time_centers, partition_descr)
 
+    is_baseline_coord = "baseline_id" in coords
     time_vars = _create_time_vars(
-        actual_durations, actual_times, len_antenna_or_baseline_coords
+        actual_durations,
+        actual_times,
+        is_baseline_coord,
+        len_antenna_or_baseline_coords,
     )
 
     if not is_spectrum_xds:
@@ -672,7 +678,10 @@ def _create_polarizations_coord(
 
 
 def _create_time_vars(
-    actual_durations: np.ndarray, actual_times: np.ndarray, len_baseline_or_antenna
+    actual_durations: np.ndarray,
+    actual_times: np.ndarray,
+    is_baseline_coord: bool,
+    len_baseline_or_antenna: int,
 ) -> dict:
     # TODO This redim should be done inside ._bdf/load_time
     # We need (time, baseline_id) dims but times and durations form ASDM/BDFs are independent of baseline
@@ -683,14 +692,15 @@ def _create_time_vars(
     redim_actual_times = np.broadcast_to(
         actual_times[:, np.newaxis], (len(actual_times), len_baseline_or_antenna)
     )
+    antenna_name_or_baseline_id = "baseline_id" if is_baseline_coord else "antenna_name"
     time_vars = {
         "EFFECTIVE_INTEGRATION_TIME": (
-            ["time", "baseline_id"],
+            ["time", antenna_name_or_baseline_id],
             redim_actual_durations,
             make_quantity_attrs("s"),
         ),
         "TIME_CENTROID": (
-            ["time", "baseline_id"],
+            ["time", antenna_name_or_baseline_id],
             redim_actual_times,
             make_time_measure_attrs("s", "tai", time_format="unix"),
         ),

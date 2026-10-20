@@ -140,10 +140,15 @@ def test_open_asdm_sd_with_execblock_antenna_station_feed(
         ["dataDescriptionId", "execBlockId", "fieldId", "scanIntent"],
         include_processor_types=["CORRELATOR", "SPECTROMETER", "RADIOMETER"],
     )
+
     assert isinstance(ps_xdt, xr.DataTree)
     assert ps_xdt.type == "processing_set"
     for _msv4_name, msv4_xdt in enumerate(ps_xdt):
         assert isinstance(msv4_xdt, str)
+        assert msv4_xdt.ds.attrs["type"] == "spectrum"
+        assert msv4_xdt.ds.attrs["data_groups"]["base"]["correlated_data"] == "SPECTRUM"
+        for variable_name in ["TIME_CENTROID", "EFFECTIVE_INTEGRATION_TIME"]:
+            assert msv4_xdt.ds.data_vars[variable_name].dims == ["time", "antenna_name"]
+
     ps_issues = check_datatree(ps_xdt)
     assert not ps_issues
-    # TODO: ensure the type of the main datasets is SpectrumXds

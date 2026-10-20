@@ -16,7 +16,7 @@ def load_asdm_col(
     The column getter is called for each row. Supported ASDM wrappers and
     enumerations are converted by :func:`_decode_attribute_value`. If
     ``optional_per_row`` is true and a row reports that the column is absent,
-    the corresponding result is an empty string.
+    the corresponding result is np.nan.
 
     Parameters
     ----------

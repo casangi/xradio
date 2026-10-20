@@ -53,7 +53,7 @@ def test_load_asdm_col_asdm_spw_default(asdm_with_spw_default, input_optional_pe
             "assocNature",
             input_optional_per_row,
         )
-        assert assoc_nature == [""]
+        assert pd.isna(assoc_nature)
     else:
         with pytest.raises(ValueError, match="assocNature"):
             _assoc_nature = load_asdm_col(
@@ -68,7 +68,7 @@ def test_load_asdm_col_asdm_spw_default(asdm_with_spw_default, input_optional_pe
             "assocSpectralWindowId",
             input_optional_per_row,
         )
-        assert assoc_spectral_window_id == [""]
+        assert pd.isna(assoc_spectral_window_id)
     else:
         with pytest.raises(ValueError, match="assocSpectralWindowId"):
             _assoc_spectral_window_id = load_asdm_col(

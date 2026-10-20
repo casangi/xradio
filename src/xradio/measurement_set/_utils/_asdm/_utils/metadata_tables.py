@@ -68,7 +68,7 @@ def load_asdm_col(
         if expect_attribute_present:
             value = _decode_attribute_value(row, get_col_function_name)
         else:
-            value = ""
+            value = np.nan
 
         col_values.append(value)
 

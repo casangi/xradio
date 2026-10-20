@@ -63,16 +63,15 @@ def create_field_and_source_xds(
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
     sdm_field_required_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir"]
-    sdm_field_optional_attrs = ["sourceId", "directionCode"]
-    try:
-        # TODO?: sourceId is an opt attr, but so far always present in ALMA ASDMs
-        field_df = exp_asdm_table_to_df(
-            asdm, "Field", sdm_field_required_attrs + sdm_field_optional_attrs
-        )
-    except ValueError as _exc:
-        field_df = exp_asdm_table_to_df(asdm, "Field", sdm_field_required_attrs)
-        field_df["sourceId"] = None
-        field_df["directionCode"] = None
+    sdm_field_optional_attrs = ["ephemerisId", "sourceId", "directionCode"]
+    # sourceId is an opt attr, but so far always present in ALMA ASDMs. directionCode also seems to
+    # always be present. ephemerisId is NOT always present.
+    field_df = exp_asdm_table_to_df(
+        asdm,
+        "Field",
+        sdm_field_required_attrs + sdm_field_optional_attrs,
+        optional_per_row=True,
+    )
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
@@ -111,6 +110,14 @@ def create_field_and_source_xds(
     xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
 
     # TODO: ephemeris. SOURCE_DISTANCE, etc.
+    ephemeris_id = field_df["ephemerisId"].item()
+    if not pd.isna(ephemeris_id):
+        xradio_logger().info(
+            f"Note: ephemeris data is not yet supported. Found an ephemeris id: {ephemeris_id} "
+            f"for field id: {field_id} / name {field_name}. The source_and_field_xds will "
+            "not contain ephemeris information."
+        )
+
     is_ephemeris = False
     xds.attrs.update({"is_ephemeris": is_ephemeris})
 

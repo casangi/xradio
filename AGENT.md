@@ -24,7 +24,7 @@ conda run -n zinc python -m pytest tests/stakeholder
 conda run -n zinc python -c "from xradio._utils.zarr.config import ZARR_FORMAT; print(ZARR_FORMAT)"
 
 # Lint and format with ruff (the version pinned in .pre-commit-config.yaml)
-uvx ruff@0.12.5 check --fix <files> && uvx ruff@0.12.5 format <files>
+uvx ruff@0.16.10 check --fix <files> && uvx ruff@0.16.10 format <files>
 pre-commit run --all-files   # every hook CI runs (ruff, pyupgrade, absolufy-imports, hygiene)
 ```
 
@@ -54,7 +54,7 @@ xradio/
 ├── pyproject.toml            # SOLE packaging/config file. NO [build-system] table (legacy setuptools fallback).
 │                             #   version = "v1.2.4"; base dep xarray; extras; xarray backend entry points;
 │                             #   [tool.pytest]; [tool.ruff]
-├── .pre-commit-config.yaml   # hooks CI runs (pre-commit.yml): ruff 0.12.5 check + format, pyupgrade, absolufy-imports, hygiene
+├── .pre-commit-config.yaml   # hooks CI runs (pre-commit.yml): ruff 0.16.10 check + format, pyupgrade, absolufy-imports, hygiene
 ├── Makefile                  # python-format (legacy Black target), schema-export
 ├── MANIFEST.in               # sdist include list
 ├── .readthedocs.yaml         # RTD build (installs docs/sphinx.txt + .[casacore])
@@ -265,15 +265,19 @@ check_datatree(dt) -> SchemaIssues             # dispatches per-node via attrs["
 **Convert one MSv2 → Processing Set, then open & summarize:**
 ```python
 import xarray as xr
-import xradio                                   # registers .xr_ps / .xr_ms / .xr_img accessors
+import xradio  # registers .xr_ps / .xr_ms / .xr_img accessors
 from xradio.measurement_set import (
-    estimate_conversion_memory_and_cores, convert_msv2_to_processing_set, open_processing_set,
+    estimate_conversion_memory_and_cores,
+    convert_msv2_to_processing_set,
+    open_processing_set,
 )
 import toolviper
 
 msv2_name = "Antennae_North.cal.lsrk.split.ms"
 mem, max_cores, suggested_cores = estimate_conversion_memory_and_cores(msv2_name)
-viper_client = toolviper.dask.local_client(cores=suggested_cores)   # size the Dask client
+viper_client = toolviper.dask.local_client(
+    cores=suggested_cores
+)  # size the Dask client
 
 convert_msv2_to_processing_set(
     in_file=msv2_name,
@@ -283,7 +287,7 @@ convert_msv2_to_processing_set(
 )
 
 ps_xdt = open_processing_set("Antennae_North.cal.lsrk.split.ps.zarr")
-ps_xdt.xr_ps.summary()                          # -> pandas.DataFrame; 'name' column gives MS v4 names
+ps_xdt.xr_ps.summary()  # -> pandas.DataFrame; 'name' column gives MS v4 names
 ```
 
 **Convert MULTIPLE MSv2 into a single PS (append with `persistence_mode="a"`):**
@@ -294,7 +298,10 @@ msv2_list = ["small_lofar.ms", "AA2-Mid-sim_00000.ms"]
 outfile = "combined_lofar_aa2.ps.zarr"
 for msv2 in msv2_list:
     convert_msv2_to_processing_set(
-        in_file=msv2, out_file=outfile, parallel_mode="partition", persistence_mode="a",
+        in_file=msv2,
+        out_file=outfile,
+        parallel_mode="partition",
+        persistence_mode="a",
     )
 
 ps = open_processing_set(outfile)
@@ -303,11 +310,11 @@ ps.xr_ps.summary()
 
 **Explore / select / compute:**
 ```python
-sub = ps_xdt.xr_ps.query(field_name=[...], scan_name=["17"])     # subset PS
+sub = ps_xdt.xr_ps.query(field_name=[...], scan_name=["17"])  # subset PS
 ms_xdt = ps_xdt.xr_ps.query(execution_block_UID="uid://...").xr_ps.get_ms_xdt()
-cor_xds = ms_xdt.ds                                              # the VisibilityXds / SpectrumXds
-antenna_xds = ms_xdt.antenna_xds.ds                             # a sub-dataset
-ms_xdt.isel(frequency=slice(1, 4))                              # standard xarray still works
+cor_xds = ms_xdt.ds  # the VisibilityXds / SpectrumXds
+antenna_xds = ms_xdt.antenna_xds.ds  # a sub-dataset
+ms_xdt.isel(frequency=slice(1, 4))  # standard xarray still works
 ms_xdt.ds.VISIBILITY.max().compute()
 ```
 
@@ -395,7 +402,7 @@ PATH=<env>/bin:$PATH PYTHONPATH=src make schema-export   # regenerate schemas/{V
   - `xradio.testing.image`: `download_image`, `download_and_open_image`, `create_empty_test_image`, `assert_image_block_equal`, `remove_path`
 - **Test data** downloads via `toolviper.utils.data.download` (default to `/tmp` for MS assets — avoids Dropbox table-locking issues).
 - **Schema checking:** validate data with `check_dataset` / `check_array` / `check_dict` / `check_datatree`; call `.expect()` on the returned `SchemaIssues` to raise.
-- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, integration, basic-schema-install, run-ipynb) plus `pre-commit.yml`, which runs every hook of `.pre-commit-config.yaml` on all files (ruff 0.12.5 check + format, pyupgrade, absolufy-imports, hygiene hooks). `cov_project="xradio"`, test path `tests/`.
+- **CI**: reusable `nrao/gh-actions-templates-public` templates (linux + codecov, macos, integration, basic-schema-install, run-ipynb) plus `pre-commit.yml`, which runs every hook of `.pre-commit-config.yaml` on all files (ruff 0.16.10 check + format, pyupgrade, absolufy-imports, hygiene hooks). `cov_project="xradio"`, test path `tests/`.
 
 ---
 
@@ -437,9 +444,11 @@ requirement for XRADIO objects. XRADIO uses two cycle-free designs:
 4. **Prove cycle-free death in a unit test** for every new accessor
    (`tests/unit/test_accessor_lifecycle.py`):
    ```python
-   ds = make_dataset(); ds.xr_x  # touch the accessor
-   wr = weakref.ref(ds); del ds
-   assert wr() is None            # died by refcount, NO gc.collect() needed
+   ds = make_dataset()
+   ds.xr_x  # touch the accessor
+   wr = weakref.ref(ds)
+   del ds
+   assert wr() is None  # died by refcount, NO gc.collect() needed
    ```
 5. **Never mutate `attrs["data_groups"]` or a group dict in place.** `isel`,
    `sel` and `load` return datasets that share the attrs dict itself;
@@ -470,7 +479,7 @@ requirement for XRADIO objects. XRADIO uses two cycle-free designs:
 - **No `[build-system]` table** in `pyproject.toml` (pip then builds with setuptools' legacy `__legacy__` backend); no `setup.py`/`setup.cfg`. The `[project.entry-points]` (xarray backends) work through that fallback: built wheels contain `entry_points.txt`, and setuptools' automatic src-layout discovery packages `src/xradio` and the top level module `src/_xradio_xarray_backends.py`. Add `[build-system]` before anything the legacy backend cannot express (dynamic version, explicit package discovery).
 - **No `xradio.__version__`.** Version is hardcoded `version = "v1.2.4"` in `pyproject.toml` (note leading `v`; pip normalizes to `1.2.4`).
 - **`persistence_mode` defaults to `"w-"`** (fail if `.ps.zarr` exists). Use `"a"` to append, `"w"` to overwrite.
-- **Lint and format with ruff, through pre-commit** (`[tool.ruff]` in `pyproject.toml`, ruff pinned to 0.12.5 in `.pre-commit-config.yaml`; notebooks are linted too). CI runs every hook on all files. `make python-format` still calls Black and is not what CI checks.
+- **Lint and format with ruff, through pre-commit** (`[tool.ruff]` in `pyproject.toml`, ruff pinned to 0.16.10 in `.pre-commit-config.yaml`; notebooks are linted too). CI runs every hook on all files. `make python-format` still calls Black and is not what CI checks.
 - **`--strict-markers` is on** — `@pytest.mark.<custom>` without registration will error. The only custom marker, `slow`, is registered in `tests/unit/measurement_set/_utils/_msv2/conftest.py` (`pytest_configure`, not `pyproject.toml`).
 - **Two divergent docs dep lists**: the pyproject `docs` extra vs `docs/sphinx.txt` (the latter, pinned `Sphinx==7.2.6` etc., is what RTD actually installs — and RTD installs the `casacore` extra, not `docs`).
 - **Notebooks under `docs/source/**/guides` and tutorials are executed by `run-ipynb` CI** — breaking the public API can fail notebook CI even when pytest passes.

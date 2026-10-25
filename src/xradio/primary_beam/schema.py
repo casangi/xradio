@@ -58,12 +58,16 @@ AllowedZernikeBases = Literal["sirius"]
 """
 Zernike polynomial bases that the coefficients refer to:
 
-* ``sirius``: the 66 polynomials of radial orders 0 to 10 of SIRIUS and
-  AstroVIPER (``astroviper.processing_functions.simulation.zernike_polynomials``),
-  the basis of the aperture coefficient tables of Sekhar et al. (2022, AJ 163,
-  87). They are ordered by radial order ``n`` and, within an order, by
-  azimuthal order ``m`` from ``-n`` to ``n``, written on aperture coordinates
-  normalised to the unit disc, and not normalised to unit power.
+* ``sirius``: the 66 functions of ``zernike_basis`` in SIRIUS and AstroVIPER
+  (``astroviper.processing_functions.simulation.zernike_polynomials``), the
+  basis of the aperture coefficient tables of Sekhar et al. (2022, AJ 163,
+  87). They are ordered by radial order ``n`` (0 to 10) and, within an order,
+  by azimuthal order ``m`` from ``-n`` to ``n``, written on aperture
+  coordinates normalised to the unit disc, and not normalised to unit power.
+  63 of them are the Zernike polynomials of their order, with ``x`` and ``y``
+  in the roles of the Cartesian ``Y`` and ``X``. The functions with indices
+  23, 39 and 53 have additional terms, so coefficients apply to the functions
+  as implemented.
 """
 
 

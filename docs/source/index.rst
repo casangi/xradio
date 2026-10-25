@@ -39,6 +39,13 @@ The Measurement Set |MSV4_SCHEMA_VERSION| is described in the section :doc:`Meas
 
 .. toctree::
    :hidden:
+   :maxdepth: 5
+   :caption: Primary Beam (under development)
+
+   primary_beam/schema
+
+.. toctree::
+   :hidden:
    :maxdepth: 2
    :caption: Common
 

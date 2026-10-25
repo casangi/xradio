@@ -23,6 +23,10 @@ checked with :py:func:`xradio.primary_beam.schema.check_zpc`.
 
 .. autodata:: xradio.primary_beam.schema.AllowedZernikeBases
 
+.. autoclass:: xradio.primary_beam.schema.OriginDict()
+
+   .. xradio_dict_schema_table:: xradio.primary_beam.schema.OriginDict
+
 Coordinates and data variables
 ------------------------------
 

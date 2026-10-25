@@ -208,15 +208,8 @@ def check_zpc(zpc_xds: xarray.Dataset) -> SchemaIssues:
       at most 66;
     * ``ETA`` is positive.
 
-    Parameters
-    ----------
-    zpc_xds : xarray.Dataset
-        Dataset to check.
-
-    Returns
-    -------
-    SchemaIssues
-        Issues found, empty if the dataset conforms.
+    :param zpc_xds: Zernike polynomial coefficient dataset to check
+    :returns: List of schema issues found (empty if the dataset conforms)
     """
     issues = check_dataset(zpc_xds, ZernikePolynomialCoefficientsXds)
     if "polarization" in zpc_xds.coords:

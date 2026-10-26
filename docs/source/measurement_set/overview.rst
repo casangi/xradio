@@ -32,6 +32,107 @@ section). It’s important to note that MS v4 schema is not backward compatible
 with either MS v2 or MS v3 schemas, representing a significant evolution in the
 data model.
 
+Use Cases
+---------
+
+The MS v4 has been designed to satisfy the following use cases:
+
+- Radio Interferometry
+- Single Dish Observations
+- On-the-fly (OTF) Mosaic Observations
+- Ephemeris Observations
+- Heterogeneous Antenna VLBI
+- Phased Array Stations (PAS)
+- Phased Array Feeds (PAF)
+
+To ensure that these use cases are met, we have created stakeholder
+tests that convert MS v2 to MS v4 using the
+`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__
+function. These tests cover a wide selection of instruments:
+
+Interferometer Stakeholder Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| Dataset                                                      | Telescope   | Mosaic  | Ephemeris   | VLBI | PAS | PAF |
++==============================================================+=============+=========+=============+======+=====+=====+
+| Antennae_North.cal.lsrk.split.ms                             | ALMA        | x       |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| AA2-Mid-sim_00000.ms                                         | Simulated   |         |             |      |     |     |
+|                                                              | SKA Mid     |         |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| ska_low_sim_18s.ms                                           | Simulated   |         |             |      |     | x   |
+|                                                              | SKA Low     |         |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| small_meerkat.ms                                             | MeerKAT     |         |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| small_lofar.ms                                               | LOFAR       |         |             |      | x   |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| global_vlbi_gg084b_reduced.ms                                | VLBA+EVN    |         |             | x    |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| VLBA_TL016B_split.ms                                         | VLBA        |         |             | x    |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| ngEHT_E17A10.0.bin0000.source0000_split.ms                   | Simulated   |         |             | x    |     |     |
+|                                                              | ngEHT       |         |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| venus_ephem_test.ms                                          | ALMA        | x       | x           |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| ALMA_uid\_\__A002_X1003af4_X75a3.split.avg.ms                | ALMA        | x       | x           |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| SNR_G55_10s.split.ms                                         | VLA         | x       |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms | VLA (VLASS) | x       |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| gmrt.ms                                                      | GMRT        |         |             |      |     |     |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| askap_59750_altaz_2settings.ms                               | ASKAP       |         |             |      |     | x   |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| askap_59754_altaz_2weights_0.ms                              | ASKAP       |         |             |      |     | x   |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| askap_59754_altaz_2weights_15.ms                             | ASKAP       |         |             |      |     | x   |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| askap_59755_eq_interleave_0.ms                               | ASKAP       |         |             |      |     | x   |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+| askap_59755_eq_interleave_15.ms                              | ASKAP       |         |             |      |     | x   |
++--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
+
+Single Dish Stakeholder Tests
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
++------------------------------------+-----------+--------------+------------+-----------+------------+
+| Dataset                            | Telescope | Multi-Target | OFF        | Ephemeris | Scan       |
+|                                    |           |              | Position   |           | Pattern    |
++====================================+===========+==============+============+===========+============+
+| sdimaging                          | GBT       |              | relative   |           | raster     |
++------------------------------------+-----------+--------------+------------+-----------+------------+
+| uid\_\__A002_Xced5df_Xf9d9.small   | ALMA      |              | horizontal |           | raster     |
++------------------------------------+-----------+--------------+------------+-----------+------------+
+| uid\_\__A002_X1015532_X1926f.small | ALMA      |              | relative   | x         | raster     |
++------------------------------------+-----------+--------------+------------+-----------+------------+
+| uid\_\__A002_Xe3a5fd_Xe38e.small   | ALMA      | x            | absolute   |           | raster     |
++------------------------------------+-----------+--------------+------------+-----------+------------+
+| uid\_\__A002_Xae00c5_X2e6b.small   | ALMA      |              | relative   | x         | fast       |
++------------------------------------+-----------+--------------+------------+-----------+------------+
+
+- OFF position column, possible values:
+
+  - **absolute**: OFF position has its own field entry in the FIELD
+    table.
+  - **relative**: OFF is a fixed position specified as an offset
+    coordinate relative to the ON position.
+  - **horizontal**: OFF is also an offset position relative to the ON
+    position but specified so that its elevation value is always close
+    to the ON position (meaning that the OFF position is moving with
+    time).
+
+- Scan pattern column: raster scan/fast scan.
+
+  - **raster**: Scan is, as the name indicates, a raster pattern with a
+    relatively long integration time (0.1-1 sec) and channelized
+    spectral window.
+  - **fast**: Scan is either a Lissajous or double-circle pattern with
+    short integration time (1 msec) and single-channel spectral window.
+
 Schema Layout
 -------------
 
@@ -210,107 +311,6 @@ To delve further into the Measurement Set v4,
    and the `discussion issues on the XRADIO GitHub
    repository <https://github.com/casangi/xradio/issues?q=is%3Aissue%20label%3A%22MSv4%20Review%22&page=1>`__
    (with label “MSv4 Review”).
-
-Use Cases
----------
-
-The MS v4 has been designed to satisfy the following use cases:
-
-- Radio Interferometry
-- Single Dish Observations
-- On-the-fly (OTF) Mosaic Observations
-- Ephemeris Observations
-- Heterogeneous Antenna VLBI
-- Phased Array Stations (PAS)
-- Phased Array Feeds (PAF)
-
-To ensure that these use cases are met, we have created stakeholder
-tests that convert MS v2 to MS v4 using the
-`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__
-function. These tests cover a wide selection of instruments:
-
-Interferometer Stakeholder Tests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| Dataset                                                      | Telescope   | Mosaic  | Ephemeris   | VLBI | PAS | PAF |
-+==============================================================+=============+=========+=============+======+=====+=====+
-| Antennae_North.cal.lsrk.split.ms                             | ALMA        | x       |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| AA2-Mid-sim_00000.ms                                         | Simulated   |         |             |      |     |     |
-|                                                              | SKA Mid     |         |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| ska_low_sim_18s.ms                                           | Simulated   |         |             |      |     | x   |
-|                                                              | SKA Low     |         |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| small_meerkat.ms                                             | MeerKAT     |         |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| small_lofar.ms                                               | LOFAR       |         |             |      | x   |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| global_vlbi_gg084b_reduced.ms                                | VLBA+EVN    |         |             | x    |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| VLBA_TL016B_split.ms                                         | VLBA        |         |             | x    |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| ngEHT_E17A10.0.bin0000.source0000_split.ms                   | Simulated   |         |             | x    |     |     |
-|                                                              | ngEHT       |         |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| venus_ephem_test.ms                                          | ALMA        | x       | x           |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| ALMA_uid\_\__A002_X1003af4_X75a3.split.avg.ms                | ALMA        | x       | x           |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| SNR_G55_10s.split.ms                                         | VLA         | x       |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| VLASS3.2.sb45755730.eb46170641.60480.16266136574.split.v6.ms | VLA (VLASS) | x       |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| gmrt.ms                                                      | GMRT        |         |             |      |     |     |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| askap_59750_altaz_2settings.ms                               | ASKAP       |         |             |      |     | x   |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| askap_59754_altaz_2weights_0.ms                              | ASKAP       |         |             |      |     | x   |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| askap_59754_altaz_2weights_15.ms                             | ASKAP       |         |             |      |     | x   |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| askap_59755_eq_interleave_0.ms                               | ASKAP       |         |             |      |     | x   |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-| askap_59755_eq_interleave_15.ms                              | ASKAP       |         |             |      |     | x   |
-+--------------------------------------------------------------+-------------+---------+-------------+------+-----+-----+
-
-Single Dish Stakeholder Tests
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-+------------------------------------+-----------+--------------+------------+-----------+------------+
-| Dataset                            | Telescope | Multi-Target | OFF        | Ephemeris | Scan       |
-|                                    |           |              | Position   |           | Pattern    |
-+====================================+===========+==============+============+===========+============+
-| sdimaging                          | GBT       |              | relative   |           | raster     |
-+------------------------------------+-----------+--------------+------------+-----------+------------+
-| uid\_\__A002_Xced5df_Xf9d9.small   | ALMA      |              | horizontal |           | raster     |
-+------------------------------------+-----------+--------------+------------+-----------+------------+
-| uid\_\__A002_X1015532_X1926f.small | ALMA      |              | relative   | x         | raster     |
-+------------------------------------+-----------+--------------+------------+-----------+------------+
-| uid\_\__A002_Xe3a5fd_Xe38e.small   | ALMA      | x            | absolute   |           | raster     |
-+------------------------------------+-----------+--------------+------------+-----------+------------+
-| uid\_\__A002_Xae00c5_X2e6b.small   | ALMA      |              | relative   | x         | fast       |
-+------------------------------------+-----------+--------------+------------+-----------+------------+
-
-- OFF position column, possible values:
-
-  - **absolute**: OFF position has its own field entry in the FIELD
-    table.
-  - **relative**: OFF is a fixed position specified as an offset
-    coordinate relative to the ON position.
-  - **horizontal**: OFF is also an offset position relative to the ON
-    position but specified so that its elevation value is always close
-    to the ON position (meaning that the OFF position is moving with
-    time).
-
-- Scan pattern column: raster scan/fast scan.
-
-  - **raster**: Scan is, as the name indicates, a raster pattern with a
-    relatively long integration time (0.1-1 sec) and channelized
-    spectral window.
-  - **fast**: Scan is either a Lissajous or double-circle pattern with
-    short integration time (1 msec) and single-channel spectral window.
 
 Translating between MS v2 and MS v4
 -----------------------------------

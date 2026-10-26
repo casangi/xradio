@@ -28,8 +28,8 @@ The current MS v4 schema focuses on offline processing capabilities and
 does not encompass all information present in the ASDM. However, its
 design allows for future expansion to incorporate additional data as
 needed (see `schema versioning <../overview.rst#Schema-Versioning>`__
-section). It’s important to note that MS v4 is not backward compatible
-with either MS v2 or MS v3, representing a significant evolution in the
+section). It’s important to note that MS v4 schema is not backward compatible
+with either MS v2 or MS v3 schemas, representing a significant evolution in the
 data model.
 
 Schema Layout
@@ -121,6 +121,102 @@ To ensure that these use cases are met, we have created stakeholder
 tests that convert MS v2 to MS v4 using the
 `convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__
 function. These tests cover a wide selection of instruments:
+
+Sub-package Layout
+------------------
+
+The XRADIO architecture with the measurement set sub-package expanded is
+shown in Figure 2 (`overview of XRADIO
+architecture <../development.rst>`__). The public API is exported by
+the ``measurement_set`` sub-package (`API documentation <api.rst>`__).
+
+.. Diagram source: ../_images/xradio_package_subpackages_modules_v4.tex (make diagrams)
+
+.. figure:: ../_images/xradio_package_subpackages_modules_v4.svg
+      :alt: XRADIO Architecture
+      :align: center
+      :name: figure-xradio-architecture
+      :width: 100%
+
+      Figure 2: XRADIO Architecture.
+
+Figure 3 summarizes the storage formats. We choose to implement the ProcessingSet(MS v4) as an in-memory
+format with three on-disk formats:
+
+1. `zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__
+2. `ASDM <https://drive.google.com/file/d/1PMrZFbkrMVfe57K6AAh1dR1FalS35jP2/view>`__
+3. `MS v2 CASACORE Table <https://casa.nrao.edu/casacore/doxygen/MeasurementSet_8h.html>`__
+
+Since a single MS v2 or an ASDM on disk can contain information for multiple MS v4s we open them into a processing set which is constructed using a xarray.DataTree.
+
+A Processing Set is written to zarr with ``DataTree.to_zarr``,
+and
+`open_processing_set <api.rst#xradio.measurement_set.open_processing_set>`__
+and
+`load_processing_set <api.rst#xradio.measurement_set.load_processing_set>`__
+open it lazily or load it into memory, also from
+`Amazon S3 <https://aws.amazon.com/s3/>`__. ASDMs, including those of the
+`ALMA WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
+(Wideband Sensitivity Upgrade), are opened lazily with the
+`xradio_asdm <api.rst#asdm-xarray-engine-xradio-asdm>`__ Xarray engine
+(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__).
+
+The mapping from MS v2 to MS v4s does have performance implications consequently we also provide
+a conversion function to convert an MS v2 to Zarr:
+`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__.
+
+.. Diagram source: ../_images/measurement_set_storage_formats.tex (make diagrams)
+
+.. figure:: ../_images/measurement_set_storage_formats.svg
+  :alt: Measurement Set v4 storage formats
+  :align: center
+  :name: figure-measurement-set
+  :width: 100%
+
+  Figure 3: Measurement Set v4 storage formats.
+
+Future work
+-----------
+
+Schema-related:
+
+- Earth orientation dataset (VLBI)
+- Interferometer model dataset (VLBI)
+- Beam model dataset
+
+Software-related:
+
+- Expand and refine Processing Set methods
+
+
+Delving further
+---------------
+
+To delve further into the Measurement Set v4,
+
+1. The `tutorial <tutorials_guides.rst>`__ section demonstrates the
+   schema and API usage.
+
+   - This Jupyter notebook (.ipynb) can be run interactively via the
+     Google Colab link at the top.
+   - You can also download and run notebooks locally after installing
+     XRADIO via pip or conda.
+
+2. There are multiple `guides <tutorials_guides.rst>`__
+
+   - Examples show how different telescopes’ data can be represented.
+   - If your telescope isn’t represented, open an issue and attach an
+     example Measurement Set v2 (preferably 10MB or smaller).
+
+3. Examine the MSv4 `schema <schema.rst>`__ and `API
+   documentation <api.rst>`__.
+4. The MSv4 schema went through a review process in late 2024 / early
+   2025. More details and discussion on the schema design are in the
+   `MSv4 Review Panel
+   report <https://github.com/casangi/xradio/tree/main/docs/source/reviews/MSv4_review_panel_report_20250106_v1.1.pdf>`__
+   and the `discussion issues on the XRADIO GitHub
+   repository <https://github.com/casangi/xradio/issues?q=is%3Aissue%20label%3A%22MSv4%20Review%22&page=1>`__
+   (with label “MSv4 Review”).
 
 Interferometer Stakeholder Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -277,7 +373,7 @@ the changes from MS v3 are adopted.
   groups <overview.rst#Data-Groups>`__.
 - The `JPL Horizons
   ephemerides <https://casadocs.readthedocs.io/en/latest/notebooks/external-data#Ephemeris-Data>`__
-  was used to create the ephemeris schema instead of the MS v2.
+  was used to create the ephemeris schema (note that MS v2 never specified the ephemeris format).
 - Redefinition of ``WEIGHT`` to be ``WEIGHT_SPECTRUM``. Contemporary
   interferometers are spectral machines; consequently, weights can be
   distinctive per channel. The ``WEIGHT`` data variable has the same
@@ -331,102 +427,3 @@ Deprecation List MS v2
   - ``TARGET``, ``SOURCE_OFFSET``, ``ON_SOURCE``: Redundant information
     contained in ``field_and_source_xds``.
   - ``TRACKING``: No use case has been found.
-
-Delving further
----------------
-
-To delve further into the Measurement Set v4,
-
-1. The `tutorial <tutorials_guides.rst>`__ section demonstrates the
-   schema and API usage.
-
-   - This Jupyter notebook (.ipynb) can be run interactively via the
-     Google Colab link at the top.
-   - You can also download and run notebooks locally after installing
-     XRADIO via pip or conda.
-
-2. There are multiple `guides <tutorials_guides.rst>`__
-
-   - Examples show how different telescopes’ data can be represented.
-   - If your telescope isn’t represented, open an issue and attach an
-     example Measurement Set v2 (preferably 10MB or smaller).
-
-3. Examine the MSv4 `schema <schema.rst>`__ and `API
-   documentation <api.rst>`__.
-4. The MSv4 schema went through a review process in late 2024 / early
-   2025. More details and discussion on the schema design are in the
-   `MSv4 Review Panel
-   report <https://github.com/casangi/xradio/tree/main/docs/source/reviews/MSv4_review_panel_report_20250106_v1.1.pdf>`__
-   and the `discussion issues on the XRADIO GitHub
-   repository <https://github.com/casangi/xradio/issues?q=is%3Aissue%20label%3A%22MSv4%20Review%22&page=1>`__
-   (with label “MSv4 Review”).
-
-Sub-package Layout
-------------------
-
-The XRADIO architecture with the measurement set sub-package expanded is
-shown in Figure 2 (`overview of XRADIO
-architecture <../development.rst>`__). The public API is exported by
-the ``measurement_set`` sub-package (`API documentation <api.rst>`__).
-
-.. Diagram source: ../_images/xradio_package_subpackages_modules_v4.tex (make diagrams)
-
-.. figure:: ../_images/xradio_package_subpackages_modules_v4.svg
-      :alt: XRADIO Architecture
-      :align: center
-      :name: figure-xradio-architecture
-      :width: 100%
-
-      Figure 2: XRADIO Architecture.
-
-Figure 3 summarizes the storage formats. The MS v4 is an in-memory
-format, a Processing Set ``xarray.DataTree``, with three on-disk
-formats: `zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__,
-`ASDM <https://drive.google.com/file/d/1PMrZFbkrMVfe57K6AAh1dR1FalS35jP2/view>`__
-and MS v2. A Processing Set is written to zarr with ``DataTree.to_zarr``,
-and
-`open_processing_set <api.rst#xradio.measurement_set.open_processing_set>`__
-and
-`load_processing_set <api.rst#xradio.measurement_set.load_processing_set>`__
-open it lazily or load it into memory, also from
-`Amazon S3 <https://aws.amazon.com/s3/>`__. ASDMs, including those of the
-`ALMA WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
-(Wideband Sensitivity Upgrade), are opened lazily with the
-`xradio_asdm <api.rst#asdm-xarray-engine-xradio-asdm>`__ Xarray engine
-(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__).
-
-The MS v2 and MS v4 schemas differ, and MS v4 is not backward compatible
-with MS v2, but XRADIO maps an MS v2 onto MS v4. An MS v2 can be converted
-to a processing set with
-`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__,
-or opened directly, without converting it, with the ``xradio_msv2``
-Xarray engine
-(`open_msv2 <api.rst#xradio.measurement_set.open_msv2>`__): it gives the
-processing set that the conversion would write, and reads the data
-from the MS v2 when they are accessed. Converting is the better choice
-when the data are read in full several times, or from cloud storage:
-every read from an MS v2 reorders its data into the MS v4 layout, which
-the converted processing set stores once, chunked and compressed.
-
-.. Diagram source: ../_images/measurement_set_storage_formats.tex (make diagrams)
-
-.. figure:: ../_images/measurement_set_storage_formats.svg
-  :alt: Measurement Set v4 storage formats
-  :align: center
-  :name: figure-measurement-set
-  :width: 100%
-
-  Figure 3: Measurement Set v4 storage formats.
-
-Future work
------------
-
-Schema-related:
-
-- Earth orientation dataset (VLBI)
-- Interferometer model dataset (VLBI)
-- Beam model dataset
-
-Software-related:
-
-- Expand and refine Processing Set methods

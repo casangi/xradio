@@ -46,22 +46,19 @@ can be grouped together into a Processing Set (``ps``), which is useful
 for processing them together. Importantly, each MS v4 is fully
 self-describing. As shown in Figure 1 (a simplified diagram; for full
 details, see the `Data Model Schema <schema.rst>`__), the MS v4 is
-structured as a dataset (``xds``) of datasets comprising the
-``correlated_xds`` along with ``antenna_xds``, ``pointing_xds``,
-``phase_calibration_xds``, ``weather_xds``, ``system_calibration_xds``,
-``gain_curve_xds``, and ``phased_array_xds``, all stored in the
-attribute section. The ``correlated_xds`` contains the ``VISIBILITY``
+an ``xarray.DataTree`` node (``ms_xdt``) whose dataset is the
+``correlated_xds`` and whose children are the ``antenna_xds``,
+``field_and_source_xds``, ``pointing_xds``, ``phase_calibration_xds``,
+``weather_xds``, ``system_calibration_xds``, ``gain_curve_xds``, and
+``phased_array_xds``. The ``correlated_xds`` contains the ``VISIBILITY``
 (for interferometer data) or ``SPECTRUM`` (for single dish data),
-``UVW``, ``WEIGHT``, and ``FLAGS`` data variables, along with info
-dictionaries in the attributes. The ``field_and_source_xds`` is
-specifically stored within the attributes of the
-``VISIBILITY``/``SPECTRUM`` data variable.
+``UVW``, ``WEIGHT``, and ``FLAG`` data variables, along with info
+dictionaries in the attributes. Each data group names its
+``field_and_source_xds``, for example ``field_and_source_base_xds``.
 
-.. raw:: html
+.. Diagram source: ../_images/diagram_schema_layout_PS_MSv4.tex (make diagrams)
 
-   <!-- Source Google Drawings of the diagrams are in gdrive: CASA/Documentation/XRADIO/Diagrams -->
-
-.. figure:: ../_images/diagram_schema_layout_PS_MSv4.png
+.. figure:: ../_images/diagram_schema_layout_PS_MSv4.svg
   :alt: Processing Set and MS v4 schema layout.
   :align: center
   :name: figure-schema-layout
@@ -78,7 +75,8 @@ The ``correlated_xds`` can contain multiple copies of
 variables. To maintain the relationship between a set of data variables,
 the ``data_groups`` dictionary can contain one or more data group
 definitions. A ``data_group`` dictionary is used with fixed lowercase
-keys: ‘correlated_data’, ‘flag’, ‘weight’, ‘uvw’, and other metadata.
+keys: ‘correlated_data’, ‘flag’, ‘weight’, ‘uvw’, ‘field_and_source’,
+and other metadata.
 
 The ``data_groups`` dictionary is stored as an attribute of the
 correlated (main) dataset (``ms_xds``) and can contain one or more
@@ -100,11 +98,11 @@ contain the standard name followed by an underscore and a description
 chosen by the developer. For example, a new version of ``VISIBILITY``
 could be ``VISIBILITY_PHASE_SHIFTED``.
 
-The ``ms_xds`` also allows for selecting a ``data_group``. For example:
+The ``ms_xdt`` also allows for selecting a ``data_group``. For example:
 
 .. code:: python
 
-   sub_ms_xds = ms_xds.xr_ms.sel(data_group_name='imaging')
+   sub_ms_xdt = ms_xdt.xr_ms.sel(data_group_name='imaging')
 
 Use Cases
 ---------
@@ -249,7 +247,7 @@ Translating between MS v2 and MS v4
 +-------------------+--------------------------------------+--------------------+
 | PHASE_CAL         | ms_xdt.phase_calibration_xds         | dataset            |
 +-------------------+--------------------------------------+--------------------+
-| EARTH_ORIENTATION | ms_xdt.earth_orientation_xds         | dataset            |
+| EARTH_ORIENTATION | earth_orientation_xds (planned)      | dataset            |
 +-------------------+--------------------------------------+--------------------+
 
 Summary of Key Changes
@@ -303,8 +301,13 @@ Deprecation List MS v2
     renumber rows when e.g. removing an antenna. This is not necessary
     with data variables that are labeled since implicit indices are no
     longer used.
-  - ``SIGMA``: This is redundant since ``WEIGHT`` is always considered
-    to be ``1/SIGMA^2``.
+  - ``SIGMA``: Not stored separately. Each `data
+    group <overview.rst#Data-Groups>`__ has its own weight: the weight
+    of uncalibrated data is ``1/SIGMA^2``, and calibrated weights are a
+    ``WEIGHT_*`` data variable in the data group of the calibrated data.
+    The MS v2 conversion currently copies the MS v2 ``WEIGHT_SPECTRUM``
+    (or ``WEIGHT``) into a single ``WEIGHT`` shared by all data groups
+    (`#665 <https://github.com/casangi/xradio/issues/665>`__).
   - ``BASELINE_REFERENCE``: This is no longer used in VLBI.
 
 - ``FIELD Table``
@@ -363,15 +366,12 @@ Sub-package Layout
 
 The XRADIO architecture with the measurement set sub-package expanded is
 shown in Figure 2 (`overview of XRADIO
-architecture <../development.rst>`__). The public API is contained in
-the top-level ``.py`` files of the ``measurement_set`` sub-package (`API
-documentation <api.rst>`__).
+architecture <../development.rst>`__). The public API is exported by
+the ``measurement_set`` sub-package (`API documentation <api.rst>`__).
 
-.. raw:: html
+.. Diagram source: ../_images/xradio_package_subpackages_modules_v4.tex (make diagrams)
 
-   <!-- Source Google Drawings of the diagrams are in gdrive: CASA/Documentation/XRADIO/Diagrams -->
-
-.. figure:: ../_images/xradio_package_subpackages_modules_v4.png
+.. figure:: ../_images/xradio_package_subpackages_modules_v4.svg
       :alt: XRADIO Architecture
       :align: center
       :name: figure-xradio-architecture
@@ -379,26 +379,25 @@ documentation <api.rst>`__).
 
       Figure 2: XRADIO Architecture.
 
-Figure 3 summarizes the available and planned future functionality. The
-sub-package currently allows direct opening of data from
-`zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__ and
-ASDM. It will support ASDM pre- and post- WSU (ALMA Wide Band Sensitivity
-Upgrade) and possibly
-`NetCDF <https://www.unidata.ucar.edu/software/netcdf/>`__ in the
-future. The WSU ASDM is an update of the
+Figure 3 summarizes the storage formats. The MS v4 is an in-memory
+format, a Processing Set ``xarray.DataTree``, with three on-disk
+formats: `zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__,
 `ASDM <https://drive.google.com/file/d/1PMrZFbkrMVfe57K6AAh1dR1FalS35jP2/view>`__
-implementation required by `ALMA
-WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
-where the spectral windows are no longer interleaved. The ASDM backend is under
-development and its performance is being evaluated as development progresses
-(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__).
-
-Both zarr and NetCDF support cloud storage, and
+and MS v2. A Processing Set is written to zarr with ``DataTree.to_zarr``,
+and
 `open_processing_set <api.rst#xradio.measurement_set.open_processing_set>`__
 and
 `load_processing_set <api.rst#xradio.measurement_set.load_processing_set>`__
-support accessing data on `Amazon S3 <https://aws.amazon.com/s3/>`__.
-An MS v2 can be converted to a processing set with
+open it lazily or load it into memory, also from
+`Amazon S3 <https://aws.amazon.com/s3/>`__. ASDMs, including those of the
+`ALMA WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
+(Wideband Sensitivity Upgrade), are opened lazily with the
+`xradio_asdm <api.rst#asdm-xarray-engine-xradio-asdm>`__ Xarray engine
+(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__).
+
+The MS v2 and MS v4 schemas differ, and MS v4 is not backward compatible
+with MS v2, but XRADIO maps an MS v2 onto MS v4. An MS v2 can be converted
+to a processing set with
 `convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__,
 or opened directly, without converting it, with the ``xradio_msv2``
 Xarray engine
@@ -409,17 +408,15 @@ when the data are read in full several times, or from cloud storage:
 every read from an MS v2 reorders its data into the MS v4 layout, which
 the converted processing set stores once, chunked and compressed.
 
-.. raw:: html
+.. Diagram source: ../_images/measurement_set_storage_formats.tex (make diagrams)
 
-   <!-- Source Google Drawings of the diagrams are in gdrive: CASA/Documentation/XRADIO/Diagrams -->
-
-.. figure:: ../_images/measurement_set_subpackage_current_and_planned.png
-  :alt: Measurement Set Sub-package Current and Planned Functionality
+.. figure:: ../_images/measurement_set_storage_formats.svg
+  :alt: Measurement Set v4 storage formats
   :align: center
   :name: figure-measurement-set
   :width: 100%
 
-  Figure 3: Measurement Set Sub-package Current and Planned Functionality.
+  Figure 3: Measurement Set v4 storage formats.
 
 Future work
 -----------
@@ -433,5 +430,3 @@ Schema-related:
 Software-related:
 
 - Expand and refine Processing Set methods
-- Complete the ASDM and WSU-ASDM backend
-- Possibly add a NetCDF backend

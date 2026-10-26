@@ -104,24 +104,6 @@ The ``ms_xdt`` also allows for selecting a ``data_group``. For example:
 
    sub_ms_xdt = ms_xdt.xr_ms.sel(data_group_name='imaging')
 
-Use Cases
----------
-
-The MS v4 has been designed to satisfy the following use cases:
-
-- Radio Interferometry
-- Single Dish Observations
-- On-the-fly (OTF) Mosaic Observations
-- Ephemeris Observations
-- Heterogeneous Antenna VLBI
-- Phased Array Stations (PAS)
-- Phased Array Feeds (PAF)
-
-To ensure that these use cases are met, we have created stakeholder
-tests that convert MS v2 to MS v4 using the
-`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__
-function. These tests cover a wide selection of instruments:
-
 Sub-package Layout
 ------------------
 
@@ -140,14 +122,19 @@ the ``measurement_set`` sub-package (`API documentation <api.rst>`__).
 
       Figure 2: XRADIO Architecture.
 
-Figure 3 summarizes the storage formats. We choose to implement the ProcessingSet(MS v4) as an in-memory
-format with three on-disk formats:
+Figure 3 summarizes the storage formats. MS v4 is an in-memory format:
+each MS v4 is an ``xarray.DataTree`` node (``ms_xdt``), and MS v4s are
+always held in a Processing Set (``ps_xdt``), an ``xarray.DataTree``
+whose children are MS v4s (Figure 1). A Processing Set is opened from
+three on-disk formats:
 
 1. `zarr <https://zarr-specs.readthedocs.io/en/latest/specs.html>`__
 2. `ASDM <https://drive.google.com/file/d/1PMrZFbkrMVfe57K6AAh1dR1FalS35jP2/view>`__
-3. `MS v2 CASACORE Table <https://casa.nrao.edu/casacore/doxygen/MeasurementSet_8h.html>`__
+3. `MS v2 casacore table <https://casacore.github.io/casacore/MeasurementSet_8h.html>`__
 
-Since a single MS v2 or an ASDM on disk can contain information for multiple MS v4s we open them into a processing set which is constructed using a xarray.DataTree.
+A zarr store (``.ps.zarr``) holds a whole Processing Set. A single MS v2
+or ASDM can contain the data of several MS v4s, so it is opened as a
+Processing Set with one MS v4 per partition.
 
 A Processing Set is written to zarr with ``DataTree.to_zarr``,
 and
@@ -159,11 +146,14 @@ open it lazily or load it into memory, also from
 `ALMA WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
 (Wideband Sensitivity Upgrade), are opened lazily with the
 `xradio_asdm <api.rst#asdm-xarray-engine-xradio-asdm>`__ Xarray engine
-(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__).
+(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__),
+and MS v2s with
+`open_msv2 <api.rst#xradio.measurement_set.open_msv2>`__ (the
+``xradio_msv2`` Xarray engine).
 
-The mapping from MS v2 to MS v4s does have performance implications consequently we also provide
-a conversion function to convert an MS v2 to Zarr:
-`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__.
+Mapping an MS v2 onto MS v4s on every read has a performance cost, so
+`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__
+also converts an MS v2 to a zarr Processing Set once.
 
 .. Diagram source: ../_images/measurement_set_storage_formats.tex (make diagrams)
 
@@ -217,6 +207,24 @@ To delve further into the Measurement Set v4,
    and the `discussion issues on the XRADIO GitHub
    repository <https://github.com/casangi/xradio/issues?q=is%3Aissue%20label%3A%22MSv4%20Review%22&page=1>`__
    (with label “MSv4 Review”).
+
+Use Cases
+---------
+
+The MS v4 has been designed to satisfy the following use cases:
+
+- Radio Interferometry
+- Single Dish Observations
+- On-the-fly (OTF) Mosaic Observations
+- Ephemeris Observations
+- Heterogeneous Antenna VLBI
+- Phased Array Stations (PAS)
+- Phased Array Feeds (PAF)
+
+To ensure that these use cases are met, we have created stakeholder
+tests that convert MS v2 to MS v4 using the
+`convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__
+function. These tests cover a wide selection of instruments:
 
 Interferometer Stakeholder Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

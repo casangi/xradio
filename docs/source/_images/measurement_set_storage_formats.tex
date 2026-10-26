@@ -26,7 +26,7 @@
     title/.style={font=\large},
   ]
   \node[format, minimum height=1.5cm] (zarr) at (0, 5)
-    {\textbf{Zarr}\\ Processing Set (MS v4)};
+    {\textbf{Zarr}\\ Processing Set (.ps.zarr)};
   \node[format] (msv2) at (0, 1)
     {\textbf{MS v2}\\ casacore tables (MS v2 schema)};
   \node[format] (asdm) at (0, -1)
@@ -41,7 +41,7 @@
 
   \node[draw, fill=memoryred, rounded corners=6mm, minimum width=4cm,
     minimum height=8.2cm, align=center, font=\large] (ps) at (11, 2.3)
-    {Processing Set\\ (MS v4)\\[3mm] \normalsize xarray DataTree};
+    {Processing Set\\[3mm] \normalsize xarray DataTree\\ \normalsize of MS v4s};
 
   \node[function] (open ps) at (6.2, 5.55)
     {open\_processing\_set \textsf{(lazy)}\\ load\_processing\_set \textsf{(eager)}};

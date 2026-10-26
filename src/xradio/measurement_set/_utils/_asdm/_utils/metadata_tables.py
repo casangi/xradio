@@ -32,7 +32,7 @@ def load_asdm_col(
     -------
     list[Any]
         Values in table row order, converted where supported. Rows identified
-        as missing an optional value contain an empty string.
+        as missing an optional value contain ``np.nan``.
 
     Raises
     ------

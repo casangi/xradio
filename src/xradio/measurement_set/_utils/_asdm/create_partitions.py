@@ -136,7 +136,7 @@ def create_partitions(
     if do_prints:
         xradio_logger().debug(f"* {data_description_df=}")
 
-    sdm_field_attrs = ["fieldId", "sourceId"]
+    sdm_field_attrs = ["fieldId"]
     field_df = exp_asdm_table_to_df(sdm, "Field", sdm_field_attrs)
     if do_prints:
         xradio_logger().debug(f"* {field_df=}")

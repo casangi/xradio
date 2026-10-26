@@ -12,7 +12,18 @@ BUILDDIR      = build
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-.PHONY: help Makefile
+.PHONY: help diagrams Makefile
+
+# TikZ diagrams: render source/_images/*.tex to the SVGs the docs include
+# (needs pdflatex and pdftocairo).
+DIAGRAMS = $(patsubst %.tex,%.svg,$(wildcard $(SOURCEDIR)/_images/*.tex))
+
+diagrams: $(DIAGRAMS)
+
+$(SOURCEDIR)/_images/%.svg: $(SOURCEDIR)/_images/%.tex
+	cd $(dir $<) && pdflatex -interaction=nonstopmode -halt-on-error $(notdir $<) > /dev/null
+	pdftocairo -svg $(basename $<).pdf $@
+	rm -f $(basename $<).aux $(basename $<).log $(basename $<).pdf
 
 # Catch-all target: route all unknown targets to Sphinx using the new
 # "make mode" option.  $(O) is meant as a shortcut for $(SPHINXOPTS).

@@ -66,7 +66,7 @@ def open_asdm(
         zero-padded as needed.
     """
 
-    if not partition_scheme:
+    if partition_scheme is None:
         partition_scheme = ["fieldId"]
 
     if not include_processor_types:

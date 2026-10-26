@@ -136,20 +136,23 @@ A zarr store (``.ps.zarr``) holds a whole Processing Set. A single MS v2
 or ASDM can contain the data of several MS v4s, so it is opened as a
 Processing Set with one MS v4 per partition.
 
-A Processing Set is written to zarr with ``DataTree.to_zarr``,
-and
-`open_processing_set <api.rst#xradio.measurement_set.open_processing_set>`__
-and
-`load_processing_set <api.rst#xradio.measurement_set.load_processing_set>`__
-open it lazily or load it into memory, also from
-`Amazon S3 <https://aws.amazon.com/s3/>`__. ASDMs, including those of the
+All three are opened lazily with ``xarray.open_datatree`` and the engine
+of the format: ``engine="zarr"``, ``engine="xradio_asdm"`` or
+``engine="xradio_msv2"`` (see the
+`ASDM <api.rst#asdm-xarray-engine-xradio-asdm>`__ and
+`MS v2 <api.rst#msv2-xarray-engine-xradio-msv2>`__ engines).
+ASDMs include those of the
 `ALMA WSU <https://science.nrao.edu/facilities/alma/science_sustainability/wideband-sensitivity-upgrade>`__
-(Wideband Sensitivity Upgrade), are opened lazily with the
-`xradio_asdm <api.rst#asdm-xarray-engine-xradio-asdm>`__ Xarray engine
-(see `ASDM backend performance <performance/asdm/asdm_backend_performance.md>`__),
-and MS v2s with
-`open_msv2 <api.rst#xradio.measurement_set.open_msv2>`__ (the
-``xradio_msv2`` Xarray engine).
+(Wideband Sensitivity Upgrade); see also the `ASDM backend performance
+<performance/asdm/asdm_backend_performance.md>`__.
+`open_processing_set <api.rst#xradio.measurement_set.open_processing_set>`__
+and `open_msv2 <api.rst#xradio.measurement_set.open_msv2>`__ wrap
+``open_datatree`` for zarr (also from
+`Amazon S3 <https://aws.amazon.com/s3/>`__) and MS v2, with a
+``scan_intents`` selection, and
+`load_processing_set <api.rst#xradio.measurement_set.load_processing_set>`__
+loads a selection of a zarr Processing Set into memory. A Processing Set
+is written to zarr with ``DataTree.to_zarr``.
 
 Mapping an MS v2 onto MS v4s on every read has a performance cost, so
 `convert_msv2_to_processing_set <api.rst#xradio.measurement_set.convert_msv2_to_processing_set>`__

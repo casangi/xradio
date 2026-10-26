@@ -44,10 +44,10 @@
     {Processing Set\\[3mm] \normalsize xarray DataTree\\ \normalsize of MS v4s};
 
   \node[function] (open ps) at (6.2, 5.55)
-    {open\_processing\_set \textsf{(lazy)}\\ load\_processing\_set \textsf{(eager)}};
+    {open\_datatree \textsf{(lazy)}\\ engine="zarr"};
   \node[function] (to zarr) at (6.2, 4.45) {DataTree.to\_zarr};
   \node[function] (open msv2) at (6.2, 1)
-    {open\_msv2 \textsf{(lazy)}\\ engine="xradio\_msv2"};
+    {open\_datatree \textsf{(lazy)}\\ engine="xradio\_msv2"};
   \node[function] (open asdm) at (6.2, -1)
     {open\_datatree \textsf{(lazy)}\\ engine="xradio\_asdm"};
   \draw[to] (zarr.east |- open ps) -- (open ps);

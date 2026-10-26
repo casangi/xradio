@@ -18,27 +18,64 @@ def test_load_asdm_col_asdm_empty(asdm_empty):
         load_asdm_col(asdm_empty, "foo")
 
 
-def test_load_asdm_col_asdm_spw_default(asdm_with_spw_default):
+@pytest.mark.parametrize(
+    "input_optional_per_row",
+    [(True), (False)],
+)
+def test_load_asdm_col_asdm_spw_default(asdm_with_spw_default, input_optional_per_row):
     with pytest.raises(AttributeError, match="has no attribute"):
         load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "foo_nonexistant")
 
     spw_id = load_asdm_col(
-        asdm_with_spw_default.getSpectralWindow(), "spectralWindowId"
+        asdm_with_spw_default.getSpectralWindow(),
+        "spectralWindowId",
+        input_optional_per_row,
     )
     assert spw_id == [0]
-    num_chan = load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "numChan")
+    num_chan = load_asdm_col(
+        asdm_with_spw_default.getSpectralWindow(), "numChan", input_optional_per_row
+    )
     assert num_chan == [0]
-    ref_freq = load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "refFreq")
+    ref_freq = load_asdm_col(
+        asdm_with_spw_default.getSpectralWindow(), "refFreq", input_optional_per_row
+    )
     assert ref_freq == [0]
-    bb_name = load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "basebandName")
+    bb_name = load_asdm_col(
+        asdm_with_spw_default.getSpectralWindow(),
+        "basebandName",
+        input_optional_per_row,
+    )
     assert bb_name == ["NOBB"]
-    with pytest.raises(ValueError, match="assocNature"):
-        spw_id = load_asdm_col(asdm_with_spw_default.getSpectralWindow(), "assocNature")
-    with pytest.raises(ValueError, match="assocSpectralWindowId"):
-        spw_id = load_asdm_col(
-            asdm_with_spw_default.getSpectralWindow(), "assocSpectralWindowId"
+
+    if input_optional_per_row:
+        assoc_nature = load_asdm_col(
+            asdm_with_spw_default.getSpectralWindow(),
+            "assocNature",
+            input_optional_per_row,
         )
-    assert spw_id == [0]
+        assert pd.isna(assoc_nature)
+    else:
+        with pytest.raises(ValueError, match="assocNature"):
+            _assoc_nature = load_asdm_col(
+                asdm_with_spw_default.getSpectralWindow(),
+                "assocNature",
+                input_optional_per_row,
+            )
+
+    if input_optional_per_row:
+        assoc_spectral_window_id = load_asdm_col(
+            asdm_with_spw_default.getSpectralWindow(),
+            "assocSpectralWindowId",
+            input_optional_per_row,
+        )
+        assert pd.isna(assoc_spectral_window_id)
+    else:
+        with pytest.raises(ValueError, match="assocSpectralWindowId"):
+            _assoc_spectral_window_id = load_asdm_col(
+                asdm_with_spw_default.getSpectralWindow(),
+                "assocSpectralWindowId",
+                input_optional_per_row,
+            )
 
 
 def test_load_asdm_col_asdm_spw_simple(asdm_with_spw_simple):

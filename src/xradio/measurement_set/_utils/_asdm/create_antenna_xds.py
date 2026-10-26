@@ -192,12 +192,14 @@ def create_feed_xds(
         xradio_logger().warning(
             f"No feed info found for spectral window ID {spectral_window_id}"
         )
-        # TODO: this should be shared with MSv2, same logic
-        polarization_types = list(polarization.values[0])
-        receptor_label = [f"pol_{idx}" for idx in np.arange(0, len(polarization_types))]
-        pol_type_values = [polarization_types] * antenna_df.shape[0]
+        # TODO: this could be shared with MSv2, same logic (but different data structures)
+        polarization_chars = list(polarization.values[0])
+        receptor_label = [f"pol_{idx}" for idx in np.arange(0, len(polarization_chars))]
+        polarization_type_values = [polarization_chars] * antenna_df.shape[0]
         polarization_type_df = pd.DataFrame(
-            pol_type_values, columns=receptor_label, index=antenna_df["name_antenna"]
+            polarization_type_values,
+            columns=receptor_label,
+            index=antenna_df["name_antenna"],
         )
     else:
         antenna_feed_df = pd.merge(

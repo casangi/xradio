@@ -13,7 +13,6 @@ import re
 import uuid
 import warnings
 
-import dask
 import dask.array as da
 import numpy as np
 import xarray as xr
@@ -163,11 +162,11 @@ def _fits_image_to_xds(
         Add the sky coordinates of each pixel (``right_ascension`` and
         ``declination``) as non-dimensional coordinates.
     compute_mask : bool
-        If True, scan the pixels for NaNs and, if there are any, add a
-        ``FLAG_<image_type>`` variable that flags them. If False, skip the scan
-        and the flag for performance. It is then solely the responsibility of
-        the user to ensure downstream apps can handle NaN values; do not ask
-        package developers to add this non-standard behavior.
+        If True, add a deferred ``FLAG_<image_type>`` variable that flags NaN
+        pixels lazily via Dask. If False, skip the flag for performance. It is
+        then solely the responsibility of the user to ensure downstream apps can
+        handle NaN values; do not ask package developers to add this non-standard
+        behavior.
     image_type : str, optional
         Name of the image data variable, by default ``"SKY"``.
 
@@ -910,24 +909,7 @@ def _fits_header_to_xds_attrs(
     helpers["data_offset"] = (
         primary_info["datLoc"] if primary_info["file"].compression is None else None
     )
-    helpers["has_mask"] = False
-    if compute_mask and np.dtype(helpers["dtype"]).kind == "f":
-        # primary.data is a memory-mapped numpy array (fits.open uses memmap=True
-        # upstream). Scan it in fixed-size flat blocks: np.isnan on the whole
-        # memmap would page in the entire file AND allocate a full-size bool
-        # temporary, while a block-wise scan bounds memory to one block and
-        # short-circuits on the first NaN found (typically in the first,
-        # NaN-blanked corner block).
-        # Using dask here caused a "large graph" warning when a distributed client was
-        # active, because da.from_array(memmap) embeds array slices as task arguments
-        # which get serialised and shipped to the scheduler.
-        # Integer images have no NaNs, so they are not scanned.
-        flat = primary.data.reshape(-1)
-        block_size = 2**23
-        for start in range(0, flat.size, block_size):
-            if np.isnan(flat[start : start + block_size]).any():
-                helpers["has_mask"] = True
-                break
+    helpers["has_mask"] = bool(compute_mask and np.dtype(helpers["dtype"]).kind == "f")
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam
@@ -1526,8 +1508,8 @@ def _add_sky_or_aperture(
     name = image_type
     xda = xda.rename(name)
     xds[xda.name] = xda
-    if helpers["has_mask"]:
-        pp = da if type(xda[0].data) is dask.array.core.Array else np
+    if helpers["has_mask"] and name.upper() != "VISIBILITY_NORMALIZATION":
+        pp = da if isinstance(xda.data, da.Array) else np
         mask = pp.isnan(xda)
         mask.attrs = {}
         mask = mask.rename("FLAG_" + name.upper())

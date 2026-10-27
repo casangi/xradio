@@ -28,6 +28,7 @@ from xradio._utils.dict_helpers import (
 from xradio._utils.list_and_array import to_python_type
 from xradio._utils.logging import xradio_logger
 from xradio.image._util._casacore.common import (
+    _get_casa_image_tile_shape,
     _object_name,
     _open_image_ro,
     _pointing_center,
@@ -35,6 +36,7 @@ from xradio.image._util._casacore.common import (
 from xradio.image._util.common import (
     _DEFAULT_FREQUENCY_HZ,
     _DEFAULT_REST_FREQUENCY_HZ,
+    _DEFAULT_TARGET_CHUNK_MB,
     _compute_linear_world_values,
     _compute_velocity_values,
     _compute_world_sph_dims,
@@ -495,31 +497,111 @@ def _flatten_list(list_of_lists: list) -> list:
     return flat
 
 
-def _get_chunk_list(chunks: dict, coords: list, image_shape: list | tuple) -> tuple:
-    ret_list = list(image_shape)
+def _get_chunk_list(
+    chunks: dict | str | None,
+    coords: list,
+    image_shape: list | tuple,
+    tile_shape: list | tuple | None = None,
+    data_type: np.dtype | type = np.float32,
+    target_spatial: int = 2048,
+    target_chunk_mb: int = _DEFAULT_TARGET_CHUNK_MB,
+) -> tuple:
+    """Calculate chunk lengths along the array axes, aligning to storage manager
+    tiles when chunks is None, 'auto', or omitted for particular axes.
+    """
+    if chunks is None or chunks == "auto":
+        user_chunks = {}
+    elif isinstance(chunks, dict):
+        user_chunks = chunks
+    elif isinstance(chunks, tuple | list):
+        return tuple(chunks)
+    else:
+        raise RuntimeError(
+            f"incorrect type {type(chunks)} for parameter chunks. Must be "
+            "either dict, tuple, list, 'auto', or None"
+        )
+
+    # Map coordinate names to axes
+    axis_info = []
     axis = 0
     for c in coords:
-        if c == "direction" or c == "linear":
-            lm = ("l", "m")
-            uv = ("u", "v")
+        if c in ("direction", "linear"):
+            names = ("u", "v") if c == "linear" else ("l", "m")
             for i in (0, 1):
-                for k in (lm[i], uv[i]):
-                    if k in chunks:
-                        ret_list[axis] = chunks[k]
-                        break
-                # add an axis because direction has 2 axes
+                name = names[i]
+                dim_len = image_shape[axis]
+                t_len = (
+                    tile_shape[axis] if tile_shape and axis < len(tile_shape) else None
+                )
+                axis_info.append((axis, name, dim_len, t_len))
                 if i == 0:
                     axis += 1
         elif c == "spectral":
-            if "frequency" in chunks:
-                ret_list[axis] = chunks["frequency"]
+            dim_len = image_shape[axis]
+            t_len = tile_shape[axis] if tile_shape and axis < len(tile_shape) else None
+            axis_info.append((axis, "frequency", dim_len, t_len))
         elif c == "stokes":
-            if "polarization" in chunks:
-                ret_list[axis] = chunks["polarization"]
+            dim_len = image_shape[axis]
+            t_len = tile_shape[axis] if tile_shape and axis < len(tile_shape) else None
+            axis_info.append((axis, "polarization", dim_len, t_len))
         else:
             raise Exception(f"Unhandled coordinate type {c}")
         axis += 1
-    return tuple(ret_list)
+
+    spatial_pixels = 1
+    for _ax, name, dim_len, _t_len in axis_info:
+        if name in ("l", "m", "u", "v"):
+            spatial_pixels *= dim_len
+
+    itemsize = np.dtype(data_type).itemsize
+    plane_bytes = spatial_pixels * itemsize
+
+    ret_chunks = list(image_shape)
+    for ax, name, dim_len, t_len in axis_info:
+        # 1. User specified chunk takes precedence
+        user_val = None
+        if name in user_chunks:
+            user_val = user_chunks[name]
+        elif name in ("l", "u") and ("l" in user_chunks or "u" in user_chunks):
+            user_val = user_chunks.get("l", user_chunks.get("u"))
+        elif name in ("m", "v") and ("m" in user_chunks or "v" in user_chunks):
+            user_val = user_chunks.get("m", user_chunks.get("v"))
+
+        if user_val is not None:
+            ret_chunks[ax] = dim_len if user_val == -1 else int(user_val)
+            continue
+
+        # 2. Smart tile-aligned chunking for omitted axes
+        t_len = t_len if (t_len and t_len > 0) else 1
+        if name in ("l", "m", "u", "v"):
+            if t_len >= target_spatial:
+                chunk_len = t_len
+            else:
+                k = max(1, target_spatial // t_len)
+                chunk_len = k * t_len
+            ret_chunks[ax] = min(dim_len, chunk_len)
+        elif name == "frequency":
+            if t_len > 1:
+                # Keep frequency chunk as multiple of physical tile depth
+                k = 1
+                if plane_bytes < (target_chunk_mb * 1024 * 1024):
+                    target_chans = max(
+                        1, (target_chunk_mb * 1024 * 1024) // max(1, plane_bytes)
+                    )
+                    k = max(1, target_chans // t_len)
+                ret_chunks[ax] = min(dim_len, k * t_len)
+            else:
+                if plane_bytes >= 32 * 1024 * 1024:
+                    ret_chunks[ax] = 1
+                else:
+                    target_chans = max(
+                        1, (target_chunk_mb * 1024 * 1024) // max(1, plane_bytes)
+                    )
+                    ret_chunks[ax] = min(dim_len, target_chans)
+        elif name == "polarization":
+            ret_chunks[ax] = min(dim_len, max(1, t_len))
+
+    return tuple(ret_chunks)
 
 
 def _get_dimmap(coords: list, diraxes: list, verbose: bool = False) -> dict:
@@ -1186,38 +1268,38 @@ def _read_image_array(
 
     """
     img_full_path = os.path.expanduser(infile)
+    is_mask = bool(mask)
+    target_path = os.sep.join([img_full_path, mask]) if is_mask else img_full_path
+    tile_shape = _get_casa_image_tile_shape(target_path)
     with _open_image_ro(img_full_path) as casa_image:
-        if isinstance(chunks, dict):
-            mychunks = _get_chunk_list(
-                chunks,
-                casa_image.coordinates().get_names()[::-1],
-                casa_image.shape()[::-1],
-            )
+        data_type = casa_image.datatype().lower()
+        if data_type == "float":
+            data_type = np.float32
+        elif data_type == "double":
+            data_type = np.float64
+        elif data_type == "complex":
+            data_type = np.complex64
+        elif data_type == "dcomplex":
+            data_type = np.complex128
         else:
-            raise RuntimeError(
-                f"incorrect type {type(chunks)} for parameter chunks. Must be "
-                "either tuple or dict"
-            )
+            raise RuntimeError(f"Unhandled data type {data_type}")
+        if is_mask:
+            data_type = bool
+
+        mychunks = _get_chunk_list(
+            chunks,
+            casa_image.coordinates().get_names()[::-1],
+            casa_image.shape()[::-1],
+            tile_shape=tile_shape,
+            data_type=data_type,
+        )
         # shape list is the reverse of the actual image shape
         cshape = casa_image.shape()
         transpose_list, new_axes = _get_transpose_list(casa_image.coordinates())
-        data_type = casa_image.datatype().lower()
-    if data_type == "float":
-        data_type = np.float32
-    elif data_type == "double":
-        data_type = np.float64
-    elif data_type == "complex":
-        data_type = np.complex64
-    elif data_type == "dcomplex":
-        data_type = np.complex128
-    else:
-        raise RuntimeError(f"Unhandled data type {data_type}")
     if verbose:
         print(f"cshape: {cshape}")
-    is_mask = bool(mask)
     if is_mask:
-        img_full_path = os.sep.join([img_full_path, mask])
-        data_type = bool
+        img_full_path = target_path
     # rblc and rtrc are enforced to be of type list
     if blc is None:
         rblc = len(cshape) * [0]

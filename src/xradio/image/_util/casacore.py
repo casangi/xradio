@@ -178,9 +178,9 @@ def _load_casa_image_block(
 
 def _open_casa_image(
     infile: str,
-    chunks: list | dict,
-    verbose: bool,
-    do_sky_coords: bool,
+    chunks: list | dict | str | None = None,
+    verbose: bool = False,
+    do_sky_coords: bool = True,
     masks: bool = True,
     history: bool = False,
     image_type: str = "SKY",

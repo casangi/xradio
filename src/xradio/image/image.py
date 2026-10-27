@@ -99,7 +99,7 @@ def _log_zarr_store_name(imagename: str, store_name: str) -> None:
 
 def open_image(
     store: str | dict | list,
-    chunks: dict | None = None,
+    chunks: dict | str | None = None,
     verbose: bool = False,
     do_sky_coords: bool = True,
     selection: dict | None = None,
@@ -175,19 +175,19 @@ def open_image(
     store : str, dict or list
         Path to the input image, a dict mapping image types (data group
         roles) to paths, or a list of paths.
-    chunks : dict
+    chunks : dict | str | None, optional
         The desired dask chunk size. Only applicable for casacore and fits images.
         Supported optional keys are 'l', 'm', 'frequency', 'polarization', and 'time'.
         The supported values are positive integers, indicating the length of a chunk
-        on that particular axis. If a key is missing, then the associated chunk length
-        along that axis is equal to the number of pixels along that axis. For zarr
-        images, this parameter is ignored and the chunk size used to store the arrays
-        in the zarr image is used. 'l' represents the longitude like dimension, and 'm'
-        represents the latitude like dimension. For aperture images, 'u' may be used in
-        place of 'l', and 'v' in place of 'm'. To write the image to zarr with
-        :func:`write_image`'s ``chunks`` or ``shards``, use chunks that are whole
-        numbers of them (FITS reads fastest with whole rows, i.e. 'l' left out):
-        other chunks are rechunked when written.
+        on that particular axis, or -1 for the full dimension. If omitted or 'auto',
+        chunks are automatically aligned with on-disk storage manager tiles (for CASA
+        images) or target chunk size (for FITS). For zarr images, this parameter is
+        ignored and the chunk size used to store the arrays in the zarr image is used.
+        'l' represents the longitude like dimension, and 'm' represents the latitude
+        like dimension. For aperture images, 'u' may be used in place of 'l', and 'v'
+        in place of 'm'. To write the image to zarr with :func:`write_image`'s ``chunks``
+        or ``shards``, use chunks that are whole numbers of them (FITS reads fastest with
+        whole rows, i.e. 'l' left out): other chunks are rechunked when written.
     verbose : bool
         emit debugging messages? Default is False.
     do_sky_coords : bool
@@ -231,8 +231,8 @@ def open_image(
     except ImportError as exc:
         _open_casa_image = _casa_image_reader_unavailable(exc)
 
-    if chunks is None:
-        chunks = {}
+    if chunks == "auto":
+        chunks = None
     selection = _int_selections_to_slices(selection)
 
     ninstances = _resolve_ninstances(backend_opts)

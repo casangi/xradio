@@ -27,6 +27,8 @@ _REFERENCE_PIXEL_SNAP_TOLERANCE = 1e-9
 #: Default chunk size along each axis for lazy 2D celestial coordinate grids
 #: (a 2000x2000 chunk of float64 coordinates is ~32 MB).
 _DEFAULT_SKY_COORD_CHUNK_SIZE = 2000
+#: Default target chunk size in megabytes for tile-aligned and smart image chunking.
+_DEFAULT_TARGET_CHUNK_MB = 128
 # OPTICAL = Z
 _doppler_types = [
     "radio",

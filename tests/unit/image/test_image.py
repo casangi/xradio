@@ -1120,6 +1120,29 @@ class TestMakeEmptyImages:
         )
 
 
+class TestTileAlignedChunking:
+    """Tests for tile-aligned smart chunking on image open."""
+
+    def test_casa_large_image_chunks_align_with_tiles(self, tmp_path):
+        from tests.unit.image.test_readers_factory import _make_casa_image
+
+        path, _ = _make_casa_image(tmp_path / "large.im", shape=(5, 1, 4096, 4096))
+        xds = open_image(path)
+        # Spatial axes are 4096 x 4096, default tile shape is 256 x 256.
+        # Chunks are scaled to integer multiples of 256 up to ~2048:
+        assert xds.SKY.chunks[-1] == (2048, 2048)
+        assert xds.SKY.chunks[-2] == (2048, 2048)
+        # Spectral axis for large spatial planes (>32 MB) defaults to 1 plane per chunk:
+        assert xds.SKY.chunks[1] == (1, 1, 1, 1, 1)
+
+    def test_casa_user_chunks_override_defaults(self, tmp_path):
+        from tests.unit.image.test_readers_factory import _make_casa_image
+
+        path, _ = _make_casa_image(tmp_path / "test.im", shape=(20, 1, 512, 512))
+        xds = open_image(path, chunks={"frequency": 5})
+        assert xds.SKY.chunks[1] == (5, 5, 5, 5)
+
+
 # --------------------------------------------------------------------------- #
 # Entry point                                                                   #
 # --------------------------------------------------------------------------- #

@@ -24,6 +24,9 @@ _HZ_PER_UNIT = {"Hz": 1.0, "kHz": 1e3, "MHz": 1e6, "GHz": 1e9, "THz": 1e12}
 # A reference pixel computed by extrapolation that is this close to an integer
 # (in pixels) is snapped to it, removing the round-off of the extrapolation.
 _REFERENCE_PIXEL_SNAP_TOLERANCE = 1e-9
+#: Default chunk size along each axis for lazy 2D celestial coordinate grids
+#: (a 2000x2000 chunk of float64 coordinates is ~32 MB).
+_DEFAULT_SKY_COORD_CHUNK_SIZE = 2000
 # OPTICAL = Z
 _doppler_types = [
     "radio",
@@ -339,6 +342,24 @@ def _freq_from_vel(
     return f_dict, v_dict
 
 
+def _eval_wcs_block(
+    block: np.ndarray,
+    block_info: dict | None = None,
+    wcs_dict: dict | None = None,
+    coord_idx: int = 0,
+) -> np.ndarray:
+    """Evaluate spherical world coordinates for a single dask block."""
+    if block_info is None or not block_info:
+        return np.empty(block.shape, dtype=float)
+    loc = block_info[None]["array-location"]
+    x = np.arange(loc[0][0], loc[0][1])
+    y = np.arange(loc[1][0], loc[1][1])
+    xx, yy = np.meshgrid(x, y, indexing="ij")
+    w = ap.wcs.WCS(wcs_dict)
+    res = w.pixel_to_world_values(xx, yy)
+    return res[coord_idx] * _deg_to_rad
+
+
 def _compute_world_sph_dims(
     projection: str,
     shape: list[int],  # two element list of long-lat shape
@@ -351,6 +372,8 @@ def _compute_world_sph_dims(
     pc: list[list[float]] | None = None,
     lonpole: float | None = None,
     latpole: float | None = None,
+    lazy: bool = True,
+    chunks: tuple[int, int] | list[int] | dict | None = None,
 ) -> dict:
     """
     Compute spherical world-coordinate grids from two-axis WCS inputs.
@@ -386,6 +409,10 @@ def _compute_world_sph_dims(
         Native longitude and latitude of the celestial pole in degrees
         (FITS ``LONPOLE`` and ``LATPOLE``). The FITS defaults are used when
         not given.
+    lazy : bool, default True
+        If True, compute spherical coordinate grids lazily as chunked dask arrays.
+    chunks : tuple, list, dict, optional
+        Desired chunk sizes along the two spherical dimensions.
 
     Returns
     -------
@@ -449,11 +476,38 @@ def _compute_world_sph_dims(
     if latpole is not None:
         wcs_dict["LATPOLE"] = float(latpole)
     w = ap.wcs.WCS(wcs_dict)
-    x, y = np.indices(w.pixel_shape)
-    long, lat = w.pixel_to_world_values(x, y)
-    # long, lat from above eqn will always be in degrees, so convert to rad
-    ret["value"][0] = long * _deg_to_rad
-    ret["value"][1] = lat * _deg_to_rad
+    if shape[0] == 0 or shape[1] == 0:
+        ret["value"][0] = np.empty((shape[0], shape[1]), dtype=float)
+        ret["value"][1] = np.empty((shape[0], shape[1]), dtype=float)
+    elif lazy:
+        def_c = _DEFAULT_SKY_COORD_CHUNK_SIZE
+        if chunks is None:
+            c0 = min(def_c, shape[0])
+            c1 = min(def_c, shape[1])
+        elif isinstance(chunks, dict):
+            c0 = min(chunks.get("l", chunks.get("u", def_c)), shape[0])
+            c1 = min(chunks.get("m", chunks.get("v", def_c)), shape[1])
+        elif isinstance(chunks, (tuple, list)) and len(chunks) >= 2:
+            c0 = min(chunks[0] if chunks[0] > 0 else shape[0], shape[0])
+            c1 = min(chunks[1] if chunks[1] > 0 else shape[1], shape[1])
+        else:
+            c0 = min(def_c, shape[0])
+            c1 = min(def_c, shape[1])
+        c0 = max(1, c0)
+        c1 = max(1, c1)
+        dummy = da.empty((shape[0], shape[1]), chunks=(c0, c1), dtype=float)
+        ret["value"][0] = dummy.map_blocks(
+            _eval_wcs_block, wcs_dict=wcs_dict, coord_idx=0, dtype=float
+        )
+        ret["value"][1] = dummy.map_blocks(
+            _eval_wcs_block, wcs_dict=wcs_dict, coord_idx=1, dtype=float
+        )
+    else:
+        x, y = np.indices(w.pixel_shape)
+        long, lat = w.pixel_to_world_values(x, y)
+        # long, lat from above eqn will always be in degrees, so convert to rad
+        ret["value"][0] = long * _deg_to_rad
+        ret["value"][1] = lat * _deg_to_rad
     return ret
 
 

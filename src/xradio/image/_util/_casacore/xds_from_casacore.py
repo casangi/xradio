@@ -77,11 +77,17 @@ def _add_lin_attrs(xds, coord_dict, dir_axes):
 
 
 def _add_mask(
-    xds: xr.Dataset, name: str, ary: np.ndarray | da.Array, dimorder: list
+    xds: xr.Dataset,
+    name: str,
+    ary: np.ndarray | da.Array,
+    dimorder: list,
+    inverted: bool = False,
 ) -> xr.Dataset:
     xda = xr.DataArray(ary, dims=dimorder)
     # True pixels are good in numpy masked arrays
-    xda = da.logical_not(xda)
+    if not inverted:
+        pp = da if isinstance(xda.data, da.Array) else np
+        xda = pp.logical_not(xda)
     xda.attrs["type"] = "flag"
     xda = xda.rename(name)
     xds[xda.name] = xda
@@ -695,8 +701,11 @@ def _get_persistent_block(
     transpose_list: list,
     new_axes: list,
     ninstances: int = 1,
+    is_mask: bool = False,
 ) -> da.Array:
-    block = _read_image_chunk(infile, shapes, starts, ninstances=ninstances)
+    block = _read_image_chunk(
+        infile, shapes, starts, ninstances=ninstances, is_mask=is_mask
+    )
     block = np.expand_dims(block, new_axes)
     block = block.transpose(transpose_list)
     block = da.from_array(block, chunks=block.shape)
@@ -1205,8 +1214,10 @@ def _read_image_array(
         raise RuntimeError(f"Unhandled data type {data_type}")
     if verbose:
         print(f"cshape: {cshape}")
-    if mask:
+    is_mask = bool(mask)
+    if is_mask:
         img_full_path = os.sep.join([img_full_path, mask])
+        data_type = bool
     # rblc and rtrc are enforced to be of type list
     if blc is None:
         rblc = len(cshape) * [0]
@@ -1267,6 +1278,7 @@ def _read_image_array(
                             shapes,
                             starts,
                             ninstances=ninstances,
+                            is_mask=is_mask,
                         )
                         d4slices += [
                             dask.array.from_delayed(delayed_array, shapes, data_type)
@@ -1303,14 +1315,24 @@ _CASATOOLS_READ_LOCK = CASATOOLS_LOCK
 
 
 def _read_image_chunk(
-    infile: str, shapes: tuple, starts: tuple, ninstances: int = 1
+    infile: str,
+    shapes: tuple,
+    starts: tuple,
+    ninstances: int = 1,
+    is_mask: bool = False,
 ) -> np.ndarray:
     with casatools_serialized():
-        return _read_image_chunk_unlocked(infile, shapes, starts, ninstances)
+        return _read_image_chunk_unlocked(
+            infile, shapes, starts, ninstances=ninstances, is_mask=is_mask
+        )
 
 
 def _read_image_chunk_unlocked(
-    infile: str, shapes: tuple, starts: tuple, ninstances: int = 1
+    infile: str,
+    shapes: tuple,
+    starts: tuple,
+    ninstances: int = 1,
+    is_mask: bool = False,
 ) -> np.ndarray:
     if ninstances > 1:
         tb_tool = get_table_ro(infile, ninstances=ninstances)
@@ -1328,4 +1350,9 @@ def _read_image_chunk_unlocked(
                 starts,
                 tuple(np.array(starts) + np.array(shapes) - 1),
             )
+    if is_mask:
+        # CASA mask conventions: True means valid/unmasked.
+        # XRadio flag convention: True means flagged/invalid.
+        # Inverting in-place avoids extra memory allocations.
+        data = np.logical_not(data, out=data)
     return data

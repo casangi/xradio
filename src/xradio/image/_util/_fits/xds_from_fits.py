@@ -909,6 +909,9 @@ def _fits_header_to_xds_attrs(
     helpers["data_offset"] = (
         primary_info["datLoc"] if primary_info["file"].compression is None else None
     )
+    # Masks are deferred via Dask (da.isnan) during array construction in
+    # _add_sky_or_aperture. We do not scan primary.data eagerly here to allow
+    # instantaneous, zero-I/O opens on large cubes.
     helpers["has_mask"] = bool(compute_mask and np.dtype(helpers["dtype"]).kind == "f")
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":

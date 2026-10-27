@@ -214,6 +214,36 @@ class TestLoadImage:
             xds.FLAG_VISIBILITY_NORMALIZATION.values, mask[np.newaxis, :, :, 0, 0]
         )
 
+    def test_casa_mask_optimized_flag_conversion(self, tmp_path):
+        """CASA mask reading performs in-place logical negation on chunk read,
+        declares bool dtype, and avoids extra logical_not Dask layers."""
+        imagename = tmp_path / "test_opt_mask.sumwt"
+        data = np.arange(8, dtype=np.float32).reshape(4, 2, 1, 1)
+        mask = np.zeros_like(data, dtype=bool)
+        mask[1, 0, 0, 0] = True
+        masked_data = ma.masked_array(data, mask)
+
+        with create_new_image(
+            str(imagename), shape=list(data.shape), mask="MASK_0"
+        ) as im:
+            im.put(masked_data)
+
+        # 1. open_image (lazy evaluation)
+        opened = open_image({"visibility_normalization": str(imagename)})
+        flag_opened = opened.FLAG_VISIBILITY_NORMALIZATION
+        assert flag_opened.dtype == bool
+        assert hasattr(flag_opened.data, "dask")
+        assert not any("logical_not" in k for k in flag_opened.data.dask.layers)
+        np.testing.assert_array_equal(flag_opened.values, mask[np.newaxis, :, :, 0, 0])
+
+        # 2. load_image (in-memory block load)
+        loaded = load_image({"visibility_normalization": str(imagename)})
+        flag_loaded = loaded.FLAG_VISIBILITY_NORMALIZATION
+        assert flag_loaded.dtype == bool
+        assert hasattr(flag_loaded.data, "dask")
+        assert not any("logical_not" in k for k in flag_loaded.data.dask.layers)
+        np.testing.assert_array_equal(flag_loaded.values, mask[np.newaxis, :, :, 0, 0])
+
 
 # --------------------------------------------------------------------------- #
 # TestOpenImageCasa  –  open_image (CASA format)                               #

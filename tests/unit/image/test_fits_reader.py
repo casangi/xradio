@@ -16,6 +16,7 @@ import textwrap
 import warnings
 
 import dask
+import dask.array as da
 import numpy as np
 import pytest
 import xarray as xr
@@ -867,7 +868,10 @@ def test_pixels_in_native_byte_order_with_declared_dtype(tmp_path, dtype):
     assert chunk.dtype == np.dtype(dtype) and chunk.dtype.isnative
     assert chunk.flags["C_CONTIGUOUS"]
     np.testing.assert_array_equal(chunk, data[1:3, 0:2, 1:4, 2:6])
-    assert "FLAG_SKY" not in xds
+    if np.dtype(dtype).kind == "f":
+        assert not xds.FLAG_SKY.values.any()
+    else:
+        assert "FLAG_SKY" not in xds
     # the same block mapped from the pixels' offset, without astropy
     with fits.open(path) as hdulist:
         offset = hdulist.fileinfo(0)["datLoc"]
@@ -1057,6 +1061,7 @@ import sys
 for name in ("casacore", "casatools", "casaconfig"):
     sys.modules[name] = None
 import dask
+import dask.array as da
 dask.config.set(scheduler="synchronous")
 """
 
@@ -1109,4 +1114,38 @@ def test_open_image_and_backend_without_casacore(tmp_path):
         """,
         path,
     )
-    assert out == ["['BEAM_FIT_PARAMS_SKY', 'SKY']"] * 2
+    assert out == ["['BEAM_FIT_PARAMS_SKY', 'FLAG_SKY', 'SKY']"] * 2
+
+
+def test_lazy_fits_mask_computation(tmp_path, monkeypatch):
+    """compute_mask=True defers mask generation to Dask without reading pixels during open."""
+    import xradio.image._util._fits.xds_from_fits as fits_mod
+
+    data = np.ones((NCHAN, 4, 5, 6), dtype=np.float32)
+    data[1, 2, 3, 4] = np.nan
+    path, _ = write_fits(tmp_path / "nan_test.fits", data=data)
+
+    chunk_reads = 0
+    orig_read = fits_mod._read_image_chunk
+
+    def counting_read(*args, **kwargs):
+        nonlocal chunk_reads
+        chunk_reads += 1
+        return orig_read(*args, **kwargs)
+
+    monkeypatch.setattr(fits_mod, "_read_image_chunk", counting_read)
+
+    xds = open_image(path, chunks={"frequency": 1}, compute_mask=True)
+    assert "FLAG_SKY" in xds.data_vars
+    assert isinstance(xds.FLAG_SKY.data, da.Array)
+    # No pixels should have been read during open_image
+    assert chunk_reads == 0
+
+    # Computing FLAG_SKY triggers reading and correctly flags NaN
+    flags = xds.FLAG_SKY.values
+    assert chunk_reads > 0
+    assert flags.sum() == 1
+
+    # compute_mask=False produces no FLAG_SKY
+    xds_no_mask = open_image(path, chunks={"frequency": 1}, compute_mask=False)
+    assert "FLAG_SKY" not in xds_no_mask.data_vars

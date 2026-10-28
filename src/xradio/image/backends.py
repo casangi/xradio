@@ -110,8 +110,9 @@ def open_image_dataset(
     verbose : bool, default False
         Emit debugging messages.
     compute_mask : bool, default True
-        FITS only: flag the NaN pixels in a ``FLAG_*`` variable. This scans
-        the image once when it is opened.
+        FITS only: flag the NaN pixels in a ``FLAG_*`` variable (evaluated
+        lazily via Dask). With compute_mask=False, the open returns without a
+        ``FLAG_*`` variable.
 
     Returns
     -------

@@ -214,6 +214,36 @@ class TestLoadImage:
             xds.FLAG_VISIBILITY_NORMALIZATION.values, mask[np.newaxis, :, :, 0, 0]
         )
 
+    def test_casa_mask_optimized_flag_conversion(self, tmp_path):
+        """CASA mask reading performs in-place logical negation on chunk read,
+        declares bool dtype, and avoids extra logical_not Dask layers."""
+        imagename = tmp_path / "test_opt_mask.sumwt"
+        data = np.arange(8, dtype=np.float32).reshape(4, 2, 1, 1)
+        mask = np.zeros_like(data, dtype=bool)
+        mask[1, 0, 0, 0] = True
+        masked_data = ma.masked_array(data, mask)
+
+        with create_new_image(
+            str(imagename), shape=list(data.shape), mask="MASK_0"
+        ) as im:
+            im.put(masked_data)
+
+        # 1. open_image (lazy evaluation)
+        opened = open_image({"visibility_normalization": str(imagename)})
+        flag_opened = opened.FLAG_VISIBILITY_NORMALIZATION
+        assert flag_opened.dtype == bool
+        assert hasattr(flag_opened.data, "dask")
+        assert not any("logical_not" in k for k in flag_opened.data.dask.layers)
+        np.testing.assert_array_equal(flag_opened.values, mask[np.newaxis, :, :, 0, 0])
+
+        # 2. load_image (in-memory block load)
+        loaded = load_image({"visibility_normalization": str(imagename)})
+        flag_loaded = loaded.FLAG_VISIBILITY_NORMALIZATION
+        assert flag_loaded.dtype == bool
+        assert hasattr(flag_loaded.data, "dask")
+        assert not any("logical_not" in k for k in flag_loaded.data.dask.layers)
+        np.testing.assert_array_equal(flag_loaded.values, mask[np.newaxis, :, :, 0, 0])
+
 
 # --------------------------------------------------------------------------- #
 # TestOpenImageCasa  –  open_image (CASA format)                               #
@@ -1088,6 +1118,29 @@ class TestMakeEmptyImages:
             "cycles. Use Quantity.value when the unit is already right, or "
             "convert to a module-level unit constant, not a new unit per call."
         )
+
+
+class TestTileAlignedChunking:
+    """Tests for tile-aligned smart chunking on image open."""
+
+    def test_casa_large_image_chunks_align_with_tiles(self, tmp_path):
+        from tests.unit.image.test_readers_factory import _make_casa_image
+
+        path, _ = _make_casa_image(tmp_path / "large.im", shape=(5, 1, 4096, 4096))
+        xds = open_image(path)
+        # Spatial axes are 4096 x 4096, default tile shape is 256 x 256.
+        # Chunks are scaled to integer multiples of 256 up to ~2048:
+        assert xds.SKY.chunks[-1] == (2048, 2048)
+        assert xds.SKY.chunks[-2] == (2048, 2048)
+        # Spectral axis for large spatial planes (>32 MB) defaults to 1 plane per chunk:
+        assert xds.SKY.chunks[1] == (1, 1, 1, 1, 1)
+
+    def test_casa_user_chunks_override_defaults(self, tmp_path):
+        from tests.unit.image.test_readers_factory import _make_casa_image
+
+        path, _ = _make_casa_image(tmp_path / "test.im", shape=(20, 1, 512, 512))
+        xds = open_image(path, chunks={"frequency": 5})
+        assert xds.SKY.chunks[1] == (5, 5, 5, 5)
 
 
 # --------------------------------------------------------------------------- #

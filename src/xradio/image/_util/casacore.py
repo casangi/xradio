@@ -148,11 +148,12 @@ def _load_casa_image_block(
             transpose_list,
             new_axes,
             ninstances=ninstances,
+            is_mask=True,
         )
         block = _squeeze_if_needed(block, image_type)
         # data vars are all caps by convention
         mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
-        xds = _add_mask(xds, mask_name, block, dimorder)
+        xds = _add_mask(xds, mask_name, block, dimorder, inverted=True)
     xds.attrs = _casa_image_to_xds_attrs(image_full_path)
     beam = _get_beam(image_full_path, nchan, npol, False, image_type)
 
@@ -177,9 +178,9 @@ def _load_casa_image_block(
 
 def _open_casa_image(
     infile: str,
-    chunks: list | dict,
-    verbose: bool,
-    do_sky_coords: bool,
+    chunks: list | dict | str | None = None,
+    verbose: bool = False,
+    do_sky_coords: bool = True,
     masks: bool = True,
     history: bool = False,
     image_type: str = "SKY",
@@ -221,7 +222,7 @@ def _open_casa_image(
             ary = _squeeze_if_needed(ary, image_type)
             # data var names are all caps by convention
             mask_name = re.sub(r"\bMASK(\d+)\b", r"MASK_\1", m.upper())
-            xds = _add_mask(xds, mask_name, ary, dimorder)
+            xds = _add_mask(xds, mask_name, ary, dimorder, inverted=True)
     xds.attrs = _casa_image_to_xds_attrs(img_full_path)
     beam = _get_beam(
         img_full_path,

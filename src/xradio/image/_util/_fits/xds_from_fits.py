@@ -13,7 +13,6 @@ import re
 import uuid
 import warnings
 
-import dask
 import dask.array as da
 import numpy as np
 import xarray as xr
@@ -37,6 +36,7 @@ from xradio.image._util.common import (
     _DEFAULT_CHANNEL_WIDTH_HZ,
     _DEFAULT_FREQUENCY_HZ,
     _DEFAULT_REST_FREQUENCY_HZ,
+    _DEFAULT_TARGET_CHUNK_MB,
     _c,
     _compute_linear_world_values,
     _compute_velocity_values,
@@ -163,11 +163,11 @@ def _fits_image_to_xds(
         Add the sky coordinates of each pixel (``right_ascension`` and
         ``declination``) as non-dimensional coordinates.
     compute_mask : bool
-        If True, scan the pixels for NaNs and, if there are any, add a
-        ``FLAG_<image_type>`` variable that flags them. If False, skip the scan
-        and the flag for performance. It is then solely the responsibility of
-        the user to ensure downstream apps can handle NaN values; do not ask
-        package developers to add this non-standard behavior.
+        If True, add a deferred ``FLAG_<image_type>`` variable that flags NaN
+        pixels lazily via Dask. If False, skip the flag for performance. It is
+        then solely the responsibility of the user to ensure downstream apps can
+        handle NaN values; do not ask package developers to add this non-standard
+        behavior.
     image_type : str, optional
         Name of the image data variable, by default ``"SKY"``.
 
@@ -910,24 +910,10 @@ def _fits_header_to_xds_attrs(
     helpers["data_offset"] = (
         primary_info["datLoc"] if primary_info["file"].compression is None else None
     )
-    helpers["has_mask"] = False
-    if compute_mask and np.dtype(helpers["dtype"]).kind == "f":
-        # primary.data is a memory-mapped numpy array (fits.open uses memmap=True
-        # upstream). Scan it in fixed-size flat blocks: np.isnan on the whole
-        # memmap would page in the entire file AND allocate a full-size bool
-        # temporary, while a block-wise scan bounds memory to one block and
-        # short-circuits on the first NaN found (typically in the first,
-        # NaN-blanked corner block).
-        # Using dask here caused a "large graph" warning when a distributed client was
-        # active, because da.from_array(memmap) embeds array slices as task arguments
-        # which get serialised and shipped to the scheduler.
-        # Integer images have no NaNs, so they are not scanned.
-        flat = primary.data.reshape(-1)
-        block_size = 2**23
-        for start in range(0, flat.size, block_size):
-            if np.isnan(flat[start : start + block_size]).any():
-                helpers["has_mask"] = True
-                break
+    # Masks are deferred via Dask (da.isnan) during array construction in
+    # _add_sky_or_aperture. We do not scan primary.data eagerly here to allow
+    # instantaneous, zero-I/O opens on large cubes.
+    helpers["has_mask"] = bool(compute_mask and np.dtype(helpers["dtype"]).kind == "f")
     beam = _beam_attr_from_header(helpers, header)
     if beam != "mb":
         helpers["beam"] = beam
@@ -1526,8 +1512,8 @@ def _add_sky_or_aperture(
     name = image_type
     xda = xda.rename(name)
     xds[xda.name] = xda
-    if helpers["has_mask"]:
-        pp = da if type(xda[0].data) is dask.array.core.Array else np
+    if helpers["has_mask"] and name.upper() != "VISIBILITY_NORMALIZATION":
+        pp = da if isinstance(xda.data, da.Array) else np
         mask = pp.isnan(xda)
         mask.attrs = {}
         mask = mask.rename("FLAG_" + name.upper())
@@ -1539,14 +1525,23 @@ def _add_sky_or_aperture(
 
 
 def _read_image_array(
-    img_full_path: str, chunks: dict, helpers: dict, verbose: bool
+    img_full_path: str, chunks: dict | str | None, helpers: dict, verbose: bool
 ) -> da.array:
-    if isinstance(chunks, dict):
-        mychunks = _get_chunk_list(chunks, helpers)
+    if chunks is None or chunks == "auto":
+        user_chunks = {}
+    elif isinstance(chunks, dict):
+        user_chunks = chunks
+    elif isinstance(chunks, tuple | list):
+        user_chunks = chunks
     else:
         raise ValueError(
-            f"incorrect type {type(chunks)} for parameter chunks. Must be dict"
+            f"incorrect type {type(chunks)} for parameter chunks. Must be dict, tuple, list, 'auto', or None"
         )
+    mychunks = (
+        tuple(user_chunks)
+        if isinstance(user_chunks, tuple | list)
+        else _get_chunk_list(user_chunks, helpers)
+    )
     transpose_list, new_axes = _get_transpose_list(helpers)
     data_type = helpers["dtype"]
     rshape = tuple(helpers["shape"][::-1])
@@ -1567,25 +1562,69 @@ def _read_image_array(
     return ary.transpose(transpose_list)
 
 
-def _get_chunk_list(chunks: dict, helpers: dict) -> tuple:
+def _get_chunk_list(
+    chunks: dict,
+    helpers: dict,
+    target_spatial: int = 2048,
+    target_chunk_mb: int = _DEFAULT_TARGET_CHUNK_MB,
+) -> tuple:
     ret_list = list(helpers["shape"])[::-1]
-    axis = 0
     ctype = helpers["ctype"]
+    data_type = helpers.get("dtype", np.float32)
+    itemsize = np.dtype(data_type).itemsize
+
+    spatial_pixels = 1
+    for i, c in enumerate(ctype[::-1]):
+        if c.startswith("RA") or c.startswith("DEC") or c.startswith(("UU", "VV")):
+            spatial_pixels *= ret_list[i]
+    plane_bytes = spatial_pixels * itemsize
+
+    axis = 0
     for c in ctype[::-1]:
-        if c.startswith("RA"):
-            if "l" in chunks:
-                ret_list[axis] = chunks["l"]
-        elif c.startswith("DEC"):
-            if "m" in chunks:
-                ret_list[axis] = chunks["m"]
+        dim_len = ret_list[axis]
+        user_val = None
+        is_spatial = False
+        is_freq = False
+        is_pol = False
+
+        if c.startswith("RA") or c.startswith("UU"):
+            is_spatial = True
+            for k in ("l", "u"):
+                if k in chunks:
+                    user_val = chunks[k]
+                    break
+        elif c.startswith("DEC") or c.startswith("VV"):
+            is_spatial = True
+            for k in ("m", "v"):
+                if k in chunks:
+                    user_val = chunks[k]
+                    break
         elif _is_freq_like(c):
+            is_freq = True
             if "frequency" in chunks:
-                ret_list[axis] = chunks["frequency"]
+                user_val = chunks["frequency"]
         elif c.startswith("STOKES"):
+            is_pol = True
             if "polarization" in chunks:
-                ret_list[axis] = chunks["polarization"]
+                user_val = chunks["polarization"]
         else:
             raise RuntimeError(f"Unhandled coordinate type {c}")
+
+        if user_val is not None:
+            ret_list[axis] = dim_len if user_val == -1 else int(user_val)
+        elif is_spatial:
+            ret_list[axis] = min(dim_len, target_spatial)
+        elif is_freq:
+            if plane_bytes >= 32 * 1024 * 1024:
+                ret_list[axis] = 1
+            else:
+                target_chans = max(
+                    1, (target_chunk_mb * 1024 * 1024) // max(1, plane_bytes)
+                )
+                ret_list[axis] = min(dim_len, target_chans)
+        elif is_pol:
+            ret_list[axis] = dim_len
+
         axis += 1
     return tuple(ret_list)
 

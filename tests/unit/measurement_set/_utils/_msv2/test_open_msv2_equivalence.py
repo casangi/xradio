@@ -350,14 +350,14 @@ def _bad_cells(msname: str, column: str, rows) -> None:
     [
         # every partition (DDI x OBS_MODE) has a bad MODEL_DATA cell
         ("rich", "MODEL_DATA", "VISIBILITY_MODEL", [7, 207, 307, 507, 607, 807, 907]),
-        ("dense", "WEIGHT_SPECTRUM", "WEIGHT", [7, 307, 607, 907]),
+        ("dense", "WEIGHT_SPECTRUM", "WEIGHT_CORRECTED", [7, 307, 607, 907]),
     ],
 )
 def test_skip_columns_gives_the_converters_tree(
     ms_copy, tmp_path, variant, column, variable, rows
 ):
     """A MAIN column with cells that only a read finds bad: the converter
-    leaves it out (WEIGHT_SPECTRUM: WEIGHT from the WEIGHT column); the
+    leaves it out (WEIGHT_SPECTRUM: WEIGHT_CORRECTED from the WEIGHT column); the
     engine's read of it raises an MSv2ReadError that names skip_columns, and
     skip_columns=[column] gives the converter's tree."""
     from xradio.measurement_set import MSv2ReadError
@@ -391,9 +391,9 @@ def test_skip_columns_gives_the_converters_tree(
 
 @pytest.mark.parametrize("kind", ["standard_stman", "reference"])
 def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, kind):
-    """WEIGHT from a WEIGHT_SPECTRUM column whose cells only a read can
-    check: a selection of WEIGHT that avoids the cells that cannot be read
-    raises MSv2ReadError too (the converter reads WEIGHT from the WEIGHT
+    """WEIGHT_CORRECTED from a WEIGHT_SPECTRUM column whose cells only a read
+    can check: a selection of it that avoids the cells that cannot be read
+    raises MSv2ReadError too (the converter reads it from the WEIGHT
     column for the whole partition), and in a partition whose cells can all
     be read it gives the converter's values; the cells of such a partition
     are checked once in a process.
@@ -437,7 +437,7 @@ def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, k
     bad = names[:1] if kind == "standard_stman" else names
     selection = {"time": slice(12, None)}  # (none of the cells that cannot be read)
     for name in names:
-        weight = engine[name]["WEIGHT"].isel(selection)
+        weight = engine[name]["WEIGHT_CORRECTED"].isel(selection)
         if name in bad:
             for _ in range(2):
                 with pytest.raises(
@@ -445,7 +445,7 @@ def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, k
                 ):
                     weight.values  # noqa: B018
             continue
-        expected = reference[name]["WEIGHT"].isel(selection).values
+        expected = reference[name]["WEIGHT_CORRECTED"].isel(selection).values
         for _ in range(2):
             values = weight.values
             assert values.dtype == expected.dtype

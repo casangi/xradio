@@ -32,6 +32,7 @@ MAIN_DATA_VARIABLES = {
     "SPECTRUM",
     "FLAG",
     "WEIGHT",
+    "WEIGHT_CORRECTED",
     "UVW",
     "TIME_CENTROID",
     "EFFECTIVE_INTEGRATION_TIME",
@@ -348,8 +349,10 @@ def test_drop_variables(backend_ms, drop):
     assert set(groups) == set(full.attrs["data_groups"])
     for group in groups.values():
         assert not set(names) & set(group.values())
-    if drop == "WEIGHT":
-        assert all("weight" not in group for group in groups.values())
+    if drop == "WEIGHT":  # (corrected and model: WEIGHT_CORRECTED)
+        assert [name for name, group in groups.items() if "weight" not in group] == [
+            "base"
+        ]
     # the attrs of the full node are not modified
     assert full.attrs["data_groups"]["base"]["weight"] == "WEIGHT"
 

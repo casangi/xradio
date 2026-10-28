@@ -91,7 +91,7 @@ def test_ASDMBackendArray_basic_indexing(dim_indexers):
         ),
     ],
 )
-def test_VisibilityArray__raw_indexing_method(
+def test_VisibilitySpectrumArray__raw_indexing_method_with_visibility(
     input_shape,
     input_bdf_paths,
     input_bdf_spw_id,
@@ -99,13 +99,54 @@ def test_VisibilityArray__raw_indexing_method(
     input_key,
     expected_error,
 ):
-    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import VisibilityArray
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        VisibilitySpectrumArray,
+    )
 
-    vis = VisibilityArray(
-        input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices
+    vis = VisibilitySpectrumArray(
+        "VISIBILITY", input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices
     )
     assert vis.shape == input_shape
-    assert vis.dtype == np.dtype("complex128")
+    assert vis.dtype == np.dtype("complex64")
+    with expected_error:
+        vis._raw_indexing_method(input_key)
+        # No true indexing possible here without true BDFs / or
+        # overly mocked
+
+
+@pytest.mark.parametrize(
+    "input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices, input_key, expected_error",
+    [
+        (None, [], 0, {}, None, pytest.raises(ValueError, match="need at least one")),
+        (
+            (2, 3, 6, 2),
+            ["/foo/bdf1", "/foo/bdf2"],
+            1,
+            {"bdf_names": ["/foo/bdf1", "/foo/bdf2"], "bdf_start": [0, 2, 4]},
+            (slice(0, 1), None, None, None),
+            pytest.raises(
+                pyasdm.exceptions.BDFReaderException, match="Error while opening"
+            ),
+        ),
+    ],
+)
+def test_VisibilitySpectrumArray__raw_indexing_method_with_spectrum(
+    input_shape,
+    input_bdf_paths,
+    input_bdf_spw_id,
+    input_time_indices,
+    input_key,
+    expected_error,
+):
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        VisibilitySpectrumArray,
+    )
+
+    vis = VisibilitySpectrumArray(
+        "SPECTRUM", input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices
+    )
+    assert vis.shape == input_shape
+    assert vis.dtype == np.dtype("float32")
     with expected_error:
         vis._raw_indexing_method(input_key)
         # No true indexing possible here without true BDFs / or

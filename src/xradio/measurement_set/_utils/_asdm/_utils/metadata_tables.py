@@ -157,6 +157,12 @@ def _decode_attribute_value(row: Any, get_col_function_name: str) -> Any:
     elif (
         isinstance(value, list)
         and len(value) > 0
+        and isinstance(value[0], pyasdm.types.Angle)
+    ):
+        value = [item_val.get() for item_val in value]
+    elif (
+        isinstance(value, list)
+        and len(value) > 0
         and (
             isinstance(value[0], list)
             and (
@@ -166,9 +172,11 @@ def _decode_attribute_value(row: Any, get_col_function_name: str) -> Any:
         )
     ):
         # two-dim list/array of list/array of Angle, as seen in Pointing
-        value = [
-            [item_val.get() for item_val in first_dim_val] for first_dim_val in value
-        ]
+        value = np.array(
+            [[item_val.get() for item_val in first_dim_val] for first_dim_val in value]
+        )
+        if len(value) == 1:
+            value = value[0]
     elif type(value) in [pyasdm.types.Frequency]:
         value = value.get()
     elif (

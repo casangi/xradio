@@ -54,20 +54,35 @@ ZPC_SCHEMA_VERSION = "0.0.1"
 Coefficient = Literal["coefficient"]
 """ Zernike polynomial index dimension. """
 
-AllowedZernikeBases = Literal["sirius"]
+AllowedZernikeBases = Literal["zernike_osa"]
 """
 Zernike polynomial bases that the coefficients refer to:
 
-* ``sirius``: the 66 functions of ``zernike_basis`` in SIRIUS and AstroVIPER
-  (``astroviper.processing_functions.simulation.zernike_polynomials``), the
-  basis of the aperture coefficient tables of Sekhar et al. (2022, AJ 163,
-  87). They are ordered by radial order ``n`` (0 to 10) and, within an order,
-  by azimuthal order ``m`` from ``-n`` to ``n``, written on aperture
-  coordinates normalised to the unit disc, and not normalised to unit power.
-  63 of them are the Zernike polynomials of their order, with ``x`` and ``y``
-  in the roles of the Cartesian ``Y`` and ``X``. The functions with indices
-  23, 39 and 53 have additional terms, so coefficients apply to the functions
-  as implemented.
+* ``zernike_osa``: the Zernike polynomials ``R_n^|m|(rho) cos(m theta)`` for
+  ``m >= 0`` and ``R_n^|m|(rho) sin(|m| theta)`` for ``m < 0``, not normalised
+  to unit power, on the unit disc of the aperture coordinates, with ``theta``
+  the position angle from ``+y`` towards ``+x`` (``x = rho sin theta``,
+  ``y = rho cos theta``). Index ``j = (n (n + 2) + m) / 2`` (OSA/ANSI order)
+  for radial orders ``n`` from 0 to 10, so ``j`` runs from 0 to 65. These are
+  the functions of AstroVIPER's ``zernike_basis``
+  (``astroviper.processing_functions.simulation.zernike_polynomials``) since
+  casangi/astroviper#389.
+"""
+
+AllowedApertureFrames = Literal["antenna"]
+"""
+Frames of the aperture coordinates ``(x, y)`` and of the beams:
+
+* ``antenna``: fixed to the antenna. ``+y`` is the direction of increasing
+  elevation and ``+x`` that of decreasing azimuth, both as directions on the
+  sky at the pointing centre. At parallactic angle ``q``, the position angle
+  of the zenith from north through east, ``+y`` lies at position angle ``q``
+  and ``+x`` at ``q + 90`` degrees, so they are north and east at ``q = 0``.
+  The voltage beam of a correlation is
+  ``V(l, m) = integral A(x, y) exp(+2 pi i a (x l + y m) / lambda) dx dy``,
+  with ``A`` the illumination, ``a`` the radius of the unit disc (see
+  :py:class:`EtaArray`) and ``(l, m)`` the direction cosines of the source
+  from the pointing centre along ``+x`` and ``+y``.
 """
 
 
@@ -102,10 +117,12 @@ class FrequencyCoordArray:
 @xarray_dataarray_schema
 class CoefficientCoordArray:
     """Index of the Zernike polynomial in the basis named by the
-    ``zernike_basis`` dataset attribute."""
+    ``zernike_basis`` dataset attribute. A dataset holds any increasing
+    subset of the basis; the polynomials it leaves out have zero
+    coefficients."""
 
     data: Data[Coefficient, int]
-    """ Polynomial index, from 0. """
+    """ Polynomial index, increasing. """
     long_name: Attr[str] | None = "Zernike polynomial index"
     """ Long-form name to use for axis. """
 
@@ -114,7 +131,8 @@ class CoefficientCoordArray:
 class ZpcArray:
     """Complex Zernike polynomial coefficients of the aperture illumination,
     for each frequency and correlation. The illumination of a correlation is
-    ``sum_k ZPC[k] Z_k(x, y)`` inside the unit disc of the aperture
+    ``sum_k ZPC[k] Z_k(x, y)``, over the indices ``k`` of the ``coefficient``
+    coordinate, inside the unit disc of the aperture
     coordinates ``(x, y)`` (see :py:class:`EtaArray`) and zero outside. The
     overall scale is arbitrary: beams are normalised by their peak."""
 
@@ -174,17 +192,15 @@ class ZernikePolynomialCoefficientsXds:
     max_rad_1GHz: Attr[float]
     """ Radius from the beam centre, in radians at 1 GHz (scaling as the
     inverse of frequency), out to which beams computed from the model apply. """
-    aperture_frame: Attr[str]
-    """ Orientation of the aperture coordinates ``(x, y)``: the beam
-    directions that ``x`` and ``y`` are conjugate to, for example the
-    direction cosines of the holography measurement in the antenna mount
-    frame. Beams on the sky follow by rotation by the parallactic angle. """
+    aperture_frame: Attr[AllowedApertureFrames]
+    """ Frame of the aperture coordinates ``(x, y)`` and of the beams, see
+    :py:data:`AllowedApertureFrames`. """
 
     type: Attr[Literal["zernike_polynomial_coefficients"]] = (
         "zernike_polynomial_coefficients"
     )
     """ Dataset type. """
-    zernike_basis: Attr[AllowedZernikeBases] = "sirius"
+    zernike_basis: Attr[AllowedZernikeBases] = "zernike_osa"
     """ Polynomial basis that the coefficients refer to, see
     :py:data:`AllowedZernikeBases`. """
 
@@ -208,8 +224,8 @@ def check_zpc(zpc_xds: xarray.Dataset) -> SchemaIssues:
 
     * the polarization labels are in canonical (casacore ``Stokes``, Jones
       matrix) order, see :py:class:`ZernikePolynomialCoefficientsXds`;
-    * the coefficient indices are ``0, 1, ...`` and, for the ``sirius`` basis,
-      at most 66;
+    * the coefficient indices increase from at least 0 and, for the
+      ``zernike_osa`` basis, stay below 66;
     * ``ETA`` is positive.
 
     :param zpc_xds: Zernike polynomial coefficient dataset to check
@@ -227,18 +243,22 @@ def check_zpc(zpc_xds: xarray.Dataset) -> SchemaIssues:
             )
     if "coefficient" in zpc_xds.coords:
         index = numpy.asarray(zpc_xds.coefficient.values)
-        if not numpy.array_equal(index, numpy.arange(index.size)):
+        if index.size and (index[0] < 0 or numpy.any(numpy.diff(index) <= 0)):
             issues.add(
                 SchemaIssue(
                     path=[("coord", "coefficient")],
-                    message="Coefficient indices must be 0, 1, ...",
+                    message="Coefficient indices must increase from at least 0",
                 )
             )
-        if zpc_xds.attrs.get("zernike_basis") == "sirius" and index.size > 66:
+        if (
+            zpc_xds.attrs.get("zernike_basis") == "zernike_osa"
+            and index.size
+            and index.max() > 65
+        ):
             issues.add(
                 SchemaIssue(
                     path=[("coord", "coefficient")],
-                    message=f"The sirius basis has 66 polynomials, the dataset has {index.size} coefficients",
+                    message=f"The zernike_osa basis has indices 0 to 65, the dataset has {index.max()}",
                 )
             )
     if "ETA" in zpc_xds.data_vars and not bool(numpy.all(zpc_xds.ETA.values > 0)):

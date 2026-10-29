@@ -12,9 +12,10 @@ from xradio.primary_beam import (
 from xradio.schema.check import check_dataset
 
 
-def make_zpc(polarization=("XX", "XY", "YX", "YY"), n_coefficient=66):
+def make_zpc(polarization=("XX", "XY", "YX", "YY"), coefficient=None):
+    coefficient = np.arange(66) if coefficient is None else coefficient
     frequency = np.array([109.0e9, 110.0e9])
-    shape = (frequency.size, len(polarization), n_coefficient)
+    shape = (frequency.size, len(polarization), len(coefficient))
     return xr.Dataset(
         {
             "ZPC": (
@@ -30,7 +31,7 @@ def make_zpc(polarization=("XX", "XY", "YX", "YY"), n_coefficient=66):
                 {"type": "spectral_coord", "units": "Hz", "observer": "TOPO"},
             ),
             "polarization": list(polarization),
-            "coefficient": np.arange(n_coefficient),
+            "coefficient": np.asarray(coefficient),
         },
         attrs={
             "type": "zernike_polynomial_coefficients",
@@ -40,8 +41,8 @@ def make_zpc(polarization=("XX", "XY", "YX", "YY"), n_coefficient=66):
             "dish_diameter": 12.0,
             "blockage_diameter": 0.75,
             "max_rad_1GHz": 0.15,
-            "zernike_basis": "sirius",
-            "aperture_frame": "x and y conjugate to the holography direction cosines l and m",
+            "zernike_basis": "zernike_osa",
+            "aperture_frame": "antenna",
             "origin": {"software": "astrohack"},
         },
     )
@@ -79,15 +80,26 @@ class TestZpcSchema:
         issues = check_zpc(make_zpc().isel(polarization=[3, 1, 2, 0]))
         assert any("canonical" in issue.message for issue in issues)
 
-    def test_coefficient_indices(self):
-        zpc = make_zpc().assign_coords(coefficient=np.arange(1, 67))
-        assert any("0, 1" in issue.message for issue in check_zpc(zpc))
+    def test_sparse_coefficients(self):
+        assert not check_zpc(make_zpc(coefficient=[0, 4, 11, 12, 24]))
 
-    def test_too_many_coefficients_for_basis(self):
+    @pytest.mark.parametrize("coefficient", [[0, 4, 4], [0, 12, 4], [-1, 0, 4]])
+    def test_coefficient_indices(self, coefficient):
         assert any(
-            "66 polynomials" in issue.message
-            for issue in check_zpc(make_zpc(n_coefficient=67))
+            "increase" in issue.message
+            for issue in check_zpc(make_zpc(coefficient=coefficient))
         )
+
+    def test_index_beyond_basis(self):
+        assert any(
+            "0 to 65" in issue.message
+            for issue in check_zpc(make_zpc(coefficient=[0, 4, 66]))
+        )
+
+    def test_aperture_frame(self):
+        zpc = make_zpc()
+        zpc.attrs["aperture_frame"] = "sky"
+        assert check_zpc(zpc)
 
     def test_eta_positive(self):
         zpc = make_zpc()

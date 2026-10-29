@@ -23,6 +23,8 @@ checked with :py:func:`xradio.primary_beam.schema.check_zpc`.
 
 .. autodata:: xradio.primary_beam.schema.AllowedZernikeBases
 
+.. autodata:: xradio.primary_beam.schema.AllowedApertureFrames
+
 .. autoclass:: xradio.primary_beam.schema.OriginDict()
 
    .. xradio_dict_schema_table:: xradio.primary_beam.schema.OriginDict

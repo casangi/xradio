@@ -10,7 +10,7 @@ from xradio._utils.dict_helpers import (
     make_sky_coord_measure_attrs,
     make_spectral_coord_measure_attrs,
 )
-from xradio._utils.list_and_array import to_np_array
+from xradio._utils.list_and_array import check_if_consistent, to_np_array
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.field_source import (
     get_source_direction_code,
@@ -75,6 +75,8 @@ def create_field_and_source_xds(
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
+    if field_df.empty:
+        return xds
 
     field_name = (
         field_df["fieldName"].astype("str").str.strip()
@@ -92,14 +94,12 @@ def create_field_and_source_xds(
     # TODO: make distance variable once we have ephem data (below)
     # center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
-    if is_single_dish:
-        # ignore the polynomial dimension
-        phase_or_ref_dir = field_df["referenceDir"].to_numpy()[0]
-    else:
-        phase_or_ref_dir = field_df["phaseDir"].to_numpy()[0]
+    direction_attribute = "referenceDir" if is_single_dish else "phaseDir"
+    center_direction = field_df[direction_attribute].to_numpy()
+    # ignoring the polynomial dimension / never seen in ALMA?
     xds[center_direction_dv] = (
         ["field_name", "sky_dir_label"],
-        phase_or_ref_dir,
+        np.vstack(center_direction),
     )
 
     direction_frame = retrieve_field_direction_frame(field_df, field_id)
@@ -110,8 +110,8 @@ def create_field_and_source_xds(
     xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
 
     # TODO: ephemeris. SOURCE_DISTANCE, etc.
-    ephemeris_id = field_df["ephemerisId"].item()
-    if not pd.isna(ephemeris_id):
+    ephemeris_id = field_df["ephemerisId"]
+    if not pd.isna(ephemeris_id).all():
         xradio_logger().info(
             f"Note: ephemeris data is not yet supported. Found an ephemeris id: {ephemeris_id} "
             f"for field id: {field_id} / name {field_name}. The source_and_field_xds will "
@@ -190,22 +190,36 @@ def extract_source_info(
     ]
 
     source_name = source_df["sourceName"].to_numpy(dtype="str")
+    # Broadcast required for n_fields:1 source
     source_coords = {
-        "source_name": ("field_name", source_name),
+        "source_name": (
+            "field_name",
+            np.broadcast_to(source_name, xds.coords["field_name"].shape),
+        ),
     }
     xds = xds.assign_coords(source_coords)
 
-    source_direction = source_df["direction"].values[0]
-    source_key = (
-        source_df["sourceId"].item(),
-        source_df["timeInterval"].item(),
-        source_df["spectralWindowId"].item(),
-    )
-    direction_code = get_source_direction_code(asdm, source_key)
+    source_direction = np.vstack(source_df["direction"].to_numpy())
 
+    # Do we need all, other than to check uniqueness?
+    direction_code = []
+    for source_idx in range(len(source_direction)):
+        source_idx_index = source_df.index[source_idx]
+        source_key = (
+            source_df.at[source_idx_index, "sourceId"],
+            source_df.at[source_idx_index, "timeInterval"],
+            source_df.at[source_idx_index, "spectralWindowId"],
+        )
+        direction_code.append(get_source_direction_code(asdm, source_key))
+
+    direction_code = check_if_consistent(
+        np.array(direction_code), "source direction code"
+    )
+    # Again, for n_fields:1 source
+    shape_field_name_sky_dir_label = xds.coords["field_name"].shape + (2,)
     xds["SOURCE_DIRECTION"] = (
         ["field_name", "sky_dir_label"],
-        [[source_direction[0].get(), source_direction[1].get()]],
+        np.broadcast_to(source_direction, shape_field_name_sky_dir_label),
         make_sky_coord_measure_attrs("rad", direction_code),
     )
 
@@ -218,6 +232,10 @@ def extract_source_info(
         )
         line_name = line_name[np.newaxis, :] if line_name.ndim < 2 else line_name
         line_label = [f"{idx}" for idx in np.arange(line_name.shape[-1])]
+        shape_field_name_line_label = xds.coords["field_name"].shape + (
+            len(line_label),
+        )
+        line_name = np.broadcast_to(line_name, shape_field_name_line_label)
         line_coords = {
             "line_label": line_label,
             "line_name": (["field_name", "line_label"], line_name),
@@ -232,13 +250,13 @@ def extract_source_info(
         frequency_frame = retrieve_source_frequency_frame(source_df)
         xds["LINE_REST_FREQUENCY"] = (
             ["field_name", "line_label"],
-            rest_freq,
+            np.broadcast_to(rest_freq, shape_field_name_line_label),
             make_spectral_coord_measure_attrs("Hz", observer=frequency_frame),
         )
         sys_vel = source_df["sysVel"].explode().to_numpy(dtype="float64")[np.newaxis, :]
         xds["LINE_SYSTEMIC_VELOCITY"] = (
             ["field_name", "line_label"],
-            sys_vel,
+            np.broadcast_to(sys_vel, shape_field_name_line_label),
             make_quantity_attrs("m/s"),
         )
 

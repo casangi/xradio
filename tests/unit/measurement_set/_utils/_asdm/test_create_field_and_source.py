@@ -18,18 +18,24 @@ def test_create_field_and_source_xds_empty():
 
 
 def test_create_field_and_source_xds_with_asdm_empty(asdm_empty):
-    with pytest.raises(IndexError, match="out of bounds"):
-        create_field_and_source_xds(asdm_empty, {"fieldId": [0]}, 0, False)
+    xds = create_field_and_source_xds(asdm_empty, {"fieldId": [0]}, 0, False)
+    assert xds.attrs["type"] == "field_and_source"
+    issues = check_dataset(xds, FieldSourceXds)
+    assert issues
 
 
 def test_create_field_and_source_xds_with_asdm_default(asdm_with_spw_default):
-    with pytest.raises(IndexError, match="out of bounds"):
-        create_field_and_source_xds(asdm_with_spw_default, {"fieldId": [0]}, 0, False)
+    xds = create_field_and_source_xds(asdm_with_spw_default, {"fieldId": [0]}, 0, False)
+    assert xds.attrs["type"] == "field_and_source"
+    issues = check_dataset(xds, FieldSourceXds)
+    assert issues
 
 
 def test_create_field_and_source_xds_with_asdm_simple(asdm_with_spw_simple):
-    with pytest.raises(IndexError, match="out of bounds"):
-        create_field_and_source_xds(asdm_with_spw_simple, {"fieldId": [0]}, 0, False)
+    xds = create_field_and_source_xds(asdm_with_spw_simple, {"fieldId": [0]}, 0, False)
+    assert xds.attrs["type"] == "field_and_source"
+    issues = check_dataset(xds, FieldSourceXds)
+    assert issues
 
 
 def test_create_field_and_source_xds_with_field_minimum(asdm_with_spw_simple):

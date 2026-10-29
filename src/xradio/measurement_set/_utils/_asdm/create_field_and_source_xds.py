@@ -10,7 +10,7 @@ from xradio._utils.dict_helpers import (
     make_sky_coord_measure_attrs,
     make_spectral_coord_measure_attrs,
 )
-from xradio._utils.list_and_array import check_if_consistent, to_np_array
+from xradio._utils.list_and_array import check_if_consistent
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm._utils.field_source import (
     get_source_direction_code,
@@ -75,8 +75,6 @@ def create_field_and_source_xds(
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
-    if field_df.empty:
-        return xds
 
     field_name = (
         field_df["fieldName"].astype("str").str.strip()
@@ -94,12 +92,11 @@ def create_field_and_source_xds(
     # TODO: make distance variable once we have ephem data (below)
     # center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
-    direction_attribute = "referenceDir" if is_single_dish else "phaseDir"
-    center_direction = field_df[direction_attribute].to_numpy()
+    center_direction = _make_field_center_direction(xds, field_df, is_single_dish)
     # ignoring the polynomial dimension / never seen in ALMA?
     xds[center_direction_dv] = (
         ["field_name", "sky_dir_label"],
-        np.vstack(center_direction),
+        center_direction,
     )
 
     direction_frame = retrieve_field_direction_frame(field_df, field_id)
@@ -122,6 +119,20 @@ def create_field_and_source_xds(
     xds.attrs.update({"is_ephemeris": is_ephemeris})
 
     return xds
+
+
+def _make_field_center_direction(
+    xds: xr.Dataset, field_df: pd.DataFrame, is_single_dish: bool
+) -> np.ndarray:
+    direction_attribute = "referenceDir" if is_single_dish else "phaseDir"
+    center_direction = field_df[direction_attribute].to_numpy()
+    if center_direction.size > 0:
+        center_direction = np.vstack(center_direction)
+    else:
+        center_direction = np.empty(
+            xds.coords["field_name"].shape + (2,), dtype="float64"
+        )
+    return center_direction
 
 
 def extract_source_info(
@@ -157,7 +168,7 @@ def extract_source_info(
         xradio_logger().warning(
             "No sourceId found in the Field table. No source information will be included in field_and_source_xds."
         )
-        unknown = to_np_array(["Unknown"] * field_df.shape[0])
+        unknown = np.array(["Unknown"] * field_df.shape[0], dtype="str")
         xds = xds.assign_coords({"source_name": ("field_name", unknown)})
         return xds
 
@@ -184,12 +195,15 @@ def extract_source_info(
     )
 
     source_id = field_df["sourceId"].unique()
+    print(f"===> {source_df=} with {source_id=}")
     source_df = source_df.loc[
         (source_df["spectralWindowId"] == spectral_window_id)
         & (source_df["sourceId"].isin(np.array(source_id)))
     ]
 
     source_name = source_df["sourceName"].to_numpy(dtype="str")
+    if source_name.size == 0:
+        source_name = np.array(["Unknown"], dtype="str")
     # Broadcast required for n_fields:1 source
     source_coords = {
         "source_name": (

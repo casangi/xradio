@@ -17,25 +17,28 @@ def test_create_field_and_source_xds_empty():
         create_field_and_source_xds(None, {}, 0, False)
 
 
+def check_empty_if_field_and_source_xds(xds):
+    assert xds.attrs["type"] == "field_and_source"
+    center_direction_name = "FIELD_PHASE_CENTER_DIRECTION"
+    assert center_direction_name in xds.data_vars
+    assert xds.data_vars[center_direction_name].shape == (0, 2)
+    issues = check_dataset(xds, FieldSourceXds)
+    assert not issues
+
+
 def test_create_field_and_source_xds_with_asdm_empty(asdm_empty):
     xds = create_field_and_source_xds(asdm_empty, {"fieldId": [0]}, 0, False)
-    assert xds.attrs["type"] == "field_and_source"
-    issues = check_dataset(xds, FieldSourceXds)
-    assert issues
+    check_empty_if_field_and_source_xds(xds)
 
 
 def test_create_field_and_source_xds_with_asdm_default(asdm_with_spw_default):
     xds = create_field_and_source_xds(asdm_with_spw_default, {"fieldId": [0]}, 0, False)
-    assert xds.attrs["type"] == "field_and_source"
-    issues = check_dataset(xds, FieldSourceXds)
-    assert issues
+    check_empty_if_field_and_source_xds(xds)
 
 
 def test_create_field_and_source_xds_with_asdm_simple(asdm_with_spw_simple):
     xds = create_field_and_source_xds(asdm_with_spw_simple, {"fieldId": [0]}, 0, False)
-    assert xds.attrs["type"] == "field_and_source"
-    issues = check_dataset(xds, FieldSourceXds)
-    assert issues
+    check_empty_if_field_and_source_xds(xds)
 
 
 def test_create_field_and_source_xds_with_field_minimum(asdm_with_spw_simple):

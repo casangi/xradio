@@ -153,6 +153,35 @@ def test_VisibilitySpectrumArray__raw_indexing_method_with_spectrum(
         # overly mocked
 
 
+def test_VisibilitySpectrumArray__raw_indexing_method_returns_bdf_loader_result(
+    monkeypatch,
+):
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        VisibilitySpectrumArray,
+    )
+
+    def fake_load_visibilities(paths, spw_id, time_indices_by_bdf, key):
+        assert paths == ["bdf_1"]
+        assert spw_id == 3
+        assert time_indices_by_bdf == {"bdf_1": [0, 1]}
+        assert key == (slice(0, 2), slice(0, 2))
+        return expected
+
+    expected = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]], dtype=np.complex64)
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.asdm_backend_arrays.load_visibilities_from_partition_bdfs",
+        fake_load_visibilities,
+    )
+
+    visibility = VisibilitySpectrumArray(
+        "VISIBILITY", (2, 2), ["bdf_1"], 3, {"bdf_1": [0, 1]}
+    )
+    selected_visibility = visibility._raw_indexing_method((slice(0, 2), slice(0, 2)))
+
+    assert np.array_equal(selected_visibility, expected)
+
+
 @pytest.mark.parametrize(
     "input_shape, expected_output_shape, expected_error",
     [
@@ -235,6 +264,28 @@ def test_FlagArray__raw_indexing_method(
     assert flag.dtype == np.dtype("bool")
     with expected_error:
         flag._raw_indexing_method(input_key)
+
+
+def test_FlagArray__raw_indexing_method_returns_bdf_loader_result(monkeypatch):
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import FlagArray
+
+    def fake_load_flags(paths, spw_id, time_indices_by_bdf, key):
+        assert paths == ["bdf_1"]
+        assert spw_id == 3
+        assert time_indices_by_bdf == {"bdf_1": [10, 11]}
+        assert key == (slice(0, 2), slice(0, 2))
+        return expected
+
+    expected = np.array([[True, False], [False, True]], dtype=bool)
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.asdm_backend_arrays.load_flags_from_partition_bdfs",
+        fake_load_flags,
+    )
+
+    flag = FlagArray((2, 2), ["bdf_1"], 3, {"bdf_1": [10, 11]})
+    selected_flag = flag._raw_indexing_method((slice(0, 2), slice(0, 2)))
+    assert np.array_equal(selected_flag, expected)
 
 
 def test_UVWArray__raw_indexing_method():

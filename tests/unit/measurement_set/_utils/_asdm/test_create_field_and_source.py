@@ -1,5 +1,6 @@
 import copy
 
+import numpy as np
 import pandas as pd
 import pyasdm
 import pytest
@@ -41,7 +42,16 @@ def test_create_field_and_source_xds_with_asdm_simple(asdm_with_spw_simple):
     check_empty_if_field_and_source_xds(xds)
 
 
-def test_create_field_and_source_xds_with_field_minimum(asdm_with_spw_simple):
+@pytest.mark.parametrize(
+    "input_is_single_dish",
+    [
+        (True),
+        (False),
+    ],
+)
+def test_create_field_and_source_xds_with_field_minimum(
+    asdm_with_spw_simple, input_is_single_dish
+):
     asdm_with_minimum_field = copy.deepcopy(asdm_with_spw_simple)
 
     # A field row with only the required attributes
@@ -60,19 +70,130 @@ def test_create_field_and_source_xds_with_field_minimum(asdm_with_spw_simple):
     field_row_0.setFromXML(field_row_0_xml)
     field_table.add(field_row_0)
 
-    # IF
-    if_field_and_source_xds = create_field_and_source_xds(
-        asdm_with_minimum_field, {"fieldId": [0]}, 0, False
+    field_and_source_xds = create_field_and_source_xds(
+        asdm_with_minimum_field, {"fieldId": [0]}, 0, input_is_single_dish
     )
-    issues_if = check_dataset(if_field_and_source_xds, FieldSourceXds)
-    assert not issues_if
+    issues = check_dataset(field_and_source_xds, FieldSourceXds)
+    assert not issues
 
-    # SD
-    sd_field_and_source_xds = create_field_and_source_xds(
-        asdm_with_minimum_field, {"fieldId": [0]}, 0, True
+
+@pytest.mark.parametrize(
+    "input_is_single_dish",
+    [
+        (True),
+        (False),
+    ],
+)
+def test_create_field_and_source_xds_with_field_numpoly(
+    asdm_with_spw_simple, input_is_single_dish
+):
+    """uses an anomalous field table with numPoly > 1 (never seen in ALMA?)"""
+    asdm_with_minimum_field = copy.deepcopy(asdm_with_spw_simple)
+
+    field_row_0_xml = """
+  <row>
+    <fieldId> Field_0 </fieldId>
+    <fieldName> J0423-0120 </fieldName>
+    <numPoly> 2 </numPoly>
+    <delayDir> 2 2 2 1.1487030439690096 -0.023431362760917465 0.01 0.001  </delayDir>
+    <phaseDir> 2 1 2 1.1487030439690096 -0.023431362760917465 0.01 0.001  </phaseDir>
+    <referenceDir> 2 1 2 1.148703043969797 -0.02343136276090743 0.01 0.001  </referenceDir>
+  </row>
+    """
+    field_table = asdm_with_minimum_field.getField()
+    field_row_0 = pyasdm.FieldRow(field_table)
+    field_row_0.setFromXML(field_row_0_xml)
+    field_table.add(field_row_0)
+
+    field_and_source_xds = create_field_and_source_xds(
+        asdm_with_minimum_field, {"fieldId": [0]}, 0, input_is_single_dish
     )
-    issues_sd = check_dataset(sd_field_and_source_xds, FieldSourceXds)
-    assert not issues_sd
+    issues = check_dataset(field_and_source_xds, FieldSourceXds)
+    assert not issues
+
+
+@pytest.mark.parametrize(
+    "input_is_single_dish",
+    [
+        (True),
+        (False),
+    ],
+)
+def test_create_field_and_source_xds_with_field_ephemeris_id(
+    asdm_with_spw_simple, input_is_single_dish
+):
+    """uses a field table with some ephemeris ids"""
+    asdm_with_minimum_field = copy.deepcopy(asdm_with_spw_simple)
+
+    field_row_0_xml = """
+  <row>
+    <fieldId> Field_0 </fieldId>
+    <fieldName> J0423-0120 </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </delayDir>
+    <phaseDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </phaseDir>
+    <referenceDir> 2 1 2 1.148703043969797 -0.02343136276090743  </referenceDir>
+    <ephemerisId> 0 </ephemerisId>
+  </row>
+    """
+    field_table = asdm_with_minimum_field.getField()
+    field_row_0 = pyasdm.FieldRow(field_table)
+    field_row_0.setFromXML(field_row_0_xml)
+    field_table.add(field_row_0)
+
+    field_and_source_xds = create_field_and_source_xds(
+        asdm_with_minimum_field, {"fieldId": [0]}, 0, input_is_single_dish
+    )
+    issues = check_dataset(field_and_source_xds, FieldSourceXds)
+    assert not issues
+
+
+@pytest.mark.parametrize("input_is_single_dish", [(True), (False)])
+def test_create_field_and_source_xds_with_n_fields(
+    asdm_with_spw_simple, input_is_single_dish
+):
+    asdm_with_minimum_field = copy.deepcopy(asdm_with_spw_simple)
+
+    field_row_0_xml = """
+  <row>
+    <fieldId> Field_0 </fieldId>
+    <fieldName> J0423-0120 </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </delayDir>
+    <phaseDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </phaseDir>
+    <referenceDir> 2 1 2 1.148703043969797 -0.02343136276090743  </referenceDir>
+  </row>
+    """
+    field_row_1_xml = """
+  <row>
+    <fieldId> Field_1 </fieldId>
+    <fieldName> J0423-0121 </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </delayDir>
+    <phaseDir> 2 1 2 1.1487030439690096 -0.023431362760917465  </phaseDir>
+    <referenceDir> 2 1 2 1.148703043969797 -0.02343136276090743  </referenceDir>
+  </row>
+    """
+    field_table = asdm_with_minimum_field.getField()
+    for row_xml in [field_row_0_xml, field_row_1_xml]:
+        field_row = pyasdm.FieldRow(field_table)
+        field_row.setFromXML(row_xml)
+        field_table.add(field_row)
+
+    field_and_source_xds = create_field_and_source_xds(
+        asdm_with_minimum_field, {"fieldId": [0, 1]}, 0, input_is_single_dish
+    )
+    issues = check_dataset(field_and_source_xds, FieldSourceXds)
+    assert not issues
+    expected_name_shape = (2,)
+    assert field_and_source_xds.coords["field_name"].shape == expected_name_shape
+    center_variable = (
+        "FIELD_REFERENCE_CENTER_DIRECTION"
+        if input_is_single_dish
+        else "FIELD_PHASE_CENTER_DIRECTION"
+    )
+    expected_data_shape = expected_name_shape + (2,)
+    assert field_and_source_xds.data_vars[center_variable].shape == expected_data_shape
 
 
 def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
@@ -228,6 +349,29 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
         field_and_source_xds.data_vars[sys_vel_name], expected_sys_vel
     )
     assert field_and_source_xds[sys_vel_name].attrs["units"] == "m/s"
+
+
+@pytest.mark.parametrize(
+    "input_is_single_dish",
+    [
+        (True),
+        (False),
+    ],
+)
+def test___make_field_center_direction(input_is_single_dish):
+    from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
+        _make_field_center_direction,
+    )
+
+    xds = xr.Dataset()
+    field_df = pd.DataFrame.from_dict(
+        {
+            "referenceDir": [0.1, 0.2],
+            "phaseDir": [1.11, 1.21],
+        }
+    )
+    center_direction = _make_field_center_direction(xds, field_df, input_is_single_dish)
+    assert isinstance(center_direction, np.ndarray)
 
 
 def test_extract_source_info_empty():

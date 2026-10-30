@@ -62,7 +62,13 @@ def create_field_and_source_xds(
 
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
-    sdm_field_required_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir"]
+    sdm_field_required_attrs = [
+        "fieldId",
+        "numPoly",
+        "fieldName",
+        "phaseDir",
+        "referenceDir",
+    ]
     sdm_field_optional_attrs = ["ephemerisId", "sourceId", "directionCode"]
     # sourceId is an opt attr, but so far always present in ALMA ASDMs. directionCode also seems to
     # always be present. ephemerisId is NOT always present.
@@ -75,6 +81,12 @@ def create_field_and_source_xds(
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
+
+    if (field_df["numPoly"] > 1).any():
+        xradio_logger().warning(
+            "Field directions as polynomials with more than one "
+            "coefficient (numPoly > 1) are not supported."
+        )
 
     field_name = (
         field_df["fieldName"].astype("str").str.strip()
@@ -93,7 +105,6 @@ def create_field_and_source_xds(
     # center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
     center_direction = _make_field_center_direction(xds, field_df, is_single_dish)
-    # ignoring the polynomial dimension / never seen in ALMA?
     xds[center_direction_dv] = (
         ["field_name", "sky_dir_label"],
         center_direction,
@@ -195,15 +206,12 @@ def extract_source_info(
     )
 
     source_id = field_df["sourceId"].unique()
-    print(f"===> {source_df=} with {source_id=}")
     source_df = source_df.loc[
         (source_df["spectralWindowId"] == spectral_window_id)
         & (source_df["sourceId"].isin(np.array(source_id)))
     ]
 
     source_name = source_df["sourceName"].to_numpy(dtype="str")
-    if source_name.size == 0:
-        source_name = np.array(["Unknown"], dtype="str")
     # Broadcast required for n_fields:1 source
     source_coords = {
         "source_name": (

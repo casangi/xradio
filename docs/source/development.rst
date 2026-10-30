@@ -120,25 +120,20 @@ schemas <overview.rst#Dataset-types>`__).
 
 The user-facing API is implemented in the ``.py`` files located at the
 top level of each sub-package directory, while private functions are
-housed in a dedicated sub-directory, such as ``_measurement_set``. This
-sub-directory contains folders for each supported storage backend, as
+housed in a dedicated sub-directory, such as ``measurement_set/_utils``.
+This sub-directory contains folders for each supported storage backend, as
 well as a ``_utils`` folder for common functions used across backends.
 
-For instance, in the ``measurement_set`` sub-package, XRADIO currently
-supports a ``zarr``-based backend. Additionally, we offer limited
-support for ``casacore`` table Measurement Set v2 (``MS v2``), through a
-conversion function that allows users to convert data from Measurement
-Set v2 (stored in Casacore tables) to Measurement Set v4 (stored using
-zarr). The conversion function for MS v2 requires the optional
-dependency `arcae <https://github.com/ska-sa/arcae>`__, which provides
-casacore table access with self-contained wheels for Linux and macOS.
+For instance, the ``measurement_set`` sub-package has ``zarr``, Measurement
+Set v2 (``MS v2``, stored in casacore tables) and ASDM backends (see the
+`Measurement Set overview <measurement_set/overview.rst>`__). The MS v2
+backend requires the optional dependency
+`arcae <https://github.com/ska-sa/arcae>`__, which provides casacore table
+access with self-contained wheels for Linux and macOS.
 
-.. raw:: html
+.. Diagram source: _images/xradio_package_subpackages_modules_v4.tex (make diagrams)
 
-   <!-- Source Google Drawings of the diagrams are in gdrive: CASA/Documentation/XRADIO/Diagrams -->
-
-
-.. figure:: /_images/xradio_package_subpackages_modules_v4.png
+.. figure:: /_images/xradio_package_subpackages_modules_v4.svg
    :alt: diagram showing the XRADIO architecture: dependencies, modules, functions, etc.
    :align: center
    :name: figure-xradio-architecture_2
@@ -165,10 +160,9 @@ XRADIO is built using the following core packages:
 - Optionally, `arcae <https://github.com/ska-sa/arcae>`__
   (`Casacore Table Data System (CTDS) File
   Formats <https://casacore.github.io/casacore-notes/260.pdf>`__): Used
-  to convert data from MS v2 to MS v4 in Zarr format and to read/write
-  CASA images.
-- Optionally, `pyasdm <https://github.com/casangi/pyasdm>`__ (under
-  development): A pure Python library to access ASDM (ALMA Science Data
+  to read MS v2 data as MS v4 and to read/write CASA images.
+- Optionally, `pyasdm <https://github.com/casangi/pyasdm>`__: A pure
+  Python library to access ASDM (ALMA Science Data
   Model) data, used by the ASDM backend (the ``xradio_asdm`` Xarray
   engine).
 

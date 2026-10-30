@@ -592,9 +592,11 @@ AllowedUvwFrames = Literal[
 @xarray_dataarray_schema
 class UvwArray:
     """
-    Coordinates for the baseline from ``baseline_antenna2_id`` to
-    ``baseline_antenna1_id``, i.e. the baseline is equal to the difference
-    ``POSITION2 - POSITION1``. The UVW given are for the ``TIME_CENTROID``, and
+    Coordinates for the baseline from ``baseline_antenna2_name`` to
+    ``baseline_antenna1_name``, i.e. the baseline is equal to the position of
+    antenna 1 minus the position of antenna 2 (the "first-plus" convention of
+    `DiFX <https://difx.readthedocs.io/en/stable/sources/difx_conventions.html>`__).
+    The UVW given are for the ``TIME_CENTROID``, and
     correspond in general to the reference type for the
     ``field_info.phase_dir``.
 
@@ -623,7 +625,7 @@ class UvwArray:
         tuple[Time, BaselineId, UvwLabel],
         (numpy.float16 | numpy.float32 | numpy.float64),
     ]
-    """Baseline coordinates from ``baseline_antenna2_id`` to ``baseline_antenna1_id``"""
+    """Baseline coordinates from ``baseline_antenna2_name`` to ``baseline_antenna1_name``"""
     time: Coordof[TimeCoordArray]
     baseline_id: Coordof[BaselineArray] | None
     uvw_label: Coordof[UvwLabelArray] = ("u", "v", "w")

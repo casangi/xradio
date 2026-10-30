@@ -156,7 +156,17 @@ lazily as an image dataset, ``load_image`` reads all or part of a CASA image
 into memory (for a zarr store it returns the selected part lazily, like
 ``open_image``), and ``write_image`` writes an image dataset in any of the
 three formats (``out_format`` ``"casa"``, the default, ``"fits"`` or
-``"zarr"``) and returns the paths it wrote.
+``"zarr"``) and returns the paths it wrote (Figure 1).
+
+.. Diagram source: ../_images/image_storage_formats.tex (make diagrams)
+
+.. figure:: ../_images/image_storage_formats.svg
+  :alt: Image dataset storage formats
+  :align: center
+  :name: figure-image-storage-formats
+  :width: 100%
+
+  Figure 1: Image dataset storage formats.
 
 - **zarr**: a zarr store holds a whole image dataset, with all its data
   variables, data groups and attributes, and ``open_image`` reads it back as it

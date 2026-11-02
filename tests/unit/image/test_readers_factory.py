@@ -1256,7 +1256,16 @@ class TestLegacyUpgrade:
 
     @pytest.mark.parametrize(
         "version",
-        [None, "", "  ", "0.0.0", "0.0.1", " 0.0.1 ", f" {IMAGE_SCHEMA_VERSION} "],
+        [
+            None,
+            "",
+            "  ",
+            "0.0.0",
+            "0.0.1",
+            " 0.0.1 ",
+            "0.0.2",
+            f" {IMAGE_SCHEMA_VERSION} ",
+        ],
     )
     def test_missing_or_older_schema_version_becomes_current(
         self, version, legacy_warnings

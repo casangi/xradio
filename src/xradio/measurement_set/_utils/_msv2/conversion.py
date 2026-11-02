@@ -56,7 +56,9 @@ from xradio.measurement_set._utils._msv2.create_field_and_source_xds import (
 from xradio.measurement_set._utils._msv2.msv2_to_msv4_meta import (
     col_dims,
     col_to_data_variable_names,
+    col_to_data_variable_names_corrected,
     create_attribute_metadata,
+    spectrum_fallback_columns,
 )
 from xradio.measurement_set._utils._msv2.msv4_info_dicts import create_info_dicts
 from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
@@ -857,7 +859,9 @@ def create_data_variables(
     """
     Reads the MAIN columns that become data variables of the main xds and adds
     them to ``xds`` (in place). A column that fails to read is skipped (logged
-    at debug level); if WEIGHT_SPECTRUM fails, WEIGHT is tried instead.
+    at debug level); if WEIGHT_SPECTRUM (SIGMA_SPECTRUM) fails, WEIGHT (SIGMA)
+    is tried instead. With CORRECTED_DATA, the MSv2 weights give
+    WEIGHT_CORRECTED and SIGMA gives WEIGHT (see sigma_to_weight).
 
     With ``deferred`` (streamed write), the columns are not read here: every
     data variable is a placeholder and its description is put in
@@ -911,16 +915,23 @@ def create_data_variables(
 
     # Create Data Variables
     col_names = main_rows.colnames()
+    data_variable_names = (
+        col_to_data_variable_names_corrected
+        if "CORRECTED_DATA" in col_names
+        else col_to_data_variable_names
+    )
 
-    target_cols = set(col_names) & set(col_to_data_variable_names.keys())
-    if target_cols.issuperset({"WEIGHT", "WEIGHT_SPECTRUM"}):
-        target_cols.remove("WEIGHT")
+    target_cols = set(col_names) & set(data_variable_names.keys())
+    for spectrum_col, col in spectrum_fallback_columns.items():
+        if target_cols.issuperset({col, spectrum_col}):
+            target_cols.remove(col)
 
     main_table_attrs = extract_table_attributes(in_file)
     main_column_descriptions = main_table_attrs["column_descriptions"]
 
-    # Use a double-ended queue in case WEIGHT_SPECTRUM conversion fails, and
-    # we need to add WEIGHT to list of columns to convert during iteration.
+    # Use a double-ended queue in case WEIGHT_SPECTRUM (SIGMA_SPECTRUM) conversion
+    # fails, and we need to add WEIGHT (SIGMA) to list of columns to convert
+    # during iteration.
     # Sorted, so that the read order (and with it the data variable order and the
     # memory peak, which depends on what is already held when each column is
     # read) does not depend on the hash seed (set iteration order).
@@ -934,7 +945,7 @@ def create_data_variables(
 
     while target_cols:
         col = target_cols.popleft()
-        datavar_name = col_to_data_variable_names[col]
+        datavar_name = data_variable_names[col]
         if deferred is None:
             read_col_conversion = get_read_col_conversion_function(col, parallel_mode)
 
@@ -968,7 +979,7 @@ def create_data_variables(
                     time_baseline_shape,
                     transform,
                     # repeated along frequency: the same in either order
-                    frequency_constant=col == "WEIGHT",
+                    frequency_constant=col in ("WEIGHT", "SIGMA"),
                 )
 
             xds[datavar_name] = xr.DataArray(
@@ -984,12 +995,13 @@ def create_data_variables(
             xradio_logger().debug(f"Could not load column {col}, exception: {exc}")
             xradio_logger().debug(traceback.format_exc())
 
-            if col == "WEIGHT_SPECTRUM" and "WEIGHT" in col_names:
+            fallback = spectrum_fallback_columns.get(col)
+            if fallback in col_names:
                 xradio_logger().debug(
-                    "Failed to convert WEIGHT_SPECTRUM column: "
-                    "will attempt to use WEIGHT instead"
+                    f"Failed to convert {col} column: "
+                    f"will attempt to use {fallback} instead"
                 )
-                target_cols.append("WEIGHT")
+                target_cols.append(fallback)
 
     # The grid plan and time-chunk rows (8-24 bytes per row) are not needed
     # after the reads: do not keep them alive through to_zarr. The lazy
@@ -1005,6 +1017,8 @@ DASK_COLUMNS = frozenset(
         "MODEL_DATA",
         "WEIGHT_SPECTRUM",
         "WEIGHT",
+        "SIGMA_SPECTRUM",
+        "SIGMA",
         "FLAG",
     }
 )
@@ -1055,9 +1069,10 @@ def postprocess_main_column(
     """
     The conversion applied to the values of a MAIN column after reading them
     onto the (time, baseline) grid: TIME_CENTROID to seconds from the Unix
-    epoch, WEIGHT repeated along frequency (see repeat_weight_array); other
-    columns are returned as they are. Used for whole columns and for the
-    batches of the streamed write.
+    epoch, WEIGHT and SIGMA repeated along frequency (see repeat_weight_array),
+    SIGMA and SIGMA_SPECTRUM to weights (see sigma_to_weight); other columns are
+    returned as they are. Used for whole columns and for the batches of the
+    streamed write.
 
     Parameters
     ----------
@@ -1068,9 +1083,10 @@ def postprocess_main_column(
     parallel_mode : str, optional
         As for repeat_weight_array.
     main_sizes : dict[str, int] | None, optional
-        Sizes of the main xds (WEIGHT only).
+        Sizes of the main xds (WEIGHT and SIGMA only).
     main_chunksize : dict[str, int] | None, optional
-        Chunk sizes of the main xds (WEIGHT with parallel_mode="time" only).
+        Chunk sizes of the main xds (WEIGHT and SIGMA with parallel_mode="time"
+        only).
 
     Returns
     -------
@@ -1079,9 +1095,23 @@ def postprocess_main_column(
     """
     if col == "TIME_CENTROID":
         return convert_casacore_time(col_data, False)
-    if col == "WEIGHT":
-        return repeat_weight_array(col_data, parallel_mode, main_sizes, main_chunksize)
+    if col in ("WEIGHT", "SIGMA"):
+        col_data = repeat_weight_array(
+            col_data, parallel_mode, main_sizes, main_chunksize
+        )
+    if col in ("SIGMA", "SIGMA_SPECTRUM"):
+        return sigma_to_weight(col_data)
     return col_data
+
+
+def sigma_to_weight(sigma):
+    """
+    The weights 1/sigma^2 of SIGMA values, 0 where sigma is not positive and
+    finite. Returns a dask array for a dask array, a numpy array otherwise.
+    """
+    valid = np.isfinite(sigma) & (sigma > 0)
+    safe = np.where(valid, sigma, 1)
+    return np.where(valid, 1 / (safe * safe), 0).astype(sigma.dtype, copy=False)
 
 
 def add_missing_data_var_attrs(xds):
@@ -1239,9 +1269,12 @@ def estimate_memory_for_partition(
 
         return sizes_all_data_vars, is_float_data
 
-    def calculate_term_weight_flag(size_largest_data, is_float_data) -> float:
+    def calculate_term_weight_flag(
+        size_largest_data, is_float_data, n_weights
+    ) -> float:
         """
-        Size that WEIGHT and FLAG will have in the MSv4, derived from the size of the
+        Size that WEIGHT (n_weights of them: WEIGHT_CORRECTED with CORRECTED_DATA)
+        and FLAG will have in the MSv4, derived from the size of the
         MSv2 DATA col=> MSv4 VIS/SPECTRUM data var.
         """
         # Factors of the relative "cell_size" wrt the DATA var
@@ -1249,7 +1282,7 @@ def estimate_memory_for_partition(
         factor_weight = 1.0 if is_float_data else 0.5
         factor_flag = 1.0 / 4.0 if is_float_data else 1.0 / 8.0
 
-        return size_largest_data * (factor_weight + factor_flag)
+        return size_largest_data * (n_weights * factor_weight + factor_flag)
 
     def calculate_term_other_data_vars(
         ntimes: int, nbaselines: int, is_float_data: bool
@@ -1336,12 +1369,13 @@ def estimate_memory_for_partition(
         sizes_all_data, is_float_data = calculate_term_all_data(
             tb_tool, ntimes, nbaselines
         )
+        n_weights = 2 if "CORRECTED_DATA" in tb_tool.colnames() else 1
 
     size_largest_data = np.max(sizes_all_data)
     sum_sizes_data = np.sum(sizes_all_data)
     estimate_main_xds = (
         sum_sizes_data
-        + calculate_term_weight_flag(size_largest_data, is_float_data)
+        + calculate_term_weight_flag(size_largest_data, is_float_data, n_weights)
         + calculate_term_other_data_vars(ntimes, nbaselines, is_float_data)
     )
     estimate = (
@@ -1434,7 +1468,7 @@ def convert_and_write_partition(*args, **kwargs):
     warn_use_table_iter(arguments.get("use_table_iter", False))
     unreadable: set[str] = set()
     allow_stream_write = True
-    for _ in range(len(col_to_data_variable_names) + 2):
+    for _ in range(len(col_to_data_variable_names_corrected) + 2):
         try:
             return _convert_and_write_partition(
                 **arguments,
@@ -2282,7 +2316,11 @@ def antenna_ids_to_names(
 
 
 def add_group_to_data_groups(
-    data_groups: dict, what_group: str, correlated_data_name: str, uvw: bool = True
+    data_groups: dict,
+    what_group: str,
+    correlated_data_name: str,
+    uvw: bool = True,
+    weight: str = "WEIGHT",
 ):
     """
     Adds one correlated_data variable to the data_groups dict.
@@ -2299,11 +2337,13 @@ def add_group_to_data_groups(
         Name of the correlated_data var: "VISIBILITY", "VISIBILITY_CORRECTED", "SPECTRUM", etc.
     uvw: bool
         Whether to add a uvw field to the data group (assume True = interferometric data).
+    weight: str
+        Name of the weight var: "WEIGHT" or "WEIGHT_CORRECTED".
     """
     data_groups[what_group] = {
         "correlated_data": correlated_data_name,
         "flag": "FLAG",
-        "weight": "WEIGHT",
+        "weight": weight,
         "field_and_source": f"field_and_source_{what_group}_xds",
         "description": f"Data group derived from the data column '{correlated_data_name}' of an MSv2 converted to MSv4",
         "date": datetime.datetime.now(datetime.UTC).isoformat(),
@@ -2316,14 +2356,20 @@ def add_data_groups(xds):
     xds.attrs["data_groups"] = {}
 
     data_groups = xds.attrs["data_groups"]
+    # the weights of CORRECTED_DATA, also used with MODEL_DATA
+    corrected_weight = "WEIGHT_CORRECTED" if "WEIGHT_CORRECTED" in xds else "WEIGHT"
     if "VISIBILITY" in xds:
         add_group_to_data_groups(data_groups, "base", "VISIBILITY")
 
     if "VISIBILITY_CORRECTED" in xds:
-        add_group_to_data_groups(data_groups, "corrected", "VISIBILITY_CORRECTED")
+        add_group_to_data_groups(
+            data_groups, "corrected", "VISIBILITY_CORRECTED", weight=corrected_weight
+        )
 
     if "VISIBILITY_MODEL" in xds:
-        add_group_to_data_groups(data_groups, "model", "VISIBILITY_MODEL")
+        add_group_to_data_groups(
+            data_groups, "model", "VISIBILITY_MODEL", weight=corrected_weight
+        )
 
     is_single_dish = False
     if "SPECTRUM" in xds:
@@ -2331,11 +2377,15 @@ def add_data_groups(xds):
         is_single_dish = True
 
     if "SPECTRUM_MODEL" in xds:
-        add_group_to_data_groups(data_groups, "model", "SPECTRUM_MODEL", False)
+        add_group_to_data_groups(
+            data_groups, "model", "SPECTRUM_MODEL", False, corrected_weight
+        )
         is_single_dish = True
 
     if "SPECTRUM_CORRECTED" in xds:
-        add_group_to_data_groups(data_groups, "corrected", "SPECTRUM_CORRECTED", False)
+        add_group_to_data_groups(
+            data_groups, "corrected", "SPECTRUM_CORRECTED", False, corrected_weight
+        )
         is_single_dish = True
 
     return xds, is_single_dish

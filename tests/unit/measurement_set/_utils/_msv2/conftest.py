@@ -225,7 +225,8 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
       and a POINTING row per antenna and second.
     - "wsp_partial": WEIGHT_SPECTRUM with undefined cells in the middle of
       every DDI (the converter falls back to WEIGHT).
-    - "no_weight": undefined WEIGHT cells (WEIGHT=1 fallback).
+    - "no_weight": undefined WEIGHT cells and no CORRECTED_DATA, DATA in
+      TiledShapeStMan (WEIGHT=1 fallback).
     - "single_dish": FLOAT_DATA (TiledShapeStMan), autocorrelations only, a
       POINTING row per antenna and second.
     - "narrow_tiles": the grid of "sparse_dup" (padded and duplicated
@@ -308,6 +309,9 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
             )
         elif variant == "narrow_tiles":
             _write_narrow_tiles(msname, main_tb, ddi, rng)
+        elif variant == "no_weight":
+            main_tb.removecols(["DATA", "CORRECTED_DATA"])
+            _add_tiled_shape_column(main_tb, "DATA", visibilities["DATA"], 7)
         else:
             for col, values in visibilities.items():
                 main_tb.putcol(col, values)

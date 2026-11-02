@@ -58,19 +58,19 @@ cannot be described without reading it (no ``DIRECTION`` column, unusual value t
 the converter's code when the MS is opened (the values are not kept) and again when its variables are read.
 
 **Columns only a read can check.** The converter leaves out a MAIN column whose cells cannot be read (for
-``WEIGHT_SPECTRUM`` it reads ``WEIGHT`` instead). For most storage managers the engine finds such cells when the MS is
+``WEIGHT_SPECTRUM`` and ``SIGMA_SPECTRUM`` it reads ``WEIGHT`` and ``SIGMA`` instead). For most storage managers the engine finds such cells when the MS is
 opened and does the same. Where only a read can tell (cells of several shapes in a ``StandardStMan`` column, reference
 and concatenated MSs), the variable is opened and a read of cells that cannot be read raises
 :py:class:`MSv2ReadError`, which names the remedies: ``skip_columns=["<column>"]`` gives the converter's processing set
 (the column treated as unreadable in every partition), ``drop_variables=["<variable>"]`` leaves out only that variable.
 Until then the opened processing set differs from the converted one where the converter dropped the column: it has the
 variable (for a data column also its data group and ``field_and_source_xds``), and a selection that reads none of the
-cells that cannot be read returns the values of the column. ``WEIGHT`` from such a ``WEIGHT_SPECTRUM`` column is
-stricter, because the converter's ``WEIGHT`` then has other values (those of the ``WEIGHT`` column): its first read in
-a partition checks the shapes of the ``WEIGHT_SPECTRUM`` cells of the whole partition (once per partition in a
+cells that cannot be read returns the values of the column. A weight from such a ``WEIGHT_SPECTRUM`` (``SIGMA_SPECTRUM``)
+column is stricter, because the converter's weight then has other values (from the ``WEIGHT`` (``SIGMA``) column): its
+first read in a partition checks the shapes of the cells of the whole partition (once per partition in a
 process; for a ``StandardStMan`` column this reads the column's file), and every read raises
 :py:class:`MSv2ReadError` if one of them cannot be read, whichever cells it selects. Its attributes are those of
-``WEIGHT_SPECTRUM`` rather than those of ``WEIGHT``. (The cells of POINTING columns are checked when the MS is opened,
+the spectrum column rather than those of the other. (The cells of POINTING columns are checked when the MS is opened,
 see above.)
 
 **Chunks.** Open with ``chunks={}``: every variable is a Dask array, and the main data variables have the chunks of the

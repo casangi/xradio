@@ -5,6 +5,7 @@ import types
 from collections import namedtuple
 from contextlib import nullcontext as no_raises
 
+import dask.array as da
 import numpy as np
 import pytest
 import xarray as xr
@@ -647,12 +648,103 @@ def test_convert_and_write_partition_custom(ms_custom_spec):
 MAIN_LAYOUTS = ("dense", "sparse_dup", "baseline_major")
 
 
+@pytest.mark.parametrize("as_dask", [False, True])
+def test_sigma_to_weight(as_dask):
+    sigma = np.array([2.0, 0.5, 0.0, -1.0, np.nan, np.inf], dtype=np.float32)
+    weight = conversion.sigma_to_weight(da.from_array(sigma) if as_dask else sigma)
+    assert isinstance(weight, da.Array) == as_dask
+    assert weight.dtype == np.float32
+    np.testing.assert_array_equal(np.asarray(weight), [0.25, 4.0, 0, 0, 0, 0])
+
+
+@pytest.mark.parametrize("corrected", [True, False])
+@pytest.mark.parametrize("spectrum", [False, True])
+@pytest.mark.parametrize(
+    "kw",
+    [
+        {},
+        {"stream": False},
+        {"stream": False, "parallel_mode": "time", "main_chunksize": {"time": 10}},
+    ],
+)
+def test_convert_and_write_partition_weights(
+    corrected, spectrum, kw, tmp_path, monkeypatch
+):
+    """With CORRECTED_DATA, the MSv2 weights give WEIGHT_CORRECTED (of the
+    corrected and model data groups) and SIGMA gives WEIGHT, 1/SIGMA^2 (0 where
+    SIGMA is not positive); without it, the MSv2 weights give WEIGHT. The
+    xradio_msv2 engine gives the same."""
+    from xradio._utils._casacore.backend import tables
+    from xradio.measurement_set import open_msv2
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions,
+    )
+    from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
+
+    msname = str(tmp_path / "weights.ms")
+    data_cols = ["DATA", "CORRECTED_DATA"] if corrected else ["DATA"]
+    gen_test_ms(
+        msname,
+        descr=dict(default_ms_descr, data_cols=data_cols + ["MODEL_DATA"]),
+        opt_tables=True,
+        vlbi_tables=False,
+    )
+    _rewrite_main_rows(msname, "dense", 0, data_cols=data_cols)
+    with tables.table(msname, readonly=False, ack=False) as main_tb:
+        nrows = main_tb.nrows()
+        cell = main_tb.getcell("DATA", 0).shape
+        if spectrum:
+            sigma, weight = [0.5, 0.0], [7.0, 9.0]
+            for col, values in (("SIGMA_SPECTRUM", sigma), ("WEIGHT_SPECTRUM", weight)):
+                _add_tiled_shape_column(
+                    main_tb, col, np.full((nrows,) + cell, values, np.float32), 10
+                )
+        else:
+            sigma, weight = [2.0, -1.0], [3.0, 5.0]
+            main_tb.putcol("SIGMA", np.full((nrows, cell[1]), sigma, np.float32))
+            main_tb.putcol("WEIGHT", np.full((nrows, cell[1]), weight, np.float32))
+    partition = create_partitions(msname, [])[0]
+    xds = _convert_partition(
+        monkeypatch, msname, str(tmp_path / "out"), partition, **kw
+    ).ds
+
+    corrected_weight = "WEIGHT_CORRECTED" if corrected else "WEIGHT"
+    weights = {name: group["weight"] for name, group in xds.data_groups.items()}
+    assert weights == {
+        "base": "WEIGHT",
+        "model": corrected_weight,
+    } | ({"corrected": corrected_weight} if corrected else {})
+    np.testing.assert_array_equal(
+        xds[corrected_weight].values,
+        np.broadcast_to(np.float32(weight), xds.VISIBILITY.shape),
+    )
+    if corrected:
+        np.testing.assert_array_equal(
+            xds.WEIGHT.values,
+            np.broadcast_to(
+                conversion.sigma_to_weight(np.float32(sigma)), xds.VISIBILITY.shape
+            ),
+        )
+    opened = open_msv2(msname, partition_cache="off")
+    opened_xds = opened[sorted(opened.children)[0]].ds
+    assert {
+        name: group["weight"] for name, group in opened_xds.data_groups.items()
+    } == weights
+    for name in {"WEIGHT", corrected_weight}:
+        np.testing.assert_array_equal(opened_xds[name].values, xds[name].values)
+
+
 def _rewrite_main_rows(
-    msname: str, layout: str, seed: int, weight: bool = True
+    msname: str,
+    layout: str,
+    seed: int,
+    weight: bool = True,
+    data_cols: tuple[str, ...] = ("DATA", "CORRECTED_DATA"),
 ) -> None:
     """
     Rewrite the MAIN rows of a generated MS: every DDI gets 30 times x 10
-    baselines (time-major or baseline-major rows), random data, flags, weights
+    baselines (time-major or baseline-major rows), random data (``data_cols``),
+    flags, weights
     (unless ``weight`` is False: the WEIGHT cells stay undefined) and UVW.
     "sparse_dup" moves 10% of the rows to 3 extra, sparsely filled times
     (leaving their cells empty) and gives some rows the (time, baseline) of the
@@ -695,7 +787,7 @@ def _rewrite_main_rows(
         main_tb.putcol("EXPOSURE", rng.random(nrows))
         main_tb.putcol("UVW", rng.normal(size=(nrows, 3)))
         cell = main_tb.getcell("DATA", 0).shape
-        for col in ("DATA", "CORRECTED_DATA"):
+        for col in data_cols:
             values = rng.normal(size=(nrows,) + cell) + 1j * rng.normal(
                 size=(nrows,) + cell
             )
@@ -1123,6 +1215,7 @@ def test_convert_and_write_partition_no_taql_on_main(
         ("UVW", "time", "read_col_conversion_numpy"),
         ("TIME_CENTROID", "time", "read_col_conversion_numpy"),
         ("WEIGHT", "partition", "read_col_conversion_numpy"),
+        ("SIGMA_SPECTRUM", "time", "read_col_conversion_dask"),
     ],
 )
 def test_get_read_col_conversion_function(col_name, parallel_mode, expected):
@@ -1405,6 +1498,7 @@ def test_stream_write_bit_identical(
         "VISIBILITY_CORRECTED",
         "FLAG",
         "WEIGHT",
+        "WEIGHT_CORRECTED",
         "UVW",
         "TIME_CENTROID",
         "EFFECTIVE_INTEGRATION_TIME",
@@ -1592,7 +1686,8 @@ def ms_stream_edges(tmp_path_factory):
     - "reversed_freq": decreasing CHAN_FREQ, WEIGHT_SPECTRUM (TiledShapeStMan)
     - "wsp_partial": WEIGHT_SPECTRUM with undefined cells in the middle of
       every partition (falls back to WEIGHT)
-    - "no_weight": no WEIGHT_SPECTRUM and undefined WEIGHT cells (WEIGHT=1)
+    - "no_weight": no CORRECTED_DATA, no WEIGHT_SPECTRUM and undefined WEIGHT
+      cells (WEIGHT=1)
     - "varying_shape": MODEL_DATA (StandardStMan) with cells of another shape
       in every partition (VISIBILITY_MODEL is dropped); in "reversed_freq"
       all its cells have one shape
@@ -1612,16 +1707,19 @@ def ms_stream_edges(tmp_path_factory):
     paths = {}
     for seed, variant in enumerate(STREAM_EDGE_VARIANTS):
         msname = str(base / f"edge_{variant}.ms")
+        data_cols = ["DATA"] if variant == "no_weight" else ["DATA", "CORRECTED_DATA"]
         gen_test_ms(
             msname,
-            descr=dict(default_ms_descr, data_cols=["DATA", "CORRECTED_DATA"]),
+            descr=dict(default_ms_descr, data_cols=data_cols),
             opt_tables=True,
             vlbi_tables=False,
             required_only=True,
             misbehave=False,
         )
         layout = "baseline_major" if variant == "interleaved_fields" else "dense"
-        _rewrite_main_rows(msname, layout, seed, weight=variant != "no_weight")
+        _rewrite_main_rows(
+            msname, layout, seed, weight=variant != "no_weight", data_cols=data_cols
+        )
         rng = np.random.default_rng(100 + seed)
         with tables.table(msname, readonly=False, ack=False) as main_tb:
             nrows = main_tb.nrows()
@@ -1721,17 +1819,17 @@ def test_stream_write_column_decisions_bit_identical(
     assert not stats["FLAG"]["verified"] and "read decides" in stats["FLAG"]["readable"]
     if variant == "reversed_freq":
         assert np.all(np.diff(xds.frequency.values) > 0)
-        assert stats["WEIGHT"]["col"] == "WEIGHT_SPECTRUM"
-        assert "TiledShapeStMan" in stats["WEIGHT"]["readable"]
+        assert stats["WEIGHT_CORRECTED"]["col"] == "WEIGHT_SPECTRUM"
+        assert "TiledShapeStMan" in stats["WEIGHT_CORRECTED"]["readable"]
         assert "read decides" in stats["VISIBILITY_MODEL"]["readable"]
         assert partition_attempts == [set()]
     elif variant == "wsp_partial":  # decided from the TiledShapeStMan index
         assert np.all(np.diff(xds.frequency.values) > 0)
-        assert stats["WEIGHT"]["col"] == "WEIGHT"
-        assert xds.WEIGHT.dtype == np.float32
+        assert stats["WEIGHT_CORRECTED"]["col"] == "WEIGHT"
+        assert xds.WEIGHT_CORRECTED.dtype == np.float32
         assert partition_attempts == [set()]
     elif variant == "reftable_wsp_partial":  # decided by the read
-        assert stats["WEIGHT"]["col"] == "WEIGHT"
+        assert stats["WEIGHT_CORRECTED"]["col"] == "WEIGHT"
         assert "reference" in stats["VISIBILITY"]["readable"]
         assert partition_attempts == [set(), {"WEIGHT_SPECTRUM"}]
     elif variant == "no_weight":
@@ -1745,7 +1843,7 @@ def test_stream_write_column_decisions_bit_identical(
         assert partition_attempts == [set(), {"MODEL_DATA"}]
     else:
         assert variant == "interleaved_fields"
-        assert stats["WEIGHT"]["col"] == "WEIGHT_SPECTRUM"
+        assert stats["WEIGHT_CORRECTED"]["col"] == "WEIGHT_SPECTRUM"
 
 
 def test_stream_write_guard_interleaved_partitions(
@@ -1773,14 +1871,14 @@ def test_stream_write_guard_interleaved_partitions(
     _, old = _convert_streamed(
         monkeypatch, msname, str(tmp_path / "old"), partitions[idx], "0", **kw
     )
-    # WEIGHT chunk (2 times x 10 baselines x 16 x 2 float32) 2560 bytes: one
+    # WEIGHT_CORRECTED chunk (2 times x 10 baselines x 16 x 2 float32) 2560 bytes: one
     # chunk per batch, the variable (15 times) fits 8 batches
     _, new = _convert_streamed(
         monkeypatch, msname, str(tmp_path / "new"), partitions[idx], "1", 0.003, **kw
     )
     assert_stores_identical(old, new)
     stats = stream_stats[-1]["variables"]
-    weight, vis = stats["WEIGHT"], stats["VISIBILITY"]
+    weight, vis = stats["WEIGHT_CORRECTED"], stats["VISIBILITY"]
     assert weight["window"] == "tile" and weight["window_rows"] == 7
     assert weight["guard"] == "fragmented: one pass" and weight["batches"] == 1
     assert weight["runs_whole"] == 150  # every row its own run

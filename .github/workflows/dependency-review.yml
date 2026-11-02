@@ -1,0 +1,20 @@
+# Dependency review on pull requests (nrao/gh-actions-templates-public
+# dependency-review-template.yml): warns about new direct dependencies, to
+# discuss with the technical lead before merging, checks the licenses of
+# added or changed packages and warns about circular dependencies between
+# our packages.
+name: Dependency review
+
+on:
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  call-dependency-review:
+    uses: nrao/gh-actions-templates-public/.github/workflows/dependency-review-template.yml@main
+    with:
+      license-exceptions: |
+        scanpydoc: GPL-3.0-or-later; docs build only, not imported by xradio

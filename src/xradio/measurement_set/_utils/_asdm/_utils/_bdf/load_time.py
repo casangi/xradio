@@ -61,7 +61,7 @@ def load_times_from_partition_bdfs(
     return time_centers, durations, actual_times, actual_durations, time_indices_by_bdf
 
 
-def save_all_blob_infos(bdf_paths: list[str]):
+def save_all_blob_infos(bdf_paths: list[str], output_path: str = None):
     for bdf_path in bdf_paths:
         bdf_reader = pyasdm.bdf.BDFReader()
         try:
@@ -70,7 +70,12 @@ def save_all_blob_infos(bdf_paths: list[str]):
             # xradio_logger().debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: ")
             # xradio_logger().debug(bdf_header)
             blob_info = make_blob_info(bdf_header)
-            save_blob_info("xradio_asdm_blob_header_info_etc.csv", blob_info)
+            output_path = (
+                "xradio_asdm_blob_header_info_etc.csv"
+                if not output_path
+                else output_path
+            )
+            save_blob_info(output_path, blob_info)
         finally:
             bdf_reader.close()
 

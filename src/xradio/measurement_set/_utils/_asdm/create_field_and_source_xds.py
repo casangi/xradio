@@ -1,3 +1,6 @@
+"""Create field and source xarray datasets from ASDM metadata."""
+
+import time
 from typing import Any
 
 import numpy as np
@@ -60,6 +63,46 @@ def create_field_and_source_xds(
         dataset has ``type`` and ``is_ephemeris`` attributes.
     """
 
+    start_time = time.time()
+
+    # TODO: field_df => sourceId
+    xds, field_df = extract_field_info_xds_and_df(
+        asdm, partition_descr, spectral_window_id, is_single_dish
+    )
+    xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
+
+    xradio_logger().debug(
+        f"create_field_and_source_xds(): execution time {time.time() - start_time:0.2f} s"
+    )
+
+    return xds
+
+
+def extract_field_info_xds_and_df(
+    asdm: pyasdm.ASDM,
+    partition_descr: dict[str, Any],
+    spectral_window_id: int,
+    is_single_dish: bool,
+) -> tuple[xr.Dataset, pd.DataFrame]:
+    """Extract field metadata for the selected partition fields.
+
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        ASDM object containing the Field table.
+    partition_descr : dict
+        Partition description containing the field IDs to include.
+    spectral_window_id : int
+        Spectral-window ID associated with the partition.
+    is_single_dish : bool
+        Whether to use reference directions for single-dish data.
+
+    Returns
+    -------
+    tuple of xr.Dataset and pd.DataFrame
+        Dataset containing field coordinates and center directions, plus the
+        selected Field-table rows.
+    """
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
     sdm_field_required_attrs = [
@@ -115,8 +158,6 @@ def create_field_and_source_xds(
         make_sky_coord_measure_attrs("rad", direction_frame)
     )
 
-    xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
-
     # TODO: ephemeris. SOURCE_DISTANCE, etc.
     ephemeris_id = field_df["ephemerisId"]
     if not pd.isna(ephemeris_id).all():
@@ -129,12 +170,28 @@ def create_field_and_source_xds(
     is_ephemeris = False
     xds.attrs.update({"is_ephemeris": is_ephemeris})
 
-    return xds
+    return xds, field_df
 
 
 def _make_field_center_direction(
     xds: xr.Dataset, field_df: pd.DataFrame, is_single_dish: bool
 ) -> np.ndarray:
+    """Return field center directions as an RA/Dec array.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Field dataset providing the expected empty-array shape.
+    field_df : pd.DataFrame
+        Selected Field-table rows.
+    is_single_dish : bool
+        Whether to use reference rather than phase directions.
+
+    Returns
+    -------
+    np.ndarray
+        Field center directions with shape ``(field, sky direction)``.
+    """
     direction_attribute = "referenceDir" if is_single_dish else "phaseDir"
     center_direction = field_df[direction_attribute].to_numpy()
     if center_direction.size > 0:

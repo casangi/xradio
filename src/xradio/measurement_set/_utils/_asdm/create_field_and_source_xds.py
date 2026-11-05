@@ -263,19 +263,24 @@ def extract_source_info(
     )
 
     source_id = field_df["sourceId"].unique()
+    # Intentionally take only first (and only) "timeInterval"
+    # - never seen more than one interval in the ASDM/Source table
+    # - multiple source intervals not considered in MSv4.
     source_df = source_df.loc[
         (source_df["spectralWindowId"] == spectral_window_id)
         & (source_df["sourceId"].isin(np.array(source_id)))
-    ]
+    ].drop_duplicates(subset=["sourceId", "spectralWindowId"], keep="first")
+    # align by sourceId in the field_df order, for next steps
+    source_df = pd.merge(field_df["sourceId"], source_df, on="sourceId")
+    if len(source_df) != len(field_df):
+        raise RuntimeError(
+            "Unexpected inconsistency. Not all fields"
+            "have a corresponding row in the Source table. "
+            f"{field_df=}, {source_df=}"
+        )
 
     source_name = source_df["sourceName"].to_numpy(dtype="str")
-    # Broadcast required for n_fields:1 source
-    source_coords = {
-        "source_name": (
-            "field_name",
-            np.broadcast_to(source_name, xds.coords["field_name"].shape),
-        ),
-    }
+    source_coords = {"source_name": ("field_name", source_name)}
     xds = xds.assign_coords(source_coords)
 
     source_direction = np.vstack(source_df["direction"].to_numpy())
@@ -294,49 +299,109 @@ def extract_source_info(
     direction_code = check_if_consistent(
         np.array(direction_code), "source direction code"
     )
-    # Again, for n_fields:1 source
-    shape_field_name_sky_dir_label = xds.coords["field_name"].shape + (2,)
     xds["SOURCE_DIRECTION"] = (
         ["field_name", "sky_dir_label"],
-        np.broadcast_to(source_direction, shape_field_name_sky_dir_label),
+        source_direction,
         make_sky_coord_measure_attrs("rad", direction_code),
     )
 
-    line_info_available = (
-        pd.to_numeric(source_df["numLines"], errors="coerce") > 0
-    ).any()
+    xds = extract_line_info(xds, source_df)
+
+    return xds
+
+
+def extract_line_info(xds: xr.Dataset, source_df: pd.DataFrame) -> xr.Dataset:
+    """Add spectral-line metadata to a field dataset when available.
+
+    The line count is taken from the maximum ``numLines`` value in
+    ``source_df``. Line names, rest frequencies, and systemic velocities are
+    padded to a common length and added along the ``field_name`` and
+    ``line_label`` dimensions. If no source rows report lines, ``xds`` is
+    returned unchanged.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset to augment, with a ``field_name`` dimension.
+    source_df : pd.DataFrame
+        Source-table rows containing line counts and line metadata.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with spectral-line coordinates and variables when available.
+    """
+    max_line_info_len = pd.to_numeric(source_df["numLines"], errors="coerce").max()
+    line_info_available = max_line_info_len > 0
     if line_info_available:
-        line_name = (
-            source_df["transition"].explode().str.strip('"').to_numpy(dtype="str")
-        )
-        line_name = line_name[np.newaxis, :] if line_name.ndim < 2 else line_name
-        line_label = [f"{idx}" for idx in np.arange(line_name.shape[-1])]
-        shape_field_name_line_label = xds.coords["field_name"].shape + (
-            len(line_label),
-        )
-        line_name = np.broadcast_to(line_name, shape_field_name_line_label)
+        line_label = [f"{idx}" for idx in range(max_line_info_len)]
+
+        line_name = _strip_and_pad_line_values(source_df["transition"])
         line_coords = {
             "line_label": line_label,
             "line_name": (["field_name", "line_label"], line_name),
         }
         xds = xds.assign_coords(line_coords)
 
-        rest_freq = (
-            source_df["restFrequency"]
-            .explode()
-            .to_numpy(dtype="float64")[np.newaxis, :]
-        )
+        rest_freq = _pad_line_values(source_df["restFrequency"])
         frequency_frame = retrieve_source_frequency_frame(source_df)
         xds["LINE_REST_FREQUENCY"] = (
             ["field_name", "line_label"],
-            np.broadcast_to(rest_freq, shape_field_name_line_label),
+            rest_freq,
             make_spectral_coord_measure_attrs("Hz", observer=frequency_frame),
         )
-        sys_vel = source_df["sysVel"].explode().to_numpy(dtype="float64")[np.newaxis, :]
+
+        sys_vel = _pad_line_values(source_df["sysVel"])
         xds["LINE_SYSTEMIC_VELOCITY"] = (
             ["field_name", "line_label"],
-            np.broadcast_to(sys_vel, shape_field_name_line_label),
+            sys_vel,
             make_quantity_attrs("m/s"),
         )
 
     return xds
+
+
+def _strip_and_pad_line_values(values: pd.Series) -> np.ndarray[str]:
+    """Strip surrounding double quotes from line names and pad them by row.
+
+    The list-valued entries in ``values`` are expanded into a two-dimensional
+    array; shorter rows are padded with empty strings.
+
+    Parameters
+    ----------
+    values : pd.Series
+        Per-source lists of line-name strings.
+
+    Returns
+    -------
+    np.ndarray
+        Two-dimensional array of stripped line names.
+    """
+    # use .apply(pd.Series) to expand into separate columns the elements of the line values (list)
+    # fill values are ""
+    padded_ndarray = (
+        values.apply(lambda lst: [s.strip('"') for s in lst])
+        .apply(pd.Series)
+        .fillna("")
+        .to_numpy()
+    )
+    return padded_ndarray
+
+
+def _pad_line_values(values: pd.Series) -> np.ndarray[np.float64]:
+    """Expand per-source numeric line values into a padded two-dimensional array.
+
+    Parameters
+    ----------
+    values : pd.Series
+        Per-source lists of numeric line values.
+
+    Returns
+    -------
+    np.ndarray
+        Two-dimensional array with missing entries padded by ``NaN``.
+    """
+    # use .apply(pd.Series) to expand into separate columns the elements of the line values (list)
+    # fill values are np.nan
+    padded_ndarray = values.apply(pd.Series).to_numpy()
+    return padded_ndarray

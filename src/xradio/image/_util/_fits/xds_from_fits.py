@@ -48,6 +48,7 @@ from xradio.image._util.common import (
     _image_type,
     _l_m_attr_notes,
     _to_canonical_polarization_order,
+    _to_increasing_frequency_order,
 )
 
 # from xradio.image._util._casacore.common import (
@@ -180,7 +181,13 @@ def _fits_image_to_xds(
         A FITS ``STOKES`` axis must be a linear sequence of FITS codes, so FITS
         files store four correlations as RR, LL, RL, LR (or XX, YY, XY, YX);
         the reader reorders those planes, with their flags and per-plane
-        beams, into RR, RL, LR, LL (XX, XY, YX, YY).
+        beams, into RR, RL, LR, LL (XX, XY, YX, YY). Its frequency axis
+        increases: a decreasing axis is reversed the same way.
+
+    Raises
+    ------
+    ValueError
+        If the frequency axis neither increases nor decreases.
     """
     # may also need to pass mode='denywrite'
     # https://stackoverflow.com/questions/35759713/astropy-io-fits-read-row-from-large-fits-file-with-mutliple-hdus
@@ -215,7 +222,9 @@ def _fits_image_to_xds(
         xds["BEAM_FIT_PARAMS_" + image_type.upper()].attrs["type"] = (
             "beam_fit_params_" + image_type.lower()
         )
-    return _to_canonical_polarization_order(xds)
+    return _to_increasing_frequency_order(
+        _to_canonical_polarization_order(xds), img_full_path
+    )
 
 
 def _drop_direction_axes(

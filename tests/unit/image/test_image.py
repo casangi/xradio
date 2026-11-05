@@ -5,6 +5,7 @@ Each test class maps to one or two public functions defined in
 
 * ``TestLoadImage``        → ``load_image``
 * ``TestOpenImageCasa``    → ``open_image`` (CASA format)
+* ``TestDecreasingFrequency`` → ``open_image``, ``load_image`` (CASA format)
 * ``TestWriteImageCasa``   → ``write_image`` (CASA format)
 * ``TestCasaRoundtrip``    → ``open_image`` + ``write_image`` (CASA round-trip)
 * ``TestZarrRoundtrip``    → ``open_image`` + ``write_image`` (zarr round-trip)
@@ -44,6 +45,7 @@ from xradio.image import (
     open_image,
     write_image,
 )
+from xradio.image._util._casacore import xds_from_casacore
 from xradio.image._util._casacore.common import _create_new_image as create_new_image
 from xradio.image._util._casacore.common import _object_name
 from xradio.image._util._casacore.common import _open_image_ro as open_image_ro
@@ -354,6 +356,99 @@ class TestImageNinstances:
         if env is not None:
             monkeypatch.setenv("XRADIO_ARCAE_NINSTANCES", env)
         assert _resolve_ninstances(backend_opts) == expected
+
+
+# --------------------------------------------------------------------------- #
+# TestDecreasingFrequency  –  open_image, load_image (CASA format)             #
+# --------------------------------------------------------------------------- #
+
+
+class TestDecreasingFrequency:
+    """A CASA image stored with a decreasing frequency axis opens increasing."""
+
+    @pytest.fixture(scope="class")
+    def image(self, tmp_path_factory):
+        """The path of a decreasing image, the path of the same channels stored
+        increasing, and the dataset of the decreasing image, whose pixels,
+        flags and beams differ from plane to plane."""
+        dims = ("time", "frequency", "polarization", "l", "m")
+        xds = make_empty_sky_image(
+            [0.2, -0.5],
+            [6, 4],
+            [1e-5, 1e-5],
+            1.5e9 - 1e6 * np.arange(5),
+            ["I", "Q"],
+            [59000.0],
+        )
+        pixels = np.arange(240, dtype=np.float32).reshape(1, 5, 2, 6, 4)
+        width = 1e-5 * np.arange(1.0, 11.0).reshape(1, 5, 2)
+        xds["SKY"] = (dims, pixels, {"type": "sky", "units": "Jy/beam"})
+        xds["FLAG_SKY"] = (dims, pixels % 7 == 0, {"type": "flag"})
+        xds["BEAM_FIT_PARAMS_SKY"] = (
+            (*dims[:3], "beam_params_label"),
+            np.stack([2 * width, width, 1e3 * width], axis=-1),
+            {"type": "beam_fit_params_sky", "units": "rad"},
+        )
+        xds.attrs["data_groups"]["base"].update(
+            sky="SKY", flag="FLAG_SKY", beam_fit_params_sky="BEAM_FIT_PARAMS_SKY"
+        )
+        directory = tmp_path_factory.mktemp("decreasing_frequency")
+        (decreasing,) = write_image(
+            xds, str(directory / "decreasing.im"), out_format="casa"
+        )
+        (increasing,) = write_image(
+            xds.isel(frequency=slice(None, None, -1)),
+            str(directory / "increasing.im"),
+            out_format="casa",
+        )
+        return decreasing, increasing, xds
+
+    def test_open_image(self, image):
+        decreasing, increasing, stored = image
+        xds = open_image(decreasing)
+        reversed_stored = stored.isel(frequency=slice(None, None, -1))
+        for name in ("frequency", "velocity", "SKY", "FLAG_SKY", "BEAM_FIT_PARAMS_SKY"):
+            np.testing.assert_allclose(xds[name].values, reversed_stored[name].values)
+        assert xds.frequency.attrs["channel_width"]["data"] == 1e6
+        assert isinstance(xds.SKY.data, da.Array)
+        assert isinstance(xds.FLAG_SKY.data, da.Array)
+        assert_xarray_datasets_equal(xds.compute(), open_image(increasing).compute())
+
+    @pytest.mark.parametrize(
+        "block_des, first_channel, nchan",
+        [
+            ({}, 0, 5),
+            ({"frequency": slice(0, 2)}, 3, 2),
+            ({"frequency": slice(3, 5)}, 0, 2),
+            ({"frequency": 1}, 3, 1),
+            ({"frequency": slice(1, 3), "polarization": 1}, 2, 2),
+            ({"frequency": slice(2, 4), "l": slice(1, 4), "m": slice(0, 2)}, 1, 2),
+        ],
+        ids=["whole", "first", "last", "int", "polarization", "l_and_m"],
+    )
+    def test_load_image_reads_the_mirrored_planes(
+        self, image, monkeypatch, block_des, first_channel, nchan
+    ):
+        decreasing, increasing, _ = image
+        read = xds_from_casacore._read_image_chunk
+        reads = []
+
+        def spy(infile, shapes, starts, **kwargs):
+            # frequency is the first axis of a block
+            reads.append((starts[0], shapes[0]))
+            return read(infile, shapes, starts, **kwargs)
+
+        monkeypatch.setattr(xds_from_casacore, "_read_image_chunk", spy)
+        block = load_image(decreasing, block_des)
+        # the pixels and the mask
+        assert reads == [(first_channel, nchan)] * 2
+        selection = {
+            dim: [value] if isinstance(value, int) else value
+            for dim, value in block_des.items()
+        }
+        assert_xarray_datasets_equal(
+            block.compute(), open_image(increasing).isel(selection).compute()
+        )
 
 
 # --------------------------------------------------------------------------- #

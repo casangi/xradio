@@ -7,6 +7,7 @@ and ``BEAM_FIT_PARAMS`` variables), and checked with casacore directly.
 
 * ``TestDirectionSystem``  -> direction frames, reference pixels, l/m axes
 * ``TestSpectralAxis``     -> spectral frames, doppler types, frequency axes
+* ``TestDecreasingFrequency`` -> an image read with its frequencies reversed
 * ``TestObservationDate``  -> time units, formats and scales
 * ``TestImageInfo``        -> image types and beams
 * ``TestPixelsAndMasks``   -> pixel types, byte order, masks, single pass
@@ -571,6 +572,32 @@ class TestSpectralAxis:
         _xds_to_casa_image(xds, str(path))
         assert list(coords_of(path)["stokes1"]["stokes"]) == ["RR", "RL", "LR", "LL"]
         np.testing.assert_array_equal(pixels_of(path), xds.SKY.values[0])
+
+
+class TestDecreasingFrequency:
+    """An image stored with a decreasing frequency axis opens increasing, and
+    is written that way."""
+
+    @pytest.mark.parametrize("out_format", ["casa", "zarr"])
+    def test_round_trip(self, tmp_path, out_format):
+        frequencies = 1.5e9 - 1e6 * np.arange(5)
+        xds = make_sky_xds(frequencies=frequencies)
+        flag = xds.SKY.values > 0
+        width = 1e-5 * np.arange(1.0, 11.0).reshape(1, 5, 2)
+        beams = np.stack([2 * width, width, 1e3 * width], axis=-1)
+        stored = tmp_path / "decreasing.im"
+        _xds_to_casa_image(add_beams(add_flag(xds, flag), beams), str(stored))
+        assert coords_of(stored)["spectral2"]["wcs"]["cdelt"] == -1e6
+        (written,) = write_image(
+            open_image(str(stored)), str(tmp_path / "written"), out_format=out_format
+        )
+        back = open_image(written)
+        np.testing.assert_allclose(back.frequency.values, frequencies[::-1], rtol=1e-14)
+        np.testing.assert_array_equal(back.SKY.values, xds.SKY.values[:, ::-1])
+        np.testing.assert_array_equal(back.FLAG_SKY.values, flag[:, ::-1])
+        np.testing.assert_allclose(back.BEAM_FIT_PARAMS_SKY.values, beams[:, ::-1])
+        if out_format == "casa":
+            assert coords_of(written)["spectral2"]["wcs"]["cdelt"] == 1e6
 
 
 class TestObservationDate:

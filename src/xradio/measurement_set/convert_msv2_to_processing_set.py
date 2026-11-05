@@ -88,6 +88,9 @@ def convert_msv2_to_processing_set(
 ):
     """Convert a Measurement Set v2 into a Processing Set of Measurement Set v4.
 
+    Times and frequencies always increase: the channels of a spectral window are
+    sorted by frequency, and a repeated frequency raises a ``ValueError``.
+
     Parameters
     ----------
     in_file : str

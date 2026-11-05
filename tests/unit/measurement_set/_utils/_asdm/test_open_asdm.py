@@ -152,3 +152,60 @@ def test_open_asdm_sd_with_execblock_antenna_station_feed(
 
     ps_issues = check_datatree(ps_xdt)
     assert not ps_issues
+
+
+def mock_asdm_with_frequency_centers(set_from_file, monkeypatch, frequency_centers):
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_asdm.pyasdm.ASDM.setFromFile",
+        set_from_file,
+    )
+    monkeypatch.setattr(
+        "pyasdm.MainRow.getBDFPath", lambda bdf_paths: "/monkypatched_path/foo"
+    )
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
+    )
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.get_spw_frequency_centers",
+        lambda *_args: frequency_centers,
+    )
+
+
+def test_open_asdm_not_monotonic_axis_raises(mock_asdm_set_from_file, monkeypatch):
+    """Not one of the partition failures that open_asdm logs and goes past."""
+    mock_asdm_with_frequency_centers(
+        mock_asdm_set_from_file, monkeypatch, np.array([1.0, 3.0, 2.0])
+    )
+    with pytest.raises(ValueError, match="frequency axis .* is not monotonic"):
+        open_asdm("/unused_path/foo", include_processor_types=["RADIOMETER"])
+
+
+@pytest.mark.parametrize(
+    "chunks, frequency_chunks",
+    [(None, None), ({}, (5,)), ({"frequency": 2}, (2, 2, 1))],
+)
+def test_open_datatree_reverses_decreasing_frequency(
+    mock_asdm_set_from_file, monkeypatch, chunks, frequency_chunks
+):
+    mock_asdm_with_frequency_centers(
+        mock_asdm_set_from_file, monkeypatch, np.array([5.0, 4.0, 3.0, 2.0, 1.0])
+    )
+    stored = np.broadcast_to(
+        np.arange(5, dtype="complex128")[:, np.newaxis], (1, 2, 5, 2)
+    )
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.asdm_backend_arrays."
+        "load_visibilities_from_partition_bdfs",
+        lambda *args: stored[args[-1]],
+    )
+    ps_xdt = xr.open_datatree(
+        "/unused_path/foo",
+        engine="xradio_asdm",
+        chunks=chunks,
+        include_processor_types=["RADIOMETER"],
+    )
+    msv4_xdt = next(iter(ps_xdt.children.values()))
+    assert msv4_xdt.VISIBILITY.chunksizes.get("frequency") == frequency_chunks
+    assert msv4_xdt.frequency.values.tolist() == [1.0, 2.0, 3.0, 4.0, 5.0]
+    np.testing.assert_array_equal(msv4_xdt.VISIBILITY, stored[:, :, ::-1])

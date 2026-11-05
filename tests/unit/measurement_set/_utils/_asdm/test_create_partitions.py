@@ -193,3 +193,23 @@ def test_finalize_partitions_groupby(partitioning_dict, expected_parts_len):
     )
     assert isinstance(parts, list)
     assert len(parts) == expected_parts_len
+
+
+def test_finalize_partitions_groupby_bdfs_in_time_order():
+    partitioning_df = pd.DataFrame(
+        {
+            "time": pd.to_datetime([6, 3, 5, 1, 4, 2, 7], unit="s"),
+            "fieldId": [0, 1, 0, 1, 0, 1, 2],
+            "scanIntent": [0] * 7,
+            "BDFPath": ["/6", "/3", "/5", "/1", "/4", "/2", "/7"],
+        }
+    )
+    parts = finalize_partitions_groupby(
+        partitioning_df, ["fieldId"], np.array([["CALIBRATE_WVR"]])
+    )
+    assert [list(part["fieldId"]) for part in parts] == [[0], [1], [2]]
+    assert [list(part["BDFPath"]) for part in parts] == [
+        ["/4", "/5", "/6"],
+        ["/1", "/2", "/3"],
+        ["/7"],
+    ]

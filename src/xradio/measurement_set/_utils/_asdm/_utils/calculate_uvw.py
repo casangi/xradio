@@ -90,7 +90,7 @@ def _calculate_uvw_astropy(
     time_observation = Time(
         Time(
             time_x_antenna * u.Unit(time.attrs["units"]),
-            format="mjd",
+            format=time.attrs["format"],
             scale=time.attrs["scale"],
         ),
         format="mjd",

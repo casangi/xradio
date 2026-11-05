@@ -1,6 +1,8 @@
+import astropy.units as u
 import numpy as np
 import pytest
 import xarray as xr
+from astropy.time import Time
 
 
 def test_calculate_uvw_fail():
@@ -17,15 +19,25 @@ def test_calculate_uvw_fail():
         )
 
 
-def test_calculate_uvw_few_antennas():
+TIMES_MJD_SECONDS = np.array([0, 10, 15, 17]) + 5e9
+
+
+@pytest.mark.parametrize(
+    "time_format, time_values",
+    [
+        ("mjd", TIMES_MJD_SECONDS),
+        ("unix", Time(TIMES_MJD_SECONDS * u.s, format="mjd", scale="tai").unix),
+    ],
+)
+def test_calculate_uvw_few_antennas(time_format, time_values):
     from xradio.measurement_set._utils._asdm._utils.calculate_uvw import calculate_uvw
 
     key = None
     time = xr.DataArray(
-        data=np.array([0, 10, 15, 17]) + 5e9,
+        data=time_values,
         dims="time",
         coords={"time": "time"},
-        attrs={"type": "time", "units": "s", "scale": "tai", "format": "unix"},
+        attrs={"type": "time", "units": "s", "scale": "tai", "format": time_format},
     )
     phase_center_ra_dec = xr.DataArray(
         data=[[0.11, 0.15]],

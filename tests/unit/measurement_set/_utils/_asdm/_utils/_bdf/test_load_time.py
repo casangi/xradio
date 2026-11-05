@@ -176,27 +176,34 @@ def test_make_blob_info():
         assert info.shape == (1, 22)
 
 
-def test_save_all_blob_infos():
+def test_save_all_blob_infos(tmp_path_factory):
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         save_all_blob_infos,
     )
 
+    output_path = (
+        tmp_path_factory.getbasetemp()
+        / "foo_dummy_test_xradio_asdm_blob_header_info_etc.csv"
+    )
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
-        save_all_blob_infos(["/inexistent/path/foo", "/inexistent/path/noop"])
+        save_all_blob_infos(
+            ["/inexistent/path/foo", "/inexistent/path/noop"], output_path
+        )
         assert mock_bdf_reader.return_value.open.call_count == 2
         assert mock_bdf_reader.return_value.getHeader.call_count == 2
         assert mock_bdf_reader.return_value.getSubset.call_count == 0
 
 
-def test_save_blob_info():
+def test_save_blob_info(tmp_path_factory):
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
         save_blob_info,
     )
 
-    save_blob_info(
-        "foo_dummy_test_output_file_for_save_blob_info.csv",
-        pd.DataFrame(columns=["foo"]),
+    dummy_name = (
+        tmp_path_factory.getbasetemp()
+        / "foo_dummy_test_output_file_for_save_blob_info.csv"
     )
+    save_blob_info(dummy_name, pd.DataFrame(columns=["foo"]))
 
 
 def test_load_times_from_bdfs_empty():

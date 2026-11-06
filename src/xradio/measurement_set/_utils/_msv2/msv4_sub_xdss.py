@@ -638,8 +638,8 @@ def create_system_calibration_xds(
     spectral_window_id: int
         SPW ID from MSv2
     main_xds_frequency: xr.DataArray
-        frequency array of the main xds (MSv4), containing among other things
-        the measures metadata
+        frequency array of the main xds (MSv4), still in the channel order of
+        the SPW, containing among other things the measures metadata
     ant_xds : xr.Dataset
         The antenna_xds that has information such as names, stations, etc., for coordinates
     sys_cal_interp_time: Union[xr.DataArray, None] = None,
@@ -710,16 +710,22 @@ def create_system_calibration_xds(
         generic_sys_cal_xds, sys_cal_xds, to_new_data_variables, to_new_coords
     )
 
-    # Add frequency coord and its measures data, if present
-    if "frequency_system_cal" in dims_all:
-        frequency_coord = {
-            "frequency_system_cal": generic_sys_cal_xds.coords["frequency"].data
-        }
+    # SYSCAL has no frequencies of its own. Its channels are those of the SPW
+    # unless CASA selected, averaged or reordered the SPW channels: that leaves
+    # SYSCAL as it was, so the spectra keep their order and get no coordinate.
+    steps = np.diff(main_xds_frequency.data)
+    if (
+        "frequency_system_cal" in dims_all
+        and generic_sys_cal_xds.sizes["frequency"] == main_xds_frequency.size
+        and (np.all(steps > 0) or np.all(steps < 0))
+    ):
+        frequency_coord = {"frequency_system_cal": main_xds_frequency.data}
         sys_cal_xds = sys_cal_xds.assign_coords(frequency_coord)
         frequency_measure = make_spectral_coord_measure_attrs(
             main_xds_frequency.attrs["units"], main_xds_frequency.attrs["observer"]
         )
         sys_cal_xds.coords["frequency_system_cal"].attrs.update(frequency_measure)
+        sys_cal_xds = sys_cal_xds.sortby("frequency_system_cal")
 
     sys_cal_xds = rename_and_interpolate_to_time(
         sys_cal_xds, "time_system_cal", sys_cal_interp_time, "system_calibration_xds"

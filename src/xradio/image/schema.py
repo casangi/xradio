@@ -84,7 +84,7 @@ from xradio.schema.measures import (
 )
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
-IMAGE_SCHEMA_VERSION = "0.0.2"
+IMAGE_SCHEMA_VERSION = "0.0.3"
 """ Current version of the image schema (semantic versioning, see the
 documentation's schema versioning section). Image datasets carry it in their
 ``schema_version`` attribute, and the documentation takes it from here. """
@@ -483,6 +483,11 @@ class DataGroupDict:
     at center to ~0 at the edges. Name of the primary beam variable of the
     group, for example 'PRIMARY_BEAM'. On plane tangential to celestial
     sphere. """
+    voltage_pattern: str | None
+    """ The complex far-field voltage pattern of an antenna, a Jones matrix
+    per direction, see :py:class:`VoltagePatternArray`. Name of the voltage
+    pattern variable of the group, for example 'VOLTAGE_PATTERN'. On plane
+    tangential to celestial sphere. """
     mask: str | None
     """ A boolean image defining the region(s) where the deconvolution
     algorithm is allowed to place clean components. Name of the deconvolution
@@ -720,6 +725,48 @@ class PrimaryBeamArray:
     description: Attr[str] | None = None
     sub_type: Attr[str] | None = None
     """ Sub image type, derived from the casacore image type, if known. """
+    allow_multiple_versions: Attr[bool] | None = True
+
+
+@xarray_dataarray_schema
+class VoltagePatternArray:
+    """The complex far-field voltage pattern of an antenna projected onto the
+    sky: the response of each receptor to each polarization of the incident
+    field, a Jones matrix per direction (for example from a physical-optics
+    simulation or ray tracing of the antenna). The polarization labels name
+    the elements by receptor and polarization, so that ``XX, XY, YX, YY``
+    (or ``RR, RL, LR, LL``) are the elements of the Jones matrix in row order
+    and ``XY`` is the response of receptor X to polarization Y.
+
+    The pattern of an antenna in its mount frame has the reference direction
+    of ``coordinate_system_info`` in the ``altaz`` frame at the beam centre:
+    l then increases towards increasing azimuth and m towards increasing
+    elevation."""
+
+    data: Data[
+        tuple[Time, Frequency, Polarization, L, M],
+        numpy.complex64 | numpy.complex128,
+    ]
+    """ Complex voltage pattern. """
+
+    time: Coordof[TimeCoordArray]
+    frequency: Coordof[FrequencyCoordArray]
+    polarization: Coordof[PolarizationArray]
+    l: Coordof[LCoordArray]  # noqa: E741
+    m: Coordof[MCoordArray]
+
+    type: Attr[str] = "voltage_pattern"
+    """ Image type. Should be ``"voltage_pattern"``, or
+    ``"voltage_pattern_<suffix>"`` for versioned variables (the loader stamps
+    the lower case variable name). """
+    units: Attr[str] | None = None
+    telescope: Attr[TelescopeDict] | None = None
+    observer: Attr[str] | None = None
+    obsdate: Attr[TimeMeasureArray] | None = None
+    pointing_center: Attr[SkyDirectionArray] | None = None
+    object_name: Attr[str] | None = None
+    user: Attr[UserDict] | None = None
+    description: Attr[str] | None = None
     allow_multiple_versions: Attr[bool] | None = True
 
 
@@ -1008,6 +1055,8 @@ class ImageXds:
     """ Deconvolution mask. """
     PRIMARY_BEAM: Dataof[PrimaryBeamArray] | None = None
     """ Primary beam response. """
+    VOLTAGE_PATTERN: Dataof[VoltagePatternArray] | None = None
+    """ Complex voltage pattern of an antenna, a Jones matrix per direction. """
     POINT_SPREAD_FUNCTION: Dataof[PointSpreadFunctionArray] | None = None
     """ Point spread function. """
     VISIBILITY_NORMALIZATION: Dataof[VisibilityNormalizationArray] | None = None
@@ -1039,6 +1088,7 @@ DATA_GROUP_ROLE_SCHEMAS = {
     "flag": FlagArray,
     "point_spread_function": PointSpreadFunctionArray,
     "primary_beam": PrimaryBeamArray,
+    "voltage_pattern": VoltagePatternArray,
     "mask": MaskArray,
     "beam_fit_params_sky": BeamFitParamsArray,
     "beam_fit_params_point_spread_function": BeamFitParamsArray,

@@ -69,6 +69,10 @@ Data Arrays
 
    .. xradio_array_schema_table:: xradio.image.schema.PrimaryBeamArray
 
+.. autoclass:: xradio.image.schema.VoltagePatternArray()
+
+   .. xradio_array_schema_table:: xradio.image.schema.VoltagePatternArray
+
 .. autoclass:: xradio.image.schema.PointSpreadFunctionArray()
 
    .. xradio_array_schema_table:: xradio.image.schema.PointSpreadFunctionArray

@@ -694,8 +694,7 @@ class TestImageSchemaReferences:
 
     def test_undeclared_reference_attributes_are_not_checked(self, image_xds_valid):
         """Only the attributes the schema declares as references are checked:
-        the readers leave a beam_fit_params attribute on primary beams whose
-        beams they do not load."""
+        a beam_fit_params attribute on a primary beam is not."""
         xds = image_xds_valid
         xds["PRIMARY_BEAM"] = xds["SKY"].copy()
         xds["PRIMARY_BEAM"].attrs = {

@@ -12,6 +12,8 @@ import xarray as xr
 
 import xradio.measurement_set._utils._msv2.conversion as conversion
 from xradio._utils._casacore import backend
+from xradio._utils.list_and_array import NonMonotonicAxisError
+from xradio.measurement_set import convert_msv2_to_processing_set, open_processing_set
 from xradio.measurement_set._utils._msv2 import stream_write
 from xradio.measurement_set.schema import VisibilityXds
 from xradio.schema.check import check_dataset, check_datatree
@@ -1643,7 +1645,11 @@ STREAM_EDGE_VARIANTS = (
     "no_weight",
     "varying_shape",
     "interleaved_fields",
+    "unsorted_freq",
 )
+# CHAN_FREQ of SPW 0 and SPW 1 of "unsorted_freq", as channels of an increasing
+# window: the first step right, a later one wrong; the first step wrong
+UNSORTED_CHANNELS = [[*range(4, 16), *range(4)], [2, 0, 1, *range(3, 16)]]
 
 
 def _add_tiled_shape_column(main_tb, col, values, tile_rows, rows=None):
@@ -1694,6 +1700,8 @@ def ms_stream_edges(tmp_path_factory):
     - "interleaved_fields": baseline-major rows whose FIELD_ID alternates time
       by time (the FIELD_ID partitions interleave row by row inside every
       baseline), WEIGHT_SPECTRUM in TiledShapeStMan tiles of 7 rows
+    - "unsorted_freq": CHAN_FREQ of UNSORTED_CHANNELS, no CORRECTED_DATA,
+      WEIGHT_SPECTRUM in the odd DDIs only (the even ones read WEIGHT)
 
     "wsp_partial" also has decreasing CHAN_FREQ (WEIGHT from the WEIGHT column,
     the same along frequency, is not reversed). "reftable_wsp_partial" is a
@@ -1707,7 +1715,8 @@ def ms_stream_edges(tmp_path_factory):
     paths = {}
     for seed, variant in enumerate(STREAM_EDGE_VARIANTS):
         msname = str(base / f"edge_{variant}.ms")
-        data_cols = ["DATA"] if variant == "no_weight" else ["DATA", "CORRECTED_DATA"]
+        one_data_col = variant in ("no_weight", "unsorted_freq")
+        data_cols = ["DATA"] if one_data_col else ["DATA", "CORRECTED_DATA"]
         gen_test_ms(
             msname,
             descr=dict(default_ms_descr, data_cols=data_cols),
@@ -1735,6 +1744,9 @@ def ms_stream_edges(tmp_path_factory):
             elif variant == "wsp_partial":
                 defined = np.flatnonzero((pos < 100) | (pos >= 110))
                 _add_tiled_shape_column(main_tb, "WEIGHT_SPECTRUM", weights, 7, defined)
+            elif variant == "unsorted_freq":
+                defined = np.flatnonzero(ddi % 2)
+                _add_tiled_shape_column(main_tb, "WEIGHT_SPECTRUM", weights, 7, defined)
             if variant in ("reversed_freq", "varying_shape"):
                 # MODEL_DATA in StandardStMan (indirect arrays: cells compared)
                 model = (weights + 1j * weights[::-1]).astype(np.complex64)
@@ -1746,13 +1758,16 @@ def ms_stream_edges(tmp_path_factory):
                 if variant == "varying_shape":
                     for row in np.flatnonzero((pos >= 50) & (pos < 53)):
                         main_tb.putcell("MODEL_DATA", int(row), model[row][:, :1])
-        if variant in ("reversed_freq", "wsp_partial"):
+        if variant in ("reversed_freq", "wsp_partial", "unsorted_freq"):
             with tables.table(
                 os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
             ) as spw_tb:
                 n_spw, n_chan = spw_tb.getcol("CHAN_FREQ").shape
-                decreasing = 1.0e9 + 1.0e6 * np.arange(n_chan)[::-1]
-                spw_tb.putcol("CHAN_FREQ", np.tile(decreasing, (n_spw, 1)))
+                increasing = 1.0e9 + 1.0e6 * np.arange(n_chan)
+                if variant == "unsorted_freq":
+                    spw_tb.putcol("CHAN_FREQ", increasing[UNSORTED_CHANNELS])
+                else:
+                    spw_tb.putcol("CHAN_FREQ", np.tile(increasing[::-1], (n_spw, 1)))
         paths[variant] = msname
     # a persistent reference table: getdminfo describes its root table
     root = paths["wsp_partial"]
@@ -1784,9 +1799,20 @@ def partition_attempts(monkeypatch):
     return attempts
 
 
-@pytest.mark.parametrize("variant", STREAM_EDGE_VARIANTS + ("reftable_wsp_partial",))
+@pytest.mark.parametrize(
+    "variant, idx",
+    [(variant, 1) for variant in STREAM_EDGE_VARIANTS]
+    + [("reftable_wsp_partial", 0)]  # (DDI 1 only)
+    + [("unsorted_freq", 0), ("unsorted_freq", 3)],
+)
 def test_stream_write_column_decisions_bit_identical(
-    ms_stream_edges, variant, tmp_path, monkeypatch, stream_stats, partition_attempts
+    ms_stream_edges,
+    variant,
+    idx,
+    tmp_path,
+    monkeypatch,
+    stream_stats,
+    partition_attempts,
 ):
     """
     The columns that the non-streamed path skips (undefined cells, other cell
@@ -1794,7 +1820,8 @@ def test_stream_write_column_decisions_bit_identical(
     replaced the same way: decided before writing where the storage manager
     tells (TiledShapeStMan of a plain table), otherwise by the read, after
     which the partition is converted again without the column. Reversed
-    frequencies are reversed batch by batch.
+    frequencies are reversed batch by batch; unsorted ones are sorted batch by
+    batch, which gives the store of parallel_mode="time" too.
     """
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
@@ -1802,7 +1829,6 @@ def test_stream_write_column_decisions_bit_identical(
 
     msname = ms_stream_edges[variant]
     partitions, runs = create_partitions_with_main_rows(msname, [])
-    idx = 0 if variant == "reftable_wsp_partial" else 1  # (DDI 1 only)
     kw = {"main_chunksize": {"time": 4}, "main_row_runs": runs[idx]}
     old_xdt, old = _convert_streamed(
         monkeypatch, msname, str(tmp_path / "old"), partitions[idx], "0", **kw
@@ -1841,6 +1867,26 @@ def test_stream_write_column_decisions_bit_identical(
         assert "VISIBILITY_MODEL" not in xds and "VISIBILITY_MODEL" not in stats
         assert sorted(xds.attrs["data_groups"]) == ["base", "corrected"]
         assert partition_attempts == [set(), {"MODEL_DATA"}]
+    elif variant == "unsorted_freq":
+        weight_col = "WEIGHT_SPECTRUM" if idx % 2 else "WEIGHT"
+        assert stats["WEIGHT"]["col"] == weight_col
+        assert partition_attempts == [set()]
+        _, timed = _convert_streamed(
+            monkeypatch,
+            msname,
+            str(tmp_path / "time"),
+            partitions[idx],
+            "0",
+            parallel_mode="time",
+            **kw,
+        )
+        assert_stores_identical(old, timed)
+        assert_channels_sorted(
+            xds,
+            msname,
+            idx,
+            {"VISIBILITY": "DATA", "FLAG": "FLAG", "WEIGHT": weight_col},
+        )
     else:
         assert variant == "interleaved_fields"
         assert stats["WEIGHT_CORRECTED"]["col"] == "WEIGHT_SPECTRUM"
@@ -2839,3 +2885,140 @@ def test_default_main_chunksize_beyond_the_blosc_limit(
         assert chunk <= 1000, name
     assert not stream_stats[-1]["summary"]["in_memory"]
     assert_msv4_values_identical(one_chunk_xdt, xdt)
+
+
+# --- order of the time and frequency axes ------------------------------------------
+
+
+def _reorder_channels(msname: str, spw: int, order: list[int]) -> None:
+    """Rewrite the CHAN_FREQ of a spectral window as ``CHAN_FREQ[order]``."""
+    from xradio._utils._casacore.backend import tables
+
+    with tables.table(
+        os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
+    ) as spw_tb:
+        spw_tb.putcell("CHAN_FREQ", spw, spw_tb.getcell("CHAN_FREQ", spw)[order])
+
+
+def assert_channels_sorted(
+    xds: xr.Dataset, msname: str, ddi: int, columns: dict[str, str]
+) -> None:
+    """
+    The MSv4 of a DDI of time-major rows (2 DDIs per SPW) has the CHAN_FREQ of
+    its window sorted, and its data variables (``columns``: their MAIN columns)
+    the cells of those rows with the channels in that order, a cell without
+    channels repeated along frequency.
+    """
+    from xradio._utils._casacore.backend import tables
+
+    with tables.table(os.path.join(msname, "SPECTRAL_WINDOW"), ack=False) as spw_tb:
+        chan_freq = spw_tb.getcell("CHAN_FREQ", ddi // 2)
+    order = np.argsort(chan_freq)
+    assert np.all(np.diff(xds.frequency.values) > 0)
+    np.testing.assert_array_equal(xds.frequency.values, chan_freq[order])
+    n_rows = xds.sizes["time"] * xds.FLAG.shape[1]
+    with tables.table(msname, ack=False) as main_tb:
+        for name, col in columns.items():
+            cells = main_tb.getcol(col, startrow=ddi * n_rows, nrow=n_rows)
+            if cells.ndim == 2:
+                cells = np.repeat(cells[:, None], chan_freq.size, axis=1)
+            np.testing.assert_array_equal(
+                xds[name].values,
+                cells[:, order].reshape(xds[name].shape),
+                err_msg=name,
+            )
+
+
+@pytest.mark.parametrize(
+    "order",
+    [[0] * 16, [0, 1, 1, *range(3, 16)], [1, 0, 1, *range(3, 16)]],
+    ids=["constant", "tied", "tied_unsorted"],
+)
+def test_repeated_frequencies_raise(ms_copy, order, tmp_path):
+    msname = ms_copy("dense")
+    _reorder_channels(msname, 0, order)
+    with pytest.raises(NonMonotonicAxisError, match="spectral window 0"):
+        convert_msv2_to_processing_set(msname, str(tmp_path / "out.ps.zarr"))
+
+
+@pytest.mark.parametrize("stream, batch_mb", [("0", None), ("1", None), ("1", 1e-9)])
+def test_single_dish_unsorted_frequencies(
+    ms_copy, stream, batch_mb, tmp_path, monkeypatch
+):
+    """Deferred variables that a single dish MSv4 leaves out (UVW) do not
+    get in the way of the sort."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_copy("single_dish")
+    _reorder_channels(msname, 0, UNSORTED_CHANNELS[0])
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    xdt, _ = _convert_streamed(
+        monkeypatch,
+        msname,
+        str(tmp_path / "out"),
+        partitions[1],
+        stream,
+        batch_mb,
+        main_chunksize={"time": 4},
+        main_row_runs=runs[1],
+    )
+    assert "UVW" not in xdt.ds
+    assert_channels_sorted(
+        xdt.ds,
+        msname,
+        1,
+        {"SPECTRUM": "FLOAT_DATA", "FLAG": "FLAG", "WEIGHT": "WEIGHT"},
+    )
+
+
+@pytest.mark.parametrize(
+    "order", [None, UNSORTED_CHANNELS[1]], ids=["decreasing", "unsorted"]
+)
+def test_time_mode_with_frequency_chunks_that_do_not_divide_the_channels(
+    ms_copy, order, tmp_path, monkeypatch
+):
+    """Reordered channels, WEIGHT repeated from the WEIGHT column: the store of
+    parallel_mode="time" is the streamed one."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+
+    msname = ms_copy("dense")
+    if order:
+        _reorder_channels(msname, 1, order)
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    kw = {"main_chunksize": {"time": 4, "frequency": 6}, "main_row_runs": runs[2]}
+    _, streamed = _convert_streamed(
+        monkeypatch, msname, str(tmp_path / "stream"), partitions[2], "1", **kw
+    )
+    _, timed = _convert_streamed(
+        monkeypatch,
+        msname,
+        str(tmp_path / "time"),
+        partitions[2],
+        "0",
+        parallel_mode="time",
+        **kw,
+    )
+    assert_stores_identical(streamed, timed)
+
+
+@pytest.mark.parametrize("variant", ["time_descending", "shuffled"])
+@pytest.mark.parametrize("parallel_mode", ["none", "partition", "time"])
+def test_time_increases_for_any_row_order(backend_ms, variant, parallel_mode, tmp_path):
+    """Times strictly increase and rows are on their time (the TIME_CENTROID
+    of backend_ms is up to 0.1 s after TIME)."""
+    out = str(tmp_path / "out.ps.zarr")
+    convert_msv2_to_processing_set(
+        backend_ms(variant),
+        out,
+        main_chunksize={"time": 4},
+        parallel_mode=parallel_mode,
+        partition_filter=lambda partition: partition["DATA_DESC_ID"][0] == 0,
+    )
+    (xdt,) = open_processing_set(out).children.values()
+    assert np.all(np.diff(xdt.time.values) > 0)
+    offsets = xdt.TIME_CENTROID.values - xdt.time.values[:, None]
+    assert np.all((offsets >= 0) & (offsets <= 0.1))

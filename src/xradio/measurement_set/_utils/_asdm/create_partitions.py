@@ -352,8 +352,12 @@ def finalize_partitions_groupby(
         partitions_list = retype_lists_etc_to_ndarray(partitions_list)
 
     else:
+        # In time order: the time axis follows the order of the BDFs, and
+        # pd.merge does not always keep the row order of Main
         partitions_list = [
-            group.apply(lambda col: col.unique(), axis=0).to_dict()
+            group.sort_values("time", kind="stable")
+            .apply(lambda col: col.unique(), axis=0)
+            .to_dict()
             for _name, group in partition_groups
         ]
         partitions_list = fix_types_for_anomalous_partitions(partitions_list)

@@ -63,7 +63,14 @@ def open_asdm(
         Each node of the tree represents a partition of the original ASDM data.
         The DataTree has a ``type`` attribute set to ``"processing_set"``. Node
         names are formatted as ``"{asdm_name}_{index}"``, where the index is
-        zero-padded as needed.
+        zero-padded as needed. Decreasing time and frequency axes are reversed
+        lazily.
+
+    Raises
+    ------
+    ValueError
+        If the time or frequency axis of a partition neither increases nor
+        decreases.
     """
 
     if not partition_scheme:

@@ -120,6 +120,7 @@ ps_xdt  (root, attrs["type"]=="processing_set")          # accessor: .xr_ps
 - **`VisibilityXds`** (interferometers): main var `VISIBILITY` (complex64/128), dims `(time, baseline_id, frequency, polarization)`. `type` ∈ `{visibility, radiometer}`.
 - **`SpectrumXds`** (single dish): main var `SPECTRUM` (float16/32/64, units Jy), dims `(time, antenna_name, frequency, polarization)`. `type == spectrum`.
 - Coords are **eager, lowercase snake_case**; data variables are **lazy, UPPER_SNAKE_CASE**.
+- `time` and `frequency` always increase (`docs/source/conventions.rst`): the converter sorts frequencies; `open_msv2`, `open_asdm` and the CASA and FITS image readers reverse a decreasing axis on the fly and raise `NonMonotonicAxisError` (`_utils/list_and_array.py::is_decreasing`, a `ValueError`) for any other order, repeats included. Zarr reads do not check.
 - `MSV4_SCHEMA_VERSION = "4.0.0"`. Required attrs on main: `observation_info`, `processor_info`, `data_groups`, `schema_version`, `creator`, `creation_date`.
 
 **Data groups** (`attrs["data_groups"]`): a dict mapping a group name (a `base` group is mandatory) → `{correlated_data, flag, weight, uvw(visibility-only), field_and_source, description, date}`. Lets multiple correlated-data versions (e.g. `VISIBILITY` vs `VISIBILITY_CORRECTED`) coexist, each tied to its own flag/weight/uvw and a specific `field_and_source` child. `get_data_group_name(None)` → `"base"` if present else the first key.
@@ -226,7 +227,7 @@ open_image(store, chunks=None, verbose=False, do_sky_coords=True, selection=None
 #   the dim). compute_mask: FITS only. FITS and zarr need no casacore. Zarr stores written by
 #   xradio <= 1.2.3, or without schema_version or with an older one, are upgraded on read
 #   (image/_util/legacy.py). NOTE: open_image, not read_image.
-load_image(store, block_des=None, do_sky_coords=True) -> xr.Dataset    # CASA & Zarr only (NOT FITS); CASA pixels read EAGERLY, zarr stays LAZY (dask, like open_image(selection=...))
+load_image(store, block_des=None, do_sky_coords=True) -> xr.Dataset    # CASA & Zarr only (NOT FITS); CASA pixels read EAGERLY, zarr stays LAZY (dask, like open_image(selection=...)); for CASA images, frequency indices refer to the increasing axis
 write_image(xds, imagename, out_format="casa", overwrite=False, chunks=None, shards=None, compressor=<Blosc zstd 5, shuffle>) -> list[str]  # "casa" | "fits" | "zarr"; the paths written
 #   zarr only: chunks / shards = {dim: length} for every data variable; -1 = whole axis, None/0 raise. A dim missing from
 #   chunks is one chunk, from shards is not sharded (shard = chunk); shards need chunks, multiples of them.
@@ -333,7 +334,7 @@ ms_xdt.ds.VISIBILITY.max().compute()
 
 ## MSv2 xarray engine (`xradio_msv2`)
 
-`xr.open_datatree(ms, engine="xradio_msv2", chunks={})` (or `open_msv2`) gives the processing set that `convert_msv2_to_processing_set(ms, ...)` would write, opened with `open_processing_set`, without converting: same node names, variables, values, attributes (build dates aside), and under `chunks={}` the converter's dask chunks of the main data variables. Pass the engine **class** (`_xradio_xarray_backends.MSv2BackendEntrypoint`) where entry points are not installed (editable installs before a reinstall, the zinc env).
+`xr.open_datatree(ms, engine="xradio_msv2", chunks={})` (or `open_msv2`) gives the processing set that `convert_msv2_to_processing_set(ms, ...)` would write, opened with `open_processing_set`, without converting: same node names, variables, values, attributes (build dates aside), and under `chunks={}` the converter's dask chunks of the main data variables. Non-monotonic frequencies are the exception: the converter sorts distinct ones (`build_partition(sort_frequency=True)`), the engine raises `NonMonotonicAxisError`, whatever `on_partition_error`. Pass the engine **class** (`_xradio_xarray_backends.MSv2BackendEntrypoint`) where entry points are not installed (editable installs before a reinstall, the zinc env).
 
 - **Files** (`_utils/_msv2/` unless noted):
   - `src/_xradio_xarray_backends.py::MSv2BackendEntrypoint`: the light entry class (stdlib + `xarray.backends`); `_is_measurement_set` guess (`table.info` type, or an empty type with the ANTENNA/DATA_DESCRIPTION/POLARIZATION/SPECTRAL_WINDOW sub-tables); imports the reader only on open.

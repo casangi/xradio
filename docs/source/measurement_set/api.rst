@@ -18,7 +18,8 @@ Xradio includes an `Xarray backend <https://docs.xarray.dev/en/latest/api/backen
 MeasurementSet v2 directly as a Processing Set, without converting it: the :py:class:`xarray.DataTree` of MSv4s that
 :py:func:`convert_msv2_to_processing_set` would write, as :py:func:`open_processing_set` would open it (the same MSv4
 names, variables, values and attributes, and with ``chunks={}`` the same Dask chunks of the main data variables). It
-reads the MS with arcae (``pip install "xradio[casacore]"``).
+reads the MS with arcae (``pip install "xradio[casacore]"``). Non-monotonic frequencies are the exception: the converter
+sorts distinct frequencies and the engine raises an error, see :doc:`Conventions </conventions>`.
 
 .. code:: python
 
@@ -35,7 +36,8 @@ The engine accepts the options of the converter that shape the processing set (`
 ``partition_filter``, ``main_chunksize``, ``with_pointing``, ``pointing_chunksize`` and the ``*_interpolate`` options),
 and ``drop_variables``, ``skip_columns``, ``partition_cache`` and ``on_partition_error`` (see :py:func:`open_msv2`). A
 partition that cannot be opened is left out with a ``RuntimeWarning`` (``on_partition_error="skip"``, the default; the
-other MSv4s keep their names); ``on_partition_error="raise"`` raises instead. An MS without MAIN rows opens as an empty
+other MSv4s keep their names); ``on_partition_error="raise"`` raises instead. Non-monotonic frequencies raise either way;
+``partition_filter`` can leave those partitions out. An MS without MAIN rows opens as an empty
 processing set, as the converter writes it. ``xr.open_dataset`` cannot open an MS: use ``xr.open_datatree``.
 
 **What is read when.** Opening reads the metadata of the MS: its partitions (see below), and for every

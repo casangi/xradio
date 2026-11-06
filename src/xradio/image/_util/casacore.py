@@ -43,8 +43,10 @@ from xradio.image._util._write_plan import (
 )
 from xradio.image._util.common import (
     _dask_arrayize_dv,
+    _frequency_is_decreasing,
     _get_xds_dim_order,
     _to_canonical_polarization_order,
+    _to_increasing_frequency_order,
 )
 from xradio.image._util.conventions import canonical_polarization_order
 
@@ -116,6 +118,17 @@ def _load_casa_image_block(
     ) != list(range(len(stored_pols))):
         pol_selection = block_des["polarization"]
         block_des = {k: v for k, v in block_des.items() if k != "polarization"}
+    # The selection indexes the increasing frequency axis of the dataset: read
+    # the mirrored channels of a decreasing image, reversed at the end
+    if (
+        _frequency_is_decreasing(md["xds"], md["image_full_path"])
+        and "frequency" in block_des
+    ):
+        stored = range(md["nchan"] - 1, -1, -1)[block_des["frequency"]][::-1]
+        block_des = {
+            **block_des,
+            "frequency": slice(stored.start, stored.stop, stored.step),
+        }
     coords = md["coords"]
     cshape = md["cshape"]
     dimorder = md["dimorder"]
@@ -172,7 +185,7 @@ def _load_casa_image_block(
     xds = _to_canonical_polarization_order(xds)
     if pol_selection is not None:
         xds = xds.isel(polarization=pol_selection)
-    return xds
+    return _to_increasing_frequency_order(xds, image_full_path)
 
 
 def _open_casa_image(
@@ -243,7 +256,9 @@ def _open_casa_image(
     xds = _dask_arrayize_dv(xds)
 
     # images converted from FITS (importfits) can hold another order
-    return _to_canonical_polarization_order(xds)
+    return _to_increasing_frequency_order(
+        _to_canonical_polarization_order(xds), img_full_path
+    )
 
 
 def _casa_image_xds(xds: xr.Dataset, output: ImageOutput) -> xr.Dataset:

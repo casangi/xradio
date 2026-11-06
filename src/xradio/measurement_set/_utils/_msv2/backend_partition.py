@@ -164,7 +164,8 @@ def open_partition(
     The node equals what ``convert_msv2_to_processing_set`` writes for the
     partition (opened with ``open_processing_set``), with the same encoding
     (chunks, compressors: ``to_zarr`` writes the converter's MSv4) plus
-    ``preferred_chunks`` (see ``_set_preferred_chunks``).
+    ``preferred_chunks`` (see ``_set_preferred_chunks``). Non-monotonic
+    frequencies, which the converter sorts, raise NonMonotonicAxisError.
 
     Parameters
     ----------

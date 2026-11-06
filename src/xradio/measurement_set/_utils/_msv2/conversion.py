@@ -18,7 +18,11 @@ import xarray as xr
 import zarr.codecs
 
 from xradio._utils.dict_helpers import make_quantity, make_spectral_coord_reference_dict
-from xradio._utils.list_and_array import check_if_consistent, unique_1d
+from xradio._utils.list_and_array import (
+    check_if_consistent,
+    is_decreasing,
+    unique_1d,
+)
 from xradio._utils.logging import xradio_logger
 from xradio._utils.schema import column_description_casacore_to_msv4_measure
 from xradio.measurement_set._utils._msv2 import stream_write
@@ -1049,9 +1053,12 @@ def repeat_weight_array(
 
     if parallel_mode == "time":
         result = da.tile(reshaped_arr, repeats)
-        # da.tile() adds each repeat as a separate chunk, so rechunking is necessary
+        # da.tile() adds each repeat as a separate chunk, so rechunking is necessary;
+        # one chunk along frequency, as the columns read, for the channels to reorder
         chunksizes = tuple(
-            main_chunksize.get(dim, main_sizes[dim])
+            main_sizes[dim]
+            if dim == "frequency"
+            else main_chunksize.get(dim, main_sizes[dim])
             for dim in ("time", "baseline_id", "frequency", "polarization")
         )
         return result.rechunk(chunksizes)
@@ -1112,6 +1119,13 @@ def sigma_to_weight(sigma):
     valid = np.isfinite(sigma) & (sigma > 0)
     safe = np.where(valid, sigma, 1)
     return np.where(valid, 1 / (safe * safe), 0).astype(sigma.dtype, copy=False)
+
+
+def sort_channels(
+    grid: np.ndarray, order: np.ndarray, transform: Callable | None = None
+) -> np.ndarray:
+    """``transform`` of a (time, baseline, frequency, ...) grid, then its channels in ``order``."""
+    return np.take(grid if transform is None else transform(grid), order, axis=2)
 
 
 def add_missing_data_var_attrs(xds):
@@ -1623,6 +1637,7 @@ def _convert_and_write_partition(
         main_row_runs=main_row_runs,
         unreadable_columns=unreadable_columns,
         defer_main_columns=use_stream_write,
+        sort_frequency=True,
     ) as built:
         if built is None:
             return xr.Dataset(), {}, {}
@@ -1803,6 +1818,7 @@ def build_partition(
     unreadable_columns: frozenset[str] = frozenset(),
     defer_main_columns: bool = False,
     pointing_generic_loader: Callable | None = None,
+    sort_frequency: bool = False,
 ) -> Generator[BuiltPartition | None, None, None]:
     """
     Builds the MSv4 of one partition of an MSv2 (main xds, attributes and all
@@ -1824,6 +1840,10 @@ def build_partition(
     pointing_generic_loader : Callable | None, optional
         Passed to create_pointing_xds as ``generic_loader`` (the MSv2 xarray
         backend's lazy pointing_xds); None (default): POINTING is read here.
+    sort_frequency : bool, optional
+        True: the channels of a non-monotonic frequency axis are sorted.
+        False (default): such an axis raises NonMonotonicAxisError. Repeated
+        frequencies raise it either way.
     in_file, partition_info, main_chunksize, with_pointing, pointing_chunksize,
     pointing_interpolate, ephemeris_interpolate, phase_cal_interpolate,
     sys_cal_interpolate, compressor, add_reshaping_indices, parallel_mode,
@@ -2085,10 +2105,29 @@ def build_partition(
         start = time.time()
 
         # Time and frequency should always be increasing
-        reverse_frequency = False
-        if len(xds.frequency) > 1 and xds.frequency[1] - xds.frequency[0] < 0:
-            xds = xds.sel(frequency=slice(None, None, -1))
-            reverse_frequency = True  # the streamed write reverses every batch
+        steps = np.diff(xds.frequency.values)
+        if sort_frequency and np.any(steps > 0) and np.any(steps < 0):
+            order = np.argsort(xds.frequency.values, kind="stable")
+            xds = xds.isel(frequency=order)
+            for name, spec in (deferred or {}).items():  # sorted in every batch
+                if "frequency" in xds[name].dims and not spec.frequency_constant:
+                    spec.transform = functools.partial(
+                        sort_channels, order=order, transform=spec.transform
+                    )
+        reverse_frequency = is_decreasing(
+            xds.frequency.values,
+            f"Repeated frequencies in spectral window {spectral_window_id} of "
+            f"{in_file}: keep each frequency once with CASA (split or mstransform "
+            "with channel ranges)."
+            if sort_frequency
+            else f"The frequencies of spectral window {spectral_window_id} of "
+            f"{in_file} are not monotonic: convert the MS with "
+            "convert_msv2_to_processing_set, which sorts distinct frequencies, or "
+            "fix their order with CASA (split or mstransform with the channel "
+            "ranges in frequency order).",
+        )
+        if reverse_frequency:
+            xds = xds.sel(frequency=slice(None, None, -1))  # and every streamed batch
 
         if len(xds.time) > 1 and xds.time[1] - xds.time[0] < 0:
             if deferred is not None:

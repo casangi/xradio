@@ -21,7 +21,8 @@ import pytest
 import xarray as xr
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
-from xradio._utils._casacore.backend import BACKEND
+from xradio._utils._casacore.backend import BACKEND, tables
+from xradio._utils.list_and_array import NonMonotonicAxisError
 from xradio.measurement_set import (
     convert_msv2_to_processing_set,
     open_msv2,
@@ -638,6 +639,76 @@ def test_partition_filter(backend_ms):
         RuntimeError, match="No partitions selected by partition_filter"
     ):
         xr.open_datatree(msname, engine=ENGINE, partition_filter=lambda p: False)
+
+
+# Channel orders of a decreasing window (SPW 1 of backend_ms) that cannot be
+# reversed
+IRREVERSIBLE_ORDERS = {
+    "first_step_up": [1, 0, *range(2, 16)],
+    "last_step_up": [*range(14), 15, 14],
+    "blocks": [*range(12, 16), *range(8, 12), *range(4, 8), *range(4)],
+    "tied": [0, 0, *range(2, 16)],
+    "constant": [0] * 16,
+}
+
+
+def _reorder_channels(msname: str, spw: int, order: list[int]) -> None:
+    """Rewrite the CHAN_FREQ of a spectral window as ``CHAN_FREQ[order]``."""
+    with tables.table(
+        os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
+    ) as spw_tb:
+        spw_tb.putcell("CHAN_FREQ", spw, spw_tb.getcell("CHAN_FREQ", spw)[order])
+
+
+@pytest.mark.parametrize("options", [{}, {"on_partition_error": "raise"}])
+@pytest.mark.parametrize("order", list(IRREVERSIBLE_ORDERS))
+def test_non_monotonic_frequencies_raise(ms_copy, order, options):
+    """Frequencies that neither increase nor decrease raise, whatever
+    on_partition_error: not wrapped, not skipped with a warning; the error
+    names the window, the converter and CASA."""
+    msname = ms_copy("dense")
+    _reorder_channels(msname, 1, IRREVERSIBLE_ORDERS[order])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        with pytest.raises(
+            NonMonotonicAxisError,
+            match="spectral window 1 .*convert_msv2_to_processing_set.*CASA",
+        ):
+            open_msv2(msname, **options)
+
+
+def test_partition_filter_leaves_out_a_non_monotonic_window(ms_copy):
+    msname = ms_copy("dense")
+    _reorder_channels(msname, 1, IRREVERSIBLE_ORDERS["blocks"])
+    assert len(open_msv2(msname, partition_filter=_ddi(0, 1)).children) == 2
+
+
+@pytest.mark.parametrize("n_channels", [1, 2])
+def test_few_channels_open_in_both_directions(tmp_path, n_channels):
+    """As the converter writes them, SPW 0 given increasing, SPW 1 decreasing."""
+    from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
+
+    msname, out = str(tmp_path / "few.ms"), str(tmp_path / "few.ps.zarr")
+    gen_test_ms(
+        msname,
+        descr=dict(default_ms_descr, nchans=n_channels),
+        opt_tables=True,
+        vlbi_tables=False,
+        required_only=True,
+        misbehave=False,
+    )
+    with tables.table(
+        os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
+    ) as spw_tb:
+        for spw, step in enumerate((1.0e6, -1.0e6)):
+            spw_tb.putcell("CHAN_FREQ", spw, 1.0e9 + step * np.arange(n_channels))
+    convert_msv2_to_processing_set(msname, out)
+    tree = open_msv2(msname, on_partition_error="raise")
+    assert_processing_sets_equivalent(tree, open_processing_set(out), accessors=False)
+    assert len(tree.children) == 4
+    for node in tree.children.values():
+        assert node.sizes["frequency"] == n_channels
+        assert np.all(np.diff(node.frequency.values) > 0)
 
 
 def test_empty_main_is_an_empty_processing_set(backend_ms, tmp_path):

@@ -77,14 +77,17 @@ class spectralcoordinate(coordinate):
     def get_unit(self):
         return self._coord.get("unit", None)
 
+    def _axis(self):
+        return self._coord.get("wcs") or self._coord["tabular"]
+
     def get_referencepixel(self):
-        return self._coord["wcs"].get("crpix", None)
+        return self._axis().get("crpix", None)
 
     def get_referencevalue(self):
-        return self._coord["wcs"].get("crval", None)
+        return self._axis().get("crval", None)
 
     def get_increment(self):
-        return self._coord["wcs"].get("cdelt", None)
+        return self._axis().get("cdelt", None)
 
     def get_axes(self):
         return self._coord.get("name", None)

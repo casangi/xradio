@@ -3,6 +3,8 @@
 * reference pixels of images whose reference direction lies outside the grid
 * spectral frames, units and channel widths of CASA images, and images
   without a spectral axis
+* the increasing frequency axis of CASA images: tabular axes, multi-image
+  stores, axes that neither increase nor decrease
 * time coordinates of CASA images and of the ``make_empty_*`` factories
 * the factories' spectral references, tuple inputs and u/v attributes
 * the image type and data group roles detected from store names
@@ -24,11 +26,14 @@ from typing import get_args
 import dask
 import numpy as np
 import pytest
+import xarray as xr
 import zarr
 from astropy.time import Time
 
+from _xradio_xarray_backends import CasaImageBackendEntrypoint
 from xradio._utils._casacore.backend import tables
 from xradio._utils.dict_helpers import make_spectral_coord_reference_dict
+from xradio._utils.list_and_array import NonMonotonicAxisError
 from xradio._utils.schema import casacore_to_msv4_measure_type
 from xradio.image import (
     load_image,
@@ -88,6 +93,37 @@ def _make_casa_image(path, shape=_SHAPE, edit_coords=None, imageinfo=None):
 
 def _spectral_key(coords):
     return next(k for k in coords if k.startswith("spectral"))
+
+
+def _decreasing_frequency(coords):
+    coords[_spectral_key(coords)]["wcs"]["cdelt"] *= -1
+
+
+def _make_tabular_image(path, world_values, n_channels=None, **spectral):
+    """Create a CASA image whose frequency axis is a table, which is how
+    casacore records a non-uniform axis. ``spectral`` sets other entries of
+    the spectral coordinate."""
+    world_values = np.array(world_values)
+    n_channels = n_channels or world_values.size
+
+    def edit(coords):
+        sd = coords[_spectral_key(coords)]
+        del sd["wcs"]
+        sd.update(
+            spectral,
+            tabular={
+                "axes": ["Frequency"],
+                "cdelt": np.diff(world_values).mean(keepdims=True),
+                "crpix": np.array([0.0]),
+                "crval": world_values[:1],
+                "pc": np.array([[1.0]]),
+                "pixelvalues": np.arange(float(world_values.size)),
+                "units": ["Hz"],
+                "worldvalues": world_values,
+            },
+        )
+
+    return _make_casa_image(path, shape=(n_channels, 2, 6, 8), edit_coords=edit)
 
 
 def _to_aperture_coords(coords):
@@ -265,6 +301,167 @@ class TestCasaReaderSpectral:
         assert "waveUnit" not in attrs
         np.testing.assert_array_equal(xds.SKY.values[0, 0, 0], data.T)
         assert not check_image(xds)
+
+
+_every_casa_reader = pytest.mark.parametrize(
+    "reader",
+    [
+        open_image,
+        load_image,
+        lambda path: load_image(path, {"frequency": slice(0, 2)}),
+        lambda path: xr.open_dataset(path, engine=CasaImageBackendEntrypoint),
+    ],
+    ids=["open_image", "load_image", "load_image_block", "engine"],
+)
+
+
+class TestCasaReaderFrequencyOrder:
+    """The frequency axis of a CASA image increases, however it is stored."""
+
+    _channels = [1.500e9, 1.501e9, 1.503e9, 1.506e9]
+
+    @pytest.mark.parametrize("reader", [open_image, load_image])
+    @pytest.mark.parametrize("order", [1, -1], ids=["increasing", "decreasing"])
+    def test_tabular_axis(self, tmp_path, reader, order):
+        stored = self._channels[::order]
+        path, data = _make_tabular_image(tmp_path / "table.im", stored)
+        xds = reader(path)
+        attrs = xds.frequency.attrs
+        np.testing.assert_array_equal(xds.frequency.values, self._channels)
+        np.testing.assert_array_equal(
+            xds.SKY.values[0], np.transpose(data, (0, 1, 3, 2))[::order]
+        )
+        assert attrs["reference_frequency"]["data"] == stored[0]
+        assert attrs["channel_width"]["data"] == 2e6
+        assert not check_image(xds)
+
+    def test_spectral_axis_in_ghz_with_a_table_in_hz(self, tmp_path):
+        """A table has its own units, which casacore keeps in Hz."""
+        path, _ = _make_tabular_image(
+            tmp_path / "ghz.im",
+            self._channels,
+            unit="GHz",
+            restfreq=1.42,
+            restfreqs=np.array([1.42]),
+        )
+        xds = open_image(path)
+        attrs = xds.frequency.attrs
+        np.testing.assert_array_equal(xds.frequency.values, self._channels)
+        assert attrs["reference_frequency"]["data"] == 1.5e9
+        assert attrs["channel_width"]["data"] == 2e6
+        assert attrs["rest_frequency"]["data"] == pytest.approx(1.42e9)
+
+    def test_table_longer_than_the_axis(self, tmp_path):
+        """ia.rebin keeps the table of the image it came from."""
+        path, _ = _make_tabular_image(
+            tmp_path / "rebinned.im", self._channels, n_channels=2
+        )
+        np.testing.assert_array_equal(
+            open_image(path).frequency.values, self._channels[:2]
+        )
+
+    def test_non_uniform_axis_is_written_to_zarr_only(self, tmp_path):
+        path, _ = _make_tabular_image(tmp_path / "table.im", self._channels)
+        xds = open_image(path)
+        with pytest.raises(ValueError, match="not uniformly spaced"):
+            write_image(xds, str(tmp_path / "written.im"), out_format="casa")
+        (store,) = write_image(xds, str(tmp_path / "written"), out_format="zarr")
+        back = open_image(store)
+        np.testing.assert_array_equal(back.frequency.values, self._channels)
+        np.testing.assert_array_equal(back.SKY.values, xds.SKY.values)
+
+    @_every_casa_reader
+    @pytest.mark.parametrize(
+        "world_values",
+        [
+            [1.50e9, 1.53e9, 1.52e9, 1.51e9],
+            [1.50e9, 1.52e9, 1.51e9, 1.53e9],
+            [1.53e9, 1.51e9, 1.52e9, 1.50e9],
+            [1.50e9, 1.51e9, 1.51e9, 1.52e9],
+        ],
+        ids=["wrong_first_step", "dip", "bump", "repeat"],
+    )
+    def test_non_monotonic_axis_raises(self, tmp_path, reader, world_values):
+        path, _ = _make_tabular_image(tmp_path / "table.im", world_values)
+        with pytest.raises(ValueError, match="not monotonic.*CASA") as error:
+            reader(path)
+        assert isinstance(error.value, NonMonotonicAxisError)
+
+    @_every_casa_reader
+    def test_constant_axis_raises(self, tmp_path, reader):
+        def edit(coords):
+            coords[_spectral_key(coords)]["wcs"]["cdelt"] = 0.0
+
+        path, _ = _make_casa_image(tmp_path / "constant.im", edit_coords=edit)
+        with pytest.raises(NonMonotonicAxisError, match="not monotonic.*CASA"):
+            reader(path)
+
+    @pytest.mark.parametrize("reader", [open_image, load_image])
+    def test_single_channel_with_a_negative_increment(self, tmp_path, reader):
+        path, data = _make_casa_image(
+            tmp_path / "one_channel.im",
+            shape=(1, 2, 6, 8),
+            edit_coords=_decreasing_frequency,
+        )
+        xds = reader(path)
+        assert xds.frequency.values.tolist() == [1.415e9]
+        assert xds.frequency.attrs["channel_width"]["data"] == 1e3
+        np.testing.assert_array_equal(
+            xds.SKY.values[0], np.transpose(data, (0, 1, 3, 2))
+        )
+
+    def test_selection_of_an_image_in_fits_order(self, tmp_path):
+        """Polarizations and frequencies both index the returned axes."""
+
+        def edit(coords):
+            _to_fits_correlation_order(coords)
+            _decreasing_frequency(coords)
+
+        path, data = _make_casa_image(
+            tmp_path / "rrll.image", shape=(3, 4, 6, 8), edit_coords=edit
+        )
+        part = load_image(path, {"polarization": slice(1, 3), "frequency": slice(0, 2)})
+        np.testing.assert_array_equal(
+            part.SKY.values[0],
+            np.transpose(data, (0, 1, 3, 2))[::-1, [0, 2, 3, 1]][:2, 1:3],
+        )
+
+    @pytest.mark.parametrize(
+        "psf_edit", [_decreasing_frequency, None], ids=["decreasing", "mixed"]
+    )
+    @pytest.mark.parametrize(
+        "to_store",
+        [
+            lambda sky, psf: {"sky": sky, "point_spread_function": psf},
+            lambda sky, psf: [sky, psf],
+        ],
+        ids=["dict", "list"],
+    )
+    @pytest.mark.parametrize(
+        "reader, channels",
+        [
+            (open_image, slice(None)),
+            (load_image, slice(None)),
+            (lambda store: load_image(store, {"frequency": slice(1, 3)}), slice(1, 3)),
+        ],
+        ids=["open_image", "load_image", "load_image_block"],
+    )
+    def test_multi_image_stores(self, tmp_path, psf_edit, to_store, reader, channels):
+        """The images of a store line up, however each one is stored."""
+        sky, data = _make_casa_image(
+            tmp_path / "field.image", edit_coords=_decreasing_frequency
+        )
+        psf, _ = _make_casa_image(tmp_path / "field.psf", edit_coords=psf_edit)
+        xds = reader(to_store(sky, psf))
+        pixels = np.transpose(data, (0, 1, 3, 2))
+        np.testing.assert_array_equal(
+            xds.frequency.values, np.array([1.414999e9, 1.415e9, 1.415001e9])[channels]
+        )
+        np.testing.assert_array_equal(xds.SKY.values[0], pixels[::-1][channels])
+        np.testing.assert_array_equal(
+            xds.POINT_SPREAD_FUNCTION.values[0],
+            (pixels[::-1] if psf_edit else pixels)[channels],
+        )
 
 
 # Sky positions of every pixel of the images of

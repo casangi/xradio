@@ -4,6 +4,7 @@ import numpy as np
 import pytest
 
 from xradio._utils._casacore.backend import BACKEND, tables
+from xradio.measurement_set._utils._msv2 import conversion
 from xradio.measurement_set._utils._msv2 import stream_write as sw
 from xradio.measurement_set._utils._msv2._tables import read_rows as rr
 
@@ -267,6 +268,18 @@ def test_reverse_axis_in_place():
     np.testing.assert_array_equal(values, np.flip(expected, axis=2))
     with pytest.raises(ValueError):
         rr.reverse_axis_in_place(values, 0)
+
+
+def test_sort_channels():
+    grid = np.arange(2 * 3 * 4 * 2).reshape(2, 3, 4, 2)
+    order = np.array([2, 0, 3, 1])
+    np.testing.assert_array_equal(
+        conversion.sort_channels(grid, order), grid[:, :, order]
+    )
+    np.testing.assert_array_equal(
+        conversion.sort_channels(grid, order, lambda g: np.cumsum(g, axis=2)),
+        np.cumsum(grid, axis=2)[:, :, order],
+    )
 
 
 @pytest.fixture(scope="module")

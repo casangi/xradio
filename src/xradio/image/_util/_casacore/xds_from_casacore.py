@@ -578,7 +578,8 @@ def _get_freq_values_attrs(
     Compute the frequency coordinate values and attributes of a CASA image.
 
     Values, reference, rest frequency and channel width are converted to Hz
-    from the unit of the spectral axis. The ``frame`` attribute holds the
+    from the unit of the spectral axis; on a tabular axis, all but the rest
+    frequency from the unit of the table. The ``frame`` attribute holds the
     casacore frame and the reference frequency observer the matching schema
     observer (see :mod:`xradio.image._util.conventions`). An image without a
     spectral axis gets a single channel with the attributes of casacore's
@@ -605,14 +606,23 @@ def _get_freq_values_attrs(
         # this is the default frequency information CASA creates
         return [_DEFAULT_FREQUENCY_HZ], _default_freq_info()
     idx = axis_order.index("Frequency")
-    wcs = sd["wcs"]
     hz_per_unit = _hz_per_unit(sd["unit"])
-    values = _compute_linear_world_values(
-        naxis=shape[idx],
-        crval=wcs["crval"] * hz_per_unit,
-        crpix=wcs["crpix"],
-        cdelt=wcs["cdelt"] * hz_per_unit,
-    )
+    if "tabular" in sd:
+        # the table has its own units, whatever the unit of the axis
+        table = sd["tabular"]
+        table_hz_per_unit = _hz_per_unit(table["units"][0])
+        values = table_hz_per_unit * np.interp(
+            np.arange(shape[idx]), table["pixelvalues"], table["worldvalues"]
+        )
+        crval = float(table["crval"][0]) * table_hz_per_unit
+        cdelt = float(table["cdelt"][0]) * table_hz_per_unit
+    else:
+        wcs = sd["wcs"]
+        crval = wcs["crval"] * hz_per_unit
+        cdelt = wcs["cdelt"] * hz_per_unit
+        values = _compute_linear_world_values(
+            naxis=shape[idx], crval=crval, crpix=wcs["crpix"], cdelt=cdelt
+        )
     frame = sd["system"]
     try:
         frame = normalize_spectral_frame(frame)
@@ -631,11 +641,11 @@ def _get_freq_values_attrs(
         "frame": frame,
         "wave_units": sd["waveUnit"],
         "reference_frequency": make_spectral_coord_reference_dict(
-            value=wcs["crval"] * hz_per_unit,
+            value=crval,
             units="Hz",
             observer=observer,
         ),
-        "channel_width": make_quantity(abs(wcs["cdelt"] * hz_per_unit), "Hz"),
+        "channel_width": make_quantity(abs(cdelt), "Hz"),
     }
     return (values, copy.deepcopy(attrs))
 

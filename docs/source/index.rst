@@ -43,6 +43,7 @@ The Measurement Set |MSV4_SCHEMA_VERSION| is described in the section :doc:`Meas
    :caption: Primary Beam (under development)
 
    primary_beam/schema
+   primary_beam/api
 
 .. toctree::
    :hidden:

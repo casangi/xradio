@@ -73,10 +73,12 @@ def update_truth_attrs_to_schema(truth_xds):
     readers have produced since it was blessed: the sub_type attribute of
     pixel images (derived from the casacore image type) and the frequency
     coordinate's channel_width quantity (from the truth's own channel
-    spacing). The other schema attributes the truth stores lack (frequency
-    units and frame, dataset and time types) are added by open_image, which
-    upgrades image zarr stores written by xradio 1.2.3 and earlier. Remove
-    once the truth stores have been re-blessed.
+    spacing). Drop the ``beam_fit_params`` attribute of images whose beam
+    fit parameters the readers no longer name, because they do not keep
+    them (the aperture image's). The other schema attributes the truth
+    stores lack (frequency units and frame, dataset and time types) are added
+    by open_image, which upgrades image zarr stores written by xradio 1.2.3
+    and earlier. Remove once the truth stores have been re-blessed.
     """
     if truth_xds.sizes["frequency"] > 1:
         truth_xds.frequency.attrs.setdefault(
@@ -91,6 +93,9 @@ def update_truth_attrs_to_schema(truth_xds):
     for data_var in truth_xds.data_vars.values():
         if data_var.attrs.get("type") in ("sky", "aperture"):
             data_var.attrs.setdefault("sub_type", "Intensity")
+        beam_fit_params = data_var.attrs.get("beam_fit_params")
+        if beam_fit_params is not None and beam_fit_params not in truth_xds:
+            del data_var.attrs["beam_fit_params"]
     return truth_xds
 
 

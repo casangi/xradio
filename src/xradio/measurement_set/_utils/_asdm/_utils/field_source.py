@@ -1,6 +1,7 @@
 import pandas as pd
 import pyasdm
 
+from xradio._utils.list_and_array import check_if_consistent
 from xradio._utils.schema import casacore_to_msv4_measure_type
 
 
@@ -100,7 +101,10 @@ def retrieve_source_frequency_frame(source_df: pd.DataFrame) -> str:
         The mapped frame name, or ``"lsrk"`` if the reference code is missing
         or is NaN. An unmapped code is returned in lowercase.
     """
-    frequency_ref_code = source_df["frequencyRefCode"].item()
+    frequency_ref_code = source_df["frequencyRefCode"].to_numpy()
+    frequency_ref_code = check_if_consistent(
+        frequency_ref_code, "Source frequencyRefCode"
+    )
 
     # frequencyRefCode doc: "The reference code for frequency (if not LSRK)"
     if frequency_ref_code and not pd.isna(frequency_ref_code):

@@ -91,7 +91,7 @@ def test_ASDMBackendArray_basic_indexing(dim_indexers):
         ),
     ],
 )
-def test_VisibilityArray__raw_indexing_method(
+def test_VisibilitySpectrumArray__raw_indexing_method_with_visibility(
     input_shape,
     input_bdf_paths,
     input_bdf_spw_id,
@@ -99,17 +99,87 @@ def test_VisibilityArray__raw_indexing_method(
     input_key,
     expected_error,
 ):
-    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import VisibilityArray
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        VisibilitySpectrumArray,
+    )
 
-    vis = VisibilityArray(
-        input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices
+    vis = VisibilitySpectrumArray(
+        "VISIBILITY", input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices
     )
     assert vis.shape == input_shape
-    assert vis.dtype == np.dtype("complex128")
+    assert vis.dtype == np.dtype("complex64")
     with expected_error:
         vis._raw_indexing_method(input_key)
         # No true indexing possible here without true BDFs / or
         # overly mocked
+
+
+@pytest.mark.parametrize(
+    "input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices, input_key, expected_error",
+    [
+        (None, [], 0, {}, None, pytest.raises(ValueError, match="need at least one")),
+        (
+            (2, 3, 6, 2),
+            ["/foo/bdf1", "/foo/bdf2"],
+            1,
+            {"bdf_names": ["/foo/bdf1", "/foo/bdf2"], "bdf_start": [0, 2, 4]},
+            (slice(0, 1), None, None, None),
+            pytest.raises(
+                pyasdm.exceptions.BDFReaderException, match="Error while opening"
+            ),
+        ),
+    ],
+)
+def test_VisibilitySpectrumArray__raw_indexing_method_with_spectrum(
+    input_shape,
+    input_bdf_paths,
+    input_bdf_spw_id,
+    input_time_indices,
+    input_key,
+    expected_error,
+):
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        VisibilitySpectrumArray,
+    )
+
+    vis = VisibilitySpectrumArray(
+        "SPECTRUM", input_shape, input_bdf_paths, input_bdf_spw_id, input_time_indices
+    )
+    assert vis.shape == input_shape
+    assert vis.dtype == np.dtype("float32")
+    with expected_error:
+        vis._raw_indexing_method(input_key)
+        # No true indexing possible here without true BDFs / or
+        # overly mocked
+
+
+def test_VisibilitySpectrumArray__raw_indexing_method_returns_bdf_loader_result(
+    monkeypatch,
+):
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        VisibilitySpectrumArray,
+    )
+
+    def fake_load_visibilities(paths, spw_id, time_indices_by_bdf, key):
+        assert paths == ["bdf_1"]
+        assert spw_id == 3
+        assert time_indices_by_bdf == {"bdf_1": [0, 1]}
+        assert key == (slice(0, 2), slice(0, 2))
+        return expected
+
+    expected = np.array([[1 + 2j, 3 + 4j], [5 + 6j, 7 + 8j]], dtype=np.complex64)
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.asdm_backend_arrays.load_visibilities_from_partition_bdfs",
+        fake_load_visibilities,
+    )
+
+    visibility = VisibilitySpectrumArray(
+        "VISIBILITY", (2, 2), ["bdf_1"], 3, {"bdf_1": [0, 1]}
+    )
+    selected_visibility = visibility._raw_indexing_method((slice(0, 2), slice(0, 2)))
+
+    assert np.array_equal(selected_visibility, expected)
 
 
 @pytest.mark.parametrize(
@@ -194,6 +264,28 @@ def test_FlagArray__raw_indexing_method(
     assert flag.dtype == np.dtype("bool")
     with expected_error:
         flag._raw_indexing_method(input_key)
+
+
+def test_FlagArray__raw_indexing_method_returns_bdf_loader_result(monkeypatch):
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import FlagArray
+
+    def fake_load_flags(paths, spw_id, time_indices_by_bdf, key):
+        assert paths == ["bdf_1"]
+        assert spw_id == 3
+        assert time_indices_by_bdf == {"bdf_1": [10, 11]}
+        assert key == (slice(0, 2), slice(0, 2))
+        return expected
+
+    expected = np.array([[True, False], [False, True]], dtype=bool)
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.asdm_backend_arrays.load_flags_from_partition_bdfs",
+        fake_load_flags,
+    )
+
+    flag = FlagArray((2, 2), ["bdf_1"], 3, {"bdf_1": [10, 11]})
+    selected_flag = flag._raw_indexing_method((slice(0, 2), slice(0, 2)))
+    assert np.array_equal(selected_flag, expected)
 
 
 def test_UVWArray__raw_indexing_method():

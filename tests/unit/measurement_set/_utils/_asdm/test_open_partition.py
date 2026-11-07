@@ -73,8 +73,18 @@ def test_open_partition_asdm_with_spw_simple(
         )
 
 
+@pytest.mark.parametrize(
+    "input_config_description_id, input_data_description_id",
+    [
+        (0, 0),
+        (1, 1),
+    ],
+)
 def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
-    asdm_with_main_etc_data_description_polarization_field_source, monkeypatch
+    asdm_with_main_etc_data_description_polarization_field_source,
+    monkeypatch,
+    input_config_description_id,
+    input_data_description_id,
 ):
     from xradio.measurement_set._utils._asdm.open_partition import open_partition
 
@@ -86,10 +96,10 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
         asdm_with_main_etc_data_description_polarization_field_source,
         {
             "fieldId": [0],
-            "configDescriptionId": [0],
+            "configDescriptionId": [input_config_description_id],
             "scanNumber": [0],
             "scanIntent": [0],
-            "dataDescriptionId": [0],
+            "dataDescriptionId": [input_data_description_id],
             "BDFPath": ["/inexistent_test_path/foo"],
         },
     )
@@ -130,7 +140,14 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
 
         assert isinstance(uvw_selection, xr.DataArray)
         assert isinstance(uvw_selection.values, np.ndarray)
-        assert np.allclose(uvw_selection, np.zeros((1, 2, 3), dtype="float64"))
+        if input_config_description_id == 0:
+            expected_uvws = np.zeros((1, 2, 3))
+        elif input_config_description_id == 1:
+            # To be adjusted wne these uvw values are double-checked
+            expected_uvws = np.array(
+                [[-10.12679509, 25.22056424, 1.40846654], [0, 0, 0], [0, 0, 0]]
+            )
+        assert np.allclose(uvw_selection.values, expected_uvws)
 
 
 def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple_pointing_selection(

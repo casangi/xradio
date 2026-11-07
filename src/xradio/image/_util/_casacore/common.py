@@ -44,3 +44,33 @@ _beam_fit_params = "beam_fit_params"
 # _native_types = ["FREQ", "VRAD", "VOPT", "BETA", "WAVE", "AWAV"]
 _object_name = "object_name"
 _pointing_center = "pointing_center"
+
+
+def _get_casa_image_tile_shape(
+    img_full_path: str, colname: str | None = None
+) -> list[int] | None:
+    """Retrieve the storage manager tile shape (in Fortran/casacore axis order)
+    for a CASA image column from its table dminfo.
+    """
+    from xradio._utils._casacore.tables import open_table_ro
+
+    try:
+        with open_table_ro(img_full_path) as tb:
+            dminfo = tb.getdminfo()
+            target_groups = []
+            if colname:
+                for group in dminfo.values():
+                    if colname in group.get("COLUMNS", []):
+                        target_groups.append(group)
+            if not target_groups:
+                target_groups = list(dminfo.values())
+            for group in target_groups:
+                spec = group.get("SPEC", {})
+                for hc in spec.get("HYPERCUBES", {}).values():
+                    if "TileShape" in hc and len(hc["TileShape"]) > 0:
+                        return [int(s) for s in hc["TileShape"]]
+                if "DEFAULTTILESHAPE" in spec and len(spec["DEFAULTTILESHAPE"]) > 0:
+                    return [int(s) for s in spec["DEFAULTTILESHAPE"]]
+    except Exception:
+        pass
+    return None

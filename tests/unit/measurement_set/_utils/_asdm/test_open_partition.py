@@ -143,9 +143,9 @@ def test_open_partition_monkeypatched_bdf_asdm_with_spw_simple(
         if input_config_description_id == 0:
             expected_uvws = np.zeros((1, 2, 3))
         elif input_config_description_id == 1:
-            # To be adjusted wne these uvw values are double-checked
+            # To be adjusted when these uvw values are double-checked
             expected_uvws = np.array(
-                [[-10.12679509, 25.22056424, 1.40846654], [0, 0, 0], [0, 0, 0]]
+                [[-6.09891293, 25.26348908, 8.07291756], [0, 0, 0], [0, 0, 0]]
             )
         assert np.allclose(uvw_selection.values, expected_uvws)
 

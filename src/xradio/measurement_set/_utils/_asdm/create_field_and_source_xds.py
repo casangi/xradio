@@ -152,8 +152,12 @@ def extract_field_info_xds_and_df(
         ["field_name", "sky_dir_label"],
         center_direction,
     )
-
-    direction_frame = retrieve_field_direction_frame(field_df, field_id)
+    direction_frame = [
+        retrieve_field_direction_frame(field_df, single_id) for single_id in field_id
+    ]
+    direction_frame = check_if_consistent(
+        np.array(direction_frame), "field direction code (frame)"
+    )
     xds.data_vars[center_direction_dv].attrs.update(
         make_sky_coord_measure_attrs("rad", direction_frame)
     )
@@ -272,11 +276,12 @@ def extract_source_info(
     ].drop_duplicates(subset=["sourceId", "spectralWindowId"], keep="first")
     # align by sourceId in the field_df order, for next steps
     source_df = pd.merge(field_df["sourceId"], source_df, on="sourceId")
+
     if len(source_df) != len(field_df):
         raise RuntimeError(
-            "Unexpected inconsistency. Not all fields"
+            "Unexpected inconsistency. Not all fields "
             "have a corresponding row in the Source table. "
-            f"{field_df=}, {source_df=}"
+            f"{spectral_window_id=}, {source_id=}.\n{field_df=}\n{source_df=}"
         )
 
     source_name = source_df["sourceName"].to_numpy(dtype="str")
@@ -297,7 +302,7 @@ def extract_source_info(
         direction_code.append(get_source_direction_code(asdm, source_key))
 
     direction_code = check_if_consistent(
-        np.array(direction_code), "source direction code"
+        np.array(direction_code), "source direction code (frame)"
     )
     xds["SOURCE_DIRECTION"] = (
         ["field_name", "sky_dir_label"],

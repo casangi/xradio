@@ -128,8 +128,16 @@ def extract_field_info_xds_and_df(
     if (field_df["numPoly"] > 1).any():
         xradio_logger().warning(
             "Field directions as polynomials with more than one "
-            "coefficient (numPoly > 1) are not supported."
+            "coefficient (numPoly > 1) are not supported. "
+            "Keeping only the first coefficient. If this is a "
+            "legitimate ASDM.Please report this as a bug/missing feature "
         )
+        # keep only the first coefficient of the polynomial so that
+        # we can generate something in field_and_source_xds
+        for direction_var in ["phaseDir", "referenceDir"]:
+            field_df[direction_var] = field_df[direction_var].apply(
+                lambda x: x[0] if len(x) > 0 else None
+            )
 
     field_name = (
         field_df["fieldName"].astype("str").str.strip()

@@ -97,8 +97,8 @@ def test_create_field_and_source_xds_with_field_numpoly(
     <fieldName> J0423-0120 </fieldName>
     <numPoly> 2 </numPoly>
     <delayDir> 2 2 2 1.1487030439690096 -0.023431362760917465 0.01 0.001  </delayDir>
-    <phaseDir> 2 1 2 1.1487030439690096 -0.023431362760917465 0.01 0.001  </phaseDir>
-    <referenceDir> 2 1 2 1.148703043969797 -0.02343136276090743 0.01 0.001  </referenceDir>
+    <phaseDir> 2 2 2 1.1487030439690096 -0.023431362760917465 0.01 0.001  </phaseDir>
+    <referenceDir> 2 2 2 1.148703043969797 -0.02343136276090743 0.01 0.001  </referenceDir>
   </row>
     """
     field_table = asdm_with_minimum_field.getField()
@@ -562,7 +562,7 @@ def test_create_field_and_source_xds_with_multi_n_field_n_source(
         """
   <row>
     <fieldId> Field_2 </fieldId>
-oo    <fieldName> J1713-2658 </fieldName>
+    <fieldName> J1713-2658 </fieldName>
     <numPoly> 1 </numPoly>
     <delayDir> 2 1 2 4.509587217416476 -0.4709117799461657  </delayDir>
     <phaseDir> 2 1 2 4.509587217416476 -0.4709117799461657  </phaseDir>

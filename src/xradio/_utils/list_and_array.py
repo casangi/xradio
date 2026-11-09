@@ -130,6 +130,40 @@ def check_if_consistent(
     return array_unique[0]
 
 
+class NonMonotonicAxisError(ValueError):
+    """An axis that must increase neither increases nor decreases."""
+
+
+def is_decreasing(values: np.ndarray, message: str) -> bool:
+    """
+    Whether an axis that must increase is decreasing, which a reader can
+    reverse.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Values of the axis.
+    message : str
+        Message of the error for any other order.
+
+    Returns
+    -------
+    bool
+        True if every step is negative, False if every step is positive.
+
+    Raises
+    ------
+    NonMonotonicAxisError
+        If the axis does neither, which includes repeated values.
+    """
+    steps = np.diff(values)
+    if np.all(steps > 0):
+        return False
+    if np.all(steps < 0):
+        return True
+    raise NonMonotonicAxisError(message)
+
+
 def unique_1d(array: np.ndarray) -> np.ndarray:
     """
     Optimised version of np.unique for 1D arrays.

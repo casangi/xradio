@@ -26,7 +26,7 @@ from _xradio_xarray_backends import (
     CasaImageBackendEntrypoint,
     FitsImageBackendEntrypoint,
 )
-from xradio.image import check_image, open_image
+from xradio.image import check_image, open_image, write_image
 from xradio.image.schema import IMAGE_SCHEMA_VERSION
 from xradio.testing.image.io import download_image
 
@@ -229,6 +229,85 @@ class TestLazyReads:
         ds = xr.open_dataset(path, engine=engine, chunks={"frequency": 3})
         with dask.config.set(scheduler="threads"):
             np.testing.assert_array_equal(ds.SKY.values, expected)
+
+
+# ---------------------------------------------------------------------------
+# A CASA image stored with a decreasing frequency axis
+# ---------------------------------------------------------------------------
+
+
+class TestDecreasingFrequency:
+    @pytest.fixture
+    def decreasing_image(self, casa_image, tmp_path, synchronous_dask):
+        """The test image with a beam per plane stored with decreasing
+        frequencies, and the dataset it opens as."""
+        expected = open_image(str(casa_image)).compute()
+        # the flags of the test image are the same in every channel
+        expected.FLAG_SKY[:, 0] = True
+        width = 1e-5 * np.arange(1.0, 41.0).reshape(1, 10, 4)
+        expected["BEAM_FIT_PARAMS_SKY"] = (
+            ("time", "frequency", "polarization", "beam_params_label"),
+            np.stack([2 * width, width, 1e3 * width], axis=-1),
+            {"type": "beam_fit_params_sky", "units": "rad"},
+        )
+        base = expected.attrs["data_groups"]["base"]
+        base["beam_fit_params_sky"] = "BEAM_FIT_PARAMS_SKY"
+        (path,) = write_image(
+            expected.isel(frequency=slice(None, None, -1)),
+            str(tmp_path / "decreasing.im"),
+            out_format="casa",
+        )
+        return path, expected
+
+    @pytest.mark.parametrize(
+        "options, image_name",
+        [
+            ({"chunks": None}, "SKY"),
+            ({"chunks": {}}, "SKY"),
+            ({"chunks": {"frequency": 2}}, "SKY"),
+            ({"image_chunks": {"frequency": 3}}, "SKY"),
+            ({"image_chunks": {"frequency": 3}, "chunks": {}}, "SKY"),
+            ({"drop_variables": "FLAG_SKY"}, "SKY"),
+            ({"image_type": "point_spread_function"}, "POINT_SPREAD_FUNCTION"),
+        ],
+        ids=[
+            "no_chunks",
+            "preferred_chunks",
+            "dask_chunks",
+            "image_chunks",
+            "image_chunks_and_preferred_chunks",
+            "drop_variables",
+            "image_type",
+        ],
+    )
+    def test_variables_are_reversed(self, decreasing_image, options, image_name):
+        path, expected = decreasing_image
+        ds = xr.open_dataset(path, engine=_CASA, **options)
+        ds = ds.rename({name: name.replace(image_name, "SKY") for name in ds.data_vars})
+        expected = expected.drop_vars(options.get("drop_variables", []))
+        assert set(ds.data_vars) == set(expected.data_vars)
+        np.testing.assert_array_equal(ds.frequency.values, expected.frequency.values)
+        for name in expected.data_vars:
+            np.testing.assert_allclose(ds[name].values, expected[name].values)
+
+    def test_indexing_reads_only_the_mirrored_plane(
+        self, decreasing_image, plane_reads
+    ):
+        path, expected = decreasing_image
+        selection = {"frequency": 3, "polarization": 1}
+        ds = xr.open_dataset(path, engine=_CASA)
+        np.testing.assert_array_equal(
+            ds.SKY.isel(selection).values, expected.SKY.isel(selection).values
+        )
+        assert plane_reads["casa"] == 1
+
+    def test_label_selection(self, decreasing_image):
+        path, expected = decreasing_image
+        low, high = expected.frequency.values[[2, 5]]
+        ds = xr.open_dataset(path, engine=_CASA).sel(frequency=slice(low, high))
+        np.testing.assert_array_equal(
+            ds.SKY.values, expected.SKY.isel(frequency=slice(2, 6)).values
+        )
 
 
 # ---------------------------------------------------------------------------

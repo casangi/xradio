@@ -21,7 +21,8 @@ import pytest
 import xarray as xr
 
 from _xradio_xarray_backends import MSv2BackendEntrypoint
-from xradio._utils._casacore.backend import BACKEND
+from xradio._utils._casacore.backend import BACKEND, tables
+from xradio._utils.list_and_array import NonMonotonicAxisError
 from xradio.measurement_set import (
     convert_msv2_to_processing_set,
     open_msv2,
@@ -350,14 +351,14 @@ def _bad_cells(msname: str, column: str, rows) -> None:
     [
         # every partition (DDI x OBS_MODE) has a bad MODEL_DATA cell
         ("rich", "MODEL_DATA", "VISIBILITY_MODEL", [7, 207, 307, 507, 607, 807, 907]),
-        ("dense", "WEIGHT_SPECTRUM", "WEIGHT", [7, 307, 607, 907]),
+        ("dense", "WEIGHT_SPECTRUM", "WEIGHT_CORRECTED", [7, 307, 607, 907]),
     ],
 )
 def test_skip_columns_gives_the_converters_tree(
     ms_copy, tmp_path, variant, column, variable, rows
 ):
     """A MAIN column with cells that only a read finds bad: the converter
-    leaves it out (WEIGHT_SPECTRUM: WEIGHT from the WEIGHT column); the
+    leaves it out (WEIGHT_SPECTRUM: WEIGHT_CORRECTED from the WEIGHT column); the
     engine's read of it raises an MSv2ReadError that names skip_columns, and
     skip_columns=[column] gives the converter's tree."""
     from xradio.measurement_set import MSv2ReadError
@@ -391,9 +392,9 @@ def test_skip_columns_gives_the_converters_tree(
 
 @pytest.mark.parametrize("kind", ["standard_stman", "reference"])
 def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, kind):
-    """WEIGHT from a WEIGHT_SPECTRUM column whose cells only a read can
-    check: a selection of WEIGHT that avoids the cells that cannot be read
-    raises MSv2ReadError too (the converter reads WEIGHT from the WEIGHT
+    """WEIGHT_CORRECTED from a WEIGHT_SPECTRUM column whose cells only a read
+    can check: a selection of it that avoids the cells that cannot be read
+    raises MSv2ReadError too (the converter reads it from the WEIGHT
     column for the whole partition), and in a partition whose cells can all
     be read it gives the converter's values; the cells of such a partition
     are checked once in a process.
@@ -437,7 +438,7 @@ def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, k
     bad = names[:1] if kind == "standard_stman" else names
     selection = {"time": slice(12, None)}  # (none of the cells that cannot be read)
     for name in names:
-        weight = engine[name]["WEIGHT"].isel(selection)
+        weight = engine[name]["WEIGHT_CORRECTED"].isel(selection)
         if name in bad:
             for _ in range(2):
                 with pytest.raises(
@@ -445,7 +446,7 @@ def test_weight_from_unchecked_weight_spectrum(ms_copy, tmp_path, monkeypatch, k
                 ):
                     weight.values  # noqa: B018
             continue
-        expected = reference[name]["WEIGHT"].isel(selection).values
+        expected = reference[name]["WEIGHT_CORRECTED"].isel(selection).values
         for _ in range(2):
             values = weight.values
             assert values.dtype == expected.dtype
@@ -638,6 +639,76 @@ def test_partition_filter(backend_ms):
         RuntimeError, match="No partitions selected by partition_filter"
     ):
         xr.open_datatree(msname, engine=ENGINE, partition_filter=lambda p: False)
+
+
+# Channel orders of a decreasing window (SPW 1 of backend_ms) that cannot be
+# reversed
+IRREVERSIBLE_ORDERS = {
+    "first_step_up": [1, 0, *range(2, 16)],
+    "last_step_up": [*range(14), 15, 14],
+    "blocks": [*range(12, 16), *range(8, 12), *range(4, 8), *range(4)],
+    "tied": [0, 0, *range(2, 16)],
+    "constant": [0] * 16,
+}
+
+
+def _reorder_channels(msname: str, spw: int, order: list[int]) -> None:
+    """Rewrite the CHAN_FREQ of a spectral window as ``CHAN_FREQ[order]``."""
+    with tables.table(
+        os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
+    ) as spw_tb:
+        spw_tb.putcell("CHAN_FREQ", spw, spw_tb.getcell("CHAN_FREQ", spw)[order])
+
+
+@pytest.mark.parametrize("options", [{}, {"on_partition_error": "raise"}])
+@pytest.mark.parametrize("order", list(IRREVERSIBLE_ORDERS))
+def test_non_monotonic_frequencies_raise(ms_copy, order, options):
+    """Frequencies that neither increase nor decrease raise, whatever
+    on_partition_error: not wrapped, not skipped with a warning; the error
+    names the window, the converter and CASA."""
+    msname = ms_copy("dense")
+    _reorder_channels(msname, 1, IRREVERSIBLE_ORDERS[order])
+    with warnings.catch_warnings():
+        warnings.simplefilter("error", RuntimeWarning)
+        with pytest.raises(
+            NonMonotonicAxisError,
+            match="spectral window 1 .*convert_msv2_to_processing_set.*CASA",
+        ):
+            open_msv2(msname, **options)
+
+
+def test_partition_filter_leaves_out_a_non_monotonic_window(ms_copy):
+    msname = ms_copy("dense")
+    _reorder_channels(msname, 1, IRREVERSIBLE_ORDERS["blocks"])
+    assert len(open_msv2(msname, partition_filter=_ddi(0, 1)).children) == 2
+
+
+@pytest.mark.parametrize("n_channels", [1, 2])
+def test_few_channels_open_in_both_directions(tmp_path, n_channels):
+    """As the converter writes them, SPW 0 given increasing, SPW 1 decreasing."""
+    from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
+
+    msname, out = str(tmp_path / "few.ms"), str(tmp_path / "few.ps.zarr")
+    gen_test_ms(
+        msname,
+        descr=dict(default_ms_descr, nchans=n_channels),
+        opt_tables=True,
+        vlbi_tables=False,
+        required_only=True,
+        misbehave=False,
+    )
+    with tables.table(
+        os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
+    ) as spw_tb:
+        for spw, step in enumerate((1.0e6, -1.0e6)):
+            spw_tb.putcell("CHAN_FREQ", spw, 1.0e9 + step * np.arange(n_channels))
+    convert_msv2_to_processing_set(msname, out)
+    tree = open_msv2(msname, on_partition_error="raise")
+    assert_processing_sets_equivalent(tree, open_processing_set(out), accessors=False)
+    assert len(tree.children) == 4
+    for node in tree.children.values():
+        assert node.sizes["frequency"] == n_channels
+        assert np.all(np.diff(node.frequency.values) > 0)
 
 
 def test_empty_main_is_an_empty_processing_set(backend_ms, tmp_path):

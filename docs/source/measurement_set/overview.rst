@@ -399,7 +399,8 @@ Deprecation List MS v2
 
 - ``MAIN Table``
 
-  - ``WEIGHT_SPECTRUM`` (Now called ``WEIGHT``).
+  - ``WEIGHT_SPECTRUM`` (Now called ``WEIGHT``, or ``WEIGHT_CORRECTED``
+    with ``CORRECTED_DATA``).
   - ``FLAG_CATEGORY``: ``FLAG`` versioning can now be done with `data
     groups <overview.rst#Data-Groups>`__, and
     `FlagArray <schema.rst#xradio.measurement_set.schema.FlagArray>`__
@@ -412,9 +413,9 @@ Deprecation List MS v2
     group <overview.rst#Data-Groups>`__ has its own weight: the weight
     of uncalibrated data is ``1/SIGMA^2``, and calibrated weights are a
     ``WEIGHT_*`` data variable in the data group of the calibrated data.
-    The MS v2 conversion currently copies the MS v2 ``WEIGHT_SPECTRUM``
-    (or ``WEIGHT``) into a single ``WEIGHT`` shared by all data groups
-    (`#665 <https://github.com/casangi/xradio/issues/665>`__).
+    An MS v2 with ``CORRECTED_DATA`` gives ``WEIGHT`` from
+    ``SIGMA_SPECTRUM`` (or ``SIGMA``) and ``WEIGHT_CORRECTED``, also used
+    by the model data group, from ``WEIGHT_SPECTRUM`` (or ``WEIGHT``).
   - ``BASELINE_REFERENCE``: This is no longer used in VLBI.
 
 - ``FIELD Table``

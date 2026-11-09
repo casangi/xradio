@@ -18,7 +18,8 @@ Xradio includes an `Xarray backend <https://docs.xarray.dev/en/latest/api/backen
 MeasurementSet v2 directly as a Processing Set, without converting it: the :py:class:`xarray.DataTree` of MSv4s that
 :py:func:`convert_msv2_to_processing_set` would write, as :py:func:`open_processing_set` would open it (the same MSv4
 names, variables, values and attributes, and with ``chunks={}`` the same Dask chunks of the main data variables). It
-reads the MS with arcae (``pip install "xradio[casacore]"``).
+reads the MS with arcae (``pip install "xradio[casacore]"``). Non-monotonic frequencies are the exception: the converter
+sorts distinct frequencies and the engine raises an error, see :doc:`Conventions </conventions>`.
 
 .. code:: python
 
@@ -35,7 +36,8 @@ The engine accepts the options of the converter that shape the processing set (`
 ``partition_filter``, ``main_chunksize``, ``with_pointing``, ``pointing_chunksize`` and the ``*_interpolate`` options),
 and ``drop_variables``, ``skip_columns``, ``partition_cache`` and ``on_partition_error`` (see :py:func:`open_msv2`). A
 partition that cannot be opened is left out with a ``RuntimeWarning`` (``on_partition_error="skip"``, the default; the
-other MSv4s keep their names); ``on_partition_error="raise"`` raises instead. An MS without MAIN rows opens as an empty
+other MSv4s keep their names); ``on_partition_error="raise"`` raises instead. Non-monotonic frequencies raise either way;
+``partition_filter`` can leave those partitions out. An MS without MAIN rows opens as an empty
 processing set, as the converter writes it. ``xr.open_dataset`` cannot open an MS: use ``xr.open_datatree``.
 
 **What is read when.** Opening reads the metadata of the MS: its partitions (see below), and for every
@@ -58,19 +60,19 @@ cannot be described without reading it (no ``DIRECTION`` column, unusual value t
 the converter's code when the MS is opened (the values are not kept) and again when its variables are read.
 
 **Columns only a read can check.** The converter leaves out a MAIN column whose cells cannot be read (for
-``WEIGHT_SPECTRUM`` it reads ``WEIGHT`` instead). For most storage managers the engine finds such cells when the MS is
+``WEIGHT_SPECTRUM`` and ``SIGMA_SPECTRUM`` it reads ``WEIGHT`` and ``SIGMA`` instead). For most storage managers the engine finds such cells when the MS is
 opened and does the same. Where only a read can tell (cells of several shapes in a ``StandardStMan`` column, reference
 and concatenated MSs), the variable is opened and a read of cells that cannot be read raises
 :py:class:`MSv2ReadError`, which names the remedies: ``skip_columns=["<column>"]`` gives the converter's processing set
 (the column treated as unreadable in every partition), ``drop_variables=["<variable>"]`` leaves out only that variable.
 Until then the opened processing set differs from the converted one where the converter dropped the column: it has the
 variable (for a data column also its data group and ``field_and_source_xds``), and a selection that reads none of the
-cells that cannot be read returns the values of the column. ``WEIGHT`` from such a ``WEIGHT_SPECTRUM`` column is
-stricter, because the converter's ``WEIGHT`` then has other values (those of the ``WEIGHT`` column): its first read in
-a partition checks the shapes of the ``WEIGHT_SPECTRUM`` cells of the whole partition (once per partition in a
+cells that cannot be read returns the values of the column. A weight from such a ``WEIGHT_SPECTRUM`` (``SIGMA_SPECTRUM``)
+column is stricter, because the converter's weight then has other values (from the ``WEIGHT`` (``SIGMA``) column): its
+first read in a partition checks the shapes of the cells of the whole partition (once per partition in a
 process; for a ``StandardStMan`` column this reads the column's file), and every read raises
 :py:class:`MSv2ReadError` if one of them cannot be read, whichever cells it selects. Its attributes are those of
-``WEIGHT_SPECTRUM`` rather than those of ``WEIGHT``. (The cells of POINTING columns are checked when the MS is opened,
+the spectrum column rather than those of the other. (The cells of POINTING columns are checked when the MS is opened,
 see above.)
 
 **Chunks.** Open with ``chunks={}``: every variable is a Dask array, and the main data variables have the chunks of the

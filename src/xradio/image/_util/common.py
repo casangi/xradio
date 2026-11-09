@@ -11,6 +11,7 @@ from xradio._utils.dict_helpers import (
     make_quantity,
     make_spectral_coord_reference_dict,
 )
+from xradio._utils.list_and_array import is_decreasing
 from xradio.image._util.conventions import (
     canonical_polarization_order,
     time_values_to_astropy,
@@ -688,6 +689,63 @@ def _to_canonical_polarization_order(xds: xr.Dataset) -> xr.Dataset:
     if order == list(range(len(order))):
         return xds
     return xds.isel(polarization=order)
+
+
+def _frequency_is_decreasing(xds: xr.Dataset, image_name: str) -> bool:
+    """
+    Whether the frequency axis of an image dataset decreases.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Image dataset.
+    image_name : str
+        Image path, for the message.
+
+    Returns
+    -------
+    bool
+        True if it decreases, False if it increases.
+
+    Raises
+    ------
+    ValueError
+        If it does neither.
+    """
+    return is_decreasing(
+        xds.frequency.values,
+        f"The frequencies of image {image_name} are not monotonic: fix its "
+        "spectral axis, for example with CASA.",
+    )
+
+
+def _to_increasing_frequency_order(xds: xr.Dataset, image_name: str) -> xr.Dataset:
+    """
+    Reverse a decreasing frequency axis of an image dataset.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Image dataset.
+    image_name : str
+        Image path, for the message.
+
+    Returns
+    -------
+    xr.Dataset
+        The dataset itself when its frequency axis increases, else a copy in
+        which every variable with a frequency dimension (pixels, flags, masks,
+        per-plane beams, velocity) is reversed (lazily for dask backed
+        variables).
+
+    Raises
+    ------
+    ValueError
+        If the axis neither increases nor decreases.
+    """
+    if _frequency_is_decreasing(xds, image_name):
+        return xds.isel(frequency=slice(None, None, -1))
+    return xds
 
 
 def _l_m_attr_notes() -> dict[str, str]:

@@ -100,6 +100,9 @@ from xradio.measurement_set._utils._msv2.backend_errors import (
     MSv2ReadError,
 )
 from xradio.measurement_set._utils._msv2.conversion import calc_indx_for_row_split
+from xradio.measurement_set._utils._msv2.msv2_to_msv4_meta import (
+    spectrum_fallback_columns,
+)
 from xradio.measurement_set._utils._msv2.partition_cache import (
     FINGERPRINT_SUBTABLE_COLUMNS,
     FINGERPRINT_SUBTABLES,
@@ -117,7 +120,7 @@ from xradio.measurement_set._utils._msv2.partition_queries import (
 # times is read in several sub-blocks (at least one time each).
 SUB_BLOCK_BYTES = 128 * 2**20
 # The MAIN columns whose values the converter writes as it reads them
-# (postprocess_main_column converts only TIME_CENTROID and WEIGHT): of their
+# (postprocess_main_column converts only TIME_CENTROID, WEIGHT and SIGMA*): of their
 # 2-D (chan, pol) cells, a range of channels can be read alone (channel-sliced
 # reads, see MSv2MainColumnArray)
 CHANNEL_SLICED_COLUMNS = frozenset(
@@ -148,9 +151,10 @@ ROW_KEY_COLUMNS = GRID_KEY_COLUMNS + PARTITION_KEY_COLUMNS
 CHECK_WINDOW_ROWS = 2**20
 # Bound of the per-process memo of partition checks (entries)
 CHECK_MEMO_MAX_ENTRIES = 4096
-# The partitions (INDEX_MEMO keys) whose WEIGHT_SPECTRUM cells a read of
-# WEIGHT found all readable in this process (MSv2MainColumnArray.
-# _check_weight_spectrum_cells), and the bound of their number
+# The partitions and columns (INDEX_MEMO key, WEIGHT_SPECTRUM or SIGMA_SPECTRUM)
+# whose cells a read of a weight found all readable in this process
+# (MSv2MainColumnArray._check_weight_spectrum_cells), and the bound of their
+# number
 WEIGHT_SPECTRUM_CHECKED: set = set()
 WEIGHT_SPECTRUM_CHECKED_MAX_ENTRIES = 4096
 # The MAIN key column of every partition key, and the PartitionKeyMaps lookup
@@ -1571,8 +1575,8 @@ class MSv2MainColumnArray(MSv2BackendArray):
     verified : bool
         Whether the storage manager vouched for every cell of the partition
         when the MS was opened (False: only a read can tell; a read of
-        WEIGHT_SPECTRUM first checks the shapes of the cells of the whole
-        partition, ``_check_weight_spectrum_cells``).
+        WEIGHT_SPECTRUM or SIGMA_SPECTRUM first checks the shapes of the cells
+        of the whole partition, ``_check_weight_spectrum_cells``).
     node : str
         Name of the MSv4 node (for messages).
     tile_channels : int, optional
@@ -1767,10 +1771,11 @@ class MSv2MainColumnArray(MSv2BackendArray):
             f"failed: {type(exc).__name__}: {exc}"
         )
         if not self.verified:
-            if self.col == "WEIGHT_SPECTRUM":
+            fallback = spectrum_fallback_columns.get(self.col)
+            if fallback is not None:
                 converter = (
-                    "convert_msv2_to_processing_set reads WEIGHT from the WEIGHT "
-                    "column when WEIGHT_SPECTRUM cannot be read"
+                    f"convert_msv2_to_processing_set reads {self.name} from the "
+                    f"{fallback} column when {self.col} cannot be read"
                 )
             else:
                 converter = (
@@ -1788,19 +1793,20 @@ class MSv2MainColumnArray(MSv2BackendArray):
 
     def _check_weight_spectrum_cells(self, table: Any) -> None:
         """
-        WEIGHT read from a WEIGHT_SPECTRUM column whose cells could not be
-        checked when the MS was opened: raise ColumnNotReadableError if a
-        cell of the partition, selected or not, has no value or another
-        shape. The converter reads the whole partition, and where a cell of
-        WEIGHT_SPECTRUM cannot be read it takes WEIGHT from the WEIGHT
-        column, other values: a selection that avoids such cells must not
-        return those of WEIGHT_SPECTRUM. Only the shapes of the cells are
-        read (``_scan_cell_shapes``; of a StandardStMan column, that reads
-        its file), once per partition in a process while they can all be
-        read (WEIGHT_SPECTRUM_CHECKED); a partition with a cell that cannot
-        be read is checked again on every read, which raises.
+        A weight read from a WEIGHT_SPECTRUM (SIGMA_SPECTRUM) column whose
+        cells could not be checked when the MS was opened: raise
+        ColumnNotReadableError if a cell of the partition, selected or not,
+        has no value or another shape. The converter reads the whole
+        partition, and where a cell of the column cannot be read it takes the
+        weight from the WEIGHT (SIGMA) column, other values: a selection that
+        avoids such cells must not return those of the spectrum column. Only
+        the shapes of the cells are read (``_scan_cell_shapes``; of a
+        StandardStMan column, that reads its file), once per partition and
+        column in a process while they can all be read
+        (WEIGHT_SPECTRUM_CHECKED); a partition with a cell that cannot be read
+        is checked again on every read, which raises.
         """
-        key = self.index.memo_key()
+        key = (self.index.memo_key(), self.col)
         if key in WEIGHT_SPECTRUM_CHECKED:
             return
         rows = runs_to_rows(self.index.starts, self.index.lengths)
@@ -1900,7 +1906,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
                         # (the partition as when the MS was opened: rows not
                         # checked one by one)
                         check_keys = not self.index.check(table)
-                        if self.col == "WEIGHT_SPECTRUM" and not self.verified:
+                        if self.col in spectrum_fallback_columns and not self.verified:
                             self._check_weight_spectrum_cells(table)
                         if chan_range is not None:
                             if has_in_place_reads(table):

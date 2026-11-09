@@ -14,7 +14,7 @@ from xradio._utils.dict_helpers import (
     make_spectral_coord_reference_dict,
     make_time_measure_attrs,
 )
-from xradio._utils.list_and_array import check_if_consistent
+from xradio._utils.list_and_array import check_if_consistent, is_decreasing
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._asdm import asdm_backend_arrays
 from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
@@ -220,6 +220,15 @@ def create_correlated_xds(
             time_indices_by_bdf,
         )
     )
+    for axis in ("time", "frequency"):
+        if is_decreasing(
+            xds[axis].values,
+            f"The {axis} axis of spectral window {spw_id} is not monotonic: import "
+            "the ASDM with CASA (importasdm) and convert the MS with "
+            "convert_msv2_to_processing_set, which sorts distinct values, or fix "
+            "the order with CASA.",
+        ):
+            xds = xds.isel({axis: slice(None, None, -1)})
 
     is_spectrum_xds = xds.attrs["type"] == "spectrum"
     correlated_data_name = "SPECTRUM" if is_spectrum_xds else "VISIBILITY"

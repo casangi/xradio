@@ -170,6 +170,11 @@ def open_image(
     single channel, and images without a Stokes axis with the polarization
     ``["I"]``.
 
+    The frequency axis of CASA and FITS images is returned increasing: a
+    decreasing axis is reversed lazily, with every variable that has a
+    frequency dimension. A ``ValueError`` is raised for a frequency axis that
+    neither increases nor decreases.
+
     Parameters
     ----------
     store : str, dict or list
@@ -300,7 +305,8 @@ def load_image(
         default) indicates that the entire image should be returned (read into
         memory for a CASA image, lazily for a zarr store, see above).
         Polarization indices refer to the canonical order of the returned
-        dataset (for zarr stores, to the order of the store).
+        dataset and frequency indices to its increasing axis, see
+        :func:`open_image` (for zarr stores, both to the order of the store).
         TODO I'd really like to rename this parameter "selection"
     do_sky_coords : bool
         Compute SkyCoord at each pixel and add spherical (sky) dimensions as non-dimensional

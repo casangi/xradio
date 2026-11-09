@@ -10,7 +10,8 @@ until one ``DataTree.to_zarr`` call writes the MSv4. With streaming:
    (VISIBILITY*, SPECTRUM, WEIGHT, FLAG, UVW, TIME_CENTROID,
    EFFECTIVE_INTEGRATION_TIME and the WEIGHT=1 fallback) are lazy placeholders
    (``deferred_main_column``, ``deferred_ones``). A column is skipped
-   (WEIGHT_SPECTRUM falls back to WEIGHT) when the storage manager tells,
+   (WEIGHT_SPECTRUM and SIGMA_SPECTRUM fall back to WEIGHT and SIGMA) when
+   the storage manager tells,
    without reading data, that a cell of the partition is undefined or of a
    shape other than the first cell's (``check_partition_cells``).
 2. ``DataTree.to_zarr(compute=False, consolidated=False)`` writes all metadata

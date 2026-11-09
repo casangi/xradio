@@ -551,7 +551,10 @@ VALUE_CASES = [
     ("baseline_major", 1),
     ("time_descending", 2),
     ("shuffled", 0),
-    ("wsp_partial", 3),  # WEIGHT from the WEIGHT column (tiled along frequency)
+    (
+        "wsp_partial",
+        3,
+    ),  # WEIGHT_CORRECTED from the WEIGHT column (tiled along frequency)
     ("no_weight", 0),  # WEIGHT=1
     ("rich", 5),  # WEIGHT_SPECTRUM, MODEL_DATA (StandardStMan), TSM data
 ]
@@ -585,7 +588,7 @@ def test_values_equal_the_converter_reads(backend_ms, variant, idx):
             lazy["WEIGHT"].values == 1
         )
     if variant == "wsp_partial":
-        assert lazy["WEIGHT"]._data.array.col == "WEIGHT"
+        assert lazy["WEIGHT_CORRECTED"]._data.array.col == "WEIGHT"
 
 
 def test_reads_hold_bounded_time_sub_blocks(backend_ms, monkeypatch):
@@ -828,7 +831,7 @@ def test_channel_sliced_reads_equal_the_converter_reads(backend_ms, monkeypatch,
         "VISIBILITY": 3,
         "VISIBILITY_CORRECTED": 5,
         "FLAG": 4,
-        "WEIGHT": 4,
+        "WEIGHT_CORRECTED": 4,
         "VISIBILITY_MODEL": 0,
     }
     vis = reference["VISIBILITY"].values
@@ -1306,7 +1309,7 @@ def test_open_msv2_arrays_read_channel_slices(backend_ms):
     seen = set()
     for node in tree.children.values():
         ds = node.to_dataset(inherit=False)
-        for name, width in (("VISIBILITY", 3), ("FLAG", 4), ("WEIGHT", 4)):
+        for name, width in (("VISIBILITY", 3), ("FLAG", 4), ("WEIGHT_CORRECTED", 4)):
             data = ds[name].variable._data
             while not isinstance(data, MSv2BackendArray):
                 data = data.array

@@ -2,7 +2,8 @@
 
 * ``TestPolarizationAxis`` -> FITS STOKES codes, plane order, round trips
 * ``TestSpectralAxis``     -> SPECSYS, VELREF, spectral frame round trips
-* ``TestFrequencyAxis``    -> linear FREQ axis, units, single channel width
+* ``TestFrequencyAxis``    -> linear FREQ axis, units, single channel width,
+                              decreasing axis round trip
 * ``TestDirectionAxes``    -> reference pixel, single pixel axes, PV cards,
                               EQUINOX, pointing center (OBSRA/OBSDEC)
 * ``TestPixelDataTypes``   -> BITPIX for each numpy data type
@@ -525,6 +526,31 @@ class TestFrequencyAxis:
         header = header_of(xds)
         assert header["CDELT4"] == conventions.SINGLE_CHANNEL_WIDTH_FALLBACK_HZ
         assert any("channel_width" in m for m in recorded_log["warning"])
+
+    def test_decreasing_axis_round_trip(self, tmp_path):
+        """A decreasing axis is written as it is and reopens increasing; a
+        second write keeps the increasing axis."""
+        xds = make_image_xds(frequencies=1e11 - 1e6 * np.arange(4))
+        decreasing = write(xds, tmp_path / "decreasing.fits")
+        assert fits.getheader(decreasing)["CDELT4"] < 0
+        first = open_image(decreasing)
+        increasing = write(first, tmp_path / "increasing.fits")
+        assert fits.getheader(increasing)["CDELT4"] > 0
+        expected = xds.isel(frequency=slice(None, None, -1))
+        flag = expected["FLAG_SKY"].values
+        for rt in (first, open_image(increasing)):
+            np.testing.assert_array_equal(
+                rt["frequency"].values, expected["frequency"].values
+            )
+            np.testing.assert_array_equal(rt["FLAG_SKY"].values, flag)
+            np.testing.assert_array_equal(
+                rt["SKY"].values, np.where(flag, np.nan, expected["SKY"].values)
+            )
+            np.testing.assert_allclose(
+                rt["BEAM_FIT_PARAMS_SKY"].values,
+                expected["BEAM_FIT_PARAMS_SKY"].values,
+                rtol=1e-6,
+            )
 
 
 class TestDirectionAxes:

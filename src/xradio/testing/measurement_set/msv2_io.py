@@ -614,7 +614,7 @@ def gen_subt_spw(mspath: str, spw_descr: dict, nchans: int, misbehave=False):
                     spw_tbl.removecolkeyword("CHAN_WIDTH", "QuantumUnits")
                 # or alternatively
                 # spw_tbl.putcol("CHAN_WIDTH", np.full((1, nchans), 20000.0), startrow=spw, nrow=1)
-            spw_tbl.putcell("CHAN_FREQ", spw, np.full(nchans, 10e0))
+            spw_tbl.putcell("CHAN_FREQ", spw, 10e0 + np.arange(nchans))
             spw_tbl.putcell("EFFECTIVE_BW", spw, widths)
             spw_tbl.putcell("TOTAL_BANDWIDTH", spw, sum(widths))
             spw_tbl.putcell("RESOLUTION", spw, widths)

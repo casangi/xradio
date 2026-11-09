@@ -164,7 +164,8 @@ def open_partition(
     The node equals what ``convert_msv2_to_processing_set`` writes for the
     partition (opened with ``open_processing_set``), with the same encoding
     (chunks, compressors: ``to_zarr`` writes the converter's MSv4) plus
-    ``preferred_chunks`` (see ``_set_preferred_chunks``).
+    ``preferred_chunks`` (see ``_set_preferred_chunks``). Non-monotonic
+    frequencies, which the converter sorts, raise NonMonotonicAxisError.
 
     Parameters
     ----------
@@ -194,7 +195,8 @@ def open_partition(
         False: they are read here, as by the converter.
     unreadable_columns : frozenset[str], optional
         MAIN columns built as the converter builds a partition whose read of
-        them failed (left out; WEIGHT_SPECTRUM: WEIGHT used instead).
+        them failed (left out; WEIGHT_SPECTRUM, SIGMA_SPECTRUM: WEIGHT, SIGMA
+        used instead).
     keys_token : str | None, optional
         ``backend_arrays.keys_token`` of the MS, taken before the partitions
         were computed (None: every read checks the partition against the MS).

@@ -21,6 +21,7 @@ from typing import Any
 import xarray as xr
 
 from xradio._utils._casacore.tables import casatools_serialized
+from xradio._utils.list_and_array import NonMonotonicAxisError
 from xradio._utils.logging import xradio_logger
 from xradio.measurement_set._utils._msv2._tables.subtable_cache import (
     SubtableCache,
@@ -348,7 +349,8 @@ def _build_tree(
     raises with "raise"; if no partition could be opened but some failed, a
     RuntimeError is raised. With ``verify``, every partition's description
     is checked against its rows: StalePartitionsError (whatever
-    on_partition_error).
+    on_partition_error). A window of non-monotonic frequencies raises
+    NonMonotonicAxisError (whatever on_partition_error).
     """
     root = xr.DataTree()
     root.attrs["type"] = "processing_set"
@@ -377,7 +379,7 @@ def _build_tree(
                     verify=verify,
                     **build_options,
                 )
-            except StalePartitionsError:
+            except (StalePartitionsError, NonMonotonicAxisError):
                 raise
             except Exception as exc:
                 what = f"Partition {idx} ({name}) of {path} could not be opened"

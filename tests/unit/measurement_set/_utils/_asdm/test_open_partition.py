@@ -558,3 +558,131 @@ def test__generate_baseline_antennax_id_as_in_msv2(
         else:
             assert (antennax_id[0] == expected_output[0]).all()
             assert (antennax_id[1] == expected_output[1]).all()
+
+
+def _open_partition_with_fake_bdfs(asdm, monkeypatch, frequency, time):
+    """open_partition on the given axes, with reads served from coded arrays."""
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    module = "xradio.measurement_set._utils._asdm"
+    shape = (time.size, 2, frequency.size, 2)
+    visibility = np.arange(np.prod(shape), dtype="complex128").reshape(shape)
+    stored = {
+        "VISIBILITY": visibility,
+        "FLAG": visibility.real % 3 == 0,
+        "WEIGHT": visibility.real.astype("float32"),
+    }
+    reads = []
+
+    def reader(array):
+        def read(*args):
+            reads.append(args[-1])
+            return array[args[-1]]
+
+        return read
+
+    monkeypatch.setattr(
+        f"{module}.open_partition.get_spw_frequency_centers",
+        lambda *_args: frequency,
+    )
+    monkeypatch.setattr(
+        f"{module}.open_partition.load_times_from_partition_bdfs",
+        lambda *_args: (time, np.ones(time.size), time + 0.1, time, {}),
+    )
+    monkeypatch.setattr(
+        f"{module}.asdm_backend_arrays.load_visibilities_from_partition_bdfs",
+        reader(stored["VISIBILITY"]),
+    )
+    monkeypatch.setattr(
+        f"{module}.asdm_backend_arrays.load_flags_from_partition_bdfs",
+        reader(stored["FLAG"]),
+    )
+    monkeypatch.setattr(
+        f"{module}.asdm_backend_arrays.WeightArray._raw_indexing_method",
+        reader(stored["WEIGHT"]),
+    )
+    partition = open_partition(
+        asdm,
+        {
+            "fieldId": [0],
+            "configDescriptionId": [0],
+            "scanNumber": [0],
+            "scanIntent": [0],
+            "dataDescriptionId": [0],
+            "BDFPath": ["/inexistent_test_path/foo"],
+        },
+    )
+    return partition, stored, reads
+
+
+@pytest.mark.parametrize(
+    "frequency_step, first_two_channels", [(1, slice(0, 2)), (-1, slice(2, 4))]
+)
+@pytest.mark.parametrize("time_step, first_time", [(1, slice(0, 1)), (-1, slice(2, 3))])
+def test_open_partition_reverses_decreasing_axes(
+    asdm_with_main_etc_data_description_polarization_field_source,
+    monkeypatch,
+    frequency_step,
+    first_two_channels,
+    time_step,
+    first_time,
+):
+    frequency = np.array([1.0, 2.0, 4.0, 8.0])[::frequency_step] * 1e9
+    time = np.array([1.0, 2.0, 4.0])[::time_step] + 1.7e9
+    partition, stored, reads = _open_partition_with_fake_bdfs(
+        asdm_with_main_etc_data_description_polarization_field_source,
+        monkeypatch,
+        frequency,
+        time,
+    )
+    assert not reads
+    assert not check_datatree(partition)
+    np.testing.assert_array_equal(partition.frequency, np.sort(frequency))
+    np.testing.assert_array_equal(partition.time, np.sort(time))
+    np.testing.assert_array_equal(
+        partition.TIME_CENTROID.values[:, 0], partition.time.values + 0.1
+    )
+    np.testing.assert_array_equal(
+        partition.EFFECTIVE_INTEGRATION_TIME.values[:, 0], partition.time.values
+    )
+    order = (
+        slice(None, None, time_step),
+        slice(None),
+        slice(None, None, frequency_step),
+    )
+    for name, array in stored.items():
+        np.testing.assert_array_equal(partition[name].values, array[order])
+
+    reads.clear()
+    selected = partition.VISIBILITY.isel(time=0, frequency=slice(0, 2)).values
+    np.testing.assert_array_equal(selected, stored["VISIBILITY"][order][0, :, :2])
+    assert reads == [(first_time, slice(None), first_two_channels, slice(None))]
+
+
+@pytest.mark.parametrize(
+    "frequency, time, axis",
+    [
+        ([1.0, 3.0, 2.0], [1.0, 2.0], "frequency"),
+        ([1.0, 2.0, 2.0], [1.0, 2.0], "frequency"),
+        ([1.0, 2.0], [1.0, 3.0, 2.0], "time"),
+        ([1.0, 2.0], [1.0, 2.0, 2.0], "time"),
+    ],
+)
+def test_open_partition_not_monotonic_axis_raises(
+    asdm_with_main_etc_data_description_polarization_field_source,
+    monkeypatch,
+    frequency,
+    time,
+    axis,
+):
+    with pytest.raises(
+        ValueError,
+        match=f"{axis} axis of spectral window 0 is not monotonic: .*CASA .*"
+        "convert_msv2_to_processing_set",
+    ):
+        _open_partition_with_fake_bdfs(
+            asdm_with_main_etc_data_description_polarization_field_source,
+            monkeypatch,
+            np.array(frequency),
+            np.array(time),
+        )

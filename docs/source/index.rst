@@ -7,6 +7,7 @@ XRADIO implements the **Measurement Set** |MSV4_SCHEMA_VERSION| schema, designed
 
 For a general overview of XRADIO and the schemas included in it, see the section :doc:`Overview <overview>` (it is recommended to pay special attention to the Foundational Reading subsection).
 More information on XRADIO development can be found in the section :doc:`Development <development>`.
+The rules shared by all schemas are in the section :doc:`Conventions <conventions>`.
 The Measurement Set |MSV4_SCHEMA_VERSION| is described in the section :doc:`Measurement Set v4 <measurement_set/overview>`.
 
 
@@ -16,6 +17,7 @@ The Measurement Set |MSV4_SCHEMA_VERSION| is described in the section :doc:`Meas
 
    overview
    development
+   conventions
 
 .. toctree::
    :hidden:

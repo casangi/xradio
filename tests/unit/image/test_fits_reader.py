@@ -14,6 +14,7 @@ import subprocess
 import sys
 import textwrap
 import warnings
+from unittest.mock import Mock
 
 import dask
 import numpy as np
@@ -643,6 +644,129 @@ def test_image_without_spectral_axis_gets_casacore_default(tmp_path):
     np.testing.assert_allclose(
         xds.velocity.values, C * (1.0 - 1.415e9 / REST_FREQUENCY), rtol=1e-9
     )
+
+
+# --------------------------------------------------------------------------- #
+# Frequency order                                                              #
+# --------------------------------------------------------------------------- #
+
+
+# The channels of FREQ, stored in the opposite order
+FREQ_DECREASING = FREQ[:3] + (-FREQ[3],) + FREQ[4:]
+
+
+@pytest.mark.parametrize("chunks", [None, {"frequency": 2}])
+@pytest.mark.parametrize(
+    "spectral_axis",
+    [
+        pytest.param(("FREQ", NCHAN, 1.415e9, -1.0e3, 1.0, "Hz"), id="freq"),
+        pytest.param(("VRAD", NCHAN, 1.0e6, 200.0, 1.0, "m/s"), id="vrad"),
+        pytest.param(("VOPT", NCHAN, 1.2e6, 200.0, 1.0, "m/s"), id="vopt"),
+        pytest.param(("FELO", NCHAN, 1.2e6, 200.0, 1.0, "m/s"), id="felo"),
+    ],
+)
+def test_decreasing_frequency_axis_is_reversed(tmp_path, spectral_axis, chunks):
+    """The planes, frequencies and velocities of the file are reversed; the
+    reference frequency, rest frequency and channel width stay."""
+    axes = (RA, DEC, spectral_axis, IQUV)
+    path, data = write_fits(tmp_path / "decreasing.fits", axes)
+    with fits.open(path) as hdulist:
+        stored = xds_from_fits._fits_header_to_xds_attrs(hdulist, False)[1]["spectral"]
+
+    xds = read(path, chunks=chunks)
+
+    assert (np.diff(xds.frequency.values) > 0).all()
+    np.testing.assert_array_equal(xds.frequency.values, stored["frequency"][::-1])
+    np.testing.assert_array_equal(xds.velocity.values, stored["velocity"][::-1])
+    np.testing.assert_array_equal(xds.SKY.values, expected_sky(data, axes)[:, ::-1])
+    for name in ("reference_frequency", "rest_frequency", "channel_width"):
+        assert xds.frequency.attrs[name]["data"] == stored[name]
+
+
+@pytest.mark.parametrize(
+    "stokes,order",
+    [
+        pytest.param(IQUV, [0, 1, 2, 3], id="iquv"),
+        pytest.param(stokes_axis(-1.0, -1.0, 4), [0, 2, 3, 1], id="rr_ll_rl_lr"),
+    ],
+)
+def test_flags_and_beams_move_with_the_reversed_planes(tmp_path, stokes, order):
+    """The channel reversal composes with the polarization reorder."""
+    axes = (RA, DEC, FREQ_DECREASING, stokes)
+    shape = (4, NCHAN, NY, NX)
+    data = np.arange(np.prod(shape)).reshape(shape).astype(np.float32)
+    # flag one pixel of the first channel of the last FITS plane
+    data[3, 0, 2, 3] = np.nan
+    beams = 1.0 + np.arange(NCHAN * 4 * 3).reshape(NCHAN, 4, 3)
+    path, _ = write_fits(tmp_path / "planes.fits", axes, data=data, beams=beams)
+
+    xds = read(path)
+
+    sky = expected_sky(data, axes, order)[:, ::-1]
+    np.testing.assert_array_equal(xds.SKY.values, sky)
+    np.testing.assert_array_equal(xds.FLAG_SKY.values, np.isnan(sky))
+    np.testing.assert_allclose(
+        xds.BEAM_FIT_PARAMS_SKY.isel(time=0).values,
+        beams[::-1, order] * [DEG / 3600.0, DEG / 3600.0, DEG],
+        rtol=1e-6,
+    )
+
+
+@pytest.mark.parametrize("opener", [read, open_image])
+@pytest.mark.parametrize(
+    "spectral_axis",
+    [
+        pytest.param(FREQ[:3] + (0.0,) + FREQ[4:], id="cdelt_0"),
+        pytest.param(
+            ("VOPT", NCHAN, -1.2 * C, 0.3 * C, 1.0, "m/s"), id="vopt_across_minus_c"
+        ),
+    ],
+)
+def test_non_monotonic_frequency_axis_raises(tmp_path, spectral_axis, opener):
+    path, _ = write_fits(tmp_path / "axis.fits", (RA, DEC, spectral_axis, IQUV))
+    with pytest.raises(ValueError, match="not monotonic: .*CASA"):
+        opener(path)
+
+
+@pytest.mark.parametrize("opener", [read, open_image])
+def test_single_channel_with_cdelt_0_opens(tmp_path, opener):
+    axes = (RA, DEC, ("FREQ", 1, 1.0e11, 0.0, 1.0, "Hz"), IQUV)
+    path, data = write_fits(tmp_path / "one.fits", axes)
+    xds = opener(path)
+    np.testing.assert_array_equal(xds.frequency.values, [1.0e11])
+    np.testing.assert_array_equal(xds.SKY.values, expected_sky(data, axes))
+
+
+def test_images_stored_in_opposite_orders_open_together(tmp_path):
+    """Each plane stays with its frequency, whichever way its file runs."""
+    axes = (RA, DEC, FREQ_DECREASING, IQUV)
+    sky, data = write_fits(tmp_path / "sky.fits", axes)
+    psf, _ = write_fits(
+        tmp_path / "psf.fits", (RA, DEC, FREQ, IQUV), data=data[:, ::-1]
+    )
+
+    xds = open_image({"sky": sky, "point_spread_function": psf})
+
+    assert (np.diff(xds.frequency.values) > 0).all()
+    np.testing.assert_array_equal(xds.SKY.values, expected_sky(data, axes)[:, ::-1])
+    np.testing.assert_array_equal(xds.POINT_SPREAD_FUNCTION.values, xds.SKY.values)
+
+
+def test_engine_reverses_a_decreasing_axis_lazily(tmp_path, monkeypatch):
+    """Through the xarray engine, reading a plane reads only its mirrored
+    channel of the file."""
+    axes = (RA, DEC, FREQ_DECREASING, IQUV)
+    path, data = write_fits(tmp_path / "engine.fits", axes)
+    reader = Mock(wraps=xds_from_fits._read_image_chunk)
+    monkeypatch.setattr(xds_from_fits, "_read_image_chunk", reader)
+
+    xds = xr.open_dataset(path, engine="xradio_fits_image")
+    reader.assert_not_called()
+
+    plane = xds.SKY.isel(frequency=0, polarization=1).values
+    reader.assert_called_once()
+    assert reader.call_args.args[2] == (1, NCHAN - 1, 0, 0)
+    np.testing.assert_array_equal(plane, expected_sky(data, axes)[:, -1, 1])
 
 
 # --------------------------------------------------------------------------- #

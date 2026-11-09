@@ -113,15 +113,19 @@ def open_msv2(
         - on_partition_error : str. "skip" (default): a partition that cannot
           be opened is left out (logged with its traceback, and a
           RuntimeWarning); a RuntimeError is raised only if none can be
-          opened. "raise": raise a RuntimeError for the first one.
+          opened. "raise": raise a RuntimeError for the first one. Either
+          way non-monotonic frequencies raise (see Raises); partition_filter
+          can leave their partitions out.
         - skip_columns : str | Iterable[str] | None. MAIN columns to treat as
           unreadable, as the converter treats a column whose read fails: it
           is left out, with the data group (and field_and_source_xds) it
-          makes; for WEIGHT_SPECTRUM, WEIGHT is read from the WEIGHT column.
+          makes; for WEIGHT_SPECTRUM (SIGMA_SPECTRUM), the WEIGHT (SIGMA)
+          column is read instead.
           Some columns can only be checked by reading them (e.g. cells of
           several shapes in a StandardStMan column): a read of their cells
           that cannot be read then raises an MSv2ReadError that names this
-          remedy (for WEIGHT from WEIGHT_SPECTRUM, every read of a partition
+          remedy (for a weight from WEIGHT_SPECTRUM or SIGMA_SPECTRUM, every
+          read of a partition
           with such a cell; see the API documentation).
 
     Returns
@@ -141,6 +145,10 @@ def open_msv2(
     MSv2ReadError
         From a lazy read that failed (see skip_columns for columns whose
         cells only a read can check).
+    ValueError
+        If the frequencies of a spectral window neither increase nor
+        decrease: :func:`convert_msv2_to_processing_set` sorts distinct
+        frequencies, unlike this function, and CASA can fix their order.
     """
     if array_backend == "xarray":
         chunks, chunked_array_type = None, None

@@ -42,3 +42,43 @@ def test_check_if_consistent(
         else:
             assert isinstance(result, type(input_array[0]))
             assert result == expected_output
+
+
+@pytest.mark.parametrize(
+    "values, expected",
+    [
+        (np.array([]), False),
+        (np.array([1.0]), False),
+        (np.array([1.0, 2.0, 4.0]), False),
+        (np.array([4.0, 2.0, 1.0]), True),
+    ],
+)
+def test_is_decreasing(values, expected):
+    from xradio._utils.list_and_array import is_decreasing
+
+    assert is_decreasing(values, "message") is expected
+
+
+@pytest.mark.parametrize(
+    "values",
+    [
+        np.array([1.0, 3.0, 2.0]),
+        np.array([3.0, 1.0, 2.0]),
+        np.array([1.0, 2.0, 2.0]),
+        np.array([2.0, 2.0, 1.0]),
+        np.array([2.0, 2.0, 2.0]),
+        np.array([1.0, 2.0, np.nan]),
+        np.array([2.0, 1.0, np.nan]),
+    ],
+)
+def test_is_decreasing_any_other_order_raises(values):
+    from xradio._utils.list_and_array import NonMonotonicAxisError, is_decreasing
+
+    with pytest.raises(NonMonotonicAxisError, match="^the message$"):
+        is_decreasing(values, "the message")
+
+
+def test_non_monotonic_axis_error_is_a_value_error():
+    from xradio._utils.list_and_array import NonMonotonicAxisError
+
+    assert issubclass(NonMonotonicAxisError, ValueError)

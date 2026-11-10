@@ -916,6 +916,111 @@ class TestDetectImageType:
 
 
 # --------------------------------------------------------------------------- #
+# Sky and aperture images opened together; beams the reader does not keep     #
+# --------------------------------------------------------------------------- #
+
+_RESTORING_BEAM = {
+    "imagetype": "Intensity",
+    "objectname": "",
+    "restoringbeam": {
+        "major": {"unit": "arcsec", "value": 5.0},
+        "minor": {"unit": "arcsec", "value": 3.0},
+        "positionangle": {"unit": "deg", "value": 10.0},
+    },
+}
+
+
+class TestSkyAndApertureImages:
+    """A sky image and an aperture image opened together share the base data
+    group, and images whose beam fit parameters the reader does not keep do
+    not name them."""
+
+    @pytest.mark.parametrize("sky_beam", [False, True])
+    @pytest.mark.parametrize("sky_first", [True, False])
+    def test_sky_and_aperture_share_the_base_group(self, tmp_path, sky_first, sky_beam):
+        sky, _ = _make_casa_image(
+            tmp_path / "t.image", imageinfo=_RESTORING_BEAM if sky_beam else None
+        )
+        aperture, _ = _make_casa_image(
+            tmp_path / "t.amp", edit_coords=_to_aperture_coords
+        )
+        stores = {"sky": sky, "aperture": aperture}
+        if not sky_first:
+            stores = {"aperture": aperture, "sky": sky}
+        xds = open_image(stores)
+        assert {"SKY", "APERTURE"} <= set(xds.data_vars)
+        expected = {"sky": "SKY", "aperture": "APERTURE"}
+        if sky_beam:
+            expected["beam_fit_params_sky"] = "BEAM_FIT_PARAMS_SKY"
+            assert "BEAM_FIT_PARAMS_SKY" in xds.data_vars
+            assert xds.SKY.attrs["beam_fit_params"] == "BEAM_FIT_PARAMS_SKY"
+        assert xds.attrs["data_groups"] == {"base": expected}
+
+    @pytest.mark.parametrize("aperture_first", [True, False])
+    def test_aperture_without_sky_has_its_own_base_group(
+        self, tmp_path, aperture_first
+    ):
+        """The groups keep the order of the stores, which names the outputs
+        of write_image."""
+        model, _ = _make_casa_image(tmp_path / "t.model")
+        aperture, _ = _make_casa_image(
+            tmp_path / "t.amp", edit_coords=_to_aperture_coords
+        )
+        stores = {"sky_model": model, "aperture": aperture}
+        if aperture_first:
+            stores = {"aperture": aperture, "sky_model": model}
+        xds = open_image(stores)
+        assert xds.attrs["data_groups"] == {
+            "model": {"sky": "SKY_MODEL", "aperture": "APERTURE"},
+            "base": {"aperture": "APERTURE"},
+        }
+        order = ["base", "model"] if aperture_first else ["model", "base"]
+        assert list(xds.attrs["data_groups"]) == order
+
+    @pytest.mark.parametrize(
+        "name,image_type,edit_coords",
+        [
+            ("t.amp", "aperture", _to_aperture_coords),
+            ("t.pb", "primary_beam", None),
+        ],
+    )
+    def test_beam_not_kept_is_not_named(self, tmp_path, name, image_type, edit_coords):
+        path, _ = _make_casa_image(
+            tmp_path / name, edit_coords=edit_coords, imageinfo=_RESTORING_BEAM
+        )
+        xds = open_image({image_type: path})
+        variable = image_type.upper()
+        assert f"BEAM_FIT_PARAMS_{variable}" not in xds.data_vars
+        assert "beam_fit_params" not in xds[variable].attrs
+
+    def test_aperture_beam_reference_does_not_reach_zarr(self, tmp_path):
+        path, _ = _make_casa_image(
+            tmp_path / "t.amp",
+            edit_coords=_to_aperture_coords,
+            imageinfo=_RESTORING_BEAM,
+        )
+        (store,) = write_image(
+            open_image(path), str(tmp_path / "amp"), out_format="zarr"
+        )
+        assert "beam_fit_params" not in open_image(store).APERTURE.attrs
+
+    def test_kept_beams_stay_named(self, tmp_path):
+        """Sky images, their versions included, and point spread functions
+        keep their beam fit parameters and name them."""
+        stores = [
+            _make_casa_image(tmp_path / f"t.{product}", imageinfo=_RESTORING_BEAM)[0]
+            for product in ("image", "psf", "residual", "model")
+        ]
+        xds = open_image(stores)
+        for variable in ("SKY", "POINT_SPREAD_FUNCTION", "SKY_RESIDUAL", "SKY_MODEL"):
+            assert f"BEAM_FIT_PARAMS_{variable}" in xds.data_vars
+            assert xds[variable].attrs["beam_fit_params"] == (
+                f"BEAM_FIT_PARAMS_{variable}"
+            )
+        assert not check_image(xds)
+
+
+# --------------------------------------------------------------------------- #
 # Combining images whose coordinates differ by round-off                       #
 # --------------------------------------------------------------------------- #
 

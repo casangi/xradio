@@ -1134,9 +1134,10 @@ def create_store_dict(store_to_label):
         - 'store': str, the path to the store
     data_groups : dict
         The data groups: one per sky image (``base`` for ``SKY``, ``model``
-        for ``SKY_MODEL``, ...) or aperture image (``base``), or a single
-        ``base`` group if there is neither. The other images are added to
-        every group by :func:`create_image_xds_from_store`.
+        for ``SKY_MODEL``, ...), a ``base`` group for an aperture image
+        opened without a ``SKY`` image, or a single ``base`` group if there
+        is neither. The non-sky images, aperture images included, are added
+        to every group by :func:`create_image_xds_from_store`.
 
     Raises
     ------
@@ -1196,7 +1197,10 @@ def create_store_dict(store_to_label):
             else:
                 data_group_name = image_type.lower().replace("sky_", "")
                 data_groups[data_group_name] = {"sky": image_type}
-        if "aperture" == image_type.lower():
+        # The base group belongs to the SKY image: an aperture image opened
+        # with it joins that group, as the other images do, instead of
+        # replacing it (a SKY listed after it replaces its base group).
+        if "aperture" == image_type.lower() and "base" not in data_groups:
             data_groups["base"] = {"aperture": image_type}
     if not data_groups and "ALL" not in store_dict:
         # images without a sky or aperture image (a point spread function
@@ -1688,6 +1692,14 @@ def create_image_xds_from_store(
                 img_xds["BEAM_FIT_PARAMS_" + image_type.upper()] = xds[
                     "BEAM_FIT_PARAMS_" + image_type.upper()
                 ]
+
+        # The readers name the beam fit parameters of every image with a
+        # restoring beam, but only sky images (SKY and its versions) and point
+        # spread functions keep them: other images must not name a variable
+        # the dataset lacks.
+        beam_fit_params = img_xds[image_type].attrs.get("beam_fit_params")
+        if beam_fit_params is not None and beam_fit_params not in img_xds:
+            del img_xds[image_type].attrs["beam_fit_params"]
 
         # Figure out data groups.
         # Each sky image gets its own data group and shares all other images between them.

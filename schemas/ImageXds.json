@@ -4197,6 +4197,768 @@
     },
     {
       "$class": "ArraySchemaRef",
+      "schema_name": "xradio.image.schema.VoltagePatternArray",
+      "dimensions": [
+        [
+          "time",
+          "frequency",
+          "polarization",
+          "l",
+          "m"
+        ]
+      ],
+      "dtypes": [
+        "<c8",
+        "<c16"
+      ],
+      "coordinates": [
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.image.schema.TimeCoordArray",
+          "dimensions": [
+            [
+              "time"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "time"
+              ],
+              "name": "type",
+              "default": "time",
+              "docstring": "Coordinate type. Should be ``\"time\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "d",
+                "s"
+              ],
+              "name": "units",
+              "default": "d",
+              "docstring": "Units to associate with axis. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "tai",
+                "tcb",
+                "tcg",
+                "tdb",
+                "tt",
+                "ut1",
+                "utc"
+              ],
+              "name": "scale",
+              "default": "utc",
+              "docstring": "Astropy time scale, see :py:class:`astropy.time.Time`. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "unix",
+                "mjd",
+                "cxcsec",
+                "gps"
+              ],
+              "name": "format",
+              "default": "mjd",
+              "docstring": "Astropy time format, typically ``\"mjd\"``. "
+            }
+          ],
+          "class_docstring": "Time coordinate of the image dataset (typically a single value, the observation date).",
+          "data_docstring": "Time since epoch, typically in days (see ``units`` and ``format``). ",
+          "name": "time",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.image.schema.FrequencyCoordArray",
+          "dimensions": [
+            [
+              "frequency"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "rest_frequency",
+              "docstring": "Rest frequency of the spectral line stored with the image. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.SpectralCoordArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "default": "Hz",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "REST",
+                      "BARY",
+                      "TOPO",
+                      "GALACTO",
+                      "LGROUP",
+                      "CMB",
+                      "gcrs",
+                      "icrs",
+                      "hcrs",
+                      "lsrk",
+                      "lsrd",
+                      "lsr"
+                    ],
+                    "name": "observer",
+                    "default": "icrs",
+                    "docstring": "Capitalized reference observers are from casacore. TOPO implies creating astropy earth_location.\nAstropy velocity reference frames are lowercase. Note that Astropy does not use the name 'TOPO' (telescope centric)\nrather it assumes if no velocity frame is given that this is the default.\n\nWhen converting from MSv2 and casacore frequency frames, the following translations from casacore to astropy\nframe names are applied: GEO=>gcrs, LSRK=>lsrk, LSRD=>lsrd. The other casacore frames (REST, BARY, TOPO,\nGALACTO, LGROUP, CMB) are not translated and keep their casacore name. The astropy frames icrs, hcrs and\nlsr are not translated to casacore frames (astropy's lsr uses a different solar motion than casacore's LSRK)."
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "spectral_coord"
+                    ],
+                    "name": "type",
+                    "default": "spectral_coord",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Measures array for data variables and attributes that are spectral coordinates.",
+                "data_docstring": null
+              },
+              "name": "reference_frequency",
+              "docstring": "A frequency representative of the image spectral axis. Its\n``observer`` is the spectral reference frame of the image (``frame``) in\nthe vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, for example\n``\"lsrk\"`` for LSRK, ``\"gcrs\"`` for GEO and ``\"BARY\"`` for BARY. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "name": "frame",
+              "docstring": "Spectral reference frame of the image, by its casacore name: one of\n``\"REST\"``, ``\"LSRK\"``, ``\"LSRD\"``, ``\"BARY\"``, ``\"GEO\"``, ``\"TOPO\"``,\n``\"GALACTO\"``, ``\"LGROUP\"`` or ``\"CMB\"``. Readers translate other names\nfor the same frames, such as FITS ``SPECSYS`` values (``\"BARYCENT\"``,\n``\"SOURCE\"``), to these; the CASA reader keeps casacore's\n``\"Undefined\"``. Images that the ``make_empty_*`` factories make in an\nastropy frame without a casacore equivalent hold its name (``\"icrs\"``,\n``\"hcrs\"`` or ``\"lsr\"``); the CASA and FITS writers cannot write those. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "optional": true,
+              "name": "channel_width",
+              "docstring": "The nominal channel width, as in the measurement set frequency\ncoordinate (:py:class:`~xradio.measurement_set.schema.FrequencyArray`).\nReaders fill it from the spectral increment of the image; writers use it\nas the increment of a single channel spectral axis, which the frequency\nvalues alone do not determine. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "wave_units",
+              "docstring": "Units to associate with the wavelength representation of the axis, for example ``\"mm\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "optional": true,
+              "name": "observer",
+              "docstring": "Spectral reference frame of the axis in the vocabulary of\n:py:data:`~xradio.schema.measures.AllowedSpectralCoordFrames`, the same\nvalue as the ``observer`` of ``reference_frequency`` (see\n:py:class:`~xradio.schema.measures.SpectralCoordArray`). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "Hz"
+              ],
+              "name": "units",
+              "default": "Hz",
+              "docstring": "Units to associate with axis. "
+            }
+          ],
+          "class_docstring": "Frequency coordinate of the image dataset. Uses the same spectral\ncoordinate measures as the measurement set frequency axis\n(:py:class:`~xradio.measurement_set.schema.FrequencyArray`), without the\nspectral window attributes that only apply to visibility data.",
+          "data_docstring": "Center frequencies for each channel. ",
+          "name": "frequency",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.schema.measures.PolarizationArray",
+          "dimensions": [
+            [
+              "polarization"
+            ]
+          ],
+          "dtypes": [
+            "<U0"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Polarization",
+              "docstring": "Long-form name to use for axis. Should be ``\"Polarization\"``"
+            }
+          ],
+          "class_docstring": "Possible correlations that can be formed from polarised receptors. Possible\nvalues, taken from `Measures/Stokes.h\n<https://github.com/casacore/casacore/blob/5a8df94738bdc36be27e695d7b14fe949a1cc2df/measures/Measures/Stokes.h>`_:\n\n* ``I``, ``Q``, ``U``, ``V`` (standard stokes parameters)\n* ``RR``, ``RL``, ``LR``, ``LL`` (circular correlation products)\n* ``XX``, ``XY``, ``YX``, ``YY`` (linear correlation products)\n* ``RX``, ``RY``, ``LX``, ``LY``, ``XR``, ``XL``, ``YR``, ``YL`` (mixed correlation products)\n* ``PP``, ``PQ``, ``QP``, ``QQ`` (general quasi-orthogonal correlation products)\n* ``RCircular``, ``LCircular``, ``Linear`` (single dish polarization types)\n* ``Ptotal`` (polarized intensity: ``sqrt(Q²+U²+V²)``)\n* ``Plinear`` (linearly polarized intensity: ``sqrt(Q²+U²)``)\n* ``PFtotal`` (polarization fraction: ``Ptotal/I``)\n* ``PFlinear`` (linear polarization fraction: ``Plinear/I``)\n* ``Pangle`` (linear polarization angle: ``0.5 arctan(U/Q)`` in radians)",
+          "data_docstring": "Polarization names. ",
+          "name": "polarization",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.image.schema.LCoordArray",
+          "dimensions": [
+            [
+              "l"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "note",
+              "docstring": "Explanatory note on the definition of l. "
+            }
+          ],
+          "class_docstring": "The l coordinate of the image dataset.\n\nl is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the east, measured from the reference direction:\nl = x*cdelt, where x is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, l\nis the direction cosine l of AIPS Memo #27 (Section III). For other\nprojections l is neither the direction cosine nor the angular offset (for\nTAN they differ from l by 1% to 1.5% at 10 degrees from the reference\ndirection); the ``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the east, in radians (the\ndimensionless direction cosine for the SIN projection). ",
+          "name": "l",
+          "optional": false
+        },
+        {
+          "$class": "ArraySchemaRef",
+          "schema_name": "xradio.image.schema.MCoordArray",
+          "dimensions": [
+            [
+              "m"
+            ]
+          ],
+          "dtypes": [
+            "<f8"
+          ],
+          "coordinates": [],
+          "attributes": [
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "note",
+              "docstring": "Explanatory note on the definition of m. "
+            }
+          ],
+          "class_docstring": "The m coordinate of the image dataset.\n\nm is the projection plane coordinate (the FITS WCS intermediate world\ncoordinate) towards the north, measured from the reference direction:\nm = y*cdelt, where y is the pixel offset from the reference pixel and\ncdelt the pixel increment in radians. For the SIN projection without\nprojection parameters, the usual projection of interferometric images, m\nis the direction cosine m of AIPS Memo #27 (Section III). For other\nprojections m is neither the direction cosine nor the angular offset; the\n``projection`` of ``coordinate_system_info`` defines it.",
+          "data_docstring": "Projection plane coordinate towards the north, in radians (the\ndimensionless direction cosine for the SIN projection). ",
+          "name": "m",
+          "optional": false
+        }
+      ],
+      "attributes": [
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "name": "type",
+          "default": "voltage_pattern",
+          "docstring": "Image type. Should be ``\"voltage_pattern\"``, or\n``\"voltage_pattern_<suffix>\"`` for versioned variables (the loader stamps\nthe lower case variable name). "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "units",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dict",
+          "dict_schema": {
+            "$class": "DictSchema",
+            "schema_name": "xradio.image.schema.TelescopeDict",
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "name": "name",
+                "docstring": "Telescope name, for example 'ALMA'. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "dataarray",
+                "array_schema": {
+                  "$class": "ArraySchema",
+                  "schema_name": "xradio.image.schema.TelescopeLocationArray",
+                  "dimensions": [
+                    [
+                      "ellipsoid_dir_label"
+                    ],
+                    [
+                      "ellipsoid_dis_label"
+                    ],
+                    [
+                      "cartesian_pos_label"
+                    ]
+                  ],
+                  "dtypes": [
+                    "<f8"
+                  ],
+                  "coordinates": [],
+                  "attributes": [
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "literal": [
+                        "m",
+                        "rad"
+                      ],
+                      "name": "units",
+                      "docstring": "Units of the location coordinates (typically 'm' or 'rad'). "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "name": "frame",
+                      "docstring": "Reference frame, for example ``\"ITRF\"``. "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "name": "coordinate_system",
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "name": "origin_object_name",
+                      "docstring": "earth/sun/moon/etc. "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "literal": [
+                        "location"
+                      ],
+                      "name": "type",
+                      "default": "location",
+                      "docstring": "Measure type. Should be ``\"location\"``. "
+                    }
+                  ],
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
+                  "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
+                },
+                "optional": true,
+                "name": "direction",
+                "docstring": "Location measure holding the longitude and the geocentric latitude of\nthe telescope ('lon', 'lat', in radians). "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "dataarray",
+                "array_schema": {
+                  "$class": "ArraySchema",
+                  "schema_name": "xradio.image.schema.TelescopeLocationArray",
+                  "dimensions": [
+                    [
+                      "ellipsoid_dir_label"
+                    ],
+                    [
+                      "ellipsoid_dis_label"
+                    ],
+                    [
+                      "cartesian_pos_label"
+                    ]
+                  ],
+                  "dtypes": [
+                    "<f8"
+                  ],
+                  "coordinates": [],
+                  "attributes": [
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "literal": [
+                        "m",
+                        "rad"
+                      ],
+                      "name": "units",
+                      "docstring": "Units of the location coordinates (typically 'm' or 'rad'). "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "name": "frame",
+                      "docstring": "Reference frame, for example ``\"ITRF\"``. "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "name": "coordinate_system",
+                      "docstring": "Coordinate system, for example ``\"geocentric\"`` (spherical\ncoordinates of the position vector: longitude, geocentric latitude and\ndistance from the geocenter). "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "name": "origin_object_name",
+                      "docstring": "earth/sun/moon/etc. "
+                    },
+                    {
+                      "$class": "AttrSchemaRef",
+                      "type": "str",
+                      "literal": [
+                        "location"
+                      ],
+                      "name": "type",
+                      "default": "location",
+                      "docstring": "Measure type. Should be ``\"location\"``. "
+                    }
+                  ],
+                  "class_docstring": "Location measure of the telescope, stored in the ``telescope`` attribute\nof image data variables. Unlike\n:py:class:`~xradio.schema.measures.LocationArray` the frame is the native\ncasacore telescope position frame (typically ``\"ITRF\"``). The readers\nstore geocentric spherical coordinates (``coordinate_system``\n``\"geocentric\"``), see :py:class:`TelescopeDict`.",
+                  "data_docstring": "Location values ('lon', 'lat' in radians, or 'dist' in meters, or 'x', 'y', 'z' in meters). "
+                },
+                "optional": true,
+                "name": "distance",
+                "docstring": "Location measure holding the distance of the telescope from the\ngeocenter ('dist', in meters). "
+              }
+            ],
+            "class_docstring": "Telescope information stored in the attributes of image data variables.\n\nThe telescope position is stored in geocentric spherical ITRF\ncoordinates (``coordinate_system`` ``\"geocentric\"``): ``direction`` holds\nthe longitude and the geocentric latitude, ``distance`` the distance from\nthe geocenter, so the Cartesian ITRF position is\nx = distance cos(lat) cos(lon), y = distance cos(lat) sin(lon) and\nz = distance sin(lat) (for example for astropy's\n``EarthLocation.from_geocentric``). The geocentric latitude is not the\ngeodetic latitude (for ALMA they differ by about 0.14 degrees)."
+          },
+          "optional": true,
+          "name": "telescope",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "observer",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.image.schema.TimeMeasureArray",
+            "dimensions": [
+              []
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "time"
+                ],
+                "name": "type",
+                "default": "time",
+                "docstring": "Measure type. Should be ``\"time\"``. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "d",
+                  "s"
+                ],
+                "name": "units",
+                "default": "d",
+                "docstring": "Units to associate with the time value. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "tai",
+                  "tcb",
+                  "tcg",
+                  "tdb",
+                  "tt",
+                  "ut1",
+                  "utc"
+                ],
+                "name": "scale",
+                "default": "utc",
+                "docstring": "Astropy time scale, see :py:class:`astropy.time.Time`. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "unix",
+                  "mjd",
+                  "cxcsec",
+                  "gps"
+                ],
+                "name": "format",
+                "default": "mjd",
+                "docstring": "Astropy time format, typically ``\"mjd\"``. "
+              }
+            ],
+            "class_docstring": "Time measure used in image attributes, for example the observation date\n(``obsdate``). See :py:class:`~xradio.schema.measures.TimeArray` for the\nastropy based conventions; images typically use days since the MJD epoch.",
+            "data_docstring": "Time since epoch, typically in days (see ``units`` and ``format``)."
+          },
+          "optional": true,
+          "name": "obsdate",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.image.schema.SkyDirectionArray",
+            "dimensions": [
+              [
+                "sky_dir_label"
+              ]
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "m",
+                  "rad"
+                ],
+                "name": "units",
+                "docstring": "Units of the direction values. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "sky_coord"
+                ],
+                "name": "type",
+                "default": "sky_coord",
+                "docstring": "Measure type. Should be ``\"sky_coord\"``. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "icrs",
+                  "fk5",
+                  "fk4",
+                  "fk4noterms",
+                  "galactic",
+                  "galactocentric",
+                  "supergalactic",
+                  "altaz",
+                  "hadec",
+                  "gcrs",
+                  "cirs",
+                  "itrs",
+                  "hcrs",
+                  "teme",
+                  "tete",
+                  "precessedgeocentric",
+                  "geocentricmeanecliptic",
+                  "barycentricmeanecliptic",
+                  "heliocentricmeanecliptic",
+                  "geocentrictrueecliptic",
+                  "barycentrictrueecliptic",
+                  "heliocentrictrueecliptic",
+                  "heliocentriceclipticiau76",
+                  "custombarycentricecliptic",
+                  "lsr",
+                  "lsrk",
+                  "lsrd",
+                  "galacticlsr"
+                ],
+                "name": "frame",
+                "default": "icrs",
+                "docstring": "Astropy sky coordinate frame, for example ``\"fk5\"``. "
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "optional": true,
+                "name": "equinox",
+                "docstring": "Equinox of equatorial frames, for example ``\"j2000.0\"`` for fk5. "
+              }
+            ],
+            "class_docstring": "Sky coordinate measure used in image attributes (the reference direction\nof the coordinate system and the pointing center). Like\n:py:class:`~xradio.schema.measures.SkyCoordArray`, with an optional\nequinox for equatorial frames such as fk5.",
+            "data_docstring": "Sky direction values ('ra', 'dec' or 'lon', 'lat'), in radians. "
+          },
+          "optional": true,
+          "name": "pointing_center",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "object_name",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dict",
+          "dict_schema": {
+            "$class": "DictSchema",
+            "schema_name": "xradio.image.schema.UserDict",
+            "attributes": [],
+            "class_docstring": "Free form dictionary of extra keywords carried along with an image, for\nexample leftover FITS header cards or casacore miscinfo. No keys are\nrequired."
+          },
+          "optional": true,
+          "name": "user",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "description",
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "bool",
+          "optional": true,
+          "name": "allow_multiple_versions",
+          "default": true,
+          "docstring": null
+        }
+      ],
+      "class_docstring": "The complex far-field voltage pattern of an antenna projected onto the\nsky: the response of each receptor to each polarization of the incident\nfield, a Jones matrix per direction (for example from a physical-optics\nsimulation or ray tracing of the antenna). The polarization labels name\nthe elements by receptor and polarization, so that ``XX, XY, YX, YY``\n(or ``RR, RL, LR, LL``) are the elements of the Jones matrix in row order\nand ``XY`` is the response of receptor X to polarization Y.\n\nThe pattern of an antenna in its mount frame has the reference direction\nof ``coordinate_system_info`` in the ``altaz`` frame at the beam centre:\nl then increases towards increasing azimuth and m towards increasing\nelevation.",
+      "data_docstring": "Complex voltage pattern. ",
+      "name": "VOLTAGE_PATTERN",
+      "optional": true,
+      "docstring": "Complex voltage pattern of an antenna, a Jones matrix per direction. "
+    },
+    {
+      "$class": "ArraySchemaRef",
       "schema_name": "xradio.image.schema.PointSpreadFunctionArray",
       "dimensions": [
         [
@@ -8850,6 +9612,13 @@
                   "optional": true,
                   "name": "primary_beam",
                   "docstring": "The effective antenna power pattern projected onto the sky, describing\nhow sensitivity falls off from the pointing center. Values range from 1.0\nat center to ~0 at the edges. Name of the primary beam variable of the\ngroup, for example 'PRIMARY_BEAM'. On plane tangential to celestial\nsphere. "
+                },
+                {
+                  "$class": "AttrSchemaRef",
+                  "type": "str",
+                  "optional": true,
+                  "name": "voltage_pattern",
+                  "docstring": "The complex far-field voltage pattern of an antenna, a Jones matrix\nper direction, see :py:class:`VoltagePatternArray`. Name of the voltage\npattern variable of the group, for example 'VOLTAGE_PATTERN'. On plane\ntangential to celestial sphere. "
                 },
                 {
                   "$class": "AttrSchemaRef",

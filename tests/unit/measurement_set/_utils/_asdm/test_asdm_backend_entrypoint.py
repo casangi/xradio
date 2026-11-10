@@ -18,6 +18,42 @@ def test_ASDMBackendEntryPoint_in_xarray_backends_list():
     assert isinstance(engines[expected_name], ASDMBackendEntryPoint)
 
 
+def xxxtest_ASDMBackendEntryPoint_missing_pyasdm(monkeypatch):
+    import sys
+
+    with mock.patch.dict(sys.modules, {"pyasdm": None}):
+        with pytest.raises(
+            ImportError,
+            match="requires the optional dependency pyasdm",
+        ):
+            xr.open_datatree("/bogus/inexistent/test_path", engine="xradio_asdm")
+
+
+def test_open_datatree_missing_pyasdm(monkeypatch):
+    import builtins
+    import sys
+
+    def fake_import(name, globals=None, locals=None, fromlist=(), level=0):
+        if name == "pyasdm" or name.startswith("pyasdm."):
+            raise ModuleNotFoundError("No module named 'pyasdm'")
+        return real_import(name, globals, locals, fromlist, level)
+
+    real_import = builtins.__import__
+
+    monkeypatch.setattr(builtins, "__import__", fake_import)
+    monkeypatch.delitem(
+        sys.modules,
+        "xradio.measurement_set._utils._asdm.open_asdm",
+        raising=False,
+    )
+
+    with pytest.raises(
+        ImportError,
+        match=r"requires the optional dependency pyasdm",
+    ):
+        xr.open_datatree("/bogus/inexistent/test_path", engine="xradio_asdm")
+
+
 def test_open_datatree_drop_variables_not_supported():
     from xradio.measurement_set._utils._asdm.asdm_backend_entrypoint import (
         ASDMBackendEntryPoint,

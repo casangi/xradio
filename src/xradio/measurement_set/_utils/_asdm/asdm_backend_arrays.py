@@ -60,35 +60,44 @@ class ASDMBackendArray(xr.backends.BackendArray):
         raise NotImplementedError
 
 
-class VisibilityArray(ASDMBackendArray):
-    """For the MSv4 VISIBILITY data var"""
+class VisibilitySpectrumArray(ASDMBackendArray):
+    """For the MSv4 VISIBILITY/SPECTRUM data var"""
 
     def __init__(
         self,
+        data_var_name: str,
         shape: tuple[int, ...],
         bdf_paths: list[str],
         bdf_spw_id: int,
         time_indices_by_bdf: dict,
     ):
-        super().__init__(shape, np.dtype("complex128"))
+        # Different sizes accepted in the schema could be
+        # supported if ever needed via dtype parameter(s).
+        # Hard coding default complex64/float32
+        if data_var_name == "VISIBILITY":
+            dtype = "complex64"
+        elif data_var_name == "SPECTRUM":
+            dtype = "float32"
+        super().__init__(shape, np.dtype(dtype))
+        self._data_var_name = data_var_name
         self._bdf_paths = bdf_paths
         self._bdf_spw_id = bdf_spw_id
         self._time_indices_by_bdf = time_indices_by_bdf
 
     def _raw_indexing_method(self, key: tuple) -> np.ndarray:
-        xradio_logger().debug(f" VisibilityArray._raw_indexing_method, {key=}")
+        xradio_logger().debug(f" VisibilitySpectrumArray._raw_indexing_method, {key=}")
         try:
-            selected_visibility = load_visibilities_from_partition_bdfs(
+            selected_data = load_visibilities_from_partition_bdfs(
                 self._bdf_paths, self._bdf_spw_id, self._time_indices_by_bdf, key
             )
         except Exception as exc:
             trace = traceback.format_exc()
             xradio_logger().warning(
-                f"Exception while indexing the VISIBILITY array with {key=}: {exc}\n"
-                f"Traceback: {trace}"
+                f"Exception while indexing the {self._data_var_name} array with "
+                f"{key=}: {exc}\nTraceback: {trace}"
             )
             raise exc
-        return selected_visibility
+        return selected_data
 
 
 class WeightArray(ASDMBackendArray):

@@ -711,6 +711,43 @@ def test_few_channels_open_in_both_directions(tmp_path, n_channels):
         assert np.all(np.diff(node.frequency.values) > 0)
 
 
+def test_system_calibration_follows_a_decreasing_window(tmp_path):
+    """TCAL_SPECTRUM of channel i has value i: reversed with the main axis."""
+    from xradio.testing.measurement_set.msv2_io import default_ms_descr, gen_test_ms
+
+    msname, out = str(tmp_path / "syscal.ms"), str(tmp_path / "syscal.ps.zarr")
+    gen_test_ms(
+        msname,
+        descr=dict(default_ms_descr, nchans=10),  # the channels of its SYSCAL
+        opt_tables=True,
+        vlbi_tables=False,
+        required_only=True,
+        misbehave=False,
+    )
+    with tables.table(
+        os.path.join(msname, "SPECTRAL_WINDOW"), readonly=False, ack=False
+    ) as spw_tb:
+        spw_tb.putcell("CHAN_FREQ", 0, 1.0e9 - 1.0e6 * np.arange(10))
+    with tables.table(
+        os.path.join(msname, "SYSCAL"), readonly=False, ack=False
+    ) as syscal_tb:
+        shape = syscal_tb.getcol("TCAL_SPECTRUM").shape
+        syscal_tb.putcol(
+            "TCAL_SPECTRUM",
+            np.broadcast_to(np.arange(10.0)[:, np.newaxis], shape).copy(),
+        )
+    convert_msv2_to_processing_set(msname, out)
+    tree = open_msv2(msname, on_partition_error="raise")
+    assert_processing_sets_equivalent(tree, open_processing_set(out), accessors=False)
+    nodes = [n for n in tree.children.values() if "system_calibration_xds" in n]
+    assert nodes
+    for node in nodes:
+        sys_cal = node["system_calibration_xds"]
+        assert np.array_equal(sys_cal.frequency_system_cal, node.frequency)
+        tcal = sys_cal.TCAL.isel(antenna_name=0, time_system_cal=0, receptor_label=0)
+        assert np.array_equal(tcal, np.arange(10)[::-1])
+
+
 def test_empty_main_is_an_empty_processing_set(backend_ms, tmp_path):
     """An MS without MAIN rows opens as the empty processing set that the
     converter writes for it (with any cache mode); a partition_filter

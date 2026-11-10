@@ -77,6 +77,7 @@ from numpy.typing import DTypeLike
 from xradio._utils._casacore.tables import casatools_serialized
 from xradio._utils.list_and_array import get_pad_value
 from xradio._utils.logging import xradio_logger
+from xradio._utils.xarray_helpers import replace_empty_slices
 from xradio.measurement_set._utils._msv2._tables.read import convert_casacore_time
 from xradio.measurement_set._utils._msv2._tables.read_rows import (
     ColumnNotReadableError,
@@ -330,27 +331,6 @@ def take_from_block(
     return block[tuple(basic)]
 
 
-def _replace_empty_slices(
-    key: xr.core.indexing.ExplicitIndexer, shape: tuple[int, ...]
-) -> xr.core.indexing.ExplicitIndexer:
-    """
-    Replace slices that select nothing by ``slice(0, 0)``. xarray's key
-    decomposition fails (IndexError) on empty slices with a negative step.
-    """
-    empty = [
-        isinstance(dim_key, slice) and len(range(dim_len)[dim_key]) == 0
-        for dim_key, dim_len in zip(key.tuple, shape, strict=True)
-    ]
-    if not any(empty):
-        return key
-    return type(key)(
-        tuple(
-            slice(0, 0) if is_empty else dim_key
-            for dim_key, is_empty in zip(key.tuple, empty, strict=True)
-        )
-    )
-
-
 class MSv2BackendArray(xr.backends.BackendArray):
     """
     Base class of the lazily indexable MSv2 backend arrays.
@@ -407,7 +387,7 @@ class MSv2BackendArray(xr.backends.BackendArray):
         :meth:`_getitem_outer`) and a NumPy indexer applied to its result.
         """
         return xr.core.indexing.explicit_indexing_adapter(
-            _replace_empty_slices(key, self.shape),
+            replace_empty_slices(key, self.shape),
             self.shape,
             xr.core.indexing.IndexingSupport.OUTER,
             self._getitem_outer,

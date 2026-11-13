@@ -8,7 +8,7 @@ import xarray as xr
 from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
     create_field_and_source_xds,
 )
-from xradio.measurement_set.schema import FieldSourceXds
+from xradio.measurement_set.schema import FieldSourceEphemerisXds, FieldSourceXds
 from xradio.schema.check import check_dataset
 
 
@@ -231,3 +231,21 @@ def test_extract_source_info_empty():
     )
     assert "field_name" in result.dims
     assert "source_name" in result.coords
+    schema_issues = check_dataset(result, FieldSourceXds)
+    assert len(schema_issues) == 4
+
+
+def test_extract_ephemeris_info(asdm_with_field_ephemeris):
+    from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
+        extract_ephemeris_info,
+    )
+
+    ephem_fields = {"fieldId": {0: 0}, "ephemerisId": {0: 0}}
+    field_df = pd.DataFrame.from_dict(ephem_fields)
+    field_and_source_xds = extract_ephemeris_info(
+        xr.Dataset(), asdm_with_field_ephemeris, field_df
+    )
+
+    assert "time_ephemeris" in field_and_source_xds.coords
+    schema_issues = check_dataset(field_and_source_xds, FieldSourceEphemerisXds)
+    assert not schema_issues

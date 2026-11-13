@@ -1108,6 +1108,116 @@ def add_spw_table(asdm: pyasdm.ASDM):
     spw_table.add(spw_row_0)
 
 
+def add_field_with_ephemeris_table(asdm: pyasdm.ASDM):
+    # Examples taken from uid___A002_Xbb0685_X4e96
+    field_rows_xml = [
+        """
+  <row>
+    <fieldId> Field_0 </fieldId>
+    <fieldName> J1229+0203 </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 3.2686162621080546 0.03582093394620076  </delayDir>
+    <phaseDir> 2 1 2 3.2686162621080546 0.03582093394620076  </phaseDir>
+    <referenceDir> 2 1 2 3.268616262108897 0.035820933946185546  </referenceDir>
+    <time> 4986701690928000000 </time>
+    <code> none </code>
+    <directionCode>ICRS</directionCode>
+    <sourceId> 0 </sourceId>
+  </row>
+    """,
+        """
+  <row>
+    <fieldId> Field_1 </fieldId>
+    <fieldName> Ganymede </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 0.0 0.0  </delayDir>
+    <phaseDir> 2 1 2 0.0 0.0  </phaseDir>
+    <referenceDir> 2 1 2 0.0 0.0  </referenceDir>
+    <time> 4986703296768000000 </time>
+    <code> none </code>
+    <directionCode>ICRS</directionCode>
+    <ephemerisId> 0 </ephemerisId>
+    <sourceId> 1 </sourceId>
+  </row>
+    """,
+    ]
+    field_table = asdm.getField()
+    for row_xml in field_rows_xml:
+        field_row = pyasdm.FieldRow(field_table)
+        field_row.setFromXML(row_xml)
+        field_table.add(field_row)
+
+
+def add_ephemeris_table(asdm: pyasdm.ASDM):
+    # Examples taken from uid___A002_Xbb0685_X4e96
+    ephemeris_rows_xml = [
+        """
+  <row>
+    <timeInterval> 4986694800000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3966968420230086 -0.0868206036978841  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.096364091722689E11  </distance>
+    <timeOrigin> 4986694200000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 1 </numPolyRadVel>
+    <radVel> 1 1 -10349.7118  </radVel>
+  </row>
+    """,
+        """
+  <row>
+    <timeInterval> 4986697200000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3967705603672895 -0.08685140875918179  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.096116739806102E11  </distance>
+    <timeOrigin> 4986696600000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 1 </numPolyRadVel>
+    <radVel> 1 1 -10262.971  </radVel>
+  </row>
+    """,
+        """
+  <row>
+    <timeInterval> 4986700800000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3968819778234143 -0.0868981254054935  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.095749744424258E11  </distance>
+    <timeOrigin> 4986700200000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 1 </numPolyRadVel>
+    <radVel> 1 1 -10125.3174  </radVel>
+  </row>
+    """,
+    ]
+    ephemeris_table = asdm.getEphemeris()
+    for row_xml in ephemeris_rows_xml:
+        ephemeris_row = pyasdm.EphemerisRow(ephemeris_table)
+        ephemeris_row.setFromXML(row_xml)
+        ephemeris_table.add(ephemeris_row)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_field_ephemeris():
+    """
+    Meant for create_field_and_source_xds tests
+    """
+    asdm = make_asdm_with_spw_simple()
+    add_field_with_ephemeris_table(asdm)
+    add_ephemeris_table(asdm)
+    return asdm
+
+
 def add_scan_table(asdm: pyasdm.ASDM):
     scan_row_0_xml = """
   <row>

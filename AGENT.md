@@ -88,7 +88,8 @@ xradio/
 │   ├── schema/               # Home-grown xarray-dataclasses reimpl (Data/Coord/Attr + decorators + check.py)
 │   │   ├── coordinates.py     #   coordinate bases (time, frequency, antenna, baseline, scan, receptor label)
 │   │   ├── dimensions.py      #   shared dimension literals (time, frequency, polarization, antenna_name, ...)
-│   │   ├── info.py            #   creator, data group, schema version, versioned and flag array bases
+│   │   ├── info.py            #   creator, data group, schema version, versioned and flag array bases;
+│   │   │                      #   check_data_groups, matching_data_var_names
 │   │   ├── measures.py        #   shared measure schemas (time, spectral, sky, location, ...) and casacore
 │   │   │                      #   tables; with the dimensions, re-exported by xradio.measurement_set.schema
 │   │   └── polarization.py    #   casacore Stokes types, the canonical polarization order, check_polarization_order

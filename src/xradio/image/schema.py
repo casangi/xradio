@@ -44,15 +44,11 @@ from xradio.schema.bases import (
 from xradio.schema.check import (
     SchemaIssue,
     SchemaIssues,
-    _matching_data_var_names,
-    check_array,
     check_dataset,
-    check_dict,
 )
 from xradio.schema.dataclass import (
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
-    xarray_dataclass_to_dict_schema,
 )
 from xradio.schema.dimensions import (
     ZD,
@@ -63,6 +59,11 @@ from xradio.schema.dimensions import (
     Polarization,
     SkyDirLabel,
     Time,
+)
+from xradio.schema.info import (
+    _check_referenced_variable,
+    check_data_groups,
+    matching_data_var_names,
 )
 from xradio.schema.measures import (
     AllowedDopplerTypes,
@@ -1124,7 +1125,8 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
       :py:class:`DataGroupDict`, and has no unknown roles;
     * every data variable referenced by a data group role exists and
       conforms to the array schema of its role (see
-      ``DATA_GROUP_ROLE_SCHEMAS``), whatever its name;
+      ``DATA_GROUP_ROLE_SCHEMAS``), whatever its name (these two with
+      :py:func:`~xradio.schema.info.check_data_groups`);
     * the ``flag`` and ``beam_fit_params`` attributes of sky images, and the
       ``beam_fit_params`` attribute of point spread functions, name existing
       data variables that conform to :py:class:`FlagArray` and
@@ -1165,119 +1167,15 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
     checked = {}
     for data_var_schema in xarray_dataclass_to_dataset_schema(ImageXds).data_vars:
         checked.setdefault(data_var_schema.schema_name, set()).update(
-            _matching_data_var_names(image_xds.data_vars, data_var_schema)
+            matching_data_var_names(image_xds.data_vars, data_var_schema)
         )
 
-    data_groups = image_xds.attrs.get("data_groups")
-    # Missing or wrong-typed data_groups has already been reported by
-    # check_dataset
-    if isinstance(data_groups, dict):
-        issues += _check_data_groups(image_xds, data_groups, checked)
-
+    issues += check_data_groups(
+        image_xds, ImageXds, DATA_GROUP_ROLE_SCHEMAS, checked=checked
+    )
     issues += _check_reference_attributes(image_xds, checked)
     issues += _check_beam_params_labels(image_xds)
     issues += check_polarization_order(image_xds)
-    return issues
-
-
-def _check_referenced_variable(
-    image_xds: xarray.Dataset, variable_name: str, array_schema: type, checked: dict
-) -> SchemaIssues:
-    """Check an existing data variable against an array schema, unless it
-    has already been checked against that schema.
-
-    :param image_xds: Image dataset
-    :param variable_name: Name of a data variable of ``image_xds``
-    :param array_schema: Array schema class the variable must conform to
-    :param checked: Names of the variables checked so far, by schema name
-        (updated)
-    :returns: Schema issues found
-    """
-
-    names = checked.setdefault(
-        xarray_dataclass_to_array_schema(array_schema).schema_name, set()
-    )
-    if variable_name in names:
-        return SchemaIssues()
-    names.add(variable_name)
-    return check_array(image_xds[variable_name], array_schema).at_path(
-        "data_vars", variable_name
-    )
-
-
-def _check_data_groups(
-    image_xds: xarray.Dataset, data_groups: dict, checked: dict
-) -> SchemaIssues:
-    """Check the data groups of an image dataset and the variables their
-    roles reference.
-
-    :param image_xds: Image dataset
-    :param data_groups: The ``data_groups`` attribute of ``image_xds``
-    :param checked: Names of the variables checked so far, by schema name
-        (updated)
-    :returns: Schema issues found
-    """
-
-    issues = SchemaIssues()
-    data_group_keys = {
-        attr.name for attr in xarray_dataclass_to_dict_schema(DataGroupDict).attributes
-    }
-
-    for group_name, group in data_groups.items():
-        if not isinstance(group, dict):
-            issues += SchemaIssues(
-                [
-                    SchemaIssue(
-                        path=[("attrs", "data_groups")],
-                        message=f"Data group '{group_name}' is not a dictionary!",
-                        found=type(group),
-                        expected=[dict],
-                    )
-                ]
-            )
-            continue
-
-        # The "base" group is already validated against DataGroupDict by
-        # check_dataset (through the DataGroupsDict attribute schema); only
-        # check the other groups here to avoid duplicate issues.
-        if group_name != "base":
-            issues += check_dict(group, DataGroupDict).at_path(
-                "attrs", f"data_groups['{group_name}']"
-            )
-
-        for role, variable_name in group.items():
-            if role not in data_group_keys:
-                issues += SchemaIssues(
-                    [
-                        SchemaIssue(
-                            path=[("attrs", f"data_groups['{group_name}']")],
-                            message=f"Unknown data group role '{role}'!",
-                            found=role,
-                            expected=sorted(data_group_keys),
-                        )
-                    ]
-                )
-                continue
-            role_schema = DATA_GROUP_ROLE_SCHEMAS.get(role)
-            if role_schema is None or not isinstance(variable_name, str):
-                continue
-            if variable_name not in image_xds.data_vars:
-                issues += SchemaIssues(
-                    [
-                        SchemaIssue(
-                            path=[("data_vars", variable_name)],
-                            message=f"Data group '{group_name}' role '{role}' "
-                            "references a missing data variable!",
-                            found=None,
-                            expected=[variable_name],
-                        )
-                    ]
-                )
-                continue
-            issues += _check_referenced_variable(
-                image_xds, variable_name, role_schema, checked
-            )
-
     return issues
 
 

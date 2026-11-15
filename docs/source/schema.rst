@@ -162,6 +162,13 @@ Shared Base Classes
 
 .. autoclass:: xradio.schema.info.FlagArrayBase()
 
+The functions of :py:mod:`xradio.schema.info`, used with
+:py:func:`~xradio.schema.check.check_dataset`:
+
+.. autofunction:: xradio.schema.info.check_data_groups
+
+.. autofunction:: xradio.schema.info.matching_data_var_names
+
 Decorators
 ----------
 

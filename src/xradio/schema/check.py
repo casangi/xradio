@@ -232,9 +232,10 @@ def _not_a_dataset_schema_message(schema: typing.Any) -> str:
     Explain why ``schema`` cannot be used as a dataset schema
 
     Classes that are not dataset schemas are named explicitly. If a
-    registered dataset schema has the same class name (for example the image
-    accessor ``xradio.image.ImageXds`` and the schema
-    ``xradio.image.schema.ImageXds``), it is suggested.
+    registered dataset schema has the same class name, or the class name
+    without an ``Accessor`` suffix (for example the image accessor
+    ``xradio.image.ImageXdsAccessor``, formerly ``xradio.image.ImageXds``,
+    and the schema ``xradio.image.schema.ImageXds``), it is suggested.
 
     :param schema: Object passed as the schema
     :returns: Error message
@@ -253,11 +254,12 @@ def _not_a_dataset_schema_message(schema: typing.Any) -> str:
         message += " It is a data array schema: use check_array to check arrays."
     elif bases.is_dict_schema(schema):
         message += " It is a dictionary schema: use check_dict to check dictionaries."
+    names = {schema.__qualname__, schema.__qualname__.removesuffix("Accessor")}
     suggestions = sorted(
         {
             registered.schema_name
             for registered in _DATASET_TYPES.values()
-            if registered.schema_name.rsplit(".", 1)[-1] == schema.__qualname__
+            if registered.schema_name.rsplit(".", 1)[-1] in names
             and registered.schema_name != class_name
         }
     )

@@ -2445,20 +2445,22 @@ def test_check_dataset_dict_schema_class():
         check_dataset(_make_valid_dataset(), _TestDictSchema)
 
 
-def test_check_dataset_class_named_like_schema(isolated_dataset_types):
-    # A class with the name of a registered dataset schema (for example the
-    # accessor xradio.image.ImageXds next to the schema
-    # xradio.image.schema.ImageXds) is not mistaken for it, and the schema
-    # is suggested
+@pytest.mark.parametrize("suffix", ["", "Accessor"])
+def test_check_dataset_class_named_like_schema(isolated_dataset_types, suffix):
+    # A class with the name of a registered dataset schema, or that name
+    # followed by "Accessor" (an accessor class next to its schema), is not
+    # mistaken for it, and the schema is suggested
     from xradio.schema import xarray_dataclass_to_dataset_schema
 
     schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
     register_dataset_type(schema)
-    look_alike = type("_TestRegisteredDatasetSchema", (), {"__module__": "elsewhere"})
+    look_alike = type(
+        f"_TestRegisteredDatasetSchema{suffix}", (), {"__module__": "elsewhere"}
+    )
     with pytest.raises(TypeError) as excinfo:
         check_dataset(_make_valid_dataset(), look_alike)
     message = str(excinfo.value)
-    assert "elsewhere._TestRegisteredDatasetSchema" in message
+    assert f"elsewhere._TestRegisteredDatasetSchema{suffix}" in message
     assert f"Did you mean the dataset schema {schema.schema_name}?" in message
 
 

@@ -10,17 +10,17 @@ from xradio.testing.image import create_empty_test_image
 
 
 def _make_valid_image_dataset():
-    """Create a minimal Dataset that is valid for the ImageXds accessor.
+    """Create a minimal Dataset that is valid for the xr_img accessor.
 
     Built with :func:`~xradio.testing.image.create_empty_test_image`
     (``make_empty_sky_image`` factory, sky coordinates enabled) and promoted
     to an ``image_dataset`` node with a minimal ``data_groups`` mapping so
-    that ImageXds methods accept it as an image node.
+    that ImageXdsAccessor methods accept it as an image node.
     """
 
     xds = create_empty_test_image(make_empty_sky_image, do_sky_coords=True)
 
-    # Promote the dataset to an ImageXds-compatible image_dataset node.
+    # Promote the dataset to an image_dataset node that xr_img accepts.
     xds.attrs["type"] = "image_dataset"
     # Minimal data_groups: base group with required keys from the image schema.
     xds.attrs["data_groups"] = {
@@ -37,15 +37,15 @@ def _make_valid_image_dataset():
 
 @pytest.fixture
 def image_xds_valid():
-    """Fixture providing a fresh ImageXds-compatible Dataset per test."""
+    """Fixture providing a fresh xr_img-compatible Dataset per test."""
     return _make_valid_image_dataset()
 
 
 class TestImageXdsValid:
-    """Test suite for ImageXds accessor with valid image datasets."""
+    """Test suite for ImageXdsAccessor (xr_img) with valid image datasets."""
 
     def test_xr_img_accessor_registration(self, image_xds_valid):
-        """ImageXds accessor should be registered and keep a reference to the dataset."""
+        """xr_img accessor should be registered and keep a reference to the dataset."""
 
         xds = image_xds_valid
 
@@ -474,14 +474,14 @@ _INVALID_TYPE_VALUES = [
 
 
 class TestImageXdsInvalid:
-    """Test suite for ImageXds accessor with invalid image datasets."""
+    """Test suite for ImageXdsAccessor (xr_img) with invalid image datasets."""
 
     @pytest.mark.parametrize("call", _INVALID_TYPE_CALLS)
     @pytest.mark.parametrize("type_value,delete_type", _INVALID_TYPE_VALUES)
     def test_invalid_type_raises_invalid_accessor_location(
         self, image_xds_valid, call, type_value, delete_type
     ):
-        """Each ImageXds method rejects datasets whose type is not image_dataset.
+        """Each xr_img method rejects datasets whose type is not image_dataset.
 
         Produces 21 independent items (7 methods × 3 invalid-type variants) so
         a single regression is pinpointed without masking the remaining checks.

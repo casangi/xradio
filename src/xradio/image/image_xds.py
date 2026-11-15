@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -35,13 +36,13 @@ def _pixel_indices(pixels: np.ndarray) -> np.ndarray:
 
 class InvalidAccessorLocation(ValueError):
     """
-    Raised by ImageXds accessor functions called on a wrong Dataset (not image).
+    Raised by ImageXdsAccessor functions called on a wrong Dataset (not image).
     """
 
     pass
 
 
-class ImageXds:
+class ImageXdsAccessor:
     """Accessor to the Image Dataset.
 
     Registered as ``xr.Dataset.xr_img`` without xarray's accessor cache: every
@@ -57,12 +58,12 @@ class ImageXds:
 
     def __init__(self, dataset: xr.Dataset):
         """
-        Initialize the ImageXds instance.
+        Initialize the ImageXdsAccessor instance.
 
         Parameters
         ----------
         dataset: xarray.Dataset
-            The image Dataset node to construct an ImageXds accessor.
+            The image Dataset node to construct an ImageXdsAccessor.
         """
 
         self._xds: xr.Dataset = dataset
@@ -281,7 +282,7 @@ class ImageXds:
         Returns
         -------
         xarray.Dataset
-            xarray Dataset with ImageXds accessors
+            xarray Dataset with ImageXdsAccessor accessors
 
         Examples
         --------
@@ -352,7 +353,7 @@ class ImageXds:
         Returns
         -------
         xarray.Dataset
-            ImageXds Dataset with specified data variables deleted.
+            Image Dataset with specified data variables deleted.
 
         Raises
         ------
@@ -414,4 +415,18 @@ def _uv_in_wavelengths(coord: xr.DataArray, wavelength: float) -> xr.DataArray:
     return converted
 
 
-register_uncached_accessor("xr_img", xr.Dataset)(ImageXds)
+register_uncached_accessor("xr_img", xr.Dataset)(ImageXdsAccessor)
+
+#: Warning given when the accessor class is used by its former name.
+_IMAGE_XDS_DEPRECATION = (
+    "ImageXds, the class of the xr_img accessor, is deprecated: use "
+    "ImageXdsAccessor. The image dataset schema is xradio.image.schema.ImageXds."
+)
+
+
+def __getattr__(name: str):
+    # ImageXds: deprecated alias of ImageXdsAccessor
+    if name == "ImageXds":
+        warnings.warn(_IMAGE_XDS_DEPRECATION, DeprecationWarning, stacklevel=2)
+        return ImageXdsAccessor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

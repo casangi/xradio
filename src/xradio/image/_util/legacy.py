@@ -98,7 +98,7 @@ def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
       get the ``units``, ``crval`` and ``cdelt`` attributes the CASA image
       reader writes;
     * ``u`` and ``v`` coordinates without ``units`` (as
-      ``ImageXds.add_uv_coordinates`` added them, in wavelengths) get the
+      ``xr_img.add_uv_coordinates`` added them, in wavelengths) get the
       ``units`` ``"lambda"``;
     * the ``note`` of the ``l`` and ``m`` coordinates, which described them as
       angles, is replaced by the current one (projection plane coordinates);

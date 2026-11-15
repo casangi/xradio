@@ -74,9 +74,9 @@ xradio/
 │   │   └── _utils/_msv2|_zarr|_utils # internal converters, casacore readers, zarr encoding
 │   │                                  #   (_msv2/open_msv2.py: open_msv2, remove_msv2_partition_cache, the xradio_msv2 engine)
 │   ├── image/                # Image cube IO (CASA/FITS/Zarr), single Dataset (NOT DataTree)
-│   │   ├── __init__.py        #   open_image, load_image, write_image, make_empty_*, check_image, ImageXds (accessor)
+│   │   ├── __init__.py        #   open_image, load_image, write_image, make_empty_*, check_image, ImageXdsAccessor (accessor; ImageXds is its deprecated alias)
 │   │   ├── image.py           #   authoritative docstrings
-│   │   ├── image_xds.py       #   .xr_img accessor (ImageXds)
+│   │   ├── image_xds.py       #   .xr_img accessor (ImageXdsAccessor)
 │   │   ├── schema.py          #   IMAGE_SCHEMA_VERSION, ImageXds dataset schema, array/dict schemas, DataGroupDict, check_image
 │   │   ├── backends.py        #   xarray backends implementation (open_image_dataset, lazy BackendArray)
 │   │   └── _util/
@@ -140,7 +140,7 @@ where `ms_v4_id` is the **zero-padded** partition index (padded in `convert_msv2
 An image is a **single `xr.Dataset`** (no DataTree), `attrs["type"] == "image_dataset"`. Multiple products live as separate UPPERCASE data vars: `SKY`, `POINT_SPREAD_FUNCTION`, `PRIMARY_BEAM`, `MASK`, `APERTURE`, `VISIBILITY`, ..., with versions named by suffix (`SKY_MODEL`, `SKY_RESIDUAL`, `FLAG_SKY_RESIDUAL`). Sky cubes use dims `(time, frequency, polarization, l, m)`; aperture/uv cubes `(time, frequency, polarization, u, v)`; `lmuv` images carry both. Beams: `BEAM_FIT_PARAMS_<TYPE>` with dim `beam_params_label = [major, minor, pa]`. Flags: boolean `FLAG_<TYPE>`, `True` = invalid pixel (CASA masks, where `True` = good, are inverted on read and write). Organized via `attrs["data_groups"]` (same mechanism as MS): each group maps roles (`sky`, `flag`, `point_spread_function`, `primary_beam`, `mask`, ...) to variable names.
 
 - **Schema version:** `IMAGE_SCHEMA_VERSION` (`image/schema.py`) is the image counterpart of `MSV4_SCHEMA_VERSION`: `ImageXds` requires the `schema_version` attr; the `make_empty_*` factories and the CASA/FITS readers (so also the xarray engines) set the current version, the zarr writer stores whatever the dataset has, and the upgrade on read (`image/_util/legacy.py`) gives zarr stores without a version (or with an empty one) or with an older one the current version, and normalizes the current version written differently (with surrounding spaces); a newer or malformed one is kept, with a warning. `docs/source/conf.py` imports the constant for the `|IMAGE_SCHEMA_VERSION|` substitution (overview table, index), so a version bump changes only the constant.
-- **Formal schema:** `xradio.image.schema.ImageXds` (dataset schema; not the `xradio.image.ImageXds` accessor class) with array and dict schemas, exported to `schemas/ImageXds.json`. `check_image(xds)` = `check_dataset` + data group roles + the `flag`/`beam_fit_params` references of images + beam labels; it does not check that a writer can store the dataset (non-uniform axes, icrs/hcrs/lsr spectral observers, polarization sets FITS cannot hold).
+- **Formal schema:** `xradio.image.schema.ImageXds` (dataset schema; not the `xradio.image.ImageXdsAccessor` accessor class, formerly `xradio.image.ImageXds`) with array and dict schemas, exported to `schemas/ImageXds.json`. `check_image(xds)` = `check_dataset` + data group roles + the `flag`/`beam_fit_params` references of images + beam labels; it does not check that a writer can store the dataset (non-uniform axes, icrs/hcrs/lsr spectral observers, polarization sets FITS cannot hold).
 - **Conventions** (one translation table each in `image/_util/conventions.py`, which re-exports the spectral frame, epoch and polarization tables of `xradio.schema.measures` and `xradio.schema.polarization`; used by both readers, both writers and the factories): the frequency coordinate's `frame` holds the casacore name (`LSRK`, `BARY`, `TOPO`, `GEO`, `REST`, `LSRD`, `GALACTO`, `LGROUP`, `CMB`), `reference_frequency.attrs.observer` the schema vocabulary (`lsrk`, `BARY`, `gcrs`, ...), FITS `SPECSYS` its FITS name; polarization labels are kept in **canonical Jones order** (`I, Q, U, V`; `RR, RL, LR, LL`; `XX, XY, YX, YY`) in memory, so correlations map onto 2x2 Jones matrices: the FITS writer reorders the planes into a linear FITS `STOKES` axis, every reader (FITS, CASA, zarr) returns the canonical order (CASA images converted from FITS can store another one), the `make_empty_*` factories raise for another order and `check_image` reports it; `sub_type` uses casacore image types without spaces (`SpectralIndex`), written back in casacore's spelling; times are read through their `units`, `format` and `scale`.
 - `l`/`m` are projection plane coordinates (pixel offset x cdelt; direction cosines for SIN), `u`/`v` are in wavelengths (`units: "lambda"`). Frequencies are in Hz; `frequency.attrs.channel_width` (as in MSv4) gives the width of a single-channel axis.
 
@@ -441,7 +441,7 @@ requirement for XRADIO objects. XRADIO uses two cycle-free designs:
    temporaries (`ds.isel(...).xr_img.get_lm_cell_size()`,
    `open_datatree(...).xr_ms.sel(...)`) are fine. Because every access is a
    new instance, accessors must keep **no state between calls**. References:
-   `image_xds.py` (`ImageXds`), `measurement_set_xdt.py` (`MeasurementSetXdt`).
+   `image_xds.py` (`ImageXdsAccessor`), `measurement_set_xdt.py` (`MeasurementSetXdt`).
 2. **Cached, weak accessor (`xr_ps` only, because it caches `summary()`).**
    `processing_set_xdt.py` registers a module-level factory that builds the
    accessor and swaps its back-reference to a `weakref` (`_weaken()`); the

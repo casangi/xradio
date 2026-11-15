@@ -185,6 +185,17 @@ def check_dataset(
     """
     Check whether an xarray Dataset conforms to a schema
 
+    For the measurement set datasets
+    (:py:class:`~xradio.measurement_set.schema.VisibilityXds` and
+    :py:class:`~xradio.measurement_set.schema.SpectrumXds`) this also checks
+    every data group and the data variables that it names (see
+    :py:func:`~xradio.schema.info.check_data_groups`). That check is
+    registered when ``xradio.measurement_set.schema`` is imported, as it is
+    wherever its classes are used and by ``import xradio.measurement_set``,
+    and is found by the schema name, so it also runs for these schemas
+    imported from JSON. It is not part of the JSON schemas: software that
+    checks against them without xradio does not run it.
+
     :param dataset: Dataset to check
     :param schema: Dataset schema to check against (a class decorated with
        :py:func:`~xradio.schema.bases.xarray_dataset_schema`, for example
@@ -224,6 +235,12 @@ def check_dataset(
 
     # Check data variables
     issues += check_data_vars(dataset.data_vars, schema.data_vars, "data_vars")
+
+    # Checks registered for this schema, beyond the structure checked above
+    # (the measurement set schemas check every data group)
+    dataset_check = _DATASET_CHECKS.get(schema.schema_name)
+    if dataset_check is not None:
+        issues += dataset_check(dataset)
 
     return issues
 
@@ -779,6 +796,11 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
 
 
 _DATASET_TYPES = {}
+
+# Checks that check_dataset runs after its structural checks, by the
+# schema_name of the dataset schema: functions of the dataset that return
+# SchemaIssues (xradio.measurement_set.schema registers its data group check)
+_DATASET_CHECKS = {}
 
 
 class ExtensionTypeWarning(UserWarning):

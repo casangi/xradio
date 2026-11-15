@@ -2326,7 +2326,8 @@ def test_single_dish_corrected_and_model_data_real_part(
     to FLOAT_DATA, and its single-dish tasks use only their real part: a
     spectrum dataset holds that real part (float32) as VISIBILITY_CORRECTED
     and VISIBILITY_MODEL (twice and half SPECTRUM in this MS), and
-    check_dataset finds no issue. A partition with decreasing frequencies."""
+    check_dataset finds no issue, also in their data groups. A partition with
+    decreasing frequencies."""
     from xradio.measurement_set._utils._msv2.partition_queries import (
         create_partitions_with_main_rows,
     )

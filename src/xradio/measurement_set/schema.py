@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import functools
 from dataclasses import KW_ONLY
 from typing import Literal
 
@@ -10,6 +11,7 @@ from xradio.schema.bases import (
     xarray_dataarray_schema,
     xarray_dataset_schema,
 )
+from xradio.schema.check import _DATASET_CHECKS
 
 # Shared schema building blocks (also used by xradio.image.schema) and the
 # bases the classes below derive from. The dimensions and measures that
@@ -22,6 +24,7 @@ from xradio.schema.coordinates import (
     ScanArrayBase,
     TimeCoordArrayBase,
 )
+from xradio.schema.dataclass import xarray_dataclass_to_dataset_schema
 from xradio.schema.dimensions import (  # noqa: F401
     ZD,
     AntennaName,
@@ -40,6 +43,7 @@ from xradio.schema.info import (
     CreatorDictBase,
     FlagArrayBase,
     VersionedArrayBase,
+    check_data_groups,
 )
 from xradio.schema.measures import (  # noqa: F401
     AllowedDopplerTypes,
@@ -1901,3 +1905,41 @@ class PhasedArrayXds:
     """
     Type of dataset. Expected to be ``phased_array``
     """
+
+
+# Array schemas of the data variables that data group roles name, by main
+# dataset schema. The other keys of DataGroupDict are not resolved:
+# field_and_source names a child node of the measurement set DataTree, and
+# description and date are text.
+_DATA_GROUP_ROLE_SCHEMAS = {
+    VisibilityXds: {
+        "correlated_data": VisibilityArray,
+        "flag": FlagArray,
+        "weight": WeightArray,
+        "uvw": UvwArray,
+    },
+    SpectrumXds: {
+        "correlated_data": SpectrumArray,
+        "flag": FlagArray,
+        "weight": WeightArray,
+        "uvw": UvwArray,
+    },
+}
+
+# check_dataset (and so check_datatree) checks every data group of the main
+# datasets and the data variables that their roles name; the attribute schema
+# of data_groups covers only the 'base' group. Keys that DataGroupDict does not
+# define are allowed in every group, as in 'base'.
+_DATASET_CHECKS.update(
+    {
+        xarray_dataclass_to_dataset_schema(dataset_schema).schema_name: (
+            functools.partial(
+                check_data_groups,
+                schema=dataset_schema,
+                role_schemas=role_schemas,
+                report_unknown_roles=False,
+            )
+        )
+        for dataset_schema, role_schemas in _DATA_GROUP_ROLE_SCHEMAS.items()
+    }
+)

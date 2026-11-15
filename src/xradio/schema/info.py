@@ -27,8 +27,10 @@ that its roles name, :py:func:`matching_data_var_names` gives the data
 variables that :py:func:`~xradio.schema.check.check_dataset` checks against a
 data variable of a dataset schema, and :py:func:`check_schema_version` checks
 the ``schema_version`` attribute against the version of the schema in this
-xradio. :py:func:`~xradio.image.schema.check_image` uses the first two; no
-check calls :py:func:`check_schema_version` yet.
+xradio. :py:func:`~xradio.image.schema.check_image` uses the first two, and
+check_dataset runs :py:func:`check_data_groups` for the main datasets of the
+measurement set v4 schema; no check calls :py:func:`check_schema_version`
+yet.
 """
 
 from __future__ import annotations
@@ -210,9 +212,11 @@ def check_data_groups(
     Check every data group of a dataset, and the data variables that their
     roles name
 
-    This complements :py:func:`~xradio.schema.check.check_dataset`, which
-    checks only the ``base`` data group, against the data group schema, and
-    resolves no names:
+    This complements the structural checks of
+    :py:func:`~xradio.schema.check.check_dataset`, which check only the
+    ``base`` data group, against the data group schema, and resolve no names
+    (for the main datasets of the measurement set v4 schema, check_dataset
+    runs this function too):
 
     * every data group is a dictionary (a ``base`` data group that is not
       one is reported both here and by check_dataset);

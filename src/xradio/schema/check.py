@@ -705,7 +705,13 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
             )
     elif schema.type in ["bool", "str", "int", "float"]:
         type_to_check = getattr(builtins, schema.type)
-        if not isinstance(val, type_to_check):
+        if schema.type == "float":
+            # A Python int is a valid float, as in list[float] (but bool, a
+            # subclass of int, is not)
+            valid = isinstance(val, int | float) and not isinstance(val, bool)
+        else:
+            valid = isinstance(val, type_to_check)
+        if not valid:
             expected = [type_to_check]
             if schema.optional:
                 expected.append(type(None))

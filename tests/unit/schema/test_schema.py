@@ -2697,3 +2697,66 @@ def test_check_dict_list_list_float_invalid():
         {"params": [0.0], "matrix": [[1.0, "zero"]]}, _DictWithListFloatAttr
     )
     assert len(issues) == 1
+
+
+# ---------------------------------------------------------------------------
+# float values accept Python ints (not bools), as list[float] does
+# ---------------------------------------------------------------------------
+
+
+@dict_schema
+class _DictWithFloatAttr:
+    value: float
+    optional_value: float | None = None
+
+
+@pytest.mark.parametrize("value", [1.5, 2, 0, -3, numpy.float64(1.5)])
+def test_check_dict_float_accepts_int(value):
+    assert not check_dict({"value": value}, _DictWithFloatAttr)
+    assert not check_dict({"value": 1.0, "optional_value": value}, _DictWithFloatAttr)
+
+
+@pytest.mark.parametrize(
+    "value", [True, False, "1.5", [1.5], numpy.float32(1.5), numpy.int64(2)]
+)
+def test_check_dict_float_rejects_other_types(value):
+    (issue,) = check_dict({"value": value}, _DictWithFloatAttr)
+    assert issue.path == [("", "value")]
+    assert issue.message == f"{type(value).__name__} is not a float!"
+    assert issue.expected == [float]
+    assert issue.found is type(value)
+
+    (issue,) = check_dict({"value": 1.0, "optional_value": value}, _DictWithFloatAttr)
+    assert issue.expected == [float, type(None)]
+
+
+def test_check_array_float_attribute_accepts_int():
+    @xarray_dataarray_schema
+    class _ArrayWithFloatAttr:
+        data: Data[Dim1, float]
+        scale: Attr[float]
+
+    array = xarray.DataArray(numpy.zeros(3), dims=("coord",), attrs={"scale": 2})
+    assert not check_array(array, _ArrayWithFloatAttr)
+    array.attrs["scale"] = True
+    (issue,) = check_array(array, _ArrayWithFloatAttr)
+    assert issue.path == [("attrs", "scale")]
+
+
+def test_check_value_int_and_bool_unchanged():
+    """int values still reject floats, and accept bools as before"""
+    int_schema = AttrSchemaRef(name="value", type="int")
+    assert _check_value(1.0, int_schema)
+    assert not _check_value(True, int_schema)
+    assert _check_value(1, AttrSchemaRef(name="value", type="bool"))
+
+
+def test_schema_checked_float_parameter_accepts_int():
+    @schema_checked
+    def fn(value: float) -> float:
+        return value
+
+    assert fn(2) == 2
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(True)
+    assert exc_info.value.issues[0].path == [("value", None)]

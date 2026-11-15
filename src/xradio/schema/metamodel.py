@@ -40,9 +40,10 @@ class ValueSchema:
     * ``bool``: A boolean
     * ``str``: A UTF-8 string
     * ``int``: A 64-bit signed integer
-    * ``float``: A double-precision floating point number
+    * ``float``: A double-precision floating point number (a Python ``int``
+      is accepted too, but not a ``bool``)
     * ``list[str]``: A list of strings
-    * ``list[float]``: A list of floating point numbers
+    * ``list[float]``: A list of floating point numbers (or ints)
     * ``list[list[float]]``: A list of lists of floating point numbers (matrix)
     * ``dict``: Dictionary
     * ``dataarray``: An xarray dataarray (encoded using ``to_dict``)

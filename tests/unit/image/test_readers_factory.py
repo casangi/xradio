@@ -571,6 +571,11 @@ class TestCasaReaderDirection:
             tolerance
         )
         assert np.abs(xds.declination.values - world[..., 1]).max() < tolerance
+        # so does the WCS of the accessor (#655)
+        wcs = xds.xr_img.get_wcs()
+        lon, lat = np.radians(wcs.pixel_to_world_values(*np.indices(world.shape[:2])))
+        assert np.abs(_angle_difference(lon, world[..., 0])).max() < tolerance
+        assert np.abs(lat - world[..., 1]).max() < tolerance
 
     @pytest.mark.parametrize("reader", [open_image, load_image])
     def test_galactic_image(self, tmp_path, reader):
@@ -596,6 +601,12 @@ class TestCasaReaderDirection:
         ).max() < (tolerance)
         assert np.abs(xds.galactic_latitude.values - world[..., 1]).max() < tolerance
         assert not check_image(xds)
+        # so does the WCS of the accessor (#655)
+        wcs = xds.xr_img.get_wcs()
+        assert wcs.pixel_to_world(0, 0).frame.name == "galactic"
+        lon, lat = np.radians(wcs.pixel_to_world_values(*np.indices(world.shape[:2])))
+        assert np.abs(_angle_difference(lon, world[..., 0])).max() < tolerance
+        assert np.abs(lat - world[..., 1]).max() < tolerance
 
     def test_galactic_image_through_fits(self, tmp_path):
         """A galactic CASA image written to FITS keeps casacore's sky

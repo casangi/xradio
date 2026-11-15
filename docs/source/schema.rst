@@ -94,6 +94,37 @@ with the measurement set coordinates. They can also be imported from
    casacore frames ``GALACTO``, ``LGROUP`` and ``CMB``, so spectral
    coordinates of measurement sets accept these observers too.
 
+Shared Dimensions
+-----------------
+
+.. automodule:: xradio.schema.dimensions
+
+Shared Polarization Vocabulary
+------------------------------
+
+.. automodule:: xradio.schema.polarization
+
+.. autodata:: xradio.schema.polarization.CASACORE_STOKES_TYPES
+   :no-value:
+
+.. autodata:: xradio.schema.polarization.CANONICAL_POLARIZATION_ORDER
+
+.. autodata:: xradio.schema.polarization.CIRCULAR_CORRELATIONS
+
+.. autodata:: xradio.schema.polarization.LINEAR_CORRELATIONS
+
+The casacore translation tables of :py:mod:`xradio.schema.measures`:
+
+.. autodata:: xradio.schema.measures.CASACORE_SPECTRAL_FRAMES
+
+.. autodata:: xradio.schema.measures.CASACORE_TO_OBSERVER
+
+.. autodata:: xradio.schema.measures.CASACORE_EPOCH_REF_TO_SCALE
+
+.. autodata:: xradio.schema.measures.CASACORE_DIRECTION_TO_FRAME
+
+.. autodata:: xradio.schema.measures.DEFAULT_EQUINOX
+
 Decorators
 ----------
 

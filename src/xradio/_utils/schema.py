@@ -5,6 +5,7 @@ import xarray as xr
 
 from xradio._utils.dict_helpers import ensure_units_are_consistent
 from xradio._utils.logging import xradio_logger
+from xradio.schema.measures import CASACORE_DIRECTION_TO_FRAME, CASACORE_TO_OBSERVER
 
 
 def convert_generic_xds_to_xradio_schema(
@@ -172,11 +173,7 @@ casacore_to_msv4_measure_type = {
     "direction": {
         "type": "sky_coord",
         "Ref": "frame",
-        "Ref_map": {
-            "AZELGEO": "altaz",
-            "ICRS": "icrs",
-            "J2000": "fk5",
-        },
+        "Ref_map": dict(CASACORE_DIRECTION_TO_FRAME),
     },
     "epoch": {
         "type": "time",
@@ -189,17 +186,9 @@ casacore_to_msv4_measure_type = {
     "frequency": {
         "type": "spectral_coord",
         "Ref": "observer",
-        "Ref_map": {
-            "REST": "REST",
-            "LSRK": "lsrk",
-            "LSRD": "lsrd",
-            "BARY": "BARY",
-            "GEO": "gcrs",
-            "TOPO": "TOPO",
-            "GALACTO": "GALACTO",
-            "LGROUP": "LGROUP",
-            "CMB": "CMB",
-        },  # The frames/observer we are not sure if/how to translate to astropy are uppercase
+        # The frames/observer we are not sure if/how to translate to astropy
+        # are uppercase
+        "Ref_map": dict(CASACORE_TO_OBSERVER),
     },
     "position": {
         "type": "location",

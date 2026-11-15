@@ -36,7 +36,6 @@ from typing import Literal
 import numpy
 import xarray
 
-from xradio.image._util.conventions import canonical_polarization_order
 from xradio.schema.bases import (
     dict_schema,
     xarray_dataarray_schema,
@@ -55,33 +54,36 @@ from xradio.schema.dataclass import (
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
 )
-from xradio.schema.measures import (
+from xradio.schema.dimensions import (
     ZD,
+    CartesianPosLabel,
+    EllipsoidDirLabel,
+    EllipsoidDisLabel,
+    Frequency,
+    Polarization,
+    SkyDirLabel,
+    Time,
+)
+from xradio.schema.measures import (
     AllowedDopplerTypes,
     AllowedSkyCoordFrames,
     AllowedSpectralCoordFrames,
     AllowedTimeFormats,
     AllowedTimeScales,
-    CartesianPosLabel,
     Doppler,
-    EllipsoidDirLabel,
-    EllipsoidDisLabel,
-    Frequency,
     Location,
-    Polarization,
     PolarizationArray,
     QuantityInHertzArray,
     SkyCoord,
-    SkyDirLabel,
     SpectralCoord,
     SpectralCoordArray,
-    Time,
     UnitsHertz,
     UnitsOfDopplerShift,
     UnitsOfLocationInMetersOrRadians,
     UnitsOfSkyCoordInMetersOrRadians,
     UnitsRadians,
 )
+from xradio.schema.polarization import canonical_polarization_order
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
 IMAGE_SCHEMA_VERSION = "0.0.3"

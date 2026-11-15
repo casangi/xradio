@@ -31,6 +31,7 @@ from xradio.image._util.common import (
     _compute_sky_reference_pixel,
     _time_coord_to_astropy,
 )
+from xradio.schema.measures import DEFAULT_EQUINOX
 
 # Dimensions of an image data variable written to FITS
 _IMAGE_DIMS = ("time", "frequency", "polarization", "l", "m")
@@ -41,8 +42,11 @@ _FITS_BLOCK_BYTES = 2880
 
 # Frames the FITS reader can round trip (it only supports RA-/DEC- CTYPEs)
 _EQUATORIAL_FRAMES = ("fk4", "fk5", "icrs")
-# FITS EQUINOX written when the reference direction has no equinox attribute
-_DEFAULT_EQUINOX = {"fk5": 2000.0, "fk4": 1950.0}
+# FITS EQUINOX written when the reference direction has no equinox attribute:
+# the year of the schema's default equinox ("j2000.0" -> 2000.0)
+_DEFAULT_EQUINOX = {
+    frame: float(equinox[1:]) for frame, equinox in DEFAULT_EQUINOX.items()
+}
 
 # VELREF frame codes (AIPS convention: 1 LSR, 2 HEL, 3 OBS; 4 to 7 are
 # casacore's non-standard extension), keyed by casacore spectral frame. The

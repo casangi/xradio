@@ -93,9 +93,9 @@ from xradio.measurement_set._utils._msv2.stream_write import (
     write_deferred_variables,
 )
 from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
-from xradio.measurement_set._utils._utils.stokes_types import stokes_types
 from xradio.measurement_set._utils._zarr.encoding import add_encoding
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
+from xradio.schema.polarization import CASACORE_STOKES_TYPES
 
 
 @contextmanager
@@ -720,7 +720,7 @@ def create_coordinates(
         rename_ids=subt_rename_ids["POLARIZATION"],
     )
     num_corr = int(pol_xds["NUM_CORR"][pol_setup_id].values)
-    coords["polarization"] = np.vectorize(stokes_types.get)(
+    coords["polarization"] = np.vectorize(CASACORE_STOKES_TYPES.get)(
         pol_xds["CORR_TYPE"][pol_setup_id, :num_corr].values
     )
 

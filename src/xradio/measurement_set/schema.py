@@ -12,8 +12,21 @@ from xradio.schema.bases import (
 
 # Schema building blocks shared with the image schema
 # (xradio.image.schema). Re-exported here for backwards compatibility.
-from xradio.schema.measures import (  # noqa: F401
+from xradio.schema.dimensions import (  # noqa: F401
     ZD,
+    AntennaName,
+    BaselineId,
+    CartesianPosLabel,
+    EllipsoidDirLabel,
+    EllipsoidDisLabel,
+    Frequency,
+    Polarization,
+    ReceptorLabel,
+    SkyDirLabel,
+    SkyDisLabel,
+    Time,
+)
+from xradio.schema.measures import (  # noqa: F401
     AllowedDopplerTypes,
     AllowedEllipsoid,
     AllowedLocationCoordinateSystems,
@@ -22,15 +35,10 @@ from xradio.schema.measures import (  # noqa: F401
     AllowedSpectralCoordFrames,
     AllowedTimeFormats,
     AllowedTimeScales,
-    CartesianPosLabel,
     Doppler,
     DopplerArray,
-    EllipsoidDirLabel,
-    EllipsoidDisLabel,
-    Frequency,
     Location,
     LocationArray,
-    Polarization,
     PolarizationArray,
     Quantity,
     QuantityInHertzArray,
@@ -40,11 +48,8 @@ from xradio.schema.measures import (  # noqa: F401
     QuantityInSecondsArray,
     SkyCoord,
     SkyCoordArray,
-    SkyDirLabel,
-    SkyDisLabel,
     SpectralCoord,
     SpectralCoordArray,
-    Time,
     TimeArray,
     UnitsHertz,
     UnitsMeters,
@@ -70,18 +75,12 @@ TimePointing = Literal["time_pointing"]
 """ time dimension of pointing dataset (when not interpolated to main time) """
 TimeWeather = Literal["time_weather"]
 """ time dimension of weather dataset (when not interpolated to main time) """
-AntennaName = Literal["antenna_name"]
-""" Antenna name dimension """
 ElementId = Literal["element_id"]
 """ Element Id dimension of phased_array_xds"""
 StationName = Literal["station_name"]
 """ Station name dimension """
-ReceptorLabel = Literal["receptor_label"]
-""" Receptor label dimension """
 ToneLabel = Literal["tone_label"]
 """ Tone label dimension """
-BaselineId = Literal["baseline_id"]
-""" Baseline ID dimension """
 FrequencySystemCal = Literal["frequency_system_cal"]
 """ Frequency dimension in the system calibration dataset """
 UvwLabel = Literal["uvw_label"]

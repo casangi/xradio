@@ -177,7 +177,7 @@ def _fits_image_to_xds(
     xr.Dataset
         The image dataset. Its polarization axis is in canonical (Jones
         matrix) order, see
-        :func:`xradio.image._util.conventions.canonical_polarization_order`.
+        :func:`xradio.schema.polarization.canonical_polarization_order`.
         A FITS ``STOKES`` axis must be a linear sequence of FITS codes, so FITS
         files store four correlations as RR, LL, RL, LR (or XX, YY, XY, YX);
         the reader reorders those planes, with their flags and per-plane
@@ -1211,7 +1211,7 @@ def _spectral_frame_from_header(header, ctype: str | None) -> str:
     -------
     str
         A casacore frame name (see
-        :data:`xradio.image._util.conventions.CASACORE_SPECTRAL_FRAMES`).
+        :data:`~xradio.schema.measures.CASACORE_SPECTRAL_FRAMES`).
     """
     specsys = str(header.get("SPECSYS", "")).strip()
     if specsys:

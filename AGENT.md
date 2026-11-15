@@ -86,8 +86,10 @@ xradio/
 │   │       ├── _blocks.py     #     RegionReader: batched dask computation of the writers' pixel regions
 │   │       └── _casacore/, _fits/, _zarr/, casacore.py, fits.py, zarr.py, image_factory.py, common.py
 │   ├── schema/               # Home-grown xarray-dataclasses reimpl (Data/Coord/Attr + decorators + check.py)
-│   │   └── measures.py        #   shared measure schemas (time, spectral, sky, location, ...), also
-│   │                          #   re-exported by xradio.measurement_set.schema for backward compatibility
+│   │   ├── dimensions.py      #   shared dimension literals (time, frequency, polarization, antenna_name, ...)
+│   │   ├── measures.py        #   shared measure schemas (time, spectral, sky, location, ...) and casacore
+│   │   │                      #   tables; with the dimensions, re-exported by xradio.measurement_set.schema
+│   │   └── polarization.py    #   casacore Stokes types and the canonical polarization order
 │   ├── _utils/               # zarr config (ZARR_FORMAT), logging, _casacore shim, xarray_helpers, dict_helpers
 │   └── testing/              # PUBLIC pytest-free test helpers (assertions, download_*) reused by benchviper
 ├── tests/
@@ -137,7 +139,7 @@ An image is a **single `xr.Dataset`** (no DataTree), `attrs["type"] == "image_da
 
 - **Schema version:** `IMAGE_SCHEMA_VERSION` (`image/schema.py`) is the image counterpart of `MSV4_SCHEMA_VERSION`: `ImageXds` requires the `schema_version` attr; the `make_empty_*` factories and the CASA/FITS readers (so also the xarray engines) set the current version, the zarr writer stores whatever the dataset has, and the upgrade on read (`image/_util/legacy.py`) gives zarr stores without a version (or with an empty one) or with an older one the current version, and normalizes the current version written differently (with surrounding spaces); a newer or malformed one is kept, with a warning. `docs/source/conf.py` imports the constant for the `|IMAGE_SCHEMA_VERSION|` substitution (overview table, index), so a version bump changes only the constant.
 - **Formal schema:** `xradio.image.schema.ImageXds` (dataset schema; not the `xradio.image.ImageXds` accessor class) with array and dict schemas, exported to `schemas/ImageXds.json`. `check_image(xds)` = `check_dataset` + data group roles + the `flag`/`beam_fit_params` references of images + beam labels; it does not check that a writer can store the dataset (non-uniform axes, icrs/hcrs/lsr spectral observers, polarization sets FITS cannot hold).
-- **Conventions** (one translation table each in `image/_util/conventions.py`, used by both readers, both writers and the factories): the frequency coordinate's `frame` holds the casacore name (`LSRK`, `BARY`, `TOPO`, `GEO`, `REST`, `LSRD`, `GALACTO`, `LGROUP`, `CMB`), `reference_frequency.attrs.observer` the schema vocabulary (`lsrk`, `BARY`, `gcrs`, ...), FITS `SPECSYS` its FITS name; polarization labels are kept in **canonical Jones order** (`I, Q, U, V`; `RR, RL, LR, LL`; `XX, XY, YX, YY`) in memory, so correlations map onto 2x2 Jones matrices: the FITS writer reorders the planes into a linear FITS `STOKES` axis, every reader (FITS, CASA, zarr) returns the canonical order (CASA images converted from FITS can store another one), the `make_empty_*` factories raise for another order and `check_image` reports it; `sub_type` uses casacore image types without spaces (`SpectralIndex`), written back in casacore's spelling; times are read through their `units`, `format` and `scale`.
+- **Conventions** (one translation table each in `image/_util/conventions.py`, which re-exports the spectral frame, epoch and polarization tables of `xradio.schema.measures` and `xradio.schema.polarization`; used by both readers, both writers and the factories): the frequency coordinate's `frame` holds the casacore name (`LSRK`, `BARY`, `TOPO`, `GEO`, `REST`, `LSRD`, `GALACTO`, `LGROUP`, `CMB`), `reference_frequency.attrs.observer` the schema vocabulary (`lsrk`, `BARY`, `gcrs`, ...), FITS `SPECSYS` its FITS name; polarization labels are kept in **canonical Jones order** (`I, Q, U, V`; `RR, RL, LR, LL`; `XX, XY, YX, YY`) in memory, so correlations map onto 2x2 Jones matrices: the FITS writer reorders the planes into a linear FITS `STOKES` axis, every reader (FITS, CASA, zarr) returns the canonical order (CASA images converted from FITS can store another one), the `make_empty_*` factories raise for another order and `check_image` reports it; `sub_type` uses casacore image types without spaces (`SpectralIndex`), written back in casacore's spelling; times are read through their `units`, `format` and `scale`.
 - `l`/`m` are projection plane coordinates (pixel offset x cdelt; direction cosines for SIN), `u`/`v` are in wavelengths (`units: "lambda"`). Frequencies are in Hz; `frequency.attrs.channel_width` (as in MSv4) gives the width of a single-channel axis.
 
 ---
@@ -257,6 +259,7 @@ check_datatree(dt) -> SchemaIssues             # dispatches per-node via attrs["
 @schema_checked                                # validate annotated params/return
 # Define schemas with @xarray_dataarray_schema / @xarray_dataset_schema / @dict_schema + Data/Coord/Attr annotations.
 # Shared measure schemas (TimeArray, SpectralCoordArray, SkyCoordArray, ...) live in xradio.schema.measures.
+# Shared dimensions and the polarization vocabulary live in xradio.schema.dimensions and xradio.schema.polarization.
 ```
 
 ---

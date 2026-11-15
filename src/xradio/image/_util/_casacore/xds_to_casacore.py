@@ -25,7 +25,7 @@ from xradio.image._util.common import (
     _linear_axis_reference_pixel,
     _time_coord_to_astropy,
 )
-from xradio.measurement_set._utils._utils.stokes_types import stokes_types
+from xradio.schema.polarization import CASACORE_STOKES_TYPES
 
 # Direction systems (casacore MDirection references) a CASA image can be
 # written in, with the axis names casacore gives to their direction axes
@@ -49,7 +49,7 @@ _SIDEREAL_EPOCH_REFS = ("LAST", "LMST", "GMST1", "GMST", "GAST", "UT2")
 _UNDEFINED_SPECTRAL_FRAME = "Undefined"
 
 # Polarization labels a casacore Stokes coordinate accepts
-_CASACORE_STOKES = frozenset(stokes_types.values())
+_CASACORE_STOKES = frozenset(CASACORE_STOKES_TYPES.values())
 
 # All planes of an image share one beam (written as casacore's single
 # restoring beam rather than per plane beams) when their beam parameters agree
@@ -425,7 +425,7 @@ def _casacore_spectral_system(freq_attrs: dict) -> str:
     -------
     str
         The casacore frame, one of
-        :data:`~xradio.image._util.conventions.CASACORE_SPECTRAL_FRAMES`, or
+        :data:`~xradio.schema.measures.CASACORE_SPECTRAL_FRAMES`, or
         ``"Undefined"`` for an image whose frame is casacore's undefined
         frame (as the CASA reader keeps it).
 

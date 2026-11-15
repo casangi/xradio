@@ -1,15 +1,17 @@
 """
 Dimension names shared by the xradio schemas.
 
-The dimensions here are ``time``, ``frequency``, ``polarization``,
-``sky_dir_label``, ``sky_dis_label``, ``ellipsoid_dir_label``,
-``ellipsoid_dis_label``, ``cartesian_pos_label``, ``antenna_name``,
-``baseline_id`` and ``receptor_label``: the measurement set v4 schema
-(``xradio.measurement_set.schema``), the image schema
-(``xradio.image.schema``) and the shared measures
-(``xradio.schema.measures``) import the ones they use from here.
+These are the dimensions of the shared measures (``xradio.schema.measures``)
+and of the shared coordinate bases (``xradio.schema.coordinates``):
+``time``, ``frequency``, ``polarization``, ``sky_dir_label``,
+``sky_dis_label``, ``ellipsoid_dir_label``, ``ellipsoid_dis_label``,
+``cartesian_pos_label``, ``antenna_name``, ``baseline_id`` and
+``receptor_label``. The measurement set v4 schema
+(``xradio.measurement_set.schema``) and the image schema
+(``xradio.image.schema``) import the ones they use from here.
 ``xradio.schema.measures`` and ``xradio.measurement_set.schema``, where
-earlier releases defined them, re-export them.
+earlier releases defined them, re-export them. Dimensions that only one
+schema uses, and no shared module, are defined in that schema's module.
 """
 
 from __future__ import annotations

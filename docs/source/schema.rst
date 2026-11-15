@@ -128,6 +128,22 @@ The casacore translation tables of :py:mod:`xradio.schema.measures`:
 Shared Base Classes
 -------------------
 
+.. automodule:: xradio.schema.coordinates
+
+.. autoclass:: xradio.schema.coordinates.TimeCoordArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.FrequencyCoordArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.AntennaNameArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.BaselineArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.BaselineAntennaNameArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.ScanArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.ReceptorLabelArrayBase()
+
 .. autoclass:: xradio.schema.measures.TimeSamplingArrayBase()
 
 .. autoclass:: xradio.schema.measures.FrequencySamplingArrayBase()

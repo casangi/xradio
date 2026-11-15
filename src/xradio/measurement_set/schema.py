@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import KW_ONLY
 from typing import Literal
 
 import numpy
@@ -12,6 +13,14 @@ from xradio.schema.bases import (
 
 # Schema building blocks shared with the image schema
 # (xradio.image.schema). Re-exported here for backwards compatibility.
+from xradio.schema.coordinates import (
+    AntennaNameArrayBase,
+    BaselineAntennaNameArrayBase,
+    BaselineArrayBase,
+    FrequencyCoordArrayBase,
+    ScanArrayBase,
+    TimeCoordArrayBase,
+)
 from xradio.schema.dimensions import (  # noqa: F401
     ZD,
     AntennaName,
@@ -201,26 +210,8 @@ class LocalSkyCoordArray:
 
 # Coordinates / Axes
 @xarray_dataarray_schema
-class TimeCoordArray:
+class TimeCoordArray(TimeCoordArrayBase):
     """Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`."""
-
-    data: Data[Time, float]
-    """
-    Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.
-    """
-
-    type: Attr[Time] = "time"
-    """ Coordinate type. Should be ``"time"``. """
-
-    units: Attr[UnitsSeconds] = "s"
-    """ Units to associate with axis"""
-
-    scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
-
-    format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
     integration_time: Attr[QuantityInSecondsArray] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
@@ -360,42 +351,28 @@ class TimeWeatherCoordArray:
 
 
 @xarray_dataarray_schema
-class BaselineArray:
+class BaselineArray(BaselineArrayBase):
     """Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)"""
-
-    data: Data[BaselineId, numpy.int64 | numpy.int32]
-    """Unique id for each baseline."""
-    long_name: Attr[str] | None = "Baseline ID"
 
 
 @xarray_dataarray_schema
-class BaselineAntennaNameArray:
+class BaselineAntennaNameArray(BaselineAntennaNameArrayBase):
     """Array of antenna_name by baseline_id, as used in main_xds and main_sd_xds
     (antenna_name by baseline_id dim"""
 
-    data: Data[BaselineId, str]
-    """Unique id for each baseline."""
-    long_name: Attr[str] | None = "Antenna name by baseline_id"
-
 
 @xarray_dataarray_schema
-class AntennaNameArray:
+class AntennaNameArray(AntennaNameArrayBase):
     """
     Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)
     and several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.
     """
 
-    data: Data[AntennaName, str]
-    """Unique name for each antenna(_station)."""
-    long_name: Attr[str] | None = "Antenna name"
-
 
 @xarray_dataarray_schema
-class FrequencyArray:
+class FrequencyArray(FrequencyCoordArrayBase):
     """Frequency coordinate in the main dataset."""
 
-    data: Data[Frequency, float]
-    """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
     spectral_window_intents: Attr[list[str]]
@@ -408,19 +385,14 @@ class FrequencyArray:
     frequency corresponding to the DC edge of the baseband. Used by the calibration
     system if a ﬁxed scaling frequency is required or in algorithms to identify the
     observing band. """
-    channel_width: Attr[
-        QuantityInHertzArray
-    ]  # Not SpectralCoord, as it is a difference
-    """ The nominal channel bandwidth. Same units as data array (see units key). """
     doppler: Attr[DopplerArray] | None
     """ Doppler tracking information """
 
-    type: Attr[SpectralCoord] = "spectral_coord"
-    """ Coordinate type. Should be ``"spectral_coord"``. """
-    long_name: Attr[str] | None = "Frequency"
-    """ Long-form name to use for axis"""
-    units: Attr[UnitsHertz] = "Hz"
-    """ Units to associate with axis"""
+    _: KW_ONLY
+
+    # Not SpectralCoord, as it is a difference
+    channel_width: Attr[QuantityInHertzArray] = None
+    """ The nominal channel bandwidth. Same units as data array (see units key). """
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -464,32 +436,8 @@ class UvwLabelArray:
 
 
 @xarray_dataarray_schema
-class ScanArray:
+class ScanArray(ScanArrayBase):
     """Scan number coordinate in the main dataset."""
-
-    data: Data[Time, str]
-    """Scan name for each time sample."""
-    scan_intents: Attr[list[str]]
-    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,
-    the list of intents is derived from the OBS_MODE column of MSv2 state table (every comma
-    separated value is taken as an intent).
-    A common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated
-    by commas, each of them giving a main intent and a subintent separated by a '#' character. This
-    is represented in this attribute as a list of "intent#subintent" strings. These are a few
-    example lists:
-    ["CALIBRATE_DELAY#ON_SOURCE" , "CALIBRATE_PHASE#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_FLUX#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_POINTING#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE", "CALIBRATE_DELAY#ON_SOURCE"],
-    ["CALIBRATE_ATMOSPHERE#AMBIENT", "CALIBRATE_WVR#AMBIENT"],
-    ["CALIBRATE_FOCUS#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["OBSERVE_TARGET#ON_SOURCE"], or ["OBSERVE_TARGE#UNSPECIFIED"].
-    The list of possible intent and subintent names (see :ref:`scan intents`) is derived from the
-    respective ASDM enumerations.
-    """
-
-    long_name: Attr[str] | None = "Scan name"
-    """ Long-form name to use for axis. Should be ``"Scan name"``."""
 
 
 # Data variables

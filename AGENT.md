@@ -86,6 +86,7 @@ xradio/
 │   │       ├── _blocks.py     #     RegionReader: batched dask computation of the writers' pixel regions
 │   │       └── _casacore/, _fits/, _zarr/, casacore.py, fits.py, zarr.py, image_factory.py, common.py
 │   ├── schema/               # Home-grown xarray-dataclasses reimpl (Data/Coord/Attr + decorators + check.py)
+│   │   ├── coordinates.py     #   coordinate bases (time, frequency, antenna, baseline, scan, receptor label)
 │   │   ├── dimensions.py      #   shared dimension literals (time, frequency, polarization, antenna_name, ...)
 │   │   ├── measures.py        #   shared measure schemas (time, spectral, sky, location, ...) and casacore
 │   │   │                      #   tables; with the dimensions, re-exported by xradio.measurement_set.schema

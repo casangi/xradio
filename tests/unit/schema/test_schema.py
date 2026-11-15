@@ -29,6 +29,7 @@ from xradio.schema.check import (
     schema_checked,
 )
 from xradio.schema.dataclass import (
+    extract_field_docstrings,
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
@@ -769,6 +770,278 @@ TEST_DATASET_SCHEMA = DatasetSchema(
 
 def test_xarray_dataclass_to_dataset_schema():
     assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == TEST_DATASET_SCHEMA
+
+
+@xarray_dataarray_schema
+class _TestArraySubSchema(_TestArraySchema):
+    """Docstring of array subschema"""
+
+    attr3: Attr[int]
+    """Optional attribute redeclared as required"""
+    attr4: Attr[str] | None = None
+    """New optional attribute"""
+
+
+@xarray_dataset_schema
+class _TestDatasetSubSchema(_TestDatasetSchema):
+    """Docstring of dataset subschema"""
+
+    attr4: Attr[str] | None = None
+    """New optional attribute"""
+
+
+@dict_schema
+class _TestDictSubSchema(_TestDictSchema):
+    """Docstring of dict subschema"""
+
+    attr4: str | None = None
+    """New optional attribute"""
+
+
+def test_array_schema_of_subclass():
+    """A schema subclass gets its own schema, the base keeps its schema"""
+
+    schema = xarray_dataclass_to_array_schema(_TestArraySubSchema)
+    assert schema is not xarray_dataclass_to_array_schema(_TestArraySchema)
+    assert schema.schema_name == __name__ + "._TestArraySubSchema"
+    assert schema.class_docstring == "Docstring of array subschema"
+    assert [attr.name for attr in schema.attributes] == [
+        "attr1",
+        "attr2",
+        "attr3",
+        "attr4",
+    ]
+    assert xarray_dataclass_to_array_schema(_TestArraySchema) == TEST_ARRAY_SCHEMA
+
+
+def test_array_schema_of_subclass_docstrings():
+    """Field docstrings are read through the base classes"""
+
+    schema = xarray_dataclass_to_array_schema(_TestArraySubSchema)
+    assert schema.data_docstring == "Docstring of data"
+    assert [coord.docstring for coord in schema.coordinates] == [
+        "Docstring of coordinate"
+    ]
+    assert {attr.name: attr.docstring for attr in schema.attributes} == {
+        "attr1": "Required attribute",
+        "attr2": "Required attribute with default",
+        "attr3": "Optional attribute redeclared as required",
+        "attr4": "New optional attribute",
+    }
+
+
+def test_array_schema_of_subclass_redeclared_required():
+    """An optional base field redeclared without a default is required"""
+
+    sub = xarray_dataclass_to_array_schema(_TestArraySubSchema)
+    assert {a.name: a.optional for a in sub.attributes}["attr3"] is False
+    assert {a.name: a.optional for a in TEST_ARRAY_SCHEMA.attributes}["attr3"] is True
+
+    array = _TestArraySchema(data=[1j], coord=[0.5], attr1="a")
+    assert not check_array(array, _TestArraySchema)
+    issues = check_array(array, _TestArraySubSchema)
+    assert [issue.path for issue in issues] == [[("attrs", "attr3")]]
+
+
+def test_array_constructor_of_subclass():
+    """The constructor of a subclass applies the subclass schema"""
+
+    array = _TestArraySubSchema(data=[1j], coord=[0.5], attr1="a", attr3=1, attr4="new")
+    assert array.attrs == {"attr1": "a", "attr2": 123, "attr3": 1, "attr4": "new"}
+    with pytest.raises(SchemaIssues):
+        _TestArraySubSchema(data=[1j], coord=[0.5], attr1="a")
+
+
+def test_dataset_schema_of_subclass():
+    """Same for dataset schemas: own schema, inherited docstrings"""
+
+    schema = xarray_dataclass_to_dataset_schema(_TestDatasetSubSchema)
+    assert schema is not xarray_dataclass_to_dataset_schema(_TestDatasetSchema)
+    assert schema.schema_name == __name__ + "._TestDatasetSubSchema"
+    assert schema.class_docstring == "Docstring of dataset subschema"
+    assert schema.dimensions == TEST_DATASET_SCHEMA.dimensions
+    assert schema.coordinates == TEST_DATASET_SCHEMA.coordinates
+    assert schema.data_vars == TEST_DATASET_SCHEMA.data_vars
+    assert schema.attributes[:-1] == TEST_DATASET_SCHEMA.attributes
+    assert schema.attributes[-1].name == "attr4"
+    assert schema.attributes[-1].docstring == "New optional attribute"
+    assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == TEST_DATASET_SCHEMA
+
+
+def test_dict_schema_of_subclass():
+    """Same for dict schemas: own schema, inherited docstrings"""
+
+    schema = xarray_dataclass_to_dict_schema(_TestDictSubSchema)
+    assert schema is not xarray_dataclass_to_dict_schema(_TestDictSchema)
+    assert schema.schema_name == __name__ + "._TestDictSubSchema"
+    assert schema.class_docstring == "Docstring of dict subschema"
+    assert schema.attributes[:-1] == TEST_DICT_SCHEMA.attributes
+    assert schema.attributes[-1].name == "attr4"
+    assert schema.attributes[-1].docstring == "New optional attribute"
+    assert not check_dict({"attr1": "a", "attr2": 1, "attr4": "x"}, _TestDictSubSchema)
+    assert check_dict({"attr1": "a", "attr2": 1, "attr4": 1}, _TestDictSubSchema)
+    assert xarray_dataclass_to_dict_schema(_TestDictSchema) == TEST_DICT_SCHEMA
+
+
+class _PlainMixin:
+    """Not a dataclass: contributes no fields, so no docstrings"""
+
+    plain: str = "x"
+    """Docstring of a non-field"""
+
+
+@dict_schema
+class _TestDictSubSchemaRedeclared(_PlainMixin, _TestDictSchema):
+    """Redeclares fields with and without docstrings"""
+
+    attr1: str
+    """New docstring of attr1"""
+    attr2: int = 456
+
+
+def test_extract_field_docstrings_through_bases():
+    """A derived docstring wins, a redeclaration without docstring keeps the
+    base docstring, and classes that are not dataclasses are skipped"""
+
+    assert extract_field_docstrings(_TestDictSubSchemaRedeclared) == {
+        "attr1": "New docstring of attr1",
+        "attr2": "Required attribute with default",
+        "attr3": "Optional attribute with default",
+    }
+    schema = xarray_dataclass_to_dict_schema(_TestDictSubSchemaRedeclared)
+    assert [(a.name, a.default) for a in schema.attributes] == [
+        ("attr1", None),
+        ("attr2", 456),
+        ("attr3", None),
+    ]
+
+
+@xarray_dataarray_schema
+class _TestKwOnlyBase:
+    """Base whose attributes are keyword-only"""
+
+    data: Data[Dim1, float]
+    """Docstring of base data"""
+    _: dataclasses.KW_ONLY
+    attr1: Attr[str] = "a"
+    """Defaulted base attribute"""
+
+
+@xarray_dataarray_schema
+class _TestKwOnlySub(_TestKwOnlyBase):
+    """Subclass adding a required attribute after defaulted base attributes"""
+
+    attr2: Attr[str]
+    """Required subclass attribute"""
+
+
+def test_keyword_only_base_attributes():
+    """data stays positional, defaulted base attributes are keyword-only"""
+
+    params = inspect.signature(_TestKwOnlySub.__init__).parameters
+    assert params["data"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert params["attr2"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert params["attr1"].kind is inspect.Parameter.KEYWORD_ONLY
+    schema = xarray_dataclass_to_array_schema(_TestKwOnlySub)
+    assert [a.name for a in schema.attributes] == ["attr1", "attr2"]
+    array = _TestKwOnlySub([1.0], attr2="b")
+    assert array.attrs == {"attr1": "a", "attr2": "b"}
+    assert not check_array(array, _TestKwOnlySub)
+
+
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class _TestUndecoratedBase:
+    """Undecorated frozen dataclass base, like the shared bases of xradio.schema"""
+
+    data: Data[Dim1, float]
+    """Docstring of base data"""
+    _: dataclasses.KW_ONLY
+    attr1: Attr[str] | None = None
+    """Docstring of base attribute"""
+
+
+@xarray_dataarray_schema
+class _TestUndecoratedBaseSub(_TestUndecoratedBase):
+    """Subclass of an undecorated base"""
+
+    attr2: Attr[str]
+    """Required subclass attribute"""
+    _: dataclasses.KW_ONLY
+    attr1: Attr[str] = "a"
+
+
+def test_schema_of_undecorated_base_subclass():
+    """A schema subclass of an undecorated frozen dataclass takes over its
+    fields and docstrings, base fields first; a redeclaration keeps the
+    position and docstring of the base field"""
+
+    schema = xarray_dataclass_to_array_schema(_TestUndecoratedBaseSub)
+    assert schema.schema_name == __name__ + "._TestUndecoratedBaseSub"
+    assert schema.data_docstring == "Docstring of base data"
+    assert [
+        (a.name, a.optional, a.default, a.docstring) for a in schema.attributes
+    ] == [
+        ("attr1", False, "a", "Docstring of base attribute"),
+        ("attr2", False, None, "Required subclass attribute"),
+    ]
+    params = inspect.signature(_TestUndecoratedBaseSub.__init__).parameters
+    assert [(name, p.kind.name) for name, p in params.items() if name != "self"] == [
+        ("data", "POSITIONAL_OR_KEYWORD"),
+        ("attr2", "POSITIONAL_OR_KEYWORD"),
+        ("attr1", "KEYWORD_ONLY"),
+    ]
+    array = _TestUndecoratedBaseSub([1.0], attr2="b")
+    assert array.attrs == {"attr1": "a", "attr2": "b"}
+
+
+class _TestArraySubSchemaNotDecorated(_TestArraySchema):
+    """Array subschema that is not decorated"""
+
+    attr1: Attr[Literal["sub"]]
+
+
+class _TestDictSubSchemaNotDecorated(_TestDictSchema):
+    pass
+
+
+@dict_schema
+class _TestDictWithNotDecoratedFields:
+    """Fields annotated with schema subclasses that are not decorated"""
+
+    da: _TestArraySubSchemaNotDecorated
+    dct: _TestDictSubSchemaNotDecorated
+
+
+def test_schema_of_not_decorated_subclass():
+    """A schema subclass without a decorator of its own gets its own schema,
+    the same through a field annotation (looked up first, when the dict
+    schema above was decorated) as through check_array or its constructor.
+    Without a docstring of its own, it inherits the class docstring"""
+
+    fields = {
+        attr.name: attr
+        for attr in xarray_dataclass_to_dict_schema(
+            _TestDictWithNotDecoratedFields
+        ).attributes
+    }
+    array_schema = xarray_dataclass_to_array_schema(_TestArraySubSchemaNotDecorated)
+    assert fields["da"].array_schema is array_schema
+    assert array_schema.schema_name == __name__ + "._TestArraySubSchemaNotDecorated"
+    assert array_schema.class_docstring == "Array subschema that is not decorated"
+    dct_schema = xarray_dataclass_to_dict_schema(_TestDictSubSchemaNotDecorated)
+    assert fields["dct"].dict_schema is dct_schema
+    assert dct_schema.class_docstring == TEST_DICT_SCHEMA.class_docstring
+
+    array = _TestArraySchema(data=[1j], coord=[0.5], attr1="a")
+    issues = check_array(array, _TestArraySubSchemaNotDecorated)
+    assert [issue.path for issue in issues] == [[("attrs", "attr1")]]
+    issues = check_dict(
+        {"da": array, "dct": {"attr1": "a", "attr2": 1}},
+        _TestDictWithNotDecoratedFields,
+    )
+    assert [issue.path[-1] for issue in issues] == [("attrs", "attr1")]
+    array = _TestArraySubSchemaNotDecorated(data=[1j], coord=[0.5], attr1="sub")
+    assert not check_array(array, _TestArraySubSchemaNotDecorated)
 
 
 def test_check_dataset_constructor_dataset_style():
@@ -1808,6 +2081,34 @@ def test_register_dataset_type_no_literal():
     )
     with pytest.warns(UserWarning, match='Attribute "type" should be a literal'):
         register_dataset_type(schema_no_literal)
+
+
+def test_dataset_subschema_keeps_registration(isolated_dataset_types):
+    from xradio.schema.check import _DATASET_TYPES
+
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    assert _DATASET_TYPES["test_registered_type"] is schema
+
+    # A subclass inheriting "type" does not take over the registration
+    @xarray_dataset_schema
+    class _Sub(_TestRegisteredDatasetSchema):
+        extra: Attr[str]
+
+    assert _DATASET_TYPES["test_registered_type"] is schema
+    dataset = xarray.Dataset(
+        coords={"coord": numpy.arange(5, dtype=float)},
+        attrs={"type": "test_registered_type"},
+    )
+    assert not check_datatree(xarray.DataTree(dataset=dataset))
+
+    # A subclass declaring its own "type" is registered under it
+    @xarray_dataset_schema
+    class _SubWithType(_TestRegisteredDatasetSchema):
+        type: Attr[Literal["test_registered_subtype"]]
+
+    sub_schema = xarray_dataclass_to_dataset_schema(_SubWithType)
+    assert _DATASET_TYPES["test_registered_subtype"] is sub_schema
+    assert _DATASET_TYPES["test_registered_type"] is schema
 
 
 # ---------------------------------------------------------------------------

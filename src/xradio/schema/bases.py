@@ -432,8 +432,13 @@ def xarray_dataset_schema(cls):
     # Replace __new__
     cls.__new__ = _dataset_new
 
-    # Register type
-    check.register_dataset_type(schema)
+    # Register type. A subclass of another dataset schema inherits its
+    # "type" literal, so it is registered only if it declares "type" itself:
+    # otherwise it would take over the registration of its base.
+    if "type" in inspect.get_annotations(cls) or not any(
+        "__xradio_dataset_schema" in vars(base) for base in cls.__mro__[1:]
+    ):
+        check.register_dataset_type(schema)
 
     return cls
 

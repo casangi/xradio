@@ -243,7 +243,16 @@ make_empty_lmuv_image(...) -> xr.Dataset      # carries BOTH lm and uv coords
 #   make_empty_* datasets have type "image_dataset", schema_version IMAGE_SCHEMA_VERSION and an empty "base" data group.
 check_image(xds) -> SchemaIssues               # image schema check (also xradio.image.schema.check_image)
 # accessor: img_xds.xr_img.sel(... data_group_name=...) / add_data_group / delete_data_variables /
-#           get_lm_cell_size / add_uv_coordinates / get_uv_in_lambda(freq) / get_reference_pixel_indices
+#           get_lm_cell_size / add_uv_coordinates / get_uv_in_lambda(freq) / get_reference_pixel_indices /
+#           get_fits_header(data_group_name=None, role="sky", time=0) / get_wcs(..., celestial=True)
+#   get_fits_header = the primary header write_image(xds.isel(time=[time]), out_format="fits") writes (same code,
+#   image/_util/fits.py::_planned_fits_header); get_wcs = astropy WCS of it: celestial array_shape (m, l), so
+#   transpose (l, m) planes, never flip; celestial=False adds STOKES (file order: RR, LL, RL, LR) and FREQ, no time
+#   axis (DATE-OBS/MJD-OBS); I,Q,V and other non-FITS images get only the celestial WCS. Both plan the whole
+#   dataset as write_image does, so a dataset write_image cannot plan gets neither; the header and the full WCS
+#   also need the header of every image (write_image builds them all first) and log the warnings of each (not
+#   those of the plan), the celestial WCS does not. The pixel and STOKES orders are documented in
+#   docs/source/conventions.rst ("Sky image pixels and FITS WCS").
 xr.open_dataset(path, engine="xradio_casa_image" | "xradio_fits_image", chunks=..., image_type=...,
                 image_chunks=..., drop_variables=...)   # engines also inferred from the path
 ```

@@ -94,6 +94,24 @@ Pixel indexing
 - The reference pixel is where ``l = m = 0`` (``u = v = 0``). It may lie outside the image and need not be an integer.
   The ``make_empty_*`` factories put it at index ``n // 2`` of an axis with ``n`` pixels.
 
+Sky image pixels and FITS WCS
+-----------------------------
+
+:py:meth:`~xradio.image.image_xds.ImageXdsAccessor.get_fits_header` gives the FITS header that
+:py:func:`~xradio.image.write_image` writes for a sky image, and
+:py:meth:`~xradio.image.image_xds.ImageXdsAccessor.get_wcs` its astropy WCS. Both describe the pixels as the FITS file
+stores them, the transpose of the dataset's (see `Pixel indexing`_):
+
+- The celestial WCS has pixel axis 0 along ``l`` and pixel axis 1 along ``m``: ``pixel_to_world(i_l, i_m)`` takes the
+  dataset's ``l`` and ``m`` indices and gives positions in the image's frame (``RA``/``DEC`` axes for ``fk4``,
+  ``fk5`` and ``icrs``, ``GLON``/``GLAT`` for ``galactic``). Its ``array_shape`` is ``(m, l)``, the order of FITS
+  data in numpy, so transpose a sky plane to use it with the WCS.
+- The WCS of all the axes of the file (``get_wcs(celestial=False)``) has the axes ``l``, ``m``, ``STOKES`` and
+  ``FREQ``, and no time axis: a FITS file holds one time plane, whose time is in ``DATE-OBS`` and ``MJD-OBS``.
+- A FITS ``STOKES`` axis must be linear in the FITS polarization codes, so FITS files store four correlations in
+  canonical order (see `Polarization`_), RR, RL, LR, LL (XX, XY, YX, YY), as RR, LL, RL, LR (XX, YY, XY, YX). The
+  readers restore the canonical order; the header and the full WCS follow the order of the file.
+
 Units and time
 --------------
 

@@ -169,6 +169,8 @@ The functions of :py:mod:`xradio.schema.info`, used with
 
 .. autofunction:: xradio.schema.info.matching_data_var_names
 
+.. autofunction:: xradio.schema.info.check_schema_version
+
 Decorators
 ----------
 

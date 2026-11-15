@@ -23,15 +23,18 @@ that derive from them, so their attributes follow a ``KW_ONLY`` marker:
 
 The functions here check this information across a dataset:
 :py:func:`check_data_groups` checks every data group and the data variables
-that its roles name, and :py:func:`matching_data_var_names` gives the data
+that its roles name, :py:func:`matching_data_var_names` gives the data
 variables that :py:func:`~xradio.schema.check.check_dataset` checks against a
-data variable of a dataset schema. :py:func:`~xradio.image.schema.check_image`
-uses both.
+data variable of a dataset schema, and :py:func:`check_schema_version` checks
+the ``schema_version`` attribute against the version of the schema in this
+xradio. :py:func:`~xradio.image.schema.check_image` uses the first two; no
+check calls :py:func:`check_schema_version` yet.
 """
 
 from __future__ import annotations
 
 import dataclasses
+import re
 import typing
 from dataclasses import KW_ONLY
 
@@ -51,6 +54,10 @@ from xradio.schema.dataclass import (
     xarray_dataclass_to_dataset_schema,
 )
 from xradio.schema.typing import Attr
+
+#: A semantic version, MAJOR.MINOR.PATCH (the form of the ``schema_version``
+#: attribute).
+_SEMANTIC_VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 
 
 @dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
@@ -326,3 +333,69 @@ def check_data_groups(
             )
 
     return issues
+
+
+def _semantic_version(version) -> tuple[int, int, int] | None:
+    """
+    Parse a semantic version
+
+    :param version: A ``schema_version`` attribute value
+    :returns: The (MAJOR, MINOR, PATCH) numbers, or None when ``version`` is
+       not a string of the form MAJOR.MINOR.PATCH (surrounding spaces allowed)
+    """
+    if not isinstance(version, str):
+        return None
+    match = _SEMANTIC_VERSION.fullmatch(version.strip())
+    if match is None:
+        return None
+    major, minor, patch = (int(number) for number in match.groups())
+    return major, minor, patch
+
+
+def check_schema_version(dataset: xarray.Dataset, current_version: str) -> SchemaIssues:
+    """
+    Check the ``schema_version`` attribute of a dataset against the version of
+    its schema in this xradio
+
+    Reports a version that is not a semantic version (MAJOR.MINOR.PATCH), and
+    one newer than ``current_version``: this xradio cannot know what a later
+    version of the schema changed. A missing ``schema_version``, or one that
+    is not a string, is left to :py:func:`~xradio.schema.check.check_dataset`
+    (schemas declare it as a required ``str`` attribute).
+
+    :param dataset: Dataset to check
+    :param current_version: Version of the dataset's schema in this xradio,
+       for example ``xradio.image.schema.IMAGE_SCHEMA_VERSION``
+    :returns: :py:class:`~xradio.schema.check.SchemaIssues` found
+    :raises ValueError: If ``current_version`` is not a semantic version
+    """
+
+    current = _semantic_version(current_version)
+    if current is None:
+        raise ValueError(
+            f"check_schema_version: {current_version!r} is not a semantic version!"
+        )
+    version = dataset.attrs.get("schema_version")
+    if not isinstance(version, str):
+        return SchemaIssues()
+    found = _semantic_version(version)
+    if found is None:
+        message = "Schema version is not a semantic version (MAJOR.MINOR.PATCH)!"
+    elif found > current:
+        message = (
+            f"Schema version {version} is newer than {current_version}, the "
+            "version of the schema in this xradio: update xradio to check the "
+            "dataset!"
+        )
+    else:
+        return SchemaIssues()
+    return SchemaIssues(
+        [
+            SchemaIssue(
+                path=[("attrs", "schema_version")],
+                message=message,
+                found=version,
+                expected=[current_version],
+            )
+        ]
+    )

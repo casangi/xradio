@@ -15,7 +15,11 @@ from xradio.schema.dataclass import (
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
 )
-from xradio.schema.info import check_data_groups, matching_data_var_names
+from xradio.schema.info import (
+    check_data_groups,
+    check_schema_version,
+    matching_data_var_names,
+)
 from xradio.schema.typing import Attr, Coord, Data, Dataof
 
 Dim = Literal["dim"]
@@ -228,3 +232,39 @@ def test_matching_data_var_names():
     assert matching_data_var_names(names, values) == ["VALUES", "VALUES_OTHER"]
     assert matching_data_var_names(names, flags) == ["FLAGS"]
     assert matching_data_var_names(["VALUES"], flags) == []
+
+
+@pytest.mark.parametrize("version", ["1.2.3", "0.0.1", "1.2.0", "0.9.9", " 1.2.3 "])
+def test_check_schema_version_current_or_older(version):
+    xds = xarray.Dataset(attrs={"schema_version": version})
+    assert not check_schema_version(xds, "1.2.3")
+
+
+@pytest.mark.parametrize("version", [None, 2, ["1", "2", "3"]])
+def test_check_schema_version_missing_or_not_a_string(version):
+    """Left to check_dataset, which checks the attribute's type"""
+    xds = xarray.Dataset(attrs={} if version is None else {"schema_version": version})
+    assert not check_schema_version(xds, "1.2.3")
+
+
+@pytest.mark.parametrize("version", ["1.2", "v1.2.3", "latest", "4.0.-9986", ""])
+def test_check_schema_version_not_semantic(version):
+    xds = xarray.Dataset(attrs={"schema_version": version})
+    (issue,) = check_schema_version(xds, "1.2.3")
+    assert issue.path == [("attrs", "schema_version")]
+    assert "not a semantic version" in issue.message
+    assert issue.found == version
+
+
+@pytest.mark.parametrize("version", ["1.2.4", "1.3.0", "2.0.0", "10.0.0"])
+def test_check_schema_version_newer(version):
+    xds = xarray.Dataset(attrs={"schema_version": version})
+    (issue,) = check_schema_version(xds, "1.2.3")
+    assert issue.path == [("attrs", "schema_version")]
+    assert "newer than 1.2.3" in issue.message
+    assert (issue.found, issue.expected) == (version, ["1.2.3"])
+
+
+def test_check_schema_version_current_not_semantic():
+    with pytest.raises(ValueError, match="not a semantic version"):
+        check_schema_version(xarray.Dataset(), "latest")

@@ -11,6 +11,8 @@ on to :py:mod:`xradio.schema.dimensions`; this module re-exports them.
 
 from __future__ import annotations
 
+import dataclasses
+from dataclasses import KW_ONLY
 from typing import Literal
 
 from xradio.schema.bases import (
@@ -54,64 +56,62 @@ UnitsOfLocationInMetersOrRadians = Literal[
 UnitsOfDopplerShift = Literal["ratio", "m/s"]
 
 
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class QuantityArrayBase:
+    """
+    Base of the quantity arrays: a value without dimensions and its units.
+    Each quantity array schema derives from it and fixes the units.
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[str]
+    type: Attr[Quantity] = "quantity"
+
+
 @xarray_dataarray_schema
-class QuantityInSecondsArray:
+class QuantityInSecondsArray(QuantityArrayBase):
     """
     Quantity with units of seconds
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsSeconds]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInHertzArray:
+class QuantityInHertzArray(QuantityArrayBase):
     """
     Quantity with units of Hertz
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsHertz]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInMetersArray:
+class QuantityInMetersArray(QuantityArrayBase):
     """
     Quantity with units of meters
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsMeters]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInMetersPerSecondArray:
+class QuantityInMetersPerSecondArray(QuantityArrayBase):
     """
     Quantity with units of meters per second
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsMetersPerSecond]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInRadiansArray:
+class QuantityInRadiansArray(QuantityArrayBase):
     """
     Quantity with units of radians
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsRadians]
-    type: Attr[Quantity] = "quantity"
 
 
 AllowedTimeScales = Literal["tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc"]
@@ -172,6 +172,25 @@ class TimeArray:
     """
     format: Attr[AllowedTimeFormats] = "unix"
     """Time representation and epoch, see :py:class:`~xradio.schema.measures.TimeArray`."""
+
+
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class TimeSamplingArrayBase:
+    """
+    Base of the data variables that hold time sampling data, such as the time
+    centroids of the measurement set: the time measure attributes (see
+    :py:class:`TimeArray`). Each schema adds the data and coordinates.
+    """
+
+    _: KW_ONLY
+
+    scale: Attr[AllowedTimeScales] = "utc"
+    """ Astropy time scales, see :py:class:`astropy.time.Time` """
+    format: Attr[AllowedTimeFormats] = "unix"
+    """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
+
+    long_name: Attr[str] | None = "Time sampling data"
+    units: Attr[UnitsSeconds] = "s"
 
 
 # Taken from the list of astropy built-in frame classes:
@@ -334,6 +353,28 @@ class SpectralCoordArray:
     """
 
     type: Attr[SpectralCoord] = "spectral_coord"
+
+
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class FrequencySamplingArrayBase:
+    """
+    Base of the data variables that hold frequency sampling data, such as the
+    frequency centroids and effective channel widths of the measurement set:
+    the spectral measure attributes (see :py:class:`SpectralCoordArray`).
+    Each schema adds the data and coordinates.
+    """
+
+    _: KW_ONLY
+
+    long_name: Attr[str] | None = "Frequency sampling data"
+    units: Attr[UnitsHertz] = "Hz"
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
 
 
 AllowedLocationFrames = Literal["ITRS", "Undefined"]

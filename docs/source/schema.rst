@@ -125,6 +125,13 @@ The casacore translation tables of :py:mod:`xradio.schema.measures`:
 
 .. autodata:: xradio.schema.measures.DEFAULT_EQUINOX
 
+Shared Base Classes
+-------------------
+
+.. autoclass:: xradio.schema.measures.TimeSamplingArrayBase()
+
+.. autoclass:: xradio.schema.measures.FrequencySamplingArrayBase()
+
 Decorators
 ----------
 

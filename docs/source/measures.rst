@@ -18,6 +18,8 @@ Quantity
 encode general-purpose data that relates to certain physical quantities.
 They are typically associated with an SI unit.
 
+.. autoclass:: xradio.schema.measures.QuantityArrayBase()
+
 .. autoclass:: xradio.schema.measures.QuantityInSecondsArray()
    :members:
    :show-inheritance:

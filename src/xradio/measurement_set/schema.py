@@ -37,10 +37,12 @@ from xradio.schema.measures import (  # noqa: F401
     AllowedTimeScales,
     Doppler,
     DopplerArray,
+    FrequencySamplingArrayBase,
     Location,
     LocationArray,
     PolarizationArray,
     Quantity,
+    QuantityArrayBase,
     QuantityInHertzArray,
     QuantityInMetersArray,
     QuantityInMetersPerSecondArray,
@@ -51,6 +53,7 @@ from xradio.schema.measures import (  # noqa: F401
     SpectralCoord,
     SpectralCoordArray,
     TimeArray,
+    TimeSamplingArrayBase,
     UnitsHertz,
     UnitsMeters,
     UnitsMetersPerSecond,
@@ -118,51 +121,39 @@ UnitsPerSquareMeters = Literal["/m^2"]
 
 
 @xarray_dataarray_schema
-class QuantityInKelvinArray:
+class QuantityInKelvinArray(QuantityArrayBase):
     """
     Quantity with units of Kelvins
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsKelvin]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInKelvinPerJanskyArray:
+class QuantityInKelvinPerJanskyArray(QuantityArrayBase):
     """
     Quantity with units of K/Jy (sensitivity in gain curve)
     """
 
-    data: Data[ZD, numpy.float64]
-
     units: Attr[UnitsKelvinPerJansky]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInPascalArray:
+class QuantityInPascalArray(QuantityArrayBase):
     """
     Quantity with units of Pa
     """
 
-    data: Data[ZD, numpy.float64]
-
     units: Attr[UnitsPascal]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInPerSquareMetersArray:
+class QuantityInPerSquareMetersArray(QuantityArrayBase):
     """
     Quantity with units of /m^2
     """
 
-    data: Data[ZD, numpy.float64]
-
     units: Attr[UnitsPerSquareMeters]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
@@ -641,7 +632,7 @@ class UvwArray:
 
 
 @xarray_dataarray_schema
-class TimeSamplingArray:
+class TimeSamplingArray(TimeSamplingArrayBase):
     """
     Model of arrays of measures used in the main dataset for data variables such as TIME_CENTROID and
     TIME_CENTROID_EXTRA_PRECISION.
@@ -658,17 +649,9 @@ class TimeSamplingArray:
     baseline_id: Coordof[BaselineArray] | None  # Only IF
     antenna_name: Coordof[AntennaNameArray] | None  # Only SD
 
-    scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`astropy.time.Time` """
-    format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
-
-    long_name: Attr[str] | None = "Time sampling data"
-    units: Attr[UnitsSeconds] = "s"
-
 
 @xarray_dataarray_schema
-class FrequencyCentroidArray:
+class FrequencyCentroidArray(FrequencySamplingArrayBase):
     """
     Model of frequency related data variables of the main dataset, such as FREQUENCY_CENTROID.
     """
@@ -683,19 +666,10 @@ class FrequencyCentroidArray:
     :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
     """
     frequency: Coordof[FrequencyArray]
-    long_name: Attr[str] | None = "Frequency sampling data"
-    units: Attr[UnitsHertz] = "Hz"
-    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
-    """
-    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
-    Note that Astropy does not use the name
-    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
-    frame is given that this is the default.
-    """
 
 
 @xarray_dataarray_schema
-class EffectiveChannelWidthArray:
+class EffectiveChannelWidthArray(FrequencySamplingArrayBase):
     """
     Model of frequency related data variables of the main dataset, such as EFFECTIVE_CHANNEL_WIDTH.
     """
@@ -716,15 +690,6 @@ class EffectiveChannelWidthArray:
     time: Coordof[TimeCoordArray] | None = None
     baseline_id: Coordof[BaselineArray] | None = None
     polarization: Coordof[PolarizationArray] | None = None
-    long_name: Attr[str] | None = "Frequency sampling data"
-    units: Attr[UnitsHertz] = "Hz"
-    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
-    """
-    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
-    Note that Astropy does not use the name
-    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
-    frame is given that this is the default.
-    """
 
 
 # Define FieldSourceXds and FieldSourceEphemerisXds already here, as they are needed in the

@@ -1,6 +1,8 @@
 import dataclasses
 import inspect
+import itertools
 import json
+import re
 import warnings
 from typing import Literal
 
@@ -690,7 +692,8 @@ def _dataclass_to_dict(obj, ignore=()):
 # The equivalent of the above in the meta-model
 TEST_DATASET_SCHEMA = DatasetSchema(
     schema_name=__name__ + "._TestDatasetSchema",
-    dimensions=[["coord"], ["coord", "coord2"]],
+    dimensions=[["coord"]],
+    optional_dimensions=["coord2"],
     coordinates=[
         ArraySchemaRef(
             schema_name=__name__ + "._TestDatasetSchemaCoord",
@@ -860,6 +863,7 @@ def test_dataset_schema_of_subclass():
     assert schema.schema_name == __name__ + "._TestDatasetSubSchema"
     assert schema.class_docstring == "Docstring of dataset subschema"
     assert schema.dimensions == TEST_DATASET_SCHEMA.dimensions
+    assert schema.optional_dimensions == TEST_DATASET_SCHEMA.optional_dimensions
     assert schema.coordinates == TEST_DATASET_SCHEMA.coordinates
     assert schema.data_vars == TEST_DATASET_SCHEMA.data_vars
     assert schema.attributes[:-1] == TEST_DATASET_SCHEMA.attributes
@@ -1339,7 +1343,8 @@ def test_check_dict_dict_attribute():
 TEST_DATASET_SCHEMA_JSON = {
     "$class": "DatasetSchema",
     "schema_name": "tests.unit.schema.test_schema._TestDatasetSchema",
-    "dimensions": [["coord"], ["coord", "coord2"]],
+    "dimensions": [["coord"]],
+    "optional_dimensions": ["coord2"],
     "coordinates": [
         {
             "$class": "ArraySchemaRef",
@@ -1910,6 +1915,191 @@ def test_check_dimensions_replace_hint():
     )
     assert len(issues) == 1
     assert "replace" in issues[0].message
+
+
+def test_check_dimensions_optional():
+    """Optional dimensions may be present in any combination."""
+    for dims in [("coord",), ("coord", "opt1"), ("opt2", "coord", "opt1")]:
+        assert not check_dimensions(
+            dims,
+            [["coord"]],
+            check_order=False,
+            optional_dimensions={"opt1", "opt2"},
+        )
+
+
+def test_check_dimensions_optional_hints():
+    """The hints name neither optional nor allowed superfluous dimensions."""
+    optional = {"opt1", "opt2"}
+
+    issues = check_dimensions(
+        ("opt1",), [["coord"]], check_order=False, optional_dimensions=optional
+    )
+    assert len(issues) == 1
+    assert issues[0].message == "Missing dimension 'coord'!"
+    assert issues[0].expected == [["coord"]]
+    assert issues[0].found == ["opt1"]
+
+    issues = check_dimensions(
+        ("coord", "opt1", "extra"),
+        [["coord"]],
+        check_order=False,
+        optional_dimensions=optional,
+    )
+    assert issues[0].message == "Superfluous coordinate 'extra'?"
+
+    issues = check_dimensions(
+        ("opt2", "extra"), [["coord"]], check_order=False, optional_dimensions=optional
+    )
+    assert issues[0].message == "Unexpected coordinates, replace 'extra' by 'coord'?"
+
+    assert not check_dimensions(
+        ("coord", "opt1", "extra"),
+        [["coord"]],
+        check_order=False,
+        allow_superflous={"extra"},
+        optional_dimensions=optional,
+    )
+
+
+def _dataset_schema_classes():
+    """The dataset schema classes of the measurement set and image schemas"""
+    import xradio.image.schema
+    import xradio.measurement_set.schema
+    from xradio.schema.bases import is_dataset_schema
+
+    return [
+        obj
+        for module in (xradio.measurement_set.schema, xradio.image.schema)
+        for obj in vars(module).values()
+        if is_dataset_schema(obj) and obj.__module__ == module.__name__
+    ]
+
+
+def _sorted_hints(message: str) -> str:
+    """A check_dimensions message with the names in each hint sorted (they
+    come from sets, so their order is arbitrary)"""
+    return re.sub(
+        r"'[^']*'(?:,'[^']*')*",
+        lambda match: ",".join(sorted(match.group(0).split(","))),
+        message,
+    )
+
+
+@pytest.mark.parametrize(
+    "schema_class", _dataset_schema_classes(), ids=lambda klass: klass.__name__
+)
+def test_optional_dimensions_check_like_the_powerset(schema_class):
+    """Required plus optional dimensions accept exactly the datasets that the
+    powerset of the optional dimensions accepted (DatasetSchema.dimensions
+    listed every combination before optional_dimensions), with the same
+    issue: every combination of the schema's dimensions and two foreign ones,
+    with and without allowed superfluous dimensions."""
+    schema = xarray_dataclass_to_dataset_schema(schema_class)
+    (required,) = schema.dimensions
+    optional = schema.optional_dimensions or []
+    assert not set(required) & set(optional)
+    assert set(required) | set(optional) == {
+        dim
+        for array in schema.coordinates + schema.data_vars
+        for dims in array.dimensions
+        for dim in dims
+    }
+    powerset = [
+        required + list(subset)
+        for count in range(len(optional) + 1)
+        for subset in itertools.combinations(optional, count)
+    ]
+    candidates = required + optional + ["foreign1", "foreign2"]
+    allow_options = [frozenset(), frozenset({"foreign1"})]
+    allow_options += [frozenset(dims[:1]) for dims in (required, optional) if dims]
+    for count in range(len(candidates) + 1):
+        for dims in itertools.combinations(candidates, count):
+            for allow in allow_options:
+                old = check_dimensions(
+                    dims, powerset, check_order=False, allow_superflous=allow
+                )
+                new = check_dimensions(
+                    dims,
+                    schema.dimensions,
+                    check_order=False,
+                    allow_superflous=allow,
+                    optional_dimensions=set(optional),
+                )
+                assert bool(new) == bool(old), (dims, allow)
+                if old:
+                    assert len(new) == len(old) == 1
+                    assert _sorted_hints(new[0].message) == _sorted_hints(
+                        old[0].message
+                    )
+                    assert (new[0].path, new[0].found) == (old[0].path, old[0].found)
+
+
+def test_dataset_schema_required_and_optional_dimensions():
+    from xradio.image.schema import ImageXds
+    from xradio.measurement_set.schema import SpectrumXds, VisibilityXds
+
+    schema = xarray_dataclass_to_dataset_schema(ImageXds)
+    assert schema.dimensions == [["time", "frequency", "polarization"]]
+    assert schema.optional_dimensions == ["l", "m", "u", "v", "beam_params_label"]
+    # No optional dimensions: None, which the JSON export omits
+    for schema_class in (VisibilityXds, SpectrumXds):
+        schema = xarray_dataclass_to_dataset_schema(schema_class)
+        assert len(schema.dimensions) == 1
+        assert schema.optional_dimensions is None
+
+
+def test_schema_export_without_optional_dimensions(tmp_path):
+    from xradio.measurement_set.schema import VisibilityXds
+
+    export_schema_json_file(VisibilityXds, tmp_path / "schema.json")
+    with open(tmp_path / "schema.json", encoding="utf8") as f:
+        exported = json.load(f)
+    assert "optional_dimensions" not in exported
+    assert import_schema_json_file(tmp_path / "schema.json").optional_dimensions is None
+
+
+def test_powerset_schema_json_still_checks(tmp_path):
+    """A schema exported before optional_dimensions, which lists every
+    combination of dimensions, still imports and checks datasets as before."""
+    schema = xarray_dataclass_to_dataset_schema(_TestDatasetSchema)
+    with open(tmp_path / "schema.json", "w", encoding="utf8") as f:
+        json.dump(
+            {
+                **TEST_DATASET_SCHEMA_JSON,
+                "dimensions": [["coord"], ["coord", "coord2"]],
+                "optional_dimensions": None,
+            },
+            f,
+        )
+    old_schema = import_schema_json_file(tmp_path / "schema.json")
+    assert old_schema.optional_dimensions is None
+    assert old_schema.dimensions == [["coord"], ["coord", "coord2"]]
+
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    coord = xarray.DataArray(numpy.arange(10.0), dims=("coord",), attrs=attrs)
+    dataset = xarray.Dataset(
+        {"data_var": (("coord",), numpy.zeros(10, dtype=complex), attrs)},
+        {"coord": coord},
+        attrs,
+    )
+    with_coord2 = dataset.assign(
+        data_var_simple=(("coord2",), numpy.zeros(5, dtype=numpy.float32))
+    ).assign_coords(coord2=numpy.arange(5))
+    with_extra = dataset.assign(extra_var=(("extra",), numpy.zeros(2)))
+    for xds in (dataset, with_coord2, with_extra):
+        old = check_dataset(xds, old_schema)
+        new = check_dataset(xds, schema)
+        # The same issues, except that a dimension issue expects the
+        # required dimensions only, instead of every combination
+        assert [(i.path, i.message, i.found) for i in old] == [
+            (i.path, i.message, i.found) for i in new
+        ]
+    assert not check_dataset(with_coord2, old_schema)
+    (issue,) = check_dataset(with_extra, old_schema)
+    assert issue.expected == [["coord"], ["coord", "coord2"]]
+    (issue,) = check_dataset(with_extra, schema)
+    assert issue.expected == [["coord"]]
 
 
 # ---------------------------------------------------------------------------

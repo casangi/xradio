@@ -213,6 +213,7 @@ def check_dataset(
         schema.dimensions,
         check_order=False,
         allow_superflous=allow_superflous_dims,
+        optional_dimensions=frozenset(schema.optional_dimensions or ()),
     )
 
     # Check attributes
@@ -273,6 +274,7 @@ def check_dimensions(
     expected: [[str]],
     check_order: bool = True,
     allow_superflous: set[str] = frozenset(),
+    optional_dimensions: set[str] = frozenset(),
 ) -> SchemaIssues:
     """
     Check whether a dimension list conforms to a schema
@@ -280,19 +282,33 @@ def check_dimensions(
     :param dims: Dimension list to check
     :param expected: Expected possibilities for dimension list
     :param check_order: Whether to check order of dimensions
+    :param allow_superflous: Dimensions that may be present or absent
+       without an issue, whether or not ``expected`` mentions them. With
+       ``check_order=True``, though, the list must equal the first expected
+       possibility that matches it apart from these dimensions, or it is
+       reported as in the wrong order
+    :param optional_dimensions: Dimensions that may be present in addition to
+       an expected possibility, in any combination (as
+       :py:attr:`~xradio.schema.metamodel.DatasetSchema.optional_dimensions`).
+       With ``check_order=True``, though, the list must equal the first
+       expected possibility that matches it apart from these dimensions, or
+       it is reported as in the wrong order
     :returns: :py:class:`SchemaIssues` found
     """
 
     # Find a dimension list that matches
     dims_set = set(dims)
+    optional_dimensions = frozenset(optional_dimensions)
     best = None
     best_diff = 0
     for exp_dims in expected:
         exp_dims_set = set(exp_dims)
+        # Optional dimensions that this possibility does not require
+        extra_dims = optional_dimensions - exp_dims_set
 
         # No match? Continue, but take note of best match
-        if exp_dims_set - allow_superflous != dims_set - allow_superflous:
-            diff = len(dims_set.symmetric_difference(exp_dims_set))
+        if exp_dims_set - allow_superflous != dims_set - extra_dims - allow_superflous:
+            diff = len(dims_set.symmetric_difference(exp_dims_set) - extra_dims)
             if best is None or diff < best_diff:
                 best = exp_dims_set
                 best_diff = diff
@@ -314,7 +330,10 @@ def check_dimensions(
         )
 
     # Dimensionality not supported - try to give a helpful suggestion
-    hint_remove = [f"'{hint}'" for hint in (dims_set - best) - allow_superflous]
+    hint_remove = [
+        f"'{hint}'"
+        for hint in (dims_set - best - optional_dimensions) - allow_superflous
+    ]
     hint_add = [f"'{hint}'" for hint in best - dims_set]
     if hint_remove and hint_add:
         message = f"Unexpected coordinates, replace {','.join(hint_remove)} by {','.join(hint_add)}?"

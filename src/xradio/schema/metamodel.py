@@ -5,7 +5,7 @@ Data classes used by Xradio routines to represent dataset schemas.
 from __future__ import annotations
 
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 __all__ = [
     "ValueSchema",
@@ -162,7 +162,18 @@ class DatasetSchema:
     """(Class) name of the schema"""
 
     dimensions: list[list[str]]
-    """List of possible dimensions (derived from data arrays)"""
+    """Dimensions that every dataset has (derived from data arrays), as a list
+    holding one list: the dimensions that every possible dimensionality of
+    each required coordinate and data variable has. Schemas exported to JSON
+    before ``optional_dimensions`` existed list every possible combination of
+    dimensions here instead, and are still understood by
+    :py:func:`~xradio.schema.check.check_dataset`."""
+    optional_dimensions: list[str] | None = field(default=None, kw_only=True)
+    """Dimensions that a dataset may have in addition to ``dimensions``, in
+    any combination (derived from data arrays: the other dimensions of its
+    coordinates and data variables, those of optional ones and those that
+    only some dimensionalities of a required one have). ``None`` if there
+    are none."""
     coordinates: list[ArraySchemaRef]
     """List of coordinate data arrays"""
     data_vars: list[ArraySchemaRef]

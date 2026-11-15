@@ -178,6 +178,19 @@ Data Model
 .. automodule:: xradio.schema.metamodel
   :members:
 
+.. note::
+
+   A :py:class:`~xradio.schema.metamodel.DatasetSchema` gives the
+   dimensions that every dataset has in ``dimensions`` (a list holding one
+   list) and the dimensions that it may have in addition, in any
+   combination, in ``optional_dimensions``. Earlier releases listed every
+   combination in ``dimensions`` instead (32 for the image dataset), so the
+   ``dimensions`` of ``schemas/ImageXds.json`` changed form. The main
+   measurement set datasets have no optional dimensions, so
+   ``schemas/VisibilityXds.json`` and ``schemas/SpectrumXds.json`` did not
+   change. Schemas exported in the earlier form still import, and check
+   the same datasets.
+
 Import and Export
 -----------------
 

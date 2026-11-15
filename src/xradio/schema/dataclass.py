@@ -523,30 +523,20 @@ def xarray_dataclass_to_dataset_schema(klass):
         if not dvar.optional:
             req_dimensions |= dvar.required_dimensions()
 
-    # Build powerset of all options
-    # (Theoretically we could try to be fancy here and filter out options
-    #  that "make no sense". E.g. if there are some dimensions A and B
-    #  that are always used together, but never appear individually,
-    #  we should not list A and B separately as options. The test would
-    #  be to check whether for every dimensionality option there exists
-    #  a mapping of data variables to allowed dimensions [possibly empty
-    #  if the data variable is optional], such that the superset of all
-    #  dimensions matches. Likely overkill for now.)
-    # Iterate optional dimensions in declaration order so that the list of
-    # options is deterministic (a set difference here would make the order,
-    # and thereby the JSON export, depend on per-process string hashing)
-    opt_dimensions = [dim for dim in all_dimensions if dim not in req_dimensions]
-    dimensions = [req_dimensions]
-    for dim in opt_dimensions:
-        dimensions += [dims | {dim} for dims in dimensions]
-
-    # Reorder consistently / convert to lists
-    dimensions = [[dim for dim in all_dimensions if dim in dims] for dims in dimensions]
+    # A dataset has the required dimensions, and may have any combination of
+    # the others (instead of listing every combination, which grows as 2^n).
+    # Both follow declaration order, so that the JSON export is deterministic
+    # (a set here would make it depend on per-process string hashing)
+    dimensions = [[dim for dim in all_dimensions if dim in req_dimensions]]
+    optional_dimensions = [dim for dim in all_dimensions if dim not in req_dimensions]
 
     # Make class
     schema = DatasetSchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         dimensions=dimensions,
+        # None rather than an empty list when there are none, so that the
+        # JSON export omits the field (it omits values that are the default)
+        optional_dimensions=optional_dimensions or None,
         coordinates=coordinates,
         data_vars=data_vars,
         attributes=attributes,

@@ -2760,3 +2760,146 @@ def test_schema_checked_float_parameter_accepts_int():
     with pytest.raises(SchemaIssues) as exc_info:
         fn(True)
     assert exc_info.value.issues[0].path == [("value", None)]
+
+
+# ---------------------------------------------------------------------------
+# list[dict] values: lists of dictionaries, each checked against a dict schema
+# ---------------------------------------------------------------------------
+
+
+@dict_schema
+class _StepDict:
+    type: Literal["mean", "maximum"]
+    axis: list[str]
+    note: str | None = None
+
+
+@dict_schema
+class _DictWithListDictAttr:
+    steps: list[_StepDict]
+    optional_steps: list[_StepDict] | None = None
+
+
+@xarray_dataset_schema
+class _DatasetWithListDictAttr:
+    coord: Coord[Dim1, float]
+    steps: Attr[list[_StepDict]] | None = None
+
+
+def test_list_dict_value_schema():
+    schema = xarray_dataclass_to_dict_schema(_DictWithListDictAttr)
+    steps, optional_steps = schema.attributes
+    assert (steps.type, steps.optional) == ("list[dict]", False)
+    assert (optional_steps.type, optional_steps.optional) == ("list[dict]", True)
+    assert steps.dict_schema == xarray_dataclass_to_dict_schema(_StepDict)
+    assert optional_steps.dict_schema == steps.dict_schema
+
+    # The element schema is looked up per class, as for a dict field: a
+    # subclass that is not decorated itself gets its own schema
+    from xradio.schema.dataclass import value_schema
+
+    element_schema = value_schema(
+        list[_TestDictSubSchemaNotDecorated], "_Klass", "steps"
+    )
+    assert element_schema.dict_schema == (
+        value_schema(_TestDictSubSchemaNotDecorated, "_Klass", "step").dict_schema
+    )
+    assert element_schema.dict_schema.schema_name.endswith(
+        "._TestDictSubSchemaNotDecorated"
+    )
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [],
+        [{"type": "mean", "axis": ["time"]}],
+        [
+            {"type": "mean", "axis": ["time", "frequency"]},
+            {"type": "maximum", "axis": [], "note": "peak"},
+        ],
+    ],
+)
+def test_check_dict_list_dict_valid(steps):
+    assert not check_dict({"steps": steps}, _DictWithListDictAttr)
+    assert not check_dict({"steps": [], "optional_steps": steps}, _DictWithListDictAttr)
+
+
+def test_check_dict_list_dict_not_a_list():
+    for value, optional in [({"type": "mean", "axis": []}, False), ("mean", True)]:
+        key = "optional_steps" if optional else "steps"
+        (issue,) = check_dict({"steps": [], key: value}, _DictWithListDictAttr)
+        assert issue.path == [("", key)]
+        assert issue.message == f"{type(value).__name__} is not a list!"
+        assert issue.expected == [list[dict]] + ([type(None)] if optional else [])
+        assert issue.found is type(value)
+
+
+def test_check_dict_list_dict_elements():
+    """Every element is checked, and issues name the element by its index"""
+    steps = [
+        {"type": "mean", "axis": ["time"]},
+        "mean",
+        {"type": "meen", "axis": ["time"]},
+        {"type": "maximum"},
+        {"type": "maximum", "axis": "time"},
+    ]
+    issues = check_dict({"steps": steps}, _DictWithListDictAttr)
+    assert [(issue.path, issue.message) for issue in issues] == [
+        ([("", "steps"), ("", "1")], "str is not a dictionary!"),
+        ([("", "steps"), ("", "2"), ("", "type")], "Disallowed literal value!"),
+        (
+            [("", "steps"), ("", "3"), ("", "axis")],
+            "Non-optional attribute is missing!",
+        ),
+        ([("", "steps"), ("", "4"), ("", "axis")], "str is not a list!"),
+    ]
+    assert issues[0].expected == [dict]
+    assert issues[1].expected == ["mean", "maximum"]
+    assert issues[1].found == "meen"
+
+
+def test_check_dataset_list_dict_attribute():
+    dataset = xarray.Dataset(coords={"coord": numpy.arange(3.0)})
+    assert not check_dataset(dataset, _DatasetWithListDictAttr)
+    dataset.attrs["steps"] = [{"type": "mean", "axis": ["coord"]}]
+    assert not check_dataset(dataset, _DatasetWithListDictAttr)
+    dataset.attrs["steps"] = [{"type": "median", "axis": ["coord"]}]
+    (issue,) = check_dataset(dataset, _DatasetWithListDictAttr)
+    assert issue.path_str() == "attrs['steps'].['0'].['type']"
+
+
+def test_schema_export_list_dict_attribute(tmp_path):
+    export_schema_json_file(_DatasetWithListDictAttr, tmp_path / "schema.json")
+    with open(tmp_path / "schema.json", encoding="utf8") as f:
+        (attr,) = json.load(f)["attributes"]
+    assert attr["type"] == "list[dict]"
+    assert attr["dict_schema"]["schema_name"].endswith("._StepDict")
+    assert import_schema_json_file(
+        tmp_path / "schema.json"
+    ) == xarray_dataclass_to_dataset_schema(_DatasetWithListDictAttr)
+
+
+@pytest.mark.parametrize(
+    "annotation", [list[dict], list[int], list[_TestArraySchema], list[_StepDict, int]]
+)
+def test_list_annotation_must_be_of_a_dict_schema(annotation):
+    from xradio.schema.dataclass import value_schema
+
+    with pytest.raises(ValueError, match="a list of a dictionary schema"):
+        value_schema(annotation, "_Klass", "field")
+
+
+def test_schema_checked_list_dict_parameter():
+    @schema_checked
+    def fn(steps: list[_StepDict]) -> int:
+        return len(steps)
+
+    assert fn([{"type": "mean", "axis": ["time"]}]) == 1
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn([{"type": "mean"}])
+    assert exc_info.value.issues[0].path == [
+        ("steps", None),
+        ("", "0"),
+        ("", "axis"),
+    ]

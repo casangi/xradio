@@ -31,6 +31,7 @@ class ValueSchema:
         "list[str]",
         "list[float]",
         "list[list[float]]",
+        "list[dict]",
         "dict",
         "dataarray",
     ]
@@ -45,12 +46,15 @@ class ValueSchema:
     * ``list[str]``: A list of strings
     * ``list[float]``: A list of floating point numbers (or ints)
     * ``list[list[float]]``: A list of lists of floating point numbers (matrix)
+    * ``list[dict]``: A list of dictionaries, each conforming to
+      ``dict_schema``
     * ``dict``: Dictionary
     * ``dataarray``: An xarray dataarray (encoded using ``to_dict``)
     """
     dict_schema: DictSchema | None = None
     """
-    Dictionary schema, if it is a dict
+    Dictionary schema, if it is a dict (or of every element, if it is a
+    list[dict])
     """
     array_schema: ArraySchema | None = None
     """

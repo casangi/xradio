@@ -190,8 +190,10 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
     if typing.get_origin(ann) in [list, list]:
         args = typing.get_args(ann)
 
-        # Must be a list of strings, a list of floats or a list of lists of
-        # floats (e.g. a transformation matrix)
+        # Must be a list of strings, a list of floats, a list of lists of
+        # floats (e.g. a transformation matrix) or a list of dictionaries
+        # (each conforming to a dictionary schema, looked up per class as for
+        # a dictionary type)
         if args == (str,):
             return ValueSchema("list[str]")
         if args == (float,):
@@ -202,11 +204,19 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
             and typing.get_args(args[0]) == (float,)
         ):
             return ValueSchema("list[list[float]]")
+        if (
+            len(args) == 1
+            and isinstance(args[0], type)
+            and hasattr(args[0], "__xradio_dict_schema")
+        ):
+            return ValueSchema(
+                "list[dict]", dict_schema=xarray_dataclass_to_dict_schema(args[0])
+            )
 
         raise ValueError(
             f"In '{klass_name}', field '{field_name}' has"
             f" annotation {ann}, but only str, int, float, list[str], list[float],"
-            f" list[list[float]] or Literal allowed!"
+            f" list[list[float]], a list of a dictionary schema or Literal allowed!"
         )
 
     # Is a literal?

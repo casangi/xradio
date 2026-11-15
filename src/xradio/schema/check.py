@@ -703,6 +703,37 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
                     )
                 ]
             )
+    elif schema.type == "list[dict]":
+        if not isinstance(val, list):
+            expected = [list[dict]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
+        # Check every element against the dictionary schema, reporting
+        # issues under the index of the element
+        issues = SchemaIssues()
+        for index, element in enumerate(val):
+            if not isinstance(element, dict):
+                issues.add(
+                    SchemaIssue(
+                        path=[("", str(index))],
+                        message=f"{type(element).__name__} is not a dictionary!",
+                        expected=[dict],
+                        found=type(element),
+                    )
+                )
+                continue
+            issues += check_dict(element, schema.dict_schema).at_path("", str(index))
+        return issues
     elif schema.type in ["bool", "str", "int", "float"]:
         type_to_check = getattr(builtins, schema.type)
         if schema.type == "float":

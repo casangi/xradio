@@ -317,9 +317,17 @@ class DictSchemaTableDirective(SchemaTableDirective):
         if schema.attributes:
             self._add_section("Fields:")
             for attr in schema.attributes:
+                # Link the schema of fields that hold a DataArray or a dict
+                if attr.array_schema is not None:
+                    model = attr.array_schema.schema_name
+                elif attr.dict_schema is not None:
+                    model = attr.dict_schema.schema_name
+                else:
+                    model = None
                 self._add_row(
                     attr.name,
                     types=[attr.type],
+                    meta=model,
                     optional=attr.optional,
                     descr=attr.docstring,
                     default=attr.default,

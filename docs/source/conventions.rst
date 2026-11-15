@@ -169,7 +169,8 @@ Polarization labels are the casacore ``Stokes`` names (:py:data:`~xradio.schema.
 The canonical order is I, Q, U, V; RR, RL, LR, LL; XX, XY, YX, YY
 (:py:data:`~xradio.schema.polarization.CANONICAL_POLARIZATION_ORDER`), so that the correlations of a pair of feeds
 are in 2x2 Jones matrix order. Images keep this order: the readers return it, the ``make_empty_*`` factories require
-it and :py:func:`~xradio.image.schema.check_image` reports any other. The MSv2 converter keeps the correlation order of
+it and :py:func:`~xradio.image.schema.check_image` reports any other (with
+:py:func:`~xradio.schema.polarization.check_polarization_order`). The MSv2 converter keeps the correlation order of
 the MSv2 (its ``CORR_TYPE``), and nothing checks the order of Measurement Set v4 correlations.
 
 Flags

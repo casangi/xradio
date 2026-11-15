@@ -113,6 +113,8 @@ Shared Polarization Vocabulary
 
 .. autodata:: xradio.schema.polarization.LINEAR_CORRELATIONS
 
+.. autofunction:: xradio.schema.polarization.check_polarization_order
+
 The casacore translation tables of :py:mod:`xradio.schema.measures`:
 
 .. autodata:: xradio.schema.measures.CASACORE_SPECTRAL_FRAMES

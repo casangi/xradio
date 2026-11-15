@@ -83,7 +83,7 @@ from xradio.schema.measures import (
     UnitsOfSkyCoordInMetersOrRadians,
     UnitsRadians,
 )
-from xradio.schema.polarization import canonical_polarization_order
+from xradio.schema.polarization import check_polarization_order
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
 IMAGE_SCHEMA_VERSION = "0.0.3"
@@ -1176,7 +1176,7 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
 
     issues += _check_reference_attributes(image_xds, checked)
     issues += _check_beam_params_labels(image_xds)
-    issues += _check_polarization_order(image_xds)
+    issues += check_polarization_order(image_xds)
     return issues
 
 
@@ -1342,32 +1342,6 @@ def _check_beam_params_labels(image_xds: xarray.Dataset) -> SchemaIssues:
                 "in this order!",
                 found=labels,
                 expected=[list(BEAM_PARAMS_LABELS)],
-            )
-        ]
-    )
-
-
-def _check_polarization_order(image_xds: xarray.Dataset) -> SchemaIssues:
-    """Check that the polarization labels are in canonical order.
-
-    :param image_xds: Image dataset
-    :returns: Schema issues found
-    """
-
-    if "polarization" not in image_xds.coords:
-        return SchemaIssues()
-    labels = [str(label) for label in image_xds.coords["polarization"].values]
-    order = canonical_polarization_order(labels)
-    if order == list(range(len(labels))):
-        return SchemaIssues()
-    return SchemaIssues(
-        [
-            SchemaIssue(
-                path=[("coords", "polarization")],
-                message="Polarization labels must be in canonical (casacore "
-                "Stokes, Jones matrix) order, for example RR, RL, LR, LL!",
-                found=labels,
-                expected=[[labels[i] for i in order]],
             )
         ]
     )

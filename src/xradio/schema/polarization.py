@@ -2,14 +2,18 @@
 Polarization vocabulary shared by the xradio schemas.
 
 This module holds the casacore ``Stokes`` types, the canonical order of
-polarization labels and the circular and linear correlation products. The
-polarization coordinate schema,
+polarization labels, the circular and linear correlation products, and
+:py:func:`check_polarization_order`, which checks that the polarization labels
+of a dataset are in canonical order. The polarization coordinate schema,
 :py:class:`~xradio.schema.measures.PolarizationArray`, is defined in
 :py:mod:`xradio.schema.measures` and re-exported here.
 """
 
 from __future__ import annotations
 
+import xarray
+
+from xradio.schema.check import SchemaIssue, SchemaIssues
 from xradio.schema.measures import PolarizationArray  # noqa: F401
 
 #: casacore ``Stokes`` type code -> polarization label, from the
@@ -122,3 +126,43 @@ CIRCULAR_CORRELATIONS = ("RR", "RL", "LR", "LL")
 
 #: Linear correlation products, in canonical (Jones matrix) order.
 LINEAR_CORRELATIONS = ("XX", "XY", "YX", "YY")
+
+
+def check_polarization_order(dataset: xarray.Dataset) -> SchemaIssues:
+    """
+    Check that the polarization labels of a dataset are in canonical order
+
+    The canonical order is
+    :py:data:`~xradio.schema.polarization.CANONICAL_POLARIZATION_ORDER`, the
+    order of the casacore ``Stokes`` enumeration (``I, Q, U, V``,
+    ``RR, RL, LR, LL``, ``XX, XY, YX, YY``, ...), in which the correlations of
+    a pair of feeds are in Jones (2x2) matrix order. Labels that it does not
+    list must come after those it lists, in any order among themselves. A
+    dataset without a ``polarization`` coordinate, or with one that is not
+    one-dimensional (such as the scalar coordinate that selecting one
+    polarization leaves, whose dimensions
+    :py:func:`~xradio.schema.check.check_dataset` reports), has no issue.
+
+    :param dataset: Dataset to check
+    :returns: :py:class:`~xradio.schema.check.SchemaIssues` found: one issue
+       at ``coords['polarization']`` whose ``expected`` gives the labels in
+       canonical order
+    """
+
+    if "polarization" not in dataset.coords or dataset.coords["polarization"].ndim != 1:
+        return SchemaIssues()
+    labels = [str(label) for label in dataset.coords["polarization"].values]
+    order = canonical_polarization_order(labels)
+    if order == list(range(len(labels))):
+        return SchemaIssues()
+    return SchemaIssues(
+        [
+            SchemaIssue(
+                path=[("coords", "polarization")],
+                message="Polarization labels must be in canonical (casacore "
+                "Stokes, Jones matrix) order, for example RR, RL, LR, LL!",
+                found=labels,
+                expected=[[labels[i] for i in order]],
+            )
+        ]
+    )

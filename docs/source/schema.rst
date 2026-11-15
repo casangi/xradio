@@ -148,6 +148,18 @@ Shared Base Classes
 
 .. autoclass:: xradio.schema.measures.FrequencySamplingArrayBase()
 
+.. automodule:: xradio.schema.info
+
+.. autoclass:: xradio.schema.info.CreatorDictBase()
+
+.. autoclass:: xradio.schema.info.GenericDataGroupDict()
+
+.. autoclass:: xradio.schema.info.SchemaVersionAttrs()
+
+.. autoclass:: xradio.schema.info.VersionedArrayBase()
+
+.. autoclass:: xradio.schema.info.FlagArrayBase()
+
 Decorators
 ----------
 

@@ -88,6 +88,7 @@ xradio/
 │   ├── schema/               # Home-grown xarray-dataclasses reimpl (Data/Coord/Attr + decorators + check.py)
 │   │   ├── coordinates.py     #   coordinate bases (time, frequency, antenna, baseline, scan, receptor label)
 │   │   ├── dimensions.py      #   shared dimension literals (time, frequency, polarization, antenna_name, ...)
+│   │   ├── info.py            #   creator, data group, schema version, versioned and flag array bases
 │   │   ├── measures.py        #   shared measure schemas (time, spectral, sky, location, ...) and casacore
 │   │   │                      #   tables; with the dimensions, re-exported by xradio.measurement_set.schema
 │   │   └── polarization.py    #   casacore Stokes types and the canonical polarization order
@@ -261,6 +262,13 @@ check_datatree(dt) -> SchemaIssues             # dispatches per-node via attrs["
 # Define schemas with @xarray_dataarray_schema / @xarray_dataset_schema / @dict_schema + Data/Coord/Attr annotations.
 # Shared measure schemas (TimeArray, SpectralCoordArray, SkyCoordArray, ...) live in xradio.schema.measures.
 # Shared dimensions and the polarization vocabulary live in xradio.schema.dimensions and xradio.schema.polarization.
+# Shared bases (frozen dataclasses, not schemas) live in xradio.schema.coordinates, .info and .measures. A schema
+# class derives from one, base fields first; the field docstrings of the bases MSv4 derives from are the MSv4 text
+# (they feed the MSv4 JSON); attribute-only array bases start with `_: KW_ONLY` (data stays the first positional
+# parameter); dict bases never use KW_ONLY (get_data_group_keys reads get_type_hints). A class stays standalone where
+# a base would change it: MSv4 DataGroupDict, VisibilityXds and SpectrumXds do not derive from GenericDataGroupDict /
+# SchemaVersionAttrs, whose fields would come first and reorder their constructor parameters, data group keys and
+# JSON attributes.
 ```
 
 ---
@@ -398,7 +406,7 @@ conda run -n zinc python -m pytest tests/unit      # unit only
 PATH=<env>/bin:$PATH PYTHONPATH=src make schema-export   # regenerate schemas/{VisibilityXds,SpectrumXds,ImageXds}.json
 ```
 
-- `make schema-export` uses the `python` on `PATH`. Re-run it after any change to a schema class or schema docstring (image, MS and `schema/measures.py`): `tests/unit/schema/test_export.py` fails when `schemas/*.json` are out of date.
+- `make schema-export` uses the `python` on `PATH`. Re-run it after any change to a schema class or schema docstring (image, MS, and `schema/measures.py`, `schema/coordinates.py` and `schema/info.py`, whose base field docstrings feed the MSv4 JSON): `tests/unit/schema/test_export.py` fails when `schemas/*.json` are out of date.
 
 - **Public testing helpers** live in `xradio.testing` (pytest-free, reused by external projects / benchviper ASV benchmarks):
   - `assert_xarray_datasets_equal(test, true, *, rtol=1e-7, atol=0.0, check_attrs=True, check_encoding=False)`

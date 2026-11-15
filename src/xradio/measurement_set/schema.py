@@ -11,8 +11,9 @@ from xradio.schema.bases import (
     xarray_dataset_schema,
 )
 
-# Schema building blocks shared with the image schema
-# (xradio.image.schema). Re-exported here for backwards compatibility.
+# Shared schema building blocks (also used by xradio.image.schema) and the
+# bases the classes below derive from. The dimensions and measures that
+# earlier releases defined here are re-exported for backwards compatibility.
 from xradio.schema.coordinates import (
     AntennaNameArrayBase,
     BaselineAntennaNameArrayBase,
@@ -34,6 +35,11 @@ from xradio.schema.dimensions import (  # noqa: F401
     SkyDirLabel,
     SkyDisLabel,
     Time,
+)
+from xradio.schema.info import (
+    CreatorDictBase,
+    FlagArrayBase,
+    VersionedArrayBase,
 )
 from xradio.schema.measures import (  # noqa: F401
     AllowedDopplerTypes,
@@ -442,7 +448,7 @@ class ScanArray(ScanArrayBase):
 
 # Data variables
 @xarray_dataarray_schema
-class FlagArray:
+class FlagArray(FlagArrayBase):
     """
     An array of Boolean or integer values with the same shape as ``VISIBILITY``
     or ``SPECTRUM``,
@@ -467,27 +473,11 @@ class FlagArray:
     antenna_name: Coordof[AntennaNameArray] | None  # Only SD
     frequency: Coordof[FrequencyArray]
     polarization: Coordof[PolarizationArray] | None = None
-    flag_bits: Attr[list[str]] | None = (
-        "UNSPECIFIED_BIT",
-        "STATIC_BIT",
-        "CAM_BIT",
-        "DATA_LOST_BIT",
-        "INGEST_RFI_BIT",
-        "PREDICTED_RFI_BIT",
-        "CAL_RFI_BIT",
-        "POSTPROC_BIT",
-    )
-    """
-    Labels associated with bits used in ``FlagArray`` data. See
-    :ref:`flag bits` for suggested semantics.
-    """
     long_name: Attr[str] | None = "Visibility flags"
-
-    allow_multiple_versions: Attr[bool] | None = True
 
 
 @xarray_dataarray_schema
-class WeightArray:
+class WeightArray(VersionedArrayBase):
     """
     The weight for each channel, with the same shape as the associated
     :py:class:`VisibilityArray` or :py:class:`SpectrumArray`, as assigned
@@ -514,8 +504,6 @@ class WeightArray:
     polarization: Coordof[PolarizationArray] | None = None
     long_name: Attr[str] | None = "Visibility weights"
 
-    allow_multiple_versions: Attr[bool] | None = True
-
 
 # J2000=>fk5 is used most often. icrs is used less often. Both fk5 and
 # icrs are also borrowed from the field center (to fix ITRF=>J2000).
@@ -528,7 +516,7 @@ AllowedUvwFrames = Literal[
 
 
 @xarray_dataarray_schema
-class UvwArray:
+class UvwArray(VersionedArrayBase):
     """
     Coordinates for the baseline from ``baseline_antenna2_name`` to
     ``baseline_antenna1_name``, i.e. the baseline is equal to the position of
@@ -575,8 +563,6 @@ class UvwArray:
     frame: Attr[AllowedUvwFrames] = "icrs"
     """ To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) """
     units: Attr[UnitsMeters] = "m"
-
-    allow_multiple_versions: Attr[bool] | None = True
 
 
 @xarray_dataarray_schema
@@ -931,7 +917,7 @@ class SpectrumArray:
 
 
 @xarray_dataarray_schema
-class VisibilityArray:
+class VisibilityArray(VersionedArrayBase):
     """Visibility data array in main dataset (interferometric data, :py:class:`VisibilityXds`)"""
 
     data: Data[
@@ -947,7 +933,6 @@ class VisibilityArray:
     long_name: Attr[str] | None = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[str] = "Jy"
-    allow_multiple_versions: Attr[bool] | None = True
 
 
 # Info dicts
@@ -1017,11 +1002,8 @@ class DataGroupsDict:
 
 
 @dict_schema
-class CreatorDict:
-    software_name: str
-    """ Software that created the Measurement Set (XRadio, etc.). """
-    version: str
-    """ Version of the software. """
+class CreatorDict(CreatorDictBase):
+    pass
 
 
 # Data Sets

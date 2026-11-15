@@ -1414,6 +1414,14 @@
       "attributes": [
         {
           "$class": "AttrSchemaRef",
+          "type": "bool",
+          "optional": true,
+          "name": "allow_multiple_versions",
+          "default": true,
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
           "type": "list[str]",
           "optional": true,
           "name": "flag_bits",
@@ -1435,14 +1443,6 @@
           "optional": true,
           "name": "long_name",
           "default": "Visibility flags",
-          "docstring": null
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "bool",
-          "optional": true,
-          "name": "allow_multiple_versions",
-          "default": true,
           "docstring": null
         }
       ],
@@ -1911,18 +1911,18 @@
       "attributes": [
         {
           "$class": "AttrSchemaRef",
-          "type": "str",
-          "optional": true,
-          "name": "long_name",
-          "default": "Visibility weights",
-          "docstring": null
-        },
-        {
-          "$class": "AttrSchemaRef",
           "type": "bool",
           "optional": true,
           "name": "allow_multiple_versions",
           "default": true,
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Visibility weights",
           "docstring": null
         }
       ],

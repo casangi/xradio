@@ -225,7 +225,8 @@ Translating CASA Images and FITS
      - ``BMAJ``, ``BMIN`` and ``BPA``, or a ``BEAMS`` table
      - ``BEAM_FIT_PARAMS_<image>``
    * - direction coordinate
-     - celestial axes
+     - celestial axes: ``RA``/``DEC`` (fk4, fk5 and icrs frames) or
+       ``GLON``/``GLAT`` (galactic frame)
      - ``l`` and ``m`` coordinates, ``coordinate_system_info``
    * - spectral coordinate
      - spectral axis

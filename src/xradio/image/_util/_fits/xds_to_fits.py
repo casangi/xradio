@@ -40,8 +40,15 @@ _FITS_DIMS = ("frequency", "polarization", "m", "l")
 # FITS headers and data areas are padded to whole blocks of this size
 _FITS_BLOCK_BYTES = 2880
 
-# Frames the FITS reader can round trip (it only supports RA-/DEC- CTYPEs)
-_EQUATORIAL_FRAMES = ("fk4", "fk5", "icrs")
+# Direction reference frames the FITS writer supports -> CTYPE prefixes of
+# their longitude and latitude axes (FITS WCS paper II). The FITS reader reads
+# both kinds of axes back.
+_DIRECTION_AXIS_TYPES = {
+    "fk4": ("RA---", "DEC--"),
+    "fk5": ("RA---", "DEC--"),
+    "icrs": ("RA---", "DEC--"),
+    "galactic": ("GLON-", "GLAT-"),
+}
 # FITS EQUINOX written when the reference direction has no equinox attribute:
 # the year of the schema's default equinox ("j2000.0" -> 2000.0)
 _DEFAULT_EQUINOX = {
@@ -346,10 +353,10 @@ def _direction_cards(xds: xr.Dataset, header: fits.Header, naxis: int = 4) -> di
         )
     ref_dir = csys["reference_direction"]
     frame = str(ref_dir["attrs"]["frame"]).lower()
-    if frame not in _EQUATORIAL_FRAMES:
+    if frame not in _DIRECTION_AXIS_TYPES:
         raise RuntimeError(
-            f"Writing to FITS is only supported for equatorial direction "
-            f"reference frames {_EQUATORIAL_FRAMES}, got '{frame}'"
+            f"Writing to FITS is only supported for the direction reference "
+            f"frames {tuple(_DIRECTION_AXIS_TYPES)}, got '{frame}'"
         )
     projection = str(csys["projection"]).strip().upper()
     if not re.fullmatch(r"[A-Z0-9]{3}", projection):
@@ -375,13 +382,16 @@ def _direction_cards(xds: xr.Dataset, header: fits.Header, naxis: int = 4) -> di
     crpix = _sky_reference_pixel(xds, increments)
 
     equinox = ref_dir["attrs"].get("equinox")
-    if frame == "icrs":
+    if frame in ("icrs", "galactic"):
+        # neither frame has an equinox
         equinox = None
     elif equinox is not None:
         header["EQUINOX"] = _equinox_to_fits(equinox)
     else:
         header["EQUINOX"] = _DEFAULT_EQUINOX[frame]
-    header["RADESYS"] = frame.upper()
+    if frame != "galactic":
+        # RADESYS is the frame of equatorial axes only (FITS WCS paper II)
+        header["RADESYS"] = frame.upper()
     header["LONPOLE"] = float(pole[0])
     header["LATPOLE"] = float(pole[1])
     for i in (0, 1):
@@ -390,7 +400,8 @@ def _direction_cards(xds: xr.Dataset, header: fits.Header, naxis: int = 4) -> di
     for axis in range(3, naxis + 1):
         header[f"PC{axis}_{axis}"] = 1.0
     for axis, (ctype, value, increment, pixel) in enumerate(
-        zip(("RA---", "DEC--"), crval, increments, crpix, strict=True), start=1
+        zip(_DIRECTION_AXIS_TYPES[frame], crval, increments, crpix, strict=True),
+        start=1,
     ):
         header[f"CTYPE{axis}"] = ctype + projection
         header[f"CRVAL{axis}"] = float(value)

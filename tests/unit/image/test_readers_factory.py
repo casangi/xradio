@@ -597,6 +597,45 @@ class TestCasaReaderDirection:
         assert np.abs(xds.galactic_latitude.values - world[..., 1]).max() < tolerance
         assert not check_image(xds)
 
+    def test_galactic_image_through_fits(self, tmp_path):
+        """A galactic CASA image written to FITS keeps casacore's sky
+        positions, in the file and when it is read back."""
+        from astropy.io import fits
+        from astropy.wcs import WCS
+
+        def edit(coords):
+            self._direction(
+                coords, [30.0, 2.0], system="GALACTIC", axes=["Longitude", "Latitude"]
+            )
+
+        path, data = _make_casa_image(tmp_path / "galactic.im", edit_coords=edit)
+        (fits_path,) = write_image(
+            open_image(path), str(tmp_path / "galactic.fits"), out_format="fits"
+        )
+        world = _GALACTIC_SKY_POSITIONS
+        tolerance = np.radians(1e-9 / 3600)
+        with warnings.catch_warnings():
+            # wcslib's header fixes (OBSGEO) do not matter here
+            warnings.simplefilter("ignore")
+            wcs = WCS(fits.getheader(fits_path)).celestial
+        lon, lat = np.radians(wcs.pixel_to_world_values(*np.indices(world.shape[:2])))
+        assert np.abs(_angle_difference(lon, world[..., 0])).max() < tolerance
+        assert np.abs(lat - world[..., 1]).max() < tolerance
+        rt = open_image(fits_path)
+        assert rt.attrs["coordinate_system_info"]["reference_direction"]["attrs"] == {
+            "frame": "galactic",
+            "type": "sky_coord",
+            "units": "rad",
+        }
+        assert (
+            np.abs(_angle_difference(rt.galactic_longitude, world[..., 0])).max()
+            < tolerance
+        )
+        assert np.abs(rt.galactic_latitude.values - world[..., 1]).max() < tolerance
+        np.testing.assert_array_equal(
+            rt.SKY.values[0], np.transpose(data, (0, 1, 3, 2))
+        )
+
     def test_galactic_image_round_trip(self, tmp_path):
         xds = make_empty_sky_image(
             phase_center=[0.5, 0.03],

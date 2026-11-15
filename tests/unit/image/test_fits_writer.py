@@ -36,7 +36,7 @@ from astropy.wcs import WCS
 
 from xradio._utils._casacore.backend import tables
 from xradio._utils.dict_helpers import make_quantity
-from xradio.image import open_image, write_image
+from xradio.image import check_image, make_empty_sky_image, open_image, write_image
 from xradio.image._util import conventions
 from xradio.image._util._casacore.common import _create_new_image
 from xradio.image._util._fits import xds_to_fits
@@ -749,7 +749,12 @@ class TestDirectionAxes:
 
     @pytest.mark.parametrize(
         "frame, equinox, expected_equinox",
-        [("fk4", None, "b1950.0"), ("fk5", None, "j2000.0"), ("icrs", None, None)],
+        [
+            ("fk4", None, "b1950.0"),
+            ("fk5", None, "j2000.0"),
+            ("icrs", None, None),
+            ("galactic", None, None),
+        ],
     )
     def test_round_trip_direction_frame(
         self, tmp_path, frame, equinox, expected_equinox
@@ -765,14 +770,66 @@ class TestDirectionAxes:
         assert reference["attrs"].get("equinox") == expected_equinox
         np.testing.assert_allclose(reference["data"], [0.2, -0.5], rtol=0, atol=1e-14)
 
-    def test_non_equatorial_frame_raises(self, tmp_path):
+    def test_unsupported_direction_frame_raises(self, tmp_path):
         xds = make_image_xds()
         reference = xds.attrs["coordinate_system_info"]["reference_direction"]
-        reference["attrs"]["frame"] = "galactic"
+        reference["attrs"]["frame"] = "supergalactic"
         path = tmp_path / "img.fits"
-        with pytest.raises(RuntimeError, match="equatorial"):
+        frames = r"frames \('fk4', 'fk5', 'icrs', 'galactic'\), got 'supergalactic'"
+        with pytest.raises(RuntimeError, match=frames):
             write(xds, path)
         assert not path.exists()
+
+    def test_galactic_axes(self):
+        """Galactic images have GLON/GLAT axes and neither RADESYS nor
+        EQUINOX (FITS WCS paper II); OBSRA/OBSDEC hold the pointing center in
+        the frame of the direction axes, as for the other frames."""
+        from astropy.coordinates import SkyCoord
+
+        xds = make_image_xds()
+        attrs = xds.attrs["coordinate_system_info"]["reference_direction"]["attrs"]
+        attrs["frame"] = "galactic"
+        attrs.pop("equinox")
+        header = header_of(xds)
+        assert (header["CTYPE1"], header["CTYPE2"]) == ("GLON-SIN", "GLAT-SIN")
+        assert "RADESYS" not in header
+        assert "EQUINOX" not in header
+        wcs = WCS(header).celestial
+        assert wcs.world_axis_physical_types == ["pos.galactic.lon", "pos.galactic.lat"]
+        assert wcs.pixel_to_world(0, 0).frame.name == "galactic"
+        pointing = xds["SKY"].attrs["pointing_center"]
+        expected = SkyCoord(*pointing["data"], unit="rad", frame="fk5").galactic
+        np.testing.assert_allclose(header["OBSRA"], expected.l.deg, rtol=0, atol=1e-10)
+        np.testing.assert_allclose(header["OBSDEC"], expected.b.deg, rtol=0, atol=1e-10)
+
+    def test_galactic_image_round_trip(self, tmp_path):
+        xds = make_empty_sky_image(
+            phase_center=[0.5, 0.03],
+            image_size=[8, 6],
+            cell_size=[np.pi / 180 / 60, np.pi / 180 / 60],
+            frequency_coords=[1.4e9],
+            pol_coords=["I"],
+            time_coords=[59000.5],
+            direction_reference="galactic",
+            do_sky_coords=True,
+        )
+        xds["SKY"] = (
+            ("time", "frequency", "polarization", "l", "m"),
+            np.arange(48, dtype=np.float32).reshape(1, 1, 1, 8, 6),
+            {"type": "sky", "units": "Jy/beam"},
+        )
+        xds.attrs["data_groups"]["base"]["sky"] = "SKY"
+        (path,) = write_image(xds, str(tmp_path / "galactic.fits"), out_format="fits")
+        rt = open_image(path)
+        np.testing.assert_array_equal(rt.SKY.values, xds.SKY.values)
+        reference = rt.attrs["coordinate_system_info"]["reference_direction"]
+        assert reference["attrs"]["frame"] == "galactic"
+        assert "equinox" not in reference["attrs"]
+        for name in ("galactic_longitude", "galactic_latitude"):
+            np.testing.assert_allclose(
+                rt[name].values, xds[name].values, rtol=0, atol=1e-12
+            )
+        assert not check_image(rt)
 
     def test_pointing_center(self):
         xds = make_image_xds()

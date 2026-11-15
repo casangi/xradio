@@ -785,6 +785,24 @@ class TestFitsDriver:
         assert written == []
         assert _listing(tmp_path) == []
 
+    def test_planned_header_is_the_header_written(self, tmp_path):
+        """The header of every image of every data group is the header of the
+        file written for it, byte for byte (BEAMS extension aside)."""
+        xds = multi_group_dataset()
+        name = str(tmp_path / "out.fits")
+        written = write_image(xds, name, "fits")
+        path_of = {
+            output.variable: output.path
+            for output in plan_image_outputs(xds, name, "fits").outputs
+        }
+        assert sorted(path_of.values()) == sorted(written)
+        for group, roles in xds.attrs["data_groups"].items():
+            for role in ("sky", "point_spread_function", "primary_beam"):
+                header = fits_driver._planned_fits_header(xds, group, role)
+                expected = header.tostring().encode("ascii")
+                with open(path_of[roles[role]], "rb") as f:
+                    assert f.read(len(expected)) == expected, (group, role)
+
     def test_images_with_several_time_planes_are_rejected_first(self, tmp_path):
         xds = multi_group_dataset()
         xds = xr.concat([xds, xds.assign_coords(time=xds.time + 1)], dim="time")

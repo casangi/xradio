@@ -686,6 +686,45 @@ class TestDirectionAxes:
             assert abs(np.degrees(ra) % 360 - fits_ra) * 3600 < 1e-6
             assert abs(np.degrees(dec) - fits_dec) * 3600 < 1e-6
 
+    def test_celestial_header(self):
+        """The header of the celestial axes alone has the image header's cards
+        for them (and its date cards), and gives the same sky positions."""
+        xds = make_image_xds(shape=(7, 5))
+        rho = np.radians(20.0)
+        csys = xds.attrs["coordinate_system_info"]
+        csys["pixel_coordinate_transformation_matrix"] = [
+            [np.cos(rho), -np.sin(rho)],
+            [np.sin(rho), np.cos(rho)],
+        ]
+        csys["projection_parameters"] = [0.0, 0.1]
+        full = header_of(xds)
+        celestial = xds_to_fits._celestial_image_header(single_image(xds))
+        assert [celestial[k] for k in ("NAXIS", "NAXIS1", "NAXIS2")] == [2, 7, 5]
+        assert "PC3_3" not in celestial and "PC4_4" not in celestial
+        for keyword in list(celestial.keys())[1:]:
+            assert celestial[keyword] == full[keyword], keyword
+        wcs = WCS(celestial)
+        assert wcs.naxis == 2
+        assert wcs.array_shape == (5, 7)
+        pixels = np.meshgrid(np.arange(7), np.arange(5), indexing="ij")
+        np.testing.assert_array_equal(
+            wcs.pixel_to_world_values(*pixels),
+            WCS(full).celestial.pixel_to_world_values(*pixels),
+        )
+
+    def test_celestial_header_of_an_image_fits_cannot_hold(self):
+        """The celestial header needs neither a linear STOKES axis nor real
+        pixel values."""
+        for pols, dtype, match in (
+            (("I", "Q", "V"), np.float32, "linear axis"),
+            (("I", "Q", "U", "V"), np.complex64, "complex"),
+        ):
+            xds = make_image_xds(pols=pols, dtype=dtype)
+            with pytest.raises(ValueError, match=match):
+                header_of(xds)
+            celestial = xds_to_fits._celestial_image_header(single_image(xds))
+            assert WCS(celestial).array_shape == (5, 6)
+
     @pytest.mark.parametrize(
         "frame, equinox, radesys, fits_equinox",
         [

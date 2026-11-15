@@ -2286,6 +2286,29 @@ def test_retry_never_overwrites_a_preexisting_msv4(
     assert sentinel.read_text() == "keep me"
 
 
+@pytest.mark.parametrize(
+    "names, single_dish",
+    [
+        (["VISIBILITY", "VISIBILITY_CORRECTED", "VISIBILITY_MODEL", "UVW"], False),
+        (["SPECTRUM"], True),
+        # FLOAT_DATA with CORRECTED_DATA and MODEL_DATA: the conversion drops
+        # UVW, so no group may name it
+        (["SPECTRUM", "VISIBILITY_CORRECTED", "VISIBILITY_MODEL", "UVW"], True),
+    ],
+)
+def test_add_data_groups_uvw(names, single_dish):
+    xds = xr.Dataset({name: ("row", np.zeros(2)) for name in names})
+    xds, is_single_dish = conversion.add_data_groups(xds)
+    assert is_single_dish == single_dish
+    groups = xds.attrs["data_groups"]
+    assert set(groups) == (
+        {"base", "corrected", "model"} if len(names) > 1 else {"base"}
+    )
+    for group in groups.values():
+        assert ("uvw" in group) == (not single_dish)
+        assert group["field_and_source"].startswith("field_and_source_")
+
+
 def test_convert_and_write_partition_signature():
     """convert_and_write_partition shows (and binds its arguments with) the
     parameters of _convert_and_write_partition, without the internal ones it

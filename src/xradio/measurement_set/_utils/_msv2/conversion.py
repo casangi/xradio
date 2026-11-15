@@ -2397,34 +2397,37 @@ def add_data_groups(xds):
     data_groups = xds.attrs["data_groups"]
     # the weights of CORRECTED_DATA, also used with MODEL_DATA
     corrected_weight = "WEIGHT_CORRECTED" if "WEIGHT_CORRECTED" in xds else "WEIGHT"
+    # Single dish data have no UVW (the conversion drops it), so none of their
+    # data groups names it, also not those of CORRECTED_DATA and MODEL_DATA
+    # (VISIBILITY_CORRECTED and VISIBILITY_MODEL)
+    is_single_dish = any(
+        name in xds for name in ("SPECTRUM", "SPECTRUM_MODEL", "SPECTRUM_CORRECTED")
+    )
+    uvw = not is_single_dish
     if "VISIBILITY" in xds:
-        add_group_to_data_groups(data_groups, "base", "VISIBILITY")
+        add_group_to_data_groups(data_groups, "base", "VISIBILITY", uvw)
 
     if "VISIBILITY_CORRECTED" in xds:
         add_group_to_data_groups(
-            data_groups, "corrected", "VISIBILITY_CORRECTED", weight=corrected_weight
+            data_groups, "corrected", "VISIBILITY_CORRECTED", uvw, corrected_weight
         )
 
     if "VISIBILITY_MODEL" in xds:
         add_group_to_data_groups(
-            data_groups, "model", "VISIBILITY_MODEL", weight=corrected_weight
+            data_groups, "model", "VISIBILITY_MODEL", uvw, corrected_weight
         )
 
-    is_single_dish = False
     if "SPECTRUM" in xds:
         add_group_to_data_groups(data_groups, "base", "SPECTRUM", False)
-        is_single_dish = True
 
     if "SPECTRUM_MODEL" in xds:
         add_group_to_data_groups(
             data_groups, "model", "SPECTRUM_MODEL", False, corrected_weight
         )
-        is_single_dish = True
 
     if "SPECTRUM_CORRECTED" in xds:
         add_group_to_data_groups(
             data_groups, "corrected", "SPECTRUM_CORRECTED", False, corrected_weight
         )
-        is_single_dish = True
 
     return xds, is_single_dish

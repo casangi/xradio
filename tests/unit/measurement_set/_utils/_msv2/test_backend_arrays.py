@@ -734,7 +734,9 @@ def test_channel_tiling_of_generated_columns(backend_ms):
 
 def test_channel_sliced_columns_are_read_as_written():
     """The converter writes the values of CHANNEL_SLICED_COLUMNS as it reads
-    them (postprocess_main_column is the identity for them), the condition
+    them (postprocess_main_column is the identity for them), or converts them
+    value by value (build_partition takes the real part of single-dish
+    CORRECTED_DATA and MODEL_DATA through the read transform), the condition
     for reading a range of their channels alone."""
     values = np.zeros((2, 3, 4, 2), dtype=np.complex64)
     for col in backend_arrays.CHANNEL_SLICED_COLUMNS:

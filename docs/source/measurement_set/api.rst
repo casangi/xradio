@@ -46,7 +46,8 @@ builds them. The main data variables (``VISIBILITY`` or ``SPECTRUM`` and those o
 ``WEIGHT``, ``UVW``, ``TIME_CENTROID``, ``EFFECTIVE_INTEGRATION_TIME``) are read from the MAIN table only when they are
 indexed or computed: only the rows of the selected times and baselines, in whole cells, at most 128 MiB at a time.
 Opening reads one cell of each of their MAIN columns per partition, that of its first row, whose type gives the
-variable's dtype, as the converter does (for a column in tiled storage, this reads the tiles that hold that cell).
+variable's dtype, as the converter does (for a column in tiled storage, this reads the tiles that hold that cell; the
+``CORRECTED_DATA`` and ``MODEL_DATA`` of single-dish data give the type of their real part, which is what they hold).
 Cells without a MAIN row are NaN, and their ``FLAG`` is False, as in the converted processing set. The
 ``pointing_xds`` is lazy too, whatever the size of the POINTING table: opening reads its ``TIME`` and ``ANTENNA_ID``
 columns, the shapes (not the values) of the cells of its array columns (scanned by the first open in a process, see

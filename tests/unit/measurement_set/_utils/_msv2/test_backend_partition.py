@@ -120,6 +120,7 @@ WRITE_CASES = {
     ),
     "single_dish_antenna1": ("single_dish", ["ANTENNA1"], 3, {}),
     "single_dish": ("single_dish", [], 2, {"main_chunksize": 0.0001}),
+    "single_dish_corrected": ("single_dish_corrected", [], 2, {}),
     "no_weight": ("no_weight", [], 0, {}),
     "wsp_partial_no_pointing": ("wsp_partial", [], 3, {"with_pointing": False}),
     "sparse_dup_frequency_chunks": (

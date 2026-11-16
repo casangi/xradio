@@ -42,7 +42,8 @@ until one ``DataTree.to_zarr`` call writes the MSv4. With streaming:
    in batches of whole zarr chunks along time: each batch is read with one
    ascending pass over its rows (``read_time_chunk``), converted as in the
    non-streamed path (TIME_CENTROID epoch, WEIGHT repeated along frequency,
-   reversed frequency axis) and written as chunk-aligned regions, so every
+   the real part of single-dish CORRECTED_DATA and MODEL_DATA, reversed
+   frequency axis) and written as chunk-aligned regions, so every
    zarr chunk is encoded once, from the same values: the chunk files are
    byte-identical to the non-streamed path.
 
@@ -207,7 +208,8 @@ class DeferredVariable:
     transform : Callable | None
         Conversion applied to every batch after reading it (the same as in the
         non-streamed path: TIME_CENTROID epoch, WEIGHT repeated along
-        frequency), None for none.
+        frequency, the real part of single-dish CORRECTED_DATA and
+        MODEL_DATA), None for none.
     how : str
         How the readability of the column was decided (for logging).
     verified : bool

@@ -27,6 +27,7 @@ def create_field_and_source_xds(
     partition_descr: dict[str, Any],
     spectral_window_id: int,
     is_single_dish: bool,
+    ephemeris_interpolate: bool = True,
 ) -> xr.Dataset:
     """
     Build a field_and_source_xds dataset with field and source metadata from an ASDM.
@@ -89,8 +90,6 @@ def create_field_and_source_xds(
 
     phase_or_reference = "REFERENCE" if is_single_dish else "PHASE"
     center_direction_dv = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
-    # TODO: make distance variable once we have ephem data (below)
-    # center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
     if is_single_dish:
         # ignore the polynomial dimension
@@ -109,17 +108,7 @@ def create_field_and_source_xds(
 
     xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
 
-    # TODO: ephemeris. SOURCE_DISTANCE, etc.
-    ephemeris_id = field_df["ephemerisId"].item()
-    if not pd.isna(ephemeris_id):
-        xradio_logger().info(
-            f"Note: ephemeris data is not yet supported. Found an ephemeris id: {ephemeris_id} "
-            f"for field id: {field_id} / name {field_name}. The source_and_field_xds will "
-            "not contain ephemeris information."
-        )
-
-    is_ephemeris = False
-    xds.attrs.update({"is_ephemeris": is_ephemeris})
+    xds = extract_ephemeris_info(xds, asdm, field_df)
 
     return xds
 
@@ -157,7 +146,7 @@ def extract_source_info(
         xradio_logger().warning(
             "No sourceId found in the Field table. No source information will be included in field_and_source_xds."
         )
-        unknown = to_np_array(["Unknown"] * field_df.shape[0])
+        unknown = to_np_array(["Unknown"] * field_df.shape[0]).astype("str")
         xds = xds.assign_coords({"source_name": ("field_name", unknown)})
         return xds
 
@@ -241,5 +230,80 @@ def extract_source_info(
             sys_vel,
             make_quantity_attrs("m/s"),
         )
+
+    return xds
+
+
+def extract_ephemeris_info(
+    xds: xr.Dataset, asdm: pyasdm.ASDM, field_df: pd.DataFrame
+) -> xr.Dataset:
+    """
+
+    The ephemerides used by ALMA are originally for the observer location of ALMA (topocentric). They use the ICRS coordinate reference frame and typically have a time spacing of ten or twenty minutes.
+
+    convert_ephem2geo: True by default
+    """
+
+    ephemeris_id = field_df["ephemerisId"].item()
+    if pd.isna(ephemeris_id):
+        return xds
+
+    xds.attrs["type"] = "field_and_source_ephemeris"
+
+    # CASA's importasdm/sdm tool fills:
+    # - MJD, (RA, DEC, Rho) (from "dir"),
+    # - RadVel (if present, it is an optional parameter)
+    # it also creates the columns diskLong and diskLast, leaving them unset/0
+    sdm_ephemeris_required_attrs = [
+        "timeInterval",
+        "ephemerisId",
+        "observerLocation",
+        "equinoxEquator",
+        "dir",
+        "distance",
+        "timeOrigin",
+    ]
+    sdm_ephemeris_optional_attrs = [
+        "radVel",
+    ]
+
+    ephemeris_df = exp_asdm_table_to_df(
+        asdm,
+        "Ephemeris",
+        sdm_ephemeris_required_attrs + sdm_ephemeris_optional_attrs,
+        optional_per_row=True,
+    )
+
+    # time interval is t_start, width  (=> t_start+width = t_end)
+    time = ephemeris_df["timeInterval"]
+    time_coord = {
+        "time_ephemeris": time,
+    }
+    xds = xds.assign_coords(time_coord)
+
+    direction = ephemeris_df["dir"]
+    distance = ephemeris_df["distance"]
+
+    phase_or_reference = (
+        "PHASE" if "FIELD_PHASE_CENTER_DIRECTION" in xds.data_vars else "REFERENCE"
+    )
+    center_direction_dv = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
+    center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
+
+    xds.data_vars[center_direction_dv] = (
+        ["time_ephemeris", "sky_dir_label"],
+        direction,
+    )
+
+    xds.data_vars[center_distance_dv] = (
+        ["time_ephemeris", "sky_dir_label"],
+        distance,
+    )
+
+    radvel = ephemeris_df["radVel"]
+    if not pd.isna(radvel).all():
+        # probably?
+        xds.attrs["doppler_shift_velocity"] = "m/s"
+        pass
 
     return xds

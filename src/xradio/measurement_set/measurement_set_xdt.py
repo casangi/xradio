@@ -225,6 +225,7 @@ class MeasurementSetXdt:
             )
 
         partition_info = {
+            "antenna_name": self._xdt.antenna_xds.antenna_name.values.tolist(),
             "spectral_window_name": self._xdt.frequency.attrs["spectral_window_name"],
             "spectral_window_intents": spw_intent,
             "field_name": to_python_type(

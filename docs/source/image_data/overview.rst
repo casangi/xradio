@@ -68,6 +68,8 @@ for full details) are:
 - ``POINT_SPREAD_FUNCTION``: the instrumental response ("dirty beam"), unity
   at the peak.
 - ``PRIMARY_BEAM``: the antenna power pattern projected onto the sky.
+- ``VOLTAGE_PATTERN``: the complex voltage pattern of an antenna projected
+  onto the sky, a Jones matrix per direction.
 - ``BEAM_FIT_PARAMS_*``: Gaussian fits (major axis, minor axis and position
   angle) per plane, ``BEAM_FIT_PARAMS_SKY`` of the resolution element of the
   sky image and ``BEAM_FIT_PARAMS_POINT_SPREAD_FUNCTION`` of the point spread

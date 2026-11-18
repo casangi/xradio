@@ -498,6 +498,42 @@ class TestImageSchemaSynthetic:
         issues = check_dict({"sky": 1}, DataGroupDict)
         assert issues
 
+    @staticmethod
+    def _with_voltage_pattern(xds: xr.Dataset) -> xr.Dataset:
+        """The dataset with a complex voltage pattern in its own data group,
+        on the altaz frame of an antenna's mount."""
+        reference = xds.attrs["coordinate_system_info"]["reference_direction"]
+        reference["attrs"] = {"frame": "altaz", "type": "sky_coord", "units": "rad"}
+        reference["coords"]["sky_dir_label"]["data"] = ["lon", "lat"]
+        xds["VOLTAGE_PATTERN"] = (xds["SKY"] * (1 + 0.5j)).astype(np.complex64)
+        xds["VOLTAGE_PATTERN"].attrs = {"type": "voltage_pattern"}
+        xds.attrs["data_groups"]["pattern"] = {"voltage_pattern": "VOLTAGE_PATTERN"}
+        return xds
+
+    def test_voltage_pattern(self, image_xds_valid):
+        """A voltage pattern is complex: a real one is reported."""
+        xds = self._with_voltage_pattern(image_xds_valid)
+        assert not check_image(xds)
+        xds["VOLTAGE_PATTERN"] = xds["SKY"]
+        xds["VOLTAGE_PATTERN"].attrs = {"type": "voltage_pattern"}
+        assert [i.path for i in check_image(xds)] == [
+            [("data_vars", "VOLTAGE_PATTERN"), ("dtype", None)]
+        ]
+
+    def test_voltage_pattern_zarr_round_trip(self, image_xds_valid, tmp_path):
+        """write_image and open_image keep a voltage pattern and its data group."""
+        xds = self._with_voltage_pattern(image_xds_valid)
+        (path,) = write_image(xds, str(tmp_path / "pattern"), out_format="zarr")
+        back = open_image(path)
+        assert back["VOLTAGE_PATTERN"].dtype == np.complex64
+        np.testing.assert_array_equal(
+            back["VOLTAGE_PATTERN"].values, xds["VOLTAGE_PATTERN"].values
+        )
+        assert back.attrs["data_groups"]["pattern"] == {
+            "voltage_pattern": "VOLTAGE_PATTERN"
+        }
+        assert not check_image(back)
+
 
 class TestImageSchemaVocabularies:
     """The schema vocabularies agree with the conventions the readers,

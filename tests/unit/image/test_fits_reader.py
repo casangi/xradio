@@ -1135,6 +1135,19 @@ def test_sumwt_with_direction_axes_raises(tmp_path):
         open_image({"visibility_normalization": path})
 
 
+@pytest.mark.parametrize("multibeam", [False, True])
+@pytest.mark.parametrize("image_type", ["primary_beam", "mask"])
+def test_beam_not_kept_is_not_named(tmp_path, image_type, multibeam):
+    """Only sky images and point spread functions keep their beams, so other
+    images do not name beam fit parameters the dataset lacks."""
+    beams = np.tile([1.0, 0.5, 30.0], (NCHAN, 4, 1)) if multibeam else None
+    path, _ = write_fits(tmp_path / f"target.{image_type}.fits", beams=beams)
+    xds = open_image({image_type: path})
+    variable = image_type.upper()
+    assert f"BEAM_FIT_PARAMS_{variable}" not in xds.data_vars
+    assert "beam_fit_params" not in xds[variable].attrs
+
+
 # --------------------------------------------------------------------------- #
 # Other HDUs and packaging (X4)                                                #
 # --------------------------------------------------------------------------- #

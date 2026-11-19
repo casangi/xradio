@@ -223,7 +223,7 @@ Translating CASA Images and FITS
      - ``FLAG_<image>`` (``True`` marks invalid pixels)
    * - restoring beam(s)
      - ``BMAJ``, ``BMIN`` and ``BPA``, or a ``BEAMS`` table
-     - ``BEAM_FIT_PARAMS_<image>``
+     - ``BEAM_FIT_PARAMS_<image>`` (sky images and point spread functions)
    * - direction coordinate
      - celestial axes
      - ``l`` and ``m`` coordinates, ``coordinate_system_info``

@@ -91,6 +91,13 @@ def convert_msv2_to_processing_set(
     Times and frequencies always increase: the channels of a spectral window are
     sorted by frequency, and a repeated frequency raises a ``ValueError``.
 
+    Single-dish data (FLOAT_DATA, stored as SPECTRUM) give spectrum datasets,
+    whose VISIBILITY_CORRECTED and VISIBILITY_MODEL hold the real part of
+    CORRECTED_DATA and MODEL_DATA (float32 from the complex columns that CASA
+    writes): CASA's single-dish tasks use only the real part. These columns
+    are still read as complex values, so their batches (see main_chunksize)
+    take twice the memory.
+
     Parameters
     ----------
     in_file : str

@@ -18,17 +18,19 @@ time), with the converter's own read primitive (``read_grid``: cells without
 a row padded with ``get_pad_value``, FLAG=False and NaN; for duplicated
 (time, baseline) rows the last row wins; bounded calls of ascending rows) and
 the converter's transform (TIME_CENTROID epoch, WEIGHT repeated along
-frequency); the selected cell elements are taken afterwards in numpy. So the
+frequency, the real part of the CORRECTED_DATA and MODEL_DATA of single-dish
+data); the selected cell elements are taken afterwards in numpy. So the
 values are those the converter writes, for any key, and a read holds at most
 its result plus one sub-block. Channel-sliced reads: of a column whose values
-the converter writes as read (CHANNEL_SLICED_COLUMNS) and whose 2-D (chan,
-pol) cells are stored in tiles of fewer channels than a cell
-(``channel_tiling``, found when the MS is opened), python-casacore reads only
-the channels of the selection's range rounded out to whole tiles, with a
-bounded tile cache; the values are the same. Every read opens the MAIN table
-by name and closes it (no handle is kept); with casatools it holds the
-process-wide casatools lock (``casatools_serialized``) over the open, the
-read, the close and the release of the table.
+the converter writes as read, or converts value by value (the real part;
+CHANNEL_SLICED_COLUMNS), and whose 2-D (chan, pol) cells are stored in tiles
+of fewer channels than a cell (``channel_tiling``, found when the MS is
+opened), python-casacore reads only the channels of the selection's range
+rounded out to whole tiles, with a bounded tile cache; the values are the
+same. Every read opens the MAIN table by name and closes it (no handle is
+kept); with casatools it holds the process-wide casatools lock
+(``casatools_serialized``) over the open, the read, the close and the release
+of the table.
 
 Rows: :class:`PartitionIndex` holds the MAIN rows of a partition as runs, the
 number of MAIN rows and the (time, baseline) grid shape when the MS was
@@ -120,9 +122,11 @@ from xradio.measurement_set._utils._msv2.partition_queries import (
 # times is read in several sub-blocks (at least one time each).
 SUB_BLOCK_BYTES = 128 * 2**20
 # The MAIN columns whose values the converter writes as it reads them
-# (postprocess_main_column converts only TIME_CENTROID, WEIGHT and SIGMA*): of their
-# 2-D (chan, pol) cells, a range of channels can be read alone (channel-sliced
-# reads, see MSv2MainColumnArray)
+# (postprocess_main_column converts only TIME_CENTROID, WEIGHT and SIGMA*), or
+# converts value by value (the real part of the CORRECTED_DATA and MODEL_DATA
+# of single-dish data, build_partition): of their 2-D (chan, pol) cells, a
+# range of channels can be read alone (channel-sliced reads, see
+# MSv2MainColumnArray)
 CHANNEL_SLICED_COLUMNS = frozenset(
     {"DATA", "CORRECTED_DATA", "MODEL_DATA", "FLOAT_DATA", "FLAG", "WEIGHT_SPECTRUM"}
 )
@@ -1543,8 +1547,9 @@ class MSv2MainColumnArray(MSv2BackendArray):
     axis is reversed by the caller, lazily).
 
     Channel-sliced reads: the cells of a column of CHANNEL_SLICED_COLUMNS
-    (values as read: VISIBILITY*, SPECTRUM*, FLAG, WEIGHT from WEIGHT_SPECTRUM)
-    whose 2-D (chan, pol) cells are stored in tiles of ``tile_channels``
+    (values as read: VISIBILITY*, SPECTRUM*, FLAG, WEIGHT from WEIGHT_SPECTRUM;
+    the real part of VISIBILITY_CORRECTED and VISIBILITY_MODEL in single-dish
+    data) whose 2-D (chan, pol) cells are stored in tiles of ``tile_channels``
     channels (fewer than the cell's, ``channel_tiling``) are read, with
     python-casacore, for the range of channels of a selection that does not
     hold them all, rounded out to whole tiles (the tiles of a channel are read
@@ -1743,9 +1748,10 @@ class MSv2MainColumnArray(MSv2BackendArray):
         """The cells of the channels ``chan_range`` of the rows of ``plan`` on
         the (time, baseline) grid of ``grid_shape``, as ``read_grid`` (padded
         with get_pad_value; for duplicated cells the last row wins) but for
-        those channels only (the transform is the identity: the column is in
-        CHANNEL_SLICED_COLUMNS). Gaps of rows of other partitions are bridged
-        only in a column of one cell shape (``tile_bridge``)."""
+        those channels only (the column is in CHANNEL_SLICED_COLUMNS: the
+        transform converts value by value, as for whole cells). Gaps of rows
+        of other partitions are bridged only in a column of one cell shape
+        (``tile_bridge``)."""
         c0, c1 = chan_range
         shape = tuple(grid_shape) + (c1 - c0, self.cell_shape[1])
         if plan.grid_is_full:
@@ -1761,7 +1767,7 @@ class MSv2MainColumnArray(MSv2BackendArray):
                 chan=slice(c0, c1),
                 bridge=self.tile_bridge,
             )
-        return grid
+        return grid if self.transform is None else self.transform(grid)
 
     def _message(self, key: tuple[slice, ...], exc: BaseException) -> str:
         block = ", ".join(f"{k.start}:{k.stop}" for k in key)

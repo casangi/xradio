@@ -185,6 +185,17 @@ def check_dataset(
     """
     Check whether an xarray Dataset conforms to a schema
 
+    For the measurement set datasets
+    (:py:class:`~xradio.measurement_set.schema.VisibilityXds` and
+    :py:class:`~xradio.measurement_set.schema.SpectrumXds`) this also checks
+    every data group and the data variables that it names (see
+    :py:func:`~xradio.schema.info.check_data_groups`). That check is
+    registered when ``xradio.measurement_set.schema`` is imported, as it is
+    wherever its classes are used and by ``import xradio.measurement_set``,
+    and is found by the schema name, so it also runs for these schemas
+    imported from JSON. It is not part of the JSON schemas: software that
+    checks against them without xradio does not run it.
+
     :param dataset: Dataset to check
     :param schema: Dataset schema to check against (a class decorated with
        :py:func:`~xradio.schema.bases.xarray_dataset_schema`, for example
@@ -213,6 +224,7 @@ def check_dataset(
         schema.dimensions,
         check_order=False,
         allow_superflous=allow_superflous_dims,
+        optional_dimensions=frozenset(schema.optional_dimensions or ()),
     )
 
     # Check attributes
@@ -223,6 +235,12 @@ def check_dataset(
 
     # Check data variables
     issues += check_data_vars(dataset.data_vars, schema.data_vars, "data_vars")
+
+    # Checks registered for this schema, beyond the structure checked above
+    # (the measurement set schemas check every data group)
+    dataset_check = _DATASET_CHECKS.get(schema.schema_name)
+    if dataset_check is not None:
+        issues += dataset_check(dataset)
 
     return issues
 
@@ -273,6 +291,7 @@ def check_dimensions(
     expected: [[str]],
     check_order: bool = True,
     allow_superflous: set[str] = frozenset(),
+    optional_dimensions: set[str] = frozenset(),
 ) -> SchemaIssues:
     """
     Check whether a dimension list conforms to a schema
@@ -280,19 +299,33 @@ def check_dimensions(
     :param dims: Dimension list to check
     :param expected: Expected possibilities for dimension list
     :param check_order: Whether to check order of dimensions
+    :param allow_superflous: Dimensions that may be present or absent
+       without an issue, whether or not ``expected`` mentions them. With
+       ``check_order=True``, though, the list must equal the first expected
+       possibility that matches it apart from these dimensions, or it is
+       reported as in the wrong order
+    :param optional_dimensions: Dimensions that may be present in addition to
+       an expected possibility, in any combination (as
+       :py:attr:`~xradio.schema.metamodel.DatasetSchema.optional_dimensions`).
+       With ``check_order=True``, though, the list must equal the first
+       expected possibility that matches it apart from these dimensions, or
+       it is reported as in the wrong order
     :returns: :py:class:`SchemaIssues` found
     """
 
     # Find a dimension list that matches
     dims_set = set(dims)
+    optional_dimensions = frozenset(optional_dimensions)
     best = None
     best_diff = 0
     for exp_dims in expected:
         exp_dims_set = set(exp_dims)
+        # Optional dimensions that this possibility does not require
+        extra_dims = optional_dimensions - exp_dims_set
 
         # No match? Continue, but take note of best match
-        if exp_dims_set - allow_superflous != dims_set - allow_superflous:
-            diff = len(dims_set.symmetric_difference(exp_dims_set))
+        if exp_dims_set - allow_superflous != dims_set - extra_dims - allow_superflous:
+            diff = len(dims_set.symmetric_difference(exp_dims_set) - extra_dims)
             if best is None or diff < best_diff:
                 best = exp_dims_set
                 best_diff = diff
@@ -314,7 +347,10 @@ def check_dimensions(
         )
 
     # Dimensionality not supported - try to give a helpful suggestion
-    hint_remove = [f"'{hint}'" for hint in (dims_set - best) - allow_superflous]
+    hint_remove = [
+        f"'{hint}'"
+        for hint in (dims_set - best - optional_dimensions) - allow_superflous
+    ]
     hint_add = [f"'{hint}'" for hint in best - dims_set]
     if hint_remove and hint_add:
         message = f"Unexpected coordinates, replace {','.join(hint_remove)} by {','.join(hint_add)}?"
@@ -684,9 +720,46 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
                     )
                 ]
             )
+    elif schema.type == "list[dict]":
+        if not isinstance(val, list):
+            expected = [list[dict]]
+            if schema.optional:
+                expected.append(type(None))
+            return SchemaIssues(
+                [
+                    SchemaIssue(
+                        path=[],
+                        message=f"{type(val).__name__} is not a list!",
+                        expected=expected,
+                        found=type(val),
+                    )
+                ]
+            )
+        # Check every element against the dictionary schema, reporting
+        # issues under the index of the element
+        issues = SchemaIssues()
+        for index, element in enumerate(val):
+            if not isinstance(element, dict):
+                issues.add(
+                    SchemaIssue(
+                        path=[("", str(index))],
+                        message=f"{type(element).__name__} is not a dictionary!",
+                        expected=[dict],
+                        found=type(element),
+                    )
+                )
+                continue
+            issues += check_dict(element, schema.dict_schema).at_path("", str(index))
+        return issues
     elif schema.type in ["bool", "str", "int", "float"]:
         type_to_check = getattr(builtins, schema.type)
-        if not isinstance(val, type_to_check):
+        if schema.type == "float":
+            # A Python int is a valid float, as in list[float] (but bool, a
+            # subclass of int, is not)
+            valid = isinstance(val, int | float) and not isinstance(val, bool)
+        else:
+            valid = isinstance(val, type_to_check)
+        if not valid:
             expected = [type_to_check]
             if schema.optional:
                 expected.append(type(None))
@@ -723,6 +796,11 @@ def _check_value(val: typing.Any, schema: metamodel.ValueSchema):
 
 
 _DATASET_TYPES = {}
+
+# Checks that check_dataset runs after its structural checks, by the
+# schema_name of the dataset schema: functions of the dataset that return
+# SchemaIssues (xradio.measurement_set.schema registers its data group check)
+_DATASET_CHECKS = {}
 
 
 class ExtensionTypeWarning(UserWarning):

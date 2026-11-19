@@ -449,7 +449,9 @@ def default_main_chunksize(
 
     The memory of the streamed write is so about DEFAULT_MAIN_CHUNK_BYTES per
     batch only if a time step of the largest data variable is at most that
-    size; otherwise it is one time step.
+    size; otherwise it is one time step. The CORRECTED_DATA and MODEL_DATA of
+    single-dish data take twice that: they are read as complex values, of
+    which their data variables hold the real part.
 
     Parameters
     ----------
@@ -1270,6 +1272,8 @@ def estimate_memory_for_partition(
                     # cell_size = col_dtype.itemsize
                     cell_size = 4
                     if data_col != "FLOAT_DATA":
+                        # (also the CORRECTED_DATA and MODEL_DATA of single-dish
+                        # data: read as complex, their real part is a view)
                         cell_size *= 2
                 elif col_descr["valueType"] == "float":
                     cell_size = 4
@@ -1968,6 +1972,19 @@ def build_partition(
 
         # Add data_groups
         xds, is_single_dish = add_data_groups(xds)
+        if is_single_dish:
+            # CASA writes CORRECTED_DATA and MODEL_DATA as complex columns, also
+            # next to FLOAT_DATA, and its single-dish tasks use their real part
+            # only: a spectrum dataset holds that real part (float32 for a
+            # Complex column), without reading the values here
+            for col in ("CORRECTED_DATA", "MODEL_DATA"):
+                name = col_to_data_variable_names[col]
+                if name in xds and xds[name].dtype.kind == "c":
+                    # (a view of numpy values, lazy for dask and placeholders)
+                    xds[name] = xds[name].real
+                    if deferred is not None:
+                        # (postprocess_main_column keeps these columns as read)
+                        deferred[name].transform = np.real
         xds = add_missing_data_var_attrs(xds)
 
         if (
@@ -2397,34 +2414,37 @@ def add_data_groups(xds):
     data_groups = xds.attrs["data_groups"]
     # the weights of CORRECTED_DATA, also used with MODEL_DATA
     corrected_weight = "WEIGHT_CORRECTED" if "WEIGHT_CORRECTED" in xds else "WEIGHT"
+    # Single dish data have no UVW (the conversion drops it), so none of their
+    # data groups names it, also not those of CORRECTED_DATA and MODEL_DATA
+    # (VISIBILITY_CORRECTED and VISIBILITY_MODEL)
+    is_single_dish = any(
+        name in xds for name in ("SPECTRUM", "SPECTRUM_MODEL", "SPECTRUM_CORRECTED")
+    )
+    uvw = not is_single_dish
     if "VISIBILITY" in xds:
-        add_group_to_data_groups(data_groups, "base", "VISIBILITY")
+        add_group_to_data_groups(data_groups, "base", "VISIBILITY", uvw)
 
     if "VISIBILITY_CORRECTED" in xds:
         add_group_to_data_groups(
-            data_groups, "corrected", "VISIBILITY_CORRECTED", weight=corrected_weight
+            data_groups, "corrected", "VISIBILITY_CORRECTED", uvw, corrected_weight
         )
 
     if "VISIBILITY_MODEL" in xds:
         add_group_to_data_groups(
-            data_groups, "model", "VISIBILITY_MODEL", weight=corrected_weight
+            data_groups, "model", "VISIBILITY_MODEL", uvw, corrected_weight
         )
 
-    is_single_dish = False
     if "SPECTRUM" in xds:
         add_group_to_data_groups(data_groups, "base", "SPECTRUM", False)
-        is_single_dish = True
 
     if "SPECTRUM_MODEL" in xds:
         add_group_to_data_groups(
             data_groups, "model", "SPECTRUM_MODEL", False, corrected_weight
         )
-        is_single_dish = True
 
     if "SPECTRUM_CORRECTED" in xds:
         add_group_to_data_groups(
             data_groups, "corrected", "SPECTRUM_CORRECTED", False, corrected_weight
         )
-        is_single_dish = True
 
     return xds, is_single_dish

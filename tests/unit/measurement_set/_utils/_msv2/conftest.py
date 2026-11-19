@@ -33,6 +33,7 @@ BACKEND_MS_VARIANTS = (
     "no_weight",
     "single_dish",
     "narrow_tiles",
+    "single_dish_corrected",
 )
 # Rows per time and times per DDI of the generated MSs (5 antennas, 10
 # baselines, 300 rows per DDI)
@@ -149,7 +150,7 @@ def _write_narrow_tiles(msname: str, main_tb, ddi: np.ndarray, rng) -> None:
 
 def _grid_indices(variant: str, pos: np.ndarray, ddi: np.ndarray, rng) -> tuple:
     """Time and baseline index of every row (``pos``: row index in its DDI)."""
-    if variant == "single_dish":
+    if variant in ("single_dish", "single_dish_corrected"):
         return pos // N_ANTENNAS, pos % N_ANTENNAS
     if variant == "baseline_major":
         return pos % N_TIMES, pos // N_TIMES
@@ -229,6 +230,11 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
       TiledShapeStMan (WEIGHT=1 fallback).
     - "single_dish": FLOAT_DATA (TiledShapeStMan), autocorrelations only, a
       POINTING row per antenna and second.
+    - "single_dish_corrected": "single_dish" with the complex CORRECTED_DATA
+      and MODEL_DATA that CASA's calibration adds next to FLOAT_DATA, whose
+      real parts are twice and half FLOAT_DATA (nonzero imaginary parts):
+      CORRECTED_DATA in tiles of 4 channels (channel-sliced reads),
+      MODEL_DATA in tiles of all channels.
     - "narrow_tiles": the grid of "sparse_dup" (padded and duplicated
       cells), SPW 1 with N_CHANNELS_SPW1_NARROW channels, and DATA,
       CORRECTED_DATA, FLAG, WEIGHT_SPECTRUM in TiledShapeStMan columns whose
@@ -261,7 +267,7 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
         assert np.all(np.diff(ddi) >= 0)
         pos = np.arange(nrows) - np.searchsorted(ddi, ddi)  # row index in its DDI
         tidx, bidx = _grid_indices(variant, pos, ddi, rng)
-        if variant == "single_dish":
+        if variant in ("single_dish", "single_dish_corrected"):
             ant1 = ant2 = np.arange(N_ANTENNAS)
         else:
             ant1, ant2 = np.triu_indices(N_ANTENNAS, 1)
@@ -283,11 +289,20 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
         if variant != "no_weight":
             main_tb.putcol("WEIGHT", rng.random((nrows, cell[1])).astype(np.float32))
         weights = rng.random((nrows,) + cell).astype(np.float32)
-        if variant == "single_dish":
+        if variant in ("single_dish", "single_dish_corrected"):
             main_tb.removecols(["DATA", "CORRECTED_DATA"])
-            _add_tiled_shape_column(
-                main_tb, "FLOAT_DATA", visibilities["DATA"].real.copy(), 7
-            )
+            spectra = visibilities["DATA"].real.copy()
+            _add_tiled_shape_column(main_tb, "FLOAT_DATA", spectra, 7)
+            if variant == "single_dish_corrected":
+                imag = 1j * visibilities["CORRECTED_DATA"].imag
+                _add_narrow_tiled_column(
+                    main_tb,
+                    "CORRECTED_DATA",
+                    [(0, (2 * spectra + imag).astype(np.complex64))],
+                    (cell[1], 4, 7),
+                )
+                model = (spectra / 2 - imag).astype(np.complex64)
+                _add_tiled_shape_column(main_tb, "MODEL_DATA", model, 7)
         elif variant == "rich":
             # (columns of a TiledColumnStMan cannot be removed one by one)
             main_tb.removecols(["DATA", "CORRECTED_DATA"])
@@ -341,7 +356,7 @@ def make_backend_ms(msname: str, variant: str, seed: int = 0) -> str:
                 "OBS_MODE",
                 np.array(["CALIBRATE_PHASE#ON_SOURCE", "OBSERVE_TARGET#ON_SOURCE"]),
             )
-    if variant in ("rich", "single_dish"):
+    if variant in ("rich", "single_dish", "single_dish_corrected"):
         _rewrite_pointing(msname, time0, rng)
     return msname
 

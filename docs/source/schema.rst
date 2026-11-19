@@ -113,6 +113,8 @@ Shared Polarization Vocabulary
 
 .. autodata:: xradio.schema.polarization.LINEAR_CORRELATIONS
 
+.. autofunction:: xradio.schema.polarization.check_polarization_order
+
 The casacore translation tables of :py:mod:`xradio.schema.measures`:
 
 .. autodata:: xradio.schema.measures.CASACORE_SPECTRAL_FRAMES
@@ -160,6 +162,15 @@ Shared Base Classes
 
 .. autoclass:: xradio.schema.info.FlagArrayBase()
 
+The functions of :py:mod:`xradio.schema.info`, used with
+:py:func:`~xradio.schema.check.check_dataset`:
+
+.. autofunction:: xradio.schema.info.check_data_groups
+
+.. autofunction:: xradio.schema.info.matching_data_var_names
+
+.. autofunction:: xradio.schema.info.check_schema_version
+
 Decorators
 ----------
 
@@ -177,6 +188,19 @@ Data Model
 
 .. automodule:: xradio.schema.metamodel
   :members:
+
+.. note::
+
+   A :py:class:`~xradio.schema.metamodel.DatasetSchema` gives the
+   dimensions that every dataset has in ``dimensions`` (a list holding one
+   list) and the dimensions that it may have in addition, in any
+   combination, in ``optional_dimensions``. Earlier releases listed every
+   combination in ``dimensions`` instead (32 for the image dataset), so the
+   ``dimensions`` of ``schemas/ImageXds.json`` changed form. The main
+   measurement set datasets have no optional dimensions, so
+   ``schemas/VisibilityXds.json`` and ``schemas/SpectrumXds.json`` did not
+   change. Schemas exported in the earlier form still import, and check
+   the same datasets.
 
 Import and Export
 -----------------

@@ -436,6 +436,10 @@ def check_data_vars(
             data_vars_names = [data_var_schema.name]
 
         for data_var_name in data_vars_names:
+            # coords.get() gives a dimension without coordinate an index
+            if data_var_schema.optional and data_var_name not in data_vars:
+                continue
+
             data_var = data_vars.get(data_var_name)
 
             if data_var is None:

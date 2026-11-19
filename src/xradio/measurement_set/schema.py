@@ -57,7 +57,7 @@ from xradio.schema.measures import (  # noqa: F401
 )
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
-MSV4_SCHEMA_VERSION = "4.0.1"
+MSV4_SCHEMA_VERSION = "4.0.2"
 
 # Dimensions
 TimeSystemCal = Literal["time_system_cal"]
@@ -1584,8 +1584,12 @@ class SystemCalibrationXds:
     """ Midpoint of time for which this set of parameters is accurate. Labeled 'time_system_cal' when not interpolating to main time axis """
     frequency: Coordof[FrequencyArray] | None = None
     """  """
-    frequency_system_cal: Coord[FrequencySystemCal, int] | None = None
-    """TODO: What is this?"""
+    frequency_system_cal: Coordof[FrequencySystemCalArray] | None = None
+    """
+    Center frequencies of the spectra, increasing. Absent when the channels of SYSCAL are not those of the
+    spectral window, as after CASA selected, averaged or reordered its channels: the spectra then stay in the order
+    of SYSCAL, and the Measurement Set does not give their frequencies.
+    """
 
     # Data variables (all optional)
     PHASE_DIFFERENCE: (

@@ -1,3 +1,5 @@
+import shutil
+
 import numpy as np
 import pytest
 import xarray as xr
@@ -237,6 +239,61 @@ def test_create_system_calibration_xds_min(ms_minimal_required, msv4_xdt_min):
         ms_minimal_required.fname, 0, msv4_xdt_min.frequency, ant_xds_with_ids, None
     )
     check_dataset(sys_cal_xds, SystemCalibrationXds)
+
+
+# SYSCAL of ms_minimal_required has 10 channels
+SYSCAL_CHANNELS = {
+    "in_order": 1.0e9 + np.arange(10),
+    "reversed": 1.0e9 - np.arange(10),
+    "reordered_by_casa": 1.0e9 + np.array([5, 6, 7, 8, 9, 0, 1, 2, 3, 4]),
+    "selected_or_averaged_by_casa": 1.0e9 + np.arange(16),
+}
+
+
+@pytest.mark.parametrize("window", list(SYSCAL_CHANNELS))
+def test_create_system_calibration_xds_channel_order(
+    ms_minimal_required, msv4_xdt_min, tmp_path, window
+):
+    from xradio._utils._casacore.backend import tables
+    from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+        create_system_calibration_xds,
+    )
+
+    msname = str(tmp_path / "syscal.ms")
+    shutil.copytree(ms_minimal_required.fname, msname)
+    with tables.table(f"{msname}/SYSCAL", readonly=False, ack=False) as syscal:
+        shape = syscal.getcol("TCAL_SPECTRUM").shape
+        syscal.putcol(
+            "TCAL_SPECTRUM",
+            np.broadcast_to(np.arange(10.0)[:, np.newaxis], shape).copy(),
+        )
+
+    ant_xds = msv4_xdt_min["antenna_xds"].ds.copy()
+    nants = len(ant_xds.antenna_name)
+    ant_xds_with_ids = ant_xds.assign_coords(
+        {"antenna_id": ("antenna_name", np.arange(0, nants))}
+    )
+    frequencies = SYSCAL_CHANNELS[window]
+    frequency = xr.DataArray(
+        frequencies, dims="frequency", attrs=msv4_xdt_min.frequency.attrs
+    )
+
+    sys_cal_xds = create_system_calibration_xds(
+        msname, 0, frequency, ant_xds_with_ids, None
+    )
+
+    assert not check_dataset(sys_cal_xds, SystemCalibrationXds).issues
+    channels = sys_cal_xds.TCAL.isel(
+        antenna_name=0, time_system_cal=0, receptor_label=0
+    ).values
+    if window in ("in_order", "reversed"):
+        coord = sys_cal_xds.frequency_system_cal
+        np.testing.assert_array_equal(coord.values, np.sort(frequencies))
+        assert coord.attrs["units"] == "Hz"
+        np.testing.assert_array_equal(channels, np.argsort(frequencies))
+    else:
+        assert "frequency_system_cal" not in sys_cal_xds.coords
+        np.testing.assert_array_equal(channels, np.arange(10))
 
 
 def test_create_system_calibration_xds_without_opt(

@@ -119,9 +119,11 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     field_row_0.setFromXML(field_row_0_xml)
     field_table.add(field_row_0)
 
+    time_to_interpolate = [0.0]
+
     # IF
     if_field_and_source_xds = create_field_and_source_xds(
-        asdm_with_source_field, {"fieldId": [0]}, 0, False
+        asdm_with_source_field, {"fieldId": [0]}, 0, False, time_to_interpolate
     )
     issues_if = check_dataset(if_field_and_source_xds, FieldSourceXds)
     assert not issues_if
@@ -144,7 +146,7 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
 
     # SD
     sd_field_and_source_xds = create_field_and_source_xds(
-        asdm_with_source_field, {"fieldId": [0]}, 0, True
+        asdm_with_source_field, {"fieldId": [0]}, 0, True, time_to_interpolate
     )
     issues_sd = check_dataset(sd_field_and_source_xds, FieldSourceXds)
     assert not issues_sd
@@ -209,7 +211,6 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     xr.testing.assert_allclose(
         field_and_source_xds.data_vars[rest_freq_name], expected_rest_freq
     )
-    print(f"{field_and_source_xds[rest_freq_name].attrs=}")
     assert field_and_source_xds[rest_freq_name].attrs["observer"] == "gcrs"
 
     expected_sys_vel = xr.DataArray(
@@ -221,12 +222,57 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     assert field_and_source_xds[sys_vel_name].attrs["units"] == "m/s"
 
 
+@pytest.mark.parametrize(
+    "asdm_name",
+    [
+        ("asdm_with_field_ephemeris"),
+        ("asdm_with_misbehaving_field_ephemeris"),
+    ],
+)
+def test_create_field_and_source_xds_with_ephemeris(asdm_name, request):
+    asdm_with_field_ephemeris = request.getfixturevalue(asdm_name)
+
+    time_to_interpolate = [0.0, 0.1, 0.3]
+    if_field_and_source_xds = create_field_and_source_xds(
+        asdm_with_field_ephemeris,
+        {"fieldId": [1]},
+        16,
+        False,
+        time_to_interpolate,
+    )
+    issues_non_ephemeris = check_dataset(
+        if_field_and_source_xds, FieldSourceEphemerisXds
+    )
+    assert not issues_non_ephemeris
+    issues_ephemeris = check_dataset(if_field_and_source_xds, FieldSourceEphemerisXds)
+    assert not issues_ephemeris
+
+    phase_center_name = "FIELD_PHASE_CENTER_DIRECTION"
+    assert phase_center_name in if_field_and_source_xds.data_vars
+    expected_phase_center = xr.DataArray(
+        # data=[[3.396697, -0.086821], [3.396771, -0.086851], [3.396882, -0.086898]],
+        data=[[3.396697, -0.086821]],
+        dims=["time_ephemeris", "sky_dir_label"],
+        coords={
+            "field_name": ("time_ephemeris", ["Ganymede_1"]),
+            "source_name": ("time_ephemeris", ["Ganymede"]),
+            "sky_dir_label": ["ra", "dec"],
+            "time_ephemeris": [1.4799780e09],  # , 1.4799804e09, 1.4799840e09],
+        },
+    )
+    xr.testing.assert_allclose(
+        if_field_and_source_xds[phase_center_name], expected_phase_center
+    )
+    assert if_field_and_source_xds[phase_center_name].attrs["frame"] == "icrs"
+    # ..... TODO largely duplicating...... TODO
+
+
 def test_extract_source_info_empty():
     from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
-        extract_source_info,
+        _extract_source_info,
     )
 
-    result = extract_source_info(
+    result = _extract_source_info(
         xr.Dataset(), None, pd.DataFrame(columns=["sourceId"]), 0
     )
     assert "field_name" in result.dims
@@ -235,17 +281,41 @@ def test_extract_source_info_empty():
     assert len(schema_issues) == 4
 
 
-def test_extract_ephemeris_info(asdm_with_field_ephemeris):
+@pytest.mark.parametrize("input_interpolate", [(True), (False)])
+def test_extract_ephemeris_info(asdm_with_field_ephemeris, input_interpolate):
     from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
-        extract_ephemeris_info,
+        _extract_ephemeris_info,
     )
 
     ephem_fields = {"fieldId": {0: 0}, "ephemerisId": {0: 0}}
     field_df = pd.DataFrame.from_dict(ephem_fields)
-    field_and_source_xds = extract_ephemeris_info(
-        xr.Dataset(), asdm_with_field_ephemeris, field_df
+    time_to_interpolate = [0.0]
+
+    # populate initial (field+source info) dataset with minimum
+    # stuff required for the function to work
+    init_xds = xr.Dataset(
+        coords={
+            "field_name": ["bogus"],
+            "source_name": ("field_name", ["bogus_source"]),
+            "sky_dir_label": ["ra", "dec"],
+        },
+        attrs={"type": "field_and_source"},
+    )
+    init_xds["FIELD_PHASE_CENTER_DIRECTION"] = (
+        ["field_name", "sky_dir_label"],
+        [[0.12, -0.98]],
     )
 
+    field_and_source_xds = _extract_ephemeris_info(
+        init_xds,
+        asdm_with_field_ephemeris,
+        field_df,
+        time_to_interpolate,
+        input_interpolate,
+    )
+
+    assert field_and_source_xds.attrs["type"] == "field_and_source_ephemeris"
     assert "time_ephemeris" in field_and_source_xds.coords
     schema_issues = check_dataset(field_and_source_xds, FieldSourceEphemerisXds)
+
     assert not schema_issues

@@ -4,11 +4,15 @@ import numpy as np
 import pandas as pd
 import pyasdm
 import xarray as xr
+from astropy import units as u
+from astropy.coordinates import EarthLocation
 
+from xradio._utils.coord_math import wrap_to_pi
 from xradio._utils.dict_helpers import (
     make_quantity_attrs,
     make_sky_coord_measure_attrs,
     make_spectral_coord_measure_attrs,
+    make_time_measure_attrs,
 )
 from xradio._utils.list_and_array import to_np_array
 from xradio._utils.logging import xradio_logger
@@ -20,6 +24,11 @@ from xradio.measurement_set._utils._asdm._utils.field_source import (
 from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
+from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
+from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+    interpolate_to_time,
+    rename_and_interpolate_to_time,
+)
 
 
 def create_field_and_source_xds(
@@ -27,6 +36,7 @@ def create_field_and_source_xds(
     partition_descr: dict[str, Any],
     spectral_window_id: int,
     is_single_dish: bool,
+    time_to_interpolate: xr.DataArray,  # | None = None,   # Needed for ephemeris/time coord
     ephemeris_interpolate: bool = True,
 ) -> xr.Dataset:
     """
@@ -106,14 +116,16 @@ def create_field_and_source_xds(
         make_sky_coord_measure_attrs("rad", direction_frame)
     )
 
-    xds = extract_source_info(xds, asdm, field_df, spectral_window_id)
+    xds = _extract_source_info(xds, asdm, field_df, spectral_window_id)
 
-    xds = extract_ephemeris_info(xds, asdm, field_df)
+    xds = _extract_ephemeris_info(
+        xds, asdm, field_df, time_to_interpolate, ephemeris_interpolate
+    )
 
     return xds
 
 
-def extract_source_info(
+def _extract_source_info(
     xds: xr.Dataset, asdm: pyasdm.ASDM, field_df: pd.DataFrame, spectral_window_id: int
 ) -> xr.Dataset:
     """Add source and optional spectral-line metadata to a field dataset.
@@ -150,27 +162,7 @@ def extract_source_info(
         xds = xds.assign_coords({"source_name": ("field_name", unknown)})
         return xds
 
-    sdm_source_required_attrs = [
-        "sourceId",
-        "timeInterval",
-        "spectralWindowId",
-        "direction",
-        "sourceName",
-    ]
-    sdm_source_optional_attrs = [
-        "directionCode",
-        "numLines",
-        "transition",
-        "restFrequency",
-        "sysVel",
-        "frequencyRefCode",
-    ]
-    source_df = exp_asdm_table_to_df(
-        asdm,
-        "Source",
-        sdm_source_required_attrs + sdm_source_optional_attrs,
-        optional_per_row=True,
-    )
+    source_df = _read_source_table(asdm)
 
     source_id = field_df["sourceId"].unique()
     source_df = source_df.loc[
@@ -234,14 +226,48 @@ def extract_source_info(
     return xds
 
 
-def extract_ephemeris_info(
-    xds: xr.Dataset, asdm: pyasdm.ASDM, field_df: pd.DataFrame
+def _read_source_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
+
+    sdm_source_required_attrs = [
+        "sourceId",
+        "timeInterval",
+        "spectralWindowId",
+        "direction",
+        "sourceName",
+    ]
+    sdm_source_optional_attrs = [
+        "directionCode",
+        "numLines",
+        "transition",
+        "restFrequency",
+        "sysVel",
+        "frequencyRefCode",
+    ]
+    source_df = exp_asdm_table_to_df(
+        asdm,
+        "Source",
+        sdm_source_required_attrs + sdm_source_optional_attrs,
+        optional_per_row=True,
+    )
+
+    return source_df
+
+
+def _extract_ephemeris_info(
+    xds: xr.Dataset,
+    asdm: pyasdm.ASDM,
+    field_df: pd.DataFrame,
+    time_to_interpolate: xr.DataArray,
+    ephemeris_interpolate: bool = True,
 ) -> xr.Dataset:
     """
 
-    The ephemerides used by ALMA are originally for the observer location of ALMA (topocentric). They use the ICRS coordinate reference frame and typically have a time spacing of ten or twenty minutes.
-
-    convert_ephem2geo: True by default
+    From casadocs (https://casadocs.readthedocs.io/en/stable/notebooks/ephemeris_data.html):
+    The ephemerides used by ALMA are originally for the observer location of ALMA (topocentric).
+    They use the ICRS coordinate reference frame and typically have a time spacing of ten or twenty minutes.
+    Note: in the importasdm task, convert_ephem2geo: True by default
+    it is passed to the sdm tool but never used there. The conversion
+    takes place in the task, using casatassks/convertephem.py
     """
 
     ephemeris_id = field_df["ephemerisId"].item()
@@ -250,6 +276,77 @@ def extract_ephemeris_info(
 
     xds.attrs["type"] = "field_and_source_ephemeris"
 
+    ephemeris_df = _read_ephemeris_table(asdm)
+
+    xds = _add_coord_ephemeris_time(xds, ephemeris_df)
+
+    xds = _add_observer_position(xds, ephemeris_df)
+
+    xds = _add_source_direction_and_distance(xds, ephemeris_df)
+
+    xds = _add_source_radvel(xds, ephemeris_df)
+
+    # TODO
+    # if ephemeris_interpolate:
+    #     temp_xds = rename_and_interpolate_to_time(
+    #         temp_xds, "time_ephemeris", time_to_interpolate, "field_and_source_xds"
+    #     )
+    #     source_direction_interp = temp_xds["SOURCE_DIRECTION"]
+    #     source_distance_interp = temp_xds["SOURCE_DISTANCE"]
+
+    # else:
+    #     source_direction_interp = interpolate_to_time(
+    #         temp_xds["SOURCE_DIRECTION"],
+    #         time_to_interpolate,
+    #         "field_and_source_xds",
+    #         "time_ephemeris",
+    #     )
+    #     source_distance_interp = interpolate_to_time(
+    #         temp_xds["SOURCE_DISTANCE"],
+    #         time_to_interpolate,
+    #         "field_and_source_xds",
+    #         "time_ephemeris",
+    #     )
+
+    # TODO: interpolate!!! (up here)
+    source_direction_interpolated = xds["SOURCE_DIRECTION"]
+    source_distance_interpolated = xds["SOURCE_DISTANCE"]
+
+    phase_or_reference = (
+        "PHASE" if "FIELD_PHASE_CENTER_DIRECTION" in xds.data_vars else "REFERENCE"
+    )
+    center_direction_name = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
+    center_distance_name = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
+
+    xds = xds.assign_coords({"time": ("field_name", time_to_interpolate)})
+    # TODO: time attrs
+    xds["time"].attrs.update(
+        make_time_measure_attrs("s", "tai", time_format="unix")
+    )  # standard_time_coord_attrs)
+    xds = xds.swap_dims({"field_name": "time"})
+
+    overall_field_center_direction = wrap_to_pi(
+        xds[center_direction_name].data + source_direction_interpolated  # .values
+    )
+
+    xds[center_direction_name] = (
+        ["time", "sky_dir_label"],
+        overall_field_center_direction.data,
+    )
+    xds.data_vars[center_direction_name].attrs.update(xds["SOURCE_DIRECTION"].attrs)
+
+    xds[center_distance_name] = (
+        ["time", "sky_dis_label"],
+        # np.column_stack((distance,)),
+        source_distance_interpolated,
+    )
+    xds.data_vars[center_distance_name].attrs.update(xds["SOURCE_DISTANCE"].attrs)
+
+    print(f" ******** > {xds=}")
+    return xds
+
+
+def _read_ephemeris_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
     # CASA's importasdm/sdm tool fills:
     # - MJD, (RA, DEC, Rho) (from "dir"),
     # - RadVel (if present, it is an optional parameter)
@@ -261,10 +358,12 @@ def extract_ephemeris_info(
         "equinoxEquator",
         "dir",
         "distance",
-        "timeOrigin",
+        # "timeOrigin",  # timeOrigin needed to evaluate polynomials
+        "numPolyDir",
     ]
     sdm_ephemeris_optional_attrs = [
         "radVel",
+        "numPolyRadVel",
     ]
 
     ephemeris_df = exp_asdm_table_to_df(
@@ -274,36 +373,152 @@ def extract_ephemeris_info(
         optional_per_row=True,
     )
 
-    # time interval is t_start, width  (=> t_start+width = t_end)
-    time = ephemeris_df["timeInterval"]
-    time_coord = {
-        "time_ephemeris": time,
-    }
+    return ephemeris_df
+
+
+def _add_coord_ephemeris_time(
+    xds: xr.Dataset, ephemeris_df: pd.DataFrame
+) -> xr.Dataset:
+
+    # pyasdm/TimeInterval has t_start, width (=> t_start+width=t_end)
+    middle_points = (
+        ephemeris_df["timeInterval"].apply(lambda x: x.getMidPoint().get()).to_numpy()
+    )
+    time_middle_point = convert_time_asdm_to_unix(middle_points)
+    time_coord = {"time_ephemeris": time_middle_point}
     xds = xds.assign_coords(time_coord)
 
-    direction = ephemeris_df["dir"]
-    distance = ephemeris_df["distance"]
+    # TODO: revise/settle the tai <=> utc/unix discrepancies together with other datasets (xradio/689)
+    time_ephemeris_attrs = make_time_measure_attrs("s", "tai", time_format="unix")
+    time_ephemeris_attrs["type"] = "time_ephemeris"
+    xds["time_ephemeris"].attrs = time_ephemeris_attrs
 
-    phase_or_reference = (
-        "PHASE" if "FIELD_PHASE_CENTER_DIRECTION" in xds.data_vars else "REFERENCE"
+    return xds
+
+
+def _add_observer_position(xds: xr.Dataset, ephemeris_df: pd.DataFrame) -> xr.Dataset:
+
+    observer_location = ephemeris_df["observerLocation"]
+    if not (observer_location[0] == observer_location).all():
+        xradio_logger().warning(
+            "Observer location varies throughout the ephemeris table. This is not expected nor supported. "
+            "taking the fist location anyway."
+        )
+    observer_location = observer_location[0]
+    # ASDM docs for observerLocation: A triple with all its elements equal to 0.0 will mean that a geocentric
+    # coordinate system is in use instead of a topocentric one.
+    # (But importasdm compares only the third element (distance) against 0.0)
+    #
+    # usual/probably-always?: topocentric
+    is_geocentric = (
+        observer_location[0] == observer_location[1] == observer_location[2] == 0.0
     )
-    center_direction_dv = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
-    center_distance_dv = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
-    xds.data_vars[center_direction_dv] = (
+    location = EarthLocation.from_geodetic(
+        lon=observer_location[0] * u.rad,
+        lat=observer_location[1] * u.rad,
+        height=observer_location[2] * u.m,
+        ellipsoid="WGS84",
+    )
+
+    observer_position = location.itrs.cartesian.xyz.to_value(u.m)
+
+    xds = xds.assign_coords(
+        {"sky_dis_label": ["dist"], "cartesian_pos_label": ["x", "y", "z"]}
+    )
+
+    xds["OBSERVER_POSITION"] = (["cartesian_pos_label"], observer_position)
+    coordinate_system = "topocentric" if not is_geocentric else "geocentric"
+    observer_position_attrs = {
+        "type": "location",
+        "units": "m",
+        "frame": "ITRS",
+        "origin_object_name": "Earth",
+        "coordinate_system": coordinate_system,
+    }
+    xds.data_vars["OBSERVER_POSITION"].attrs = observer_position_attrs
+
+    return xds
+
+
+def _add_source_direction_and_distance(
+    xds: xr.Dataset, ephemeris_df: pd.DataFrame
+) -> xr.Dataset:
+    """
+
+    Note: importasdm takes equator 2000.0 as "ICRF/ICRS" => "icrs" for the source direction/distance frame
+    """
+
+    polynomial_direction = (
+        pd.to_numeric(ephemeris_df["numPolyDir"], errors="coerce") > 1
+    ).any()
+    if polynomial_direction:
+        xradio_logger().warning(
+            "Directions given as polynomials of order > 1 (NumPolyDir). "
+            "This is not supported. Ignoring coefficients other than 0"
+        )
+    direction = np.array([[x[0][0], x[0][1]] for x in ephemeris_df["dir"]])
+
+    print(f" **** {ephemeris_df['dir']=}")
+    print(f" **** {direction=}")
+
+    distance = ephemeris_df["distance"].str[0].to_numpy()
+    print(f" **** {ephemeris_df['distance']=}")
+    print(f" **** {distance=}")
+
+    sky_coord_units = "rad"  # Fixed in ASDM table
+    expected_equator = 2000.0
+    if (ephemeris_df["equinoxEquator"] == expected_equator).all():
+        sky_coord_frame = "fk5"
+    else:
+        xradio_logger().warning(
+            f"EquinoxEquator is not as expected: {expected_equator}. This is not expected nor supported. "
+            "assuming icrs frame."
+        )
+        sky_coord_frame = "icrs"
+
+    direction_attrs = {
+        "type": "sky_coord",
+        "frame": sky_coord_frame,
+        "units": sky_coord_units,
+    }
+    xds["SOURCE_DIRECTION"] = (
         ["time_ephemeris", "sky_dir_label"],
         direction,
+        direction_attrs,
     )
 
-    xds.data_vars[center_distance_dv] = (
-        ["time_ephemeris", "sky_dir_label"],
-        distance,
+    distance_attrs = {
+        "type": "sky_coord",
+        "frame": sky_coord_frame,
+        "units": "m",
+    }
+    xds["SOURCE_DISTANCE"] = (
+        ["time_ephemeris", "sky_dis_label"],
+        np.column_stack((distance,)),
+        distance_attrs,
     )
+
+    return xds
+
+
+def _add_source_radvel(xds: xr.Dataset, ephemeris_df: pd.DataFrame) -> xr.Dataset:
+
+    polynomial_radvel = (
+        pd.to_numeric(ephemeris_df["numPolyRadVel"], errors="coerce") > 1
+    ).any()
+    if polynomial_radvel:
+        xradio_logger().warning(
+            "Radial velocities given as polynomials of order > 1 (NumPolyRadVel). "
+            "This is not supported. Ignoring coefficients other than 0"
+        )
 
     radvel = ephemeris_df["radVel"]
     if not pd.isna(radvel).all():
         # probably?
         xds.attrs["doppler_shift_velocity"] = "m/s"
         pass
+    else:
+        xds["SOURCE_RADIAL_VELOCITY"] = (["time_ephemeris"], radvel)
 
     return xds

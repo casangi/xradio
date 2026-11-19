@@ -40,8 +40,15 @@ _FITS_DIMS = ("frequency", "polarization", "m", "l")
 # FITS headers and data areas are padded to whole blocks of this size
 _FITS_BLOCK_BYTES = 2880
 
-# Frames the FITS reader can round trip (it only supports RA-/DEC- CTYPEs)
-_EQUATORIAL_FRAMES = ("fk4", "fk5", "icrs")
+# Direction reference frames the FITS writer supports -> CTYPE prefixes of
+# their longitude and latitude axes (FITS WCS paper II). The FITS reader reads
+# both kinds of axes back.
+_DIRECTION_AXIS_TYPES = {
+    "fk4": ("RA---", "DEC--"),
+    "fk5": ("RA---", "DEC--"),
+    "icrs": ("RA---", "DEC--"),
+    "galactic": ("GLON-", "GLAT-"),
+}
 # FITS EQUINOX written when the reference direction has no equinox attribute:
 # the year of the schema's default equinox ("j2000.0" -> 2000.0)
 _DEFAULT_EQUINOX = {
@@ -315,8 +322,22 @@ def _equinox_to_fits(equinox) -> float:
         raise ValueError(f"Cannot interpret equinox {equinox!r}") from None
 
 
-def _direction_cards(xds: xr.Dataset, header: fits.Header) -> dict:
+def _direction_cards(xds: xr.Dataset, header: fits.Header, naxis: int = 4) -> dict:
     """Add the celestial axis cards (axes 1 and 2).
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Single image dataset with l and m coordinates and the
+        ``coordinate_system_info`` attribute.
+    header : astropy.io.fits.Header
+        Header the cards are added to.
+    naxis : int, optional
+        Number of axes of the header (default 4, the axes of a FITS image).
+        The PC matrix of the axes after the celestial ones is the identity:
+        its diagonal cards (``PC3_3`` ... ``PC<naxis>_<naxis>``) are written
+        with the celestial PC cards. A header of the celestial axes alone has
+        ``naxis`` 2 and none of them.
 
     Returns
     -------
@@ -332,10 +353,10 @@ def _direction_cards(xds: xr.Dataset, header: fits.Header) -> dict:
         )
     ref_dir = csys["reference_direction"]
     frame = str(ref_dir["attrs"]["frame"]).lower()
-    if frame not in _EQUATORIAL_FRAMES:
+    if frame not in _DIRECTION_AXIS_TYPES:
         raise RuntimeError(
-            f"Writing to FITS is only supported for equatorial direction "
-            f"reference frames {_EQUATORIAL_FRAMES}, got '{frame}'"
+            f"Writing to FITS is only supported for the direction reference "
+            f"frames {tuple(_DIRECTION_AXIS_TYPES)}, got '{frame}'"
         )
     projection = str(csys["projection"]).strip().upper()
     if not re.fullmatch(r"[A-Z0-9]{3}", projection):
@@ -361,22 +382,26 @@ def _direction_cards(xds: xr.Dataset, header: fits.Header) -> dict:
     crpix = _sky_reference_pixel(xds, increments)
 
     equinox = ref_dir["attrs"].get("equinox")
-    if frame == "icrs":
+    if frame in ("icrs", "galactic"):
+        # neither frame has an equinox
         equinox = None
     elif equinox is not None:
         header["EQUINOX"] = _equinox_to_fits(equinox)
     else:
         header["EQUINOX"] = _DEFAULT_EQUINOX[frame]
-    header["RADESYS"] = frame.upper()
+    if frame != "galactic":
+        # RADESYS is the frame of equatorial axes only (FITS WCS paper II)
+        header["RADESYS"] = frame.upper()
     header["LONPOLE"] = float(pole[0])
     header["LATPOLE"] = float(pole[1])
     for i in (0, 1):
         for j in (0, 1):
             header[f"PC{i + 1}_{j + 1}"] = float(pc[i][j])
-    header["PC3_3"] = 1.0
-    header["PC4_4"] = 1.0
+    for axis in range(3, naxis + 1):
+        header[f"PC{axis}_{axis}"] = 1.0
     for axis, (ctype, value, increment, pixel) in enumerate(
-        zip(("RA---", "DEC--"), crval, increments, crpix, strict=True), start=1
+        zip(_DIRECTION_AXIS_TYPES[frame], crval, increments, crpix, strict=True),
+        start=1,
     ):
         header[f"CTYPE{axis}"] = ctype + projection
         header[f"CRVAL{axis}"] = float(value)
@@ -863,6 +888,61 @@ def _fits_image_header(xds: xr.Dataset) -> tuple:
             f"FITS header keywords {', '.join(replaced)}"
         )
     return header, beams_hdu, list(pol_order)
+
+
+def _celestial_image_header(xds: xr.Dataset) -> fits.Header:
+    """Build the FITS header of the celestial axes of an image.
+
+    The header has the two direction axes of :func:`_fits_image_header`
+    (``NAXIS1`` along l and ``NAXIS2`` along m) with the cards it writes for
+    them, and the observation date (``DATE-OBS``, ``MJD-OBS`` and
+    ``TIMESYS``). Only the l and m coordinates, the
+    ``coordinate_system_info`` attribute and the time coordinate are used,
+    so it can also be built for images that FITS cannot hold otherwise, such
+    as polarizations without a linear STOKES axis, complex pixels or a
+    non-uniform frequency axis.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Single image dataset: data variable SKY with l and m dimensions and
+        at most one time plane.
+
+    Returns
+    -------
+    astropy.io.fits.Header
+        Header with ``NAXIS`` 2, not a complete primary HDU header.
+
+    Raises
+    ------
+    RuntimeError, ValueError
+        If the direction axes cannot be represented in FITS.
+    """
+    if "SKY" not in xds.data_vars:
+        raise RuntimeError("The dataset to write to FITS has no SKY variable")
+    image = xds["SKY"]
+    if "l" not in image.dims or "m" not in image.dims:
+        raise RuntimeError(
+            "Writing to FITS is only supported for sky plane images (with l "
+            "and m dimensions)"
+        )
+    if image.sizes.get("time", 1) != 1:
+        raise RuntimeError(
+            "XDS can only be converted to FITS if it has exactly one time plane"
+        )
+    for name in ("l", "m"):
+        if name not in xds.coords:
+            raise RuntimeError(
+                f"Writing to FITS requires a {name} coordinate, but the "
+                "dataset has none"
+            )
+    header = _Header()
+    header["NAXIS"] = 2
+    header["NAXIS1"] = xds.sizes["l"]
+    header["NAXIS2"] = xds.sizes["m"]
+    _direction_cards(xds, header, naxis=2)
+    _time_cards(xds, header)
+    return header
 
 
 def _block_slices(sky: xr.DataArray, flag: xr.DataArray | None):

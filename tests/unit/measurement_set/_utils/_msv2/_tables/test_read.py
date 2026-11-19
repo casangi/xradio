@@ -301,6 +301,31 @@ def test_find_projected_min_max_array(in_min_max, in_array, expected_result):
     np.testing.assert_array_almost_equal(res, expected_result)
 
 
+@pytest.mark.parametrize(
+    "in_min_max, pad_steps, expected_result",
+    [
+        # array is [0, 10, ..., 90], tolerance is 10 / 4 = 2.5
+        # pad_steps=0 keeps the bracketing values (existing behavior)
+        ((34.0, 36.0), 0, (27.5, 42.5)),
+        # pad_steps=1 additionally includes one tabulation step on each side
+        ((34.0, 36.0), 1, (17.5, 52.5)),
+        ((34.0, 36.0), 2, (7.5, 62.5)),
+        # near the edges the padding is clamped to the available values
+        ((5.0, 6.0), 1, (-2.5, 22.5)),
+        ((85.0, 86.0), 1, (67.5, 92.5)),
+        # a range wider than the array needs no padding
+        ((-5.0, 95.0), 1, (-7.5, 97.5)),
+    ],
+)
+def test_find_projected_min_max_array_pad_steps(in_min_max, pad_steps, expected_result):
+    from xradio.measurement_set._utils._msv2._tables.read import (
+        find_projected_min_max_array,
+    )
+
+    res = find_projected_min_max_array(in_min_max, np.arange(10.0) * 10.0, pad_steps)
+    np.testing.assert_array_almost_equal(res, expected_result)
+
+
 def test_make_taql_where_between_min_max_empty(ms_empty_required):
     from xradio.measurement_set._utils._msv2._tables.read import (
         make_taql_where_between_min_max,
@@ -1301,11 +1326,12 @@ def test_load_generic_table_memoized(ms_minimal_required):
     assert cache.stats["memo_misses"] == 0 and cache.stats["memo_hits"] == 0
 
 
+@pytest.mark.parametrize("pad_steps", [0, 1])
 @pytest.mark.parametrize(
     "min_max",
     [(0, 1e10), (4.8e9, 4.8e9), (1e9, 2e9), (6e9, 7e9), (5e9 + 2, 5e9 + 6.1)],
 )
-def test_find_projected_min_max_table_cached(generic_cols_table, min_max):
+def test_find_projected_min_max_table_cached(generic_cols_table, min_max, pad_steps):
     import os
 
     from xradio.measurement_set._utils._msv2._tables.read import (
@@ -1317,13 +1343,13 @@ def test_find_projected_min_max_table_cached(generic_cols_table, min_max):
     )
 
     path, name = os.path.split(generic_cols_table)
-    expected = find_projected_min_max_table(min_max, path, name, "TIME")
+    expected = find_projected_min_max_table(min_max, path, name, "TIME", pad_steps)
     for n_partitions in (2, 1):
         cache = SubtableCache(n_partitions=n_partitions)
         with activate_subtable_cache(cache):
             for _ in range(3):
                 assert (
-                    find_projected_min_max_table(min_max, path, name, "TIME")
+                    find_projected_min_max_table(min_max, path, name, "TIME", pad_steps)
                     == expected
                 )
         assert cache.stats["value_builds"] == 1

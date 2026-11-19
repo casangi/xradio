@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import functools
+from dataclasses import KW_ONLY
 from typing import Literal
 
 import numpy
@@ -9,11 +11,41 @@ from xradio.schema.bases import (
     xarray_dataarray_schema,
     xarray_dataset_schema,
 )
+from xradio.schema.check import _DATASET_CHECKS
 
-# Schema building blocks shared with the image schema
-# (xradio.image.schema). Re-exported here for backwards compatibility.
-from xradio.schema.measures import (  # noqa: F401
+# Shared schema building blocks (also used by xradio.image.schema) and the
+# bases the classes below derive from. The dimensions and measures that
+# earlier releases defined here are re-exported for backwards compatibility.
+from xradio.schema.coordinates import (
+    AntennaNameArrayBase,
+    BaselineAntennaNameArrayBase,
+    BaselineArrayBase,
+    FrequencyCoordArrayBase,
+    ScanArrayBase,
+    TimeCoordArrayBase,
+)
+from xradio.schema.dataclass import xarray_dataclass_to_dataset_schema
+from xradio.schema.dimensions import (  # noqa: F401
     ZD,
+    AntennaName,
+    BaselineId,
+    CartesianPosLabel,
+    EllipsoidDirLabel,
+    EllipsoidDisLabel,
+    Frequency,
+    Polarization,
+    ReceptorLabel,
+    SkyDirLabel,
+    SkyDisLabel,
+    Time,
+)
+from xradio.schema.info import (
+    CreatorDictBase,
+    FlagArrayBase,
+    VersionedArrayBase,
+    check_data_groups,
+)
+from xradio.schema.measures import (  # noqa: F401
     AllowedDopplerTypes,
     AllowedEllipsoid,
     AllowedLocationCoordinateSystems,
@@ -22,17 +54,14 @@ from xradio.schema.measures import (  # noqa: F401
     AllowedSpectralCoordFrames,
     AllowedTimeFormats,
     AllowedTimeScales,
-    CartesianPosLabel,
     Doppler,
     DopplerArray,
-    EllipsoidDirLabel,
-    EllipsoidDisLabel,
-    Frequency,
+    FrequencySamplingArrayBase,
     Location,
     LocationArray,
-    Polarization,
     PolarizationArray,
     Quantity,
+    QuantityArrayBase,
     QuantityInHertzArray,
     QuantityInMetersArray,
     QuantityInMetersPerSecondArray,
@@ -40,12 +69,10 @@ from xradio.schema.measures import (  # noqa: F401
     QuantityInSecondsArray,
     SkyCoord,
     SkyCoordArray,
-    SkyDirLabel,
-    SkyDisLabel,
     SpectralCoord,
     SpectralCoordArray,
-    Time,
     TimeArray,
+    TimeSamplingArrayBase,
     UnitsHertz,
     UnitsMeters,
     UnitsMetersPerSecond,
@@ -70,18 +97,12 @@ TimePointing = Literal["time_pointing"]
 """ time dimension of pointing dataset (when not interpolated to main time) """
 TimeWeather = Literal["time_weather"]
 """ time dimension of weather dataset (when not interpolated to main time) """
-AntennaName = Literal["antenna_name"]
-""" Antenna name dimension """
 ElementId = Literal["element_id"]
 """ Element Id dimension of phased_array_xds"""
 StationName = Literal["station_name"]
 """ Station name dimension """
-ReceptorLabel = Literal["receptor_label"]
-""" Receptor label dimension """
 ToneLabel = Literal["tone_label"]
 """ Tone label dimension """
-BaselineId = Literal["baseline_id"]
-""" Baseline ID dimension """
 FrequencySystemCal = Literal["frequency_system_cal"]
 """ Frequency dimension in the system calibration dataset """
 UvwLabel = Literal["uvw_label"]
@@ -119,51 +140,39 @@ UnitsPerSquareMeters = Literal["/m^2"]
 
 
 @xarray_dataarray_schema
-class QuantityInKelvinArray:
+class QuantityInKelvinArray(QuantityArrayBase):
     """
     Quantity with units of Kelvins
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsKelvin]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInKelvinPerJanskyArray:
+class QuantityInKelvinPerJanskyArray(QuantityArrayBase):
     """
     Quantity with units of K/Jy (sensitivity in gain curve)
     """
 
-    data: Data[ZD, numpy.float64]
-
     units: Attr[UnitsKelvinPerJansky]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInPascalArray:
+class QuantityInPascalArray(QuantityArrayBase):
     """
     Quantity with units of Pa
     """
 
-    data: Data[ZD, numpy.float64]
-
     units: Attr[UnitsPascal]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInPerSquareMetersArray:
+class QuantityInPerSquareMetersArray(QuantityArrayBase):
     """
     Quantity with units of /m^2
     """
 
-    data: Data[ZD, numpy.float64]
-
     units: Attr[UnitsPerSquareMeters]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
@@ -211,26 +220,8 @@ class LocalSkyCoordArray:
 
 # Coordinates / Axes
 @xarray_dataarray_schema
-class TimeCoordArray:
+class TimeCoordArray(TimeCoordArrayBase):
     """Data model of the main dataset time axis. See also :py:class:`~xradio.schema.measures.TimeArray`."""
-
-    data: Data[Time, float]
-    """
-    Time, expressed in seconds since the epoch (see ``scale`` &
-    ``format``), see also see :py:class:`~xradio.schema.measures.TimeArray`.
-    """
-
-    type: Attr[Time] = "time"
-    """ Coordinate type. Should be ``"time"``. """
-
-    units: Attr[UnitsSeconds] = "s"
-    """ Units to associate with axis"""
-
-    scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`~xradio.schema.measures.TimeArray` """
-
-    format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`~xradio.schema.measures.TimeArray`"""
 
     integration_time: Attr[QuantityInSecondsArray] = None
     """ The nominal sampling interval (ms v2). Units of seconds. """
@@ -370,42 +361,28 @@ class TimeWeatherCoordArray:
 
 
 @xarray_dataarray_schema
-class BaselineArray:
+class BaselineArray(BaselineArrayBase):
     """Model of the baseline_id coordinate in the main dataset (interferometric data, :py:class:`VisibilityXds`)"""
-
-    data: Data[BaselineId, numpy.int64 | numpy.int32]
-    """Unique id for each baseline."""
-    long_name: Attr[str] | None = "Baseline ID"
 
 
 @xarray_dataarray_schema
-class BaselineAntennaNameArray:
+class BaselineAntennaNameArray(BaselineAntennaNameArrayBase):
     """Array of antenna_name by baseline_id, as used in main_xds and main_sd_xds
     (antenna_name by baseline_id dim"""
 
-    data: Data[BaselineId, str]
-    """Unique id for each baseline."""
-    long_name: Attr[str] | None = "Antenna name by baseline_id"
-
 
 @xarray_dataarray_schema
-class AntennaNameArray:
+class AntennaNameArray(AntennaNameArrayBase):
     """
     Model of the antenna_name coordinate, used in the main dataset (single dish data, :py:class:`VisibilityXds`)
     and several sub-datasets such as antenna_xds, pointing_xds, weather_xds, system_calibration_xds, gain_curve_xds, etc.
     """
 
-    data: Data[AntennaName, str]
-    """Unique name for each antenna(_station)."""
-    long_name: Attr[str] | None = "Antenna name"
-
 
 @xarray_dataarray_schema
-class FrequencyArray:
+class FrequencyArray(FrequencyCoordArrayBase):
     """Frequency coordinate in the main dataset."""
 
-    data: Data[Frequency, float]
-    """ Center frequencies for each channel. """
     spectral_window_name: Attr[str]
     """ Name associated with spectral window. """
     spectral_window_intents: Attr[list[str]]
@@ -418,19 +395,14 @@ class FrequencyArray:
     frequency corresponding to the DC edge of the baseband. Used by the calibration
     system if a ﬁxed scaling frequency is required or in algorithms to identify the
     observing band. """
-    channel_width: Attr[
-        QuantityInHertzArray
-    ]  # Not SpectralCoord, as it is a difference
-    """ The nominal channel bandwidth. Same units as data array (see units key). """
     doppler: Attr[DopplerArray] | None
     """ Doppler tracking information """
 
-    type: Attr[SpectralCoord] = "spectral_coord"
-    """ Coordinate type. Should be ``"spectral_coord"``. """
-    long_name: Attr[str] | None = "Frequency"
-    """ Long-form name to use for axis"""
-    units: Attr[UnitsHertz] = "Hz"
-    """ Units to associate with axis"""
+    _: KW_ONLY
+
+    # Not SpectralCoord, as it is a difference
+    channel_width: Attr[QuantityInHertzArray] = None
+    """ The nominal channel bandwidth. Same units as data array (see units key). """
     observer: Attr[AllowedSpectralCoordFrames] = "icrs"
     """
     Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
@@ -474,37 +446,13 @@ class UvwLabelArray:
 
 
 @xarray_dataarray_schema
-class ScanArray:
+class ScanArray(ScanArrayBase):
     """Scan number coordinate in the main dataset."""
-
-    data: Data[Time, str]
-    """Scan name for each time sample."""
-    scan_intents: Attr[list[str]]
-    """ An intent string identifies one intention of the scan, such as to calibrate or observe a
-    target. See :ref:`scan intents` for possible intent/subintent values. When converting from MSv2,
-    the list of intents is derived from the OBS_MODE column of MSv2 state table (every comma
-    separated value is taken as an intent).
-    A common convention used in the MSv2 OBS_MODE column is to specify multiple intents separated
-    by commas, each of them giving a main intent and a subintent separated by a '#' character. This
-    is represented in this attribute as a list of "intent#subintent" strings. These are a few
-    example lists:
-    ["CALIBRATE_DELAY#ON_SOURCE" , "CALIBRATE_PHASE#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_FLUX#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["CALIBRATE_POINTING#ON_SOURCE", "CALIBRATE_WVR#ON_SOURCE", "CALIBRATE_DELAY#ON_SOURCE"],
-    ["CALIBRATE_ATMOSPHERE#AMBIENT", "CALIBRATE_WVR#AMBIENT"],
-    ["CALIBRATE_FOCUS#ON_SOURCE" , "CALIBRATE_WVR#ON_SOURCE"],
-    ["OBSERVE_TARGET#ON_SOURCE"], or ["OBSERVE_TARGE#UNSPECIFIED"].
-    The list of possible intent and subintent names (see :ref:`scan intents`) is derived from the
-    respective ASDM enumerations.
-    """
-
-    long_name: Attr[str] | None = "Scan name"
-    """ Long-form name to use for axis. Should be ``"Scan name"``."""
 
 
 # Data variables
 @xarray_dataarray_schema
-class FlagArray:
+class FlagArray(FlagArrayBase):
     """
     An array of Boolean or integer values with the same shape as ``VISIBILITY``
     or ``SPECTRUM``,
@@ -529,27 +477,11 @@ class FlagArray:
     antenna_name: Coordof[AntennaNameArray] | None  # Only SD
     frequency: Coordof[FrequencyArray]
     polarization: Coordof[PolarizationArray] | None = None
-    flag_bits: Attr[list[str]] | None = (
-        "UNSPECIFIED_BIT",
-        "STATIC_BIT",
-        "CAM_BIT",
-        "DATA_LOST_BIT",
-        "INGEST_RFI_BIT",
-        "PREDICTED_RFI_BIT",
-        "CAL_RFI_BIT",
-        "POSTPROC_BIT",
-    )
-    """
-    Labels associated with bits used in ``FlagArray`` data. See
-    :ref:`flag bits` for suggested semantics.
-    """
     long_name: Attr[str] | None = "Visibility flags"
-
-    allow_multiple_versions: Attr[bool] | None = True
 
 
 @xarray_dataarray_schema
-class WeightArray:
+class WeightArray(VersionedArrayBase):
     """
     The weight for each channel, with the same shape as the associated
     :py:class:`VisibilityArray` or :py:class:`SpectrumArray`, as assigned
@@ -576,8 +508,6 @@ class WeightArray:
     polarization: Coordof[PolarizationArray] | None = None
     long_name: Attr[str] | None = "Visibility weights"
 
-    allow_multiple_versions: Attr[bool] | None = True
-
 
 # J2000=>fk5 is used most often. icrs is used less often. Both fk5 and
 # icrs are also borrowed from the field center (to fix ITRF=>J2000).
@@ -590,7 +520,7 @@ AllowedUvwFrames = Literal[
 
 
 @xarray_dataarray_schema
-class UvwArray:
+class UvwArray(VersionedArrayBase):
     """
     Coordinates for the baseline from ``baseline_antenna2_name`` to
     ``baseline_antenna1_name``, i.e. the baseline is equal to the position of
@@ -638,11 +568,9 @@ class UvwArray:
     """ To be defined in astropy (see for example https://github.com/astropy/astropy/issues/7766) """
     units: Attr[UnitsMeters] = "m"
 
-    allow_multiple_versions: Attr[bool] | None = True
-
 
 @xarray_dataarray_schema
-class TimeSamplingArray:
+class TimeSamplingArray(TimeSamplingArrayBase):
     """
     Model of arrays of measures used in the main dataset for data variables such as TIME_CENTROID and
     TIME_CENTROID_EXTRA_PRECISION.
@@ -659,17 +587,9 @@ class TimeSamplingArray:
     baseline_id: Coordof[BaselineArray] | None  # Only IF
     antenna_name: Coordof[AntennaNameArray] | None  # Only SD
 
-    scale: Attr[AllowedTimeScales] = "utc"
-    """ Astropy time scales, see :py:class:`astropy.time.Time` """
-    format: Attr[AllowedTimeFormats] = "unix"
-    """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
-
-    long_name: Attr[str] | None = "Time sampling data"
-    units: Attr[UnitsSeconds] = "s"
-
 
 @xarray_dataarray_schema
-class FrequencyCentroidArray:
+class FrequencyCentroidArray(FrequencySamplingArrayBase):
     """
     Model of frequency related data variables of the main dataset, such as FREQUENCY_CENTROID.
     """
@@ -684,19 +604,10 @@ class FrequencyCentroidArray:
     :py:class:`VisibilityXds` or :py:class:`SpectrumXds`.
     """
     frequency: Coordof[FrequencyArray]
-    long_name: Attr[str] | None = "Frequency sampling data"
-    units: Attr[UnitsHertz] = "Hz"
-    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
-    """
-    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
-    Note that Astropy does not use the name
-    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
-    frame is given that this is the default.
-    """
 
 
 @xarray_dataarray_schema
-class EffectiveChannelWidthArray:
+class EffectiveChannelWidthArray(FrequencySamplingArrayBase):
     """
     Model of frequency related data variables of the main dataset, such as EFFECTIVE_CHANNEL_WIDTH.
     """
@@ -717,15 +628,6 @@ class EffectiveChannelWidthArray:
     time: Coordof[TimeCoordArray] | None = None
     baseline_id: Coordof[BaselineArray] | None = None
     polarization: Coordof[PolarizationArray] | None = None
-    long_name: Attr[str] | None = "Frequency sampling data"
-    units: Attr[UnitsHertz] = "Hz"
-    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
-    """
-    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
-    Note that Astropy does not use the name
-    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
-    frame is given that this is the default.
-    """
 
 
 # Define FieldSourceXds and FieldSourceEphemerisXds already here, as they are needed in the
@@ -1019,7 +921,7 @@ class SpectrumArray:
 
 
 @xarray_dataarray_schema
-class VisibilityArray:
+class VisibilityArray(VersionedArrayBase):
     """Visibility data array in main dataset (interferometric data, :py:class:`VisibilityXds`)"""
 
     data: Data[
@@ -1035,7 +937,6 @@ class VisibilityArray:
     long_name: Attr[str] | None = "Visibility values"
     """ Long-form name to use for axis. Should be ``"Visibility values"``"""
     units: Attr[str] = "Jy"
-    allow_multiple_versions: Attr[bool] | None = True
 
 
 # Info dicts
@@ -1105,11 +1006,8 @@ class DataGroupsDict:
 
 
 @dict_schema
-class CreatorDict:
-    software_name: str
-    """ Software that created the Measurement Set (XRadio, etc.). """
-    version: str
-    """ Version of the software. """
+class CreatorDict(CreatorDictBase):
+    pass
 
 
 # Data Sets
@@ -2011,3 +1909,41 @@ class PhasedArrayXds:
     """
     Type of dataset. Expected to be ``phased_array``
     """
+
+
+# Array schemas of the data variables that data group roles name, by main
+# dataset schema. The other keys of DataGroupDict are not resolved:
+# field_and_source names a child node of the measurement set DataTree, and
+# description and date are text.
+_DATA_GROUP_ROLE_SCHEMAS = {
+    VisibilityXds: {
+        "correlated_data": VisibilityArray,
+        "flag": FlagArray,
+        "weight": WeightArray,
+        "uvw": UvwArray,
+    },
+    SpectrumXds: {
+        "correlated_data": SpectrumArray,
+        "flag": FlagArray,
+        "weight": WeightArray,
+        "uvw": UvwArray,
+    },
+}
+
+# check_dataset (and so check_datatree) checks every data group of the main
+# datasets and the data variables that their roles name; the attribute schema
+# of data_groups covers only the 'base' group. Keys that DataGroupDict does not
+# define are allowed in every group, as in 'base'.
+_DATASET_CHECKS.update(
+    {
+        xarray_dataclass_to_dataset_schema(dataset_schema).schema_name: (
+            functools.partial(
+                check_data_groups,
+                schema=dataset_schema,
+                role_schemas=role_schemas,
+                report_unknown_roles=False,
+            )
+        )
+        for dataset_schema, role_schemas in _DATA_GROUP_ROLE_SCHEMAS.items()
+    }
+)

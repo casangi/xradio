@@ -49,7 +49,13 @@ IQUV = stokes_axis()
 
 
 # The dataset dimension of each FITS axis type
-_DIMS = {"RA": "l", "DEC": "m", "STOKES": "polarization"}
+_DIMS = {
+    "RA": "l",
+    "DEC": "m",
+    "GLON": "l",
+    "GLAT": "m",
+    "STOKES": "polarization",
+}
 
 
 def _dim(ctype: str) -> str:
@@ -805,6 +811,41 @@ def test_direction_frame_and_equinox(
     assert reference["attrs"].get("equinox") == expected_equinox
     assert xds.SKY.attrs["pointing_center"]["attrs"]["frame"] == frame
     assert not check_image(open_image(path))
+
+
+def test_galactic_axes(tmp_path):
+    """GLON/GLAT axes are galactic coordinates, which have neither RADESYS nor
+    an equinox; their sky coordinates follow the WCS, and the pixels the
+    axes, whatever the chunks."""
+    from astropy.wcs import WCS
+
+    axes = (("GLON-SIN",) + RA[1:], ("GLAT-SIN",) + DEC[1:], FREQ, IQUV)
+    path, data = write_fits(
+        tmp_path / "galactic.fits", axes=axes, remove=("RADESYS", "EQUINOX")
+    )
+    xds = read(path, chunks={"l": 4, "m": 2})
+    reference = xds.attrs["coordinate_system_info"]["reference_direction"]
+    assert reference["attrs"]["frame"] == "galactic"
+    assert "equinox" not in reference["attrs"]
+    assert xds.SKY.attrs["pointing_center"]["attrs"]["frame"] == "galactic"
+    assert xds.SKY.chunks[3:] == ((4, 2), (2, 2, 1))
+    np.testing.assert_array_equal(xds.SKY.values, expected_sky(data, axes))
+    with warnings.catch_warnings():
+        # wcslib's header fixes (MJD-OBS, OBSGEO) do not matter here
+        warnings.simplefilter("ignore")
+        wcs = WCS(fits.getheader(path)).celestial
+    lon, lat = wcs.pixel_to_world_values(*np.indices((NX, NY)))
+    tolerance = 1e-9 / 3600  # degrees
+    assert np.abs(np.degrees(xds.galactic_longitude.values) - lon).max() < tolerance
+    assert np.abs(np.degrees(xds.galactic_latitude.values) - lat).max() < tolerance
+    assert not check_image(open_image(path))
+
+
+def test_direction_axes_of_two_frames_raise(tmp_path):
+    axes = (RA, ("GLAT-SIN",) + DEC[1:], FREQ, IQUV)
+    path, _ = write_fits(tmp_path / "mixed.fits", axes=axes)
+    with pytest.raises(RuntimeError, match="not in the same frame"):
+        read(path)
 
 
 def test_unsupported_radesys_raises(tmp_path):

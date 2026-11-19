@@ -2286,6 +2286,74 @@ def test_retry_never_overwrites_a_preexisting_msv4(
     assert sentinel.read_text() == "keep me"
 
 
+@pytest.mark.parametrize(
+    "names, single_dish",
+    [
+        (["VISIBILITY", "VISIBILITY_CORRECTED", "VISIBILITY_MODEL", "UVW"], False),
+        (["SPECTRUM"], True),
+        # FLOAT_DATA with CORRECTED_DATA and MODEL_DATA: the conversion drops
+        # UVW, so no group may name it
+        (["SPECTRUM", "VISIBILITY_CORRECTED", "VISIBILITY_MODEL", "UVW"], True),
+    ],
+)
+def test_add_data_groups_uvw(names, single_dish):
+    xds = xr.Dataset({name: ("row", np.zeros(2)) for name in names})
+    xds, is_single_dish = conversion.add_data_groups(xds)
+    assert is_single_dish == single_dish
+    groups = xds.attrs["data_groups"]
+    assert set(groups) == (
+        {"base", "corrected", "model"} if len(names) > 1 else {"base"}
+    )
+    for group in groups.values():
+        assert ("uvw" in group) == (not single_dish)
+        assert group["field_and_source"].startswith("field_and_source_")
+
+
+@pytest.mark.parametrize(
+    "parallel_mode, stream, batch_mb",
+    [
+        ("none", "1", None),  # streamed write, the partition read whole
+        ("none", "1", 1e-9),  # streamed write, in batches
+        ("partition", "1", 1e-9),
+        ("none", "0", None),  # one to_zarr
+        ("time", "0", None),  # dask
+    ],
+)
+def test_single_dish_corrected_and_model_data_real_part(
+    backend_ms, parallel_mode, stream, batch_mb, tmp_path, monkeypatch
+):
+    """CASA writes CORRECTED_DATA and MODEL_DATA as complex columns, also next
+    to FLOAT_DATA, and its single-dish tasks use only their real part: a
+    spectrum dataset holds that real part (float32) as VISIBILITY_CORRECTED
+    and VISIBILITY_MODEL (twice and half SPECTRUM in this MS), and
+    check_dataset finds no issue, also in their data groups. A partition with
+    decreasing frequencies."""
+    from xradio.measurement_set._utils._msv2.partition_queries import (
+        create_partitions_with_main_rows,
+    )
+    from xradio.measurement_set.schema import SpectrumXds
+
+    msname = backend_ms("single_dish_corrected")
+    partitions, runs = create_partitions_with_main_rows(msname, [])
+    xdt, _ = _convert_streamed(
+        monkeypatch,
+        msname,
+        str(tmp_path / "out"),
+        partitions[2],
+        stream,
+        batch_mb,
+        main_chunksize={"time": 4},
+        main_row_runs=runs[2],
+        parallel_mode=parallel_mode,
+    )
+    xds = xdt.ds
+    assert xds.attrs["type"] == "spectrum"
+    for name, factor in (("VISIBILITY_CORRECTED", 2), ("VISIBILITY_MODEL", 0.5)):
+        assert xds[name].dtype == np.float32
+        np.testing.assert_array_equal(xds[name].values, factor * xds.SPECTRUM.values)
+    assert not check_dataset(xds, SpectrumXds)
+
+
 def test_convert_and_write_partition_signature():
     """convert_and_write_partition shows (and binds its arguments with) the
     parameters of _convert_and_write_partition, without the internal ones it

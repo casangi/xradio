@@ -5,7 +5,7 @@ Data classes used by Xradio routines to represent dataset schemas.
 from __future__ import annotations
 
 import typing
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 __all__ = [
     "ValueSchema",
@@ -31,6 +31,7 @@ class ValueSchema:
         "list[str]",
         "list[float]",
         "list[list[float]]",
+        "list[dict]",
         "dict",
         "dataarray",
     ]
@@ -40,16 +41,20 @@ class ValueSchema:
     * ``bool``: A boolean
     * ``str``: A UTF-8 string
     * ``int``: A 64-bit signed integer
-    * ``float``: A double-precision floating point number
+    * ``float``: A double-precision floating point number (a Python ``int``
+      is accepted too, but not a ``bool``)
     * ``list[str]``: A list of strings
-    * ``list[float]``: A list of floating point numbers
+    * ``list[float]``: A list of floating point numbers (or ints)
     * ``list[list[float]]``: A list of lists of floating point numbers (matrix)
+    * ``list[dict]``: A list of dictionaries, each conforming to
+      ``dict_schema``
     * ``dict``: Dictionary
     * ``dataarray``: An xarray dataarray (encoded using ``to_dict``)
     """
     dict_schema: DictSchema | None = None
     """
-    Dictionary schema, if it is a dict
+    Dictionary schema, if it is a dict (or of every element, if it is a
+    list[dict])
     """
     array_schema: ArraySchema | None = None
     """
@@ -162,7 +167,18 @@ class DatasetSchema:
     """(Class) name of the schema"""
 
     dimensions: list[list[str]]
-    """List of possible dimensions (derived from data arrays)"""
+    """Dimensions that every dataset has (derived from data arrays), as a list
+    holding one list: the dimensions that every possible dimensionality of
+    each required coordinate and data variable has. Schemas exported to JSON
+    before ``optional_dimensions`` existed list every possible combination of
+    dimensions here instead, and are still understood by
+    :py:func:`~xradio.schema.check.check_dataset`."""
+    optional_dimensions: list[str] | None = field(default=None, kw_only=True)
+    """Dimensions that a dataset may have in addition to ``dimensions``, in
+    any combination (derived from data arrays: the other dimensions of its
+    coordinates and data variables, those of optional ones and those that
+    only some dimensionalities of a required one have). ``None`` if there
+    are none."""
     coordinates: list[ArraySchemaRef]
     """List of coordinate data arrays"""
     data_vars: list[ArraySchemaRef]

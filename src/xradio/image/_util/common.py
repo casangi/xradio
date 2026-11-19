@@ -12,10 +12,8 @@ from xradio._utils.dict_helpers import (
     make_spectral_coord_reference_dict,
 )
 from xradio._utils.list_and_array import is_decreasing
-from xradio.image._util.conventions import (
-    canonical_polarization_order,
-    time_values_to_astropy,
-)
+from xradio.image._util.conventions import time_values_to_astropy
+from xradio.schema.polarization import canonical_polarization_order
 
 _c = 2.99792458e08 * u.m / u.s
 # Factors of the common frequency units to Hz, looked up before falling back

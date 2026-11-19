@@ -94,6 +94,83 @@ with the measurement set coordinates. They can also be imported from
    casacore frames ``GALACTO``, ``LGROUP`` and ``CMB``, so spectral
    coordinates of measurement sets accept these observers too.
 
+Shared Dimensions
+-----------------
+
+.. automodule:: xradio.schema.dimensions
+
+Shared Polarization Vocabulary
+------------------------------
+
+.. automodule:: xradio.schema.polarization
+
+.. autodata:: xradio.schema.polarization.CASACORE_STOKES_TYPES
+   :no-value:
+
+.. autodata:: xradio.schema.polarization.CANONICAL_POLARIZATION_ORDER
+
+.. autodata:: xradio.schema.polarization.CIRCULAR_CORRELATIONS
+
+.. autodata:: xradio.schema.polarization.LINEAR_CORRELATIONS
+
+.. autofunction:: xradio.schema.polarization.check_polarization_order
+
+The casacore translation tables of :py:mod:`xradio.schema.measures`:
+
+.. autodata:: xradio.schema.measures.CASACORE_SPECTRAL_FRAMES
+
+.. autodata:: xradio.schema.measures.CASACORE_TO_OBSERVER
+
+.. autodata:: xradio.schema.measures.CASACORE_EPOCH_REF_TO_SCALE
+
+.. autodata:: xradio.schema.measures.CASACORE_DIRECTION_TO_FRAME
+
+.. autodata:: xradio.schema.measures.DEFAULT_EQUINOX
+
+Shared Base Classes
+-------------------
+
+.. automodule:: xradio.schema.coordinates
+
+.. autoclass:: xradio.schema.coordinates.TimeCoordArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.FrequencyCoordArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.AntennaNameArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.BaselineArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.BaselineAntennaNameArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.ScanArrayBase()
+
+.. autoclass:: xradio.schema.coordinates.ReceptorLabelArrayBase()
+
+.. autoclass:: xradio.schema.measures.TimeSamplingArrayBase()
+
+.. autoclass:: xradio.schema.measures.FrequencySamplingArrayBase()
+
+.. automodule:: xradio.schema.info
+
+.. autoclass:: xradio.schema.info.CreatorDictBase()
+
+.. autoclass:: xradio.schema.info.GenericDataGroupDict()
+
+.. autoclass:: xradio.schema.info.SchemaVersionAttrs()
+
+.. autoclass:: xradio.schema.info.VersionedArrayBase()
+
+.. autoclass:: xradio.schema.info.FlagArrayBase()
+
+The functions of :py:mod:`xradio.schema.info`, used with
+:py:func:`~xradio.schema.check.check_dataset`:
+
+.. autofunction:: xradio.schema.info.check_data_groups
+
+.. autofunction:: xradio.schema.info.matching_data_var_names
+
+.. autofunction:: xradio.schema.info.check_schema_version
+
 Decorators
 ----------
 
@@ -111,6 +188,19 @@ Data Model
 
 .. automodule:: xradio.schema.metamodel
   :members:
+
+.. note::
+
+   A :py:class:`~xradio.schema.metamodel.DatasetSchema` gives the
+   dimensions that every dataset has in ``dimensions`` (a list holding one
+   list) and the dimensions that it may have in addition, in any
+   combination, in ``optional_dimensions``. Earlier releases listed every
+   combination in ``dimensions`` instead (32 for the image dataset), so the
+   ``dimensions`` of ``schemas/ImageXds.json`` changed form. The main
+   measurement set datasets have no optional dimensions, so
+   ``schemas/VisibilityXds.json`` and ``schemas/SpectrumXds.json`` did not
+   change. Schemas exported in the earlier form still import, and check
+   the same datasets.
 
 Import and Export
 -----------------

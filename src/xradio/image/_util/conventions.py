@@ -20,23 +20,22 @@ import re
 
 import numpy as np
 
+# The casacore spectral frames, epoch references and their translations, and
+# the canonical polarization order, are shared by all schemas; they are
+# defined in xradio.schema and re-exported here
+from xradio.schema.measures import (  # noqa: F401
+    CASACORE_EPOCH_REF_TO_SCALE,
+    CASACORE_SPECTRAL_FRAMES,
+    CASACORE_TO_OBSERVER,
+)
+from xradio.schema.polarization import (  # noqa: F401
+    CANONICAL_POLARIZATION_ORDER,
+    canonical_polarization_order,
+)
+
 # ---------------------------------------------------------------------------
 # Spectral reference frames
 # ---------------------------------------------------------------------------
-
-#: casacore ``MFrequency`` reference frames, the canonical names held by the
-#: frequency coordinate's ``frame`` attribute.
-CASACORE_SPECTRAL_FRAMES = (
-    "REST",
-    "LSRK",
-    "LSRD",
-    "BARY",
-    "GEO",
-    "TOPO",
-    "GALACTO",
-    "LGROUP",
-    "CMB",
-)
 
 #: casacore frame -> FITS ``SPECSYS`` (FITS WCS Paper III, as written by
 #: casacore's own FITS export).
@@ -50,21 +49,6 @@ CASACORE_TO_FITS_SPECSYS = {
     "GALACTO": "GALACTOC",
     "LGROUP": "LOCALGRP",
     "CMB": "CMBDIPOL",
-}
-
-#: casacore frame -> ``reference_frequency`` observer, following the shared
-#: ``AllowedSpectralCoordFrames`` vocabulary: frames with an astropy
-#: equivalent use the lowercase astropy name, the others keep the casacore name.
-CASACORE_TO_OBSERVER = {
-    "REST": "REST",
-    "LSRK": "lsrk",
-    "LSRD": "lsrd",
-    "BARY": "BARY",
-    "GEO": "gcrs",
-    "TOPO": "TOPO",
-    "GALACTO": "GALACTO",
-    "LGROUP": "LGROUP",
-    "CMB": "CMB",
 }
 
 # Lowercase alias -> casacore frame: casacore names, FITS SPECSYS values and
@@ -166,71 +150,6 @@ FITS_STOKES_CODES = {
 #: FITS ``STOKES`` axis code -> polarization label.
 FITS_STOKES_LABELS = {code: label for label, code in FITS_STOKES_CODES.items()}
 
-#: Canonical in-memory polarization order: the casacore ``Stokes`` enum order,
-#: which keeps the correlations of a pair of feeds in Jones (2x2 matrix) order,
-#: ``RR, RL, LR, LL`` and ``XX, XY, YX, YY``, after ``I, Q, U, V``.
-CANONICAL_POLARIZATION_ORDER = (
-    "I",
-    "Q",
-    "U",
-    "V",
-    "RR",
-    "RL",
-    "LR",
-    "LL",
-    "XX",
-    "XY",
-    "YX",
-    "YY",
-    "RX",
-    "RY",
-    "LX",
-    "LY",
-    "XR",
-    "XL",
-    "YR",
-    "YL",
-    "PP",
-    "PQ",
-    "QP",
-    "QQ",
-)
-
-_CANONICAL_POLARIZATION_INDEX = {
-    label: index for index, label in enumerate(CANONICAL_POLARIZATION_ORDER)
-}
-
-
-def canonical_polarization_order(labels) -> list[int]:
-    """Return the permutation that puts polarization labels in canonical order.
-
-    Images keep their polarization axis in the casacore ``Stokes`` order
-    (:data:`CANONICAL_POLARIZATION_ORDER`), so that the correlations of a feed
-    pair are in Jones matrix order (``RR, RL, LR, LL``; ``XX, XY, YX, YY``).
-    FITS cannot store that order for correlations (see
-    :func:`fits_stokes_axis`), so FITS readers use this permutation to restore
-    it, reordering every variable with a polarization dimension the same way.
-
-    Parameters
-    ----------
-    labels : sequence of str
-        Polarization labels in their current order.
-
-    Returns
-    -------
-    list of int
-        ``order`` such that ``labels[order]`` is in canonical order (the
-        identity when the labels already are). Labels outside
-        :data:`CANONICAL_POLARIZATION_ORDER` keep their relative order after
-        the known ones.
-    """
-    labels = [str(label) for label in labels]
-    unknown = len(CANONICAL_POLARIZATION_ORDER)
-    return sorted(
-        range(len(labels)),
-        key=lambda i: (_CANONICAL_POLARIZATION_INDEX.get(labels[i], unknown), i),
-    )
-
 
 def fits_stokes_axis(labels) -> tuple[list[int], int, int]:
     """Lay out polarization labels as a linear FITS ``STOKES`` axis.
@@ -240,7 +159,8 @@ def fits_stokes_axis(labels) -> tuple[list[int], int, int]:
     correlation orders, for example ``[RR, RL, LR, LL]`` (codes -1, -3, -4,
     -2), do not, but they do once sorted (``[RR, LL, RL, LR]``), so FITS
     writers reorder the planes when that is needed, and FITS readers restore
-    the canonical order with :func:`canonical_polarization_order`.
+    the canonical order with
+    :func:`~xradio.schema.polarization.canonical_polarization_order`.
 
     Parameters
     ----------
@@ -468,22 +388,6 @@ def linear_axis_increment(values, name: str) -> float | None:
 # ---------------------------------------------------------------------------
 # Time coordinates
 # ---------------------------------------------------------------------------
-
-#: casacore ``MEpoch`` reference -> astropy time scale. Sidereal references
-#: (LAST, LMST, GMST1, GAST) have no astropy scale and are absent.
-CASACORE_EPOCH_REF_TO_SCALE = {
-    "UTC": "utc",
-    "TAI": "tai",
-    "IAT": "tai",
-    "TT": "tt",
-    "TDT": "tt",
-    "ET": "tt",
-    "TDB": "tdb",
-    "TCB": "tcb",
-    "TCG": "tcg",
-    "UT1": "ut1",
-    "UT": "ut1",
-}
 
 
 def time_values_to_astropy(values, attrs: dict):

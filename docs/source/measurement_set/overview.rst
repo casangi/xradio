@@ -188,8 +188,12 @@ might have a ‘base’ group and an ‘imaging’ group:
 .. code:: python
 
    Example: ms_xds.attrs['data_groups'] = {
-      'base': {'correlated_data': 'VISIBILITY', 'flag': 'FLAG', 'weight': 'WEIGHT', 'uvw': 'UVW'},
-      'imaging': {'correlated_data': 'VISIBILITY_CORRECTED', 'flag': 'FLAG', 'weight': 'WEIGHT_IMAGING', 'uvw': 'UVW'}
+      'base': {'correlated_data': 'VISIBILITY', 'flag': 'FLAG', 'weight': 'WEIGHT', 'uvw': 'UVW',
+               'field_and_source': 'field_and_source_base_xds',
+               'description': 'Data from the DATA column', 'date': '2026-11-15T12:00:00.000'},
+      'imaging': {'correlated_data': 'VISIBILITY_CORRECTED', 'flag': 'FLAG', 'weight': 'WEIGHT_IMAGING', 'uvw': 'UVW',
+                  'field_and_source': 'field_and_source_base_xds',
+                  'description': 'Calibrated data with imaging weights', 'date': '2026-11-15T13:00:00.000'}
    }
 
 The ‘base’ and ‘imaging’ ``data_group``\ s share the same ‘flag’ and
@@ -198,6 +202,27 @@ data variables. When creating new versions of data variables, they must
 contain the standard name followed by an underscore and a description
 chosen by the developer. For example, a new version of ``VISIBILITY``
 could be ``VISIBILITY_PHASE_SHIFTED``.
+
+:py:func:`~xradio.schema.check.check_dataset` and
+:py:func:`~xradio.schema.check.check_datatree` check every data group, not
+only ‘base’: each must have the required keys of
+:py:class:`~xradio.measurement_set.schema.DataGroupDict`, and its
+‘correlated_data’, ‘flag’, ‘weight’ and ‘uvw’ must name data variables of
+the dataset that conform to the visibility (or spectrum), flag, weight and
+UVW arrays. A group may hold further keys, which are not checked, and its
+‘field_and_source’ is not resolved. Earlier releases checked only the keys
+of the ‘base’ group and did not resolve the variable names of any group, so
+a measurement set with an incomplete or inconsistent data group, which
+passed the check before, now fails it and must be fixed. This includes
+single-dish measurement sets with ``CORRECTED_DATA`` or ``MODEL_DATA``
+converted by earlier releases: their ‘corrected’ and ‘model’ groups name
+the ``UVW`` that the conversion drops, and, because CASA writes these
+columns as complex, their ``VISIBILITY_CORRECTED`` and
+``VISIBILITY_MODEL`` are complex, which a spectrum dataset does not allow.
+Convert them again, or write them again with ‘uvw’ removed from those
+groups and a complex ``VISIBILITY_CORRECTED`` or ``VISIBILITY_MODEL``
+replaced by its real part, which is what the converter now stores.
+Writing the real part into the existing array keeps its complex type.
 
 The ``ms_xdt`` also allows for selecting a ``data_group``. For example:
 

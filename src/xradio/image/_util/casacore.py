@@ -48,7 +48,7 @@ from xradio.image._util.common import (
     _to_canonical_polarization_order,
     _to_increasing_frequency_order,
 )
-from xradio.image._util.conventions import canonical_polarization_order
+from xradio.schema.polarization import canonical_polarization_order
 
 warnings.filterwarnings("ignore", category=FutureWarning)
 

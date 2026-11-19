@@ -150,6 +150,19 @@ variables of that group:
 
    residual_xds = img_xds.xr_img.sel(data_group_name="residual")
 
+The accessor also gives the FITS header that ``write_image`` writes for an
+image, and its astropy WCS, for tools such as ``reproject``, ``regions`` or
+``photutils``. The celestial WCS indexes a sky plane as (m, l), so transpose
+the plane, never flip it (see :doc:`Conventions </conventions>`):
+
+.. code:: python
+
+   header = img_xds.xr_img.get_fits_header(data_group_name="residual")
+   wcs = img_xds.xr_img.get_wcs(data_group_name="residual")
+   plane = img_xds.SKY_RESIDUAL.isel(time=0, frequency=0, polarization=0)
+   position = wcs.pixel_to_world(10, 20)  # pixel 10 along l, 20 along m
+   value = plane.transpose("m", "l").values[20, 10]
+
 Storage Formats
 ---------------
 
@@ -225,7 +238,8 @@ Translating CASA Images and FITS
      - ``BMAJ``, ``BMIN`` and ``BPA``, or a ``BEAMS`` table
      - ``BEAM_FIT_PARAMS_<image>`` (sky images and point spread functions)
    * - direction coordinate
-     - celestial axes
+     - celestial axes: ``RA``/``DEC`` (fk4, fk5 and icrs frames) or
+       ``GLON``/``GLAT`` (galactic frame)
      - ``l`` and ``m`` coordinates, ``coordinate_system_info``
    * - spectral coordinate
      - spectral axis

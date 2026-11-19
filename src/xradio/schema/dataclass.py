@@ -29,7 +29,33 @@ from xradio.schema.typing import (
 
 def extract_field_docstrings(klass):
     """
-    Extracts docstrings of all fields from a class
+    Extracts docstrings of all fields from a class, including the fields it
+    inherits from schema base classes
+
+    The class and its dataclass bases are visited in reverse method
+    resolution order, so a docstring in a derived class takes precedence. A
+    field that a class redeclares without a docstring keeps the docstring of
+    its base class.
+
+    :param klass: Class to extract docstrings from
+    :returns: Dictionary of attributes to clean docstrings
+    """
+
+    docstrings = {}
+    for cls in reversed(klass.__mro__):
+        # Only classes processed by dataclasses contribute fields (the same
+        # rule that dataclasses.fields() follows)
+        if cls is not klass and "__dataclass_fields__" not in vars(cls):
+            continue
+        for name, docstring in _extract_own_field_docstrings(cls).items():
+            if docstring is not None or name not in docstrings:
+                docstrings[name] = docstring
+    return docstrings
+
+
+def _extract_own_field_docstrings(klass):
+    """
+    Extracts docstrings of the fields declared in the body of a class
 
     :param klass: Class to extract docstrings from
     :returns: Dictionary of attributes to clean docstrings
@@ -141,13 +167,16 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
 
     # Is a type?
     if isinstance(ann, type):
-        # Array type?
+        # Array type? Look the schema up per class, as check_array does: a
+        # subclass that is not decorated itself inherits its base's attribute
         if hasattr(ann, "__xradio_array_schema"):
-            return ValueSchema("dataarray", array_schema=ann.__xradio_array_schema)
+            return ValueSchema(
+                "dataarray", array_schema=xarray_dataclass_to_array_schema(ann)
+            )
 
         # Dictionary type?
         if hasattr(ann, "__xradio_dict_schema"):
-            return ValueSchema("dict", dict_schema=ann.__xradio_dict_schema)
+            return ValueSchema("dict", dict_schema=xarray_dataclass_to_dict_schema(ann))
 
         # Check that it is an allowable type
         if ann not in [bool, str, int, float, bool]:
@@ -161,8 +190,10 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
     if typing.get_origin(ann) in [list, list]:
         args = typing.get_args(ann)
 
-        # Must be a list of strings, a list of floats or a list of lists of
-        # floats (e.g. a transformation matrix)
+        # Must be a list of strings, a list of floats, a list of lists of
+        # floats (e.g. a transformation matrix) or a list of dictionaries
+        # (each conforming to a dictionary schema, looked up per class as for
+        # a dictionary type)
         if args == (str,):
             return ValueSchema("list[str]")
         if args == (float,):
@@ -173,11 +204,19 @@ def value_schema(ann: typing.Any, klass_name: str, field_name: str) -> "ValueSch
             and typing.get_args(args[0]) == (float,)
         ):
             return ValueSchema("list[list[float]]")
+        if (
+            len(args) == 1
+            and isinstance(args[0], type)
+            and hasattr(args[0], "__xradio_dict_schema")
+        ):
+            return ValueSchema(
+                "list[dict]", dict_schema=xarray_dataclass_to_dict_schema(args[0])
+            )
 
         raise ValueError(
             f"In '{klass_name}', field '{field_name}' has"
             f" annotation {ann}, but only str, int, float, list[str], list[float],"
-            f" list[list[float]] or Literal allowed!"
+            f" list[list[float]], a list of a dictionary schema or Literal allowed!"
         )
 
     # Is a literal?
@@ -422,8 +461,9 @@ def xarray_dataclass_to_array_schema(klass):
     refer to using CoordOf or DataOf
     """
 
-    # Cached?
-    if hasattr(klass, "__xradio_array_schema"):
+    # Cached? Only a schema made for this very class counts: one inherited
+    # from a schema base class describes the base
+    if "__xradio_array_schema" in vars(klass):
         return klass.__xradio_array_schema
 
     # Extract from data class
@@ -455,7 +495,7 @@ def xarray_dataclass_to_array_schema(klass):
         dtypes=[numpy.dtype(dt).str for dt in data_vars[0].dtypes],
         coordinates=coordinates,
         attributes=attributes,
-        class_docstring=inspect.cleandoc(klass.__doc__),
+        class_docstring=inspect.getdoc(klass),
         data_docstring=data_vars[0].docstring,
     )
     klass.__xradio_array_schema = schema
@@ -470,8 +510,9 @@ def xarray_dataclass_to_dataset_schema(klass):
     refer to using CoordOf or DataOf
     """
 
-    # Cached?
-    if hasattr(klass, "__xradio_dataset_schema"):
+    # Cached? Only a schema made for this very class counts: one inherited
+    # from a schema base class describes the base
+    if "__xradio_dataset_schema" in vars(klass):
         return klass.__xradio_dataset_schema
 
     # Extract from data class
@@ -492,34 +533,24 @@ def xarray_dataclass_to_dataset_schema(klass):
         if not dvar.optional:
             req_dimensions |= dvar.required_dimensions()
 
-    # Build powerset of all options
-    # (Theoretically we could try to be fancy here and filter out options
-    #  that "make no sense". E.g. if there are some dimensions A and B
-    #  that are always used together, but never appear individually,
-    #  we should not list A and B separately as options. The test would
-    #  be to check whether for every dimensionality option there exists
-    #  a mapping of data variables to allowed dimensions [possibly empty
-    #  if the data variable is optional], such that the superset of all
-    #  dimensions matches. Likely overkill for now.)
-    # Iterate optional dimensions in declaration order so that the list of
-    # options is deterministic (a set difference here would make the order,
-    # and thereby the JSON export, depend on per-process string hashing)
-    opt_dimensions = [dim for dim in all_dimensions if dim not in req_dimensions]
-    dimensions = [req_dimensions]
-    for dim in opt_dimensions:
-        dimensions += [dims | {dim} for dims in dimensions]
-
-    # Reorder consistently / convert to lists
-    dimensions = [[dim for dim in all_dimensions if dim in dims] for dims in dimensions]
+    # A dataset has the required dimensions, and may have any combination of
+    # the others (instead of listing every combination, which grows as 2^n).
+    # Both follow declaration order, so that the JSON export is deterministic
+    # (a set here would make it depend on per-process string hashing)
+    dimensions = [[dim for dim in all_dimensions if dim in req_dimensions]]
+    optional_dimensions = [dim for dim in all_dimensions if dim not in req_dimensions]
 
     # Make class
     schema = DatasetSchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         dimensions=dimensions,
+        # None rather than an empty list when there are none, so that the
+        # JSON export omits the field (it omits values that are the default)
+        optional_dimensions=optional_dimensions or None,
         coordinates=coordinates,
         data_vars=data_vars,
         attributes=attributes,
-        class_docstring=inspect.cleandoc(klass.__doc__),
+        class_docstring=inspect.getdoc(klass),
     )
     klass.__xradio_dataset_schema = schema
     return schema
@@ -532,8 +563,9 @@ def xarray_dataclass_to_dict_schema(klass):
     This should work on any class annotated with :py:func:`~xradio.schema.bases.dict_schema`
     """
 
-    # Cached?
-    if hasattr(klass, "__xradio_dict_schema"):
+    # Cached? Only a schema made for this very class counts: one inherited
+    # from a schema base class describes the base
+    if "__xradio_dict_schema" in vars(klass):
         return klass.__xradio_dict_schema
 
     # Get docstrings and type hints
@@ -560,7 +592,7 @@ def xarray_dataclass_to_dict_schema(klass):
     schema = DictSchema(
         schema_name=f"{klass.__module__}.{klass.__qualname__}",
         attributes=attributes,
-        class_docstring=inspect.cleandoc(klass.__doc__),
+        class_docstring=inspect.getdoc(klass),
     )
     klass.__xradio_dict_schema = schema
     return schema

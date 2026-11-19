@@ -372,7 +372,9 @@ def write_image(
       A sky image's flags become its default mask and its beam fit
       parameters its restoring beam(s).
     * ``"fits"`` writes FITS files with astropy only. Only sky plane images
-      are written; other images are skipped with a warning. Flagged pixels
+      are written; other images are skipped with a warning. Their direction
+      reference frame must be fk4, fk5 or icrs (``RA``/``DEC`` axes) or
+      galactic (``GLON``/``GLAT`` axes). Flagged pixels
       are written as NaN, and the polarization planes may be reordered in the
       file so that they form a FITS STOKES axis (:func:`open_image` restores
       the canonical order).

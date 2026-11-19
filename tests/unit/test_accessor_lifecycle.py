@@ -137,10 +137,10 @@ def test_chained_ms_accessor_on_a_cyclic_temporary():
 
 def test_accessor_class_on_the_xarray_class():
     """Class attribute access gives the accessor class (documentation tools)."""
-    from xradio.image.image_xds import ImageXds
+    from xradio.image.image_xds import ImageXdsAccessor
     from xradio.measurement_set.measurement_set_xdt import MeasurementSetXdt
 
-    assert xr.Dataset.xr_img is ImageXds
+    assert xr.Dataset.xr_img is ImageXdsAccessor
     assert xr.DataTree.xr_ms is MeasurementSetXdt
 
 

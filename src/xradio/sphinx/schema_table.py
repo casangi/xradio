@@ -193,6 +193,7 @@ def format_attr_model_text(state, attr) -> nodes.line:
     - String literals (units, frames, measure types, etc.)
     - Other classes (for example usual built-in types such str, bool or ints,
       or schema classes: schema dicts and schema arrays)
+    - Lists of schema dicts (``list[dict]``), as "list of" the dict class
 
     This is meant to produce readable text listing literals as quoted text and
     their combinations, in schema attributes (particularly quantities and measures).
@@ -211,6 +212,13 @@ def format_attr_model_text(state, attr) -> nodes.line:
         else:
             attr_type = attr.type
         line = format_class_types(state, attr_type)
+        if attr.type == "list[dict]":
+            # The class link is in a paragraph of the line: put the text in
+            # it, so that both show on one line
+            target = line
+            if len(line) and isinstance(line[0], nodes.paragraph):
+                target = line[0]
+            target.insert(0, nodes.Text("list of "))
 
     return line
 
@@ -317,9 +325,18 @@ class DictSchemaTableDirective(SchemaTableDirective):
         if schema.attributes:
             self._add_section("Fields:")
             for attr in schema.attributes:
+                # Link the schema of fields that hold a DataArray, a dict or a
+                # list of dicts
+                if attr.array_schema is not None:
+                    model = attr.array_schema.schema_name
+                elif attr.dict_schema is not None:
+                    model = attr.dict_schema.schema_name
+                else:
+                    model = None
                 self._add_row(
                     attr.name,
                     types=[attr.type],
+                    meta=model,
                     optional=attr.optional,
                     descr=attr.docstring,
                     default=attr.default,

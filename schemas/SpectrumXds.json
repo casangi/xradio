@@ -163,6 +163,95 @@
         {
           "$class": "AttrSchemaRef",
           "type": "str",
+          "literal": [
+            "spectral_coord"
+          ],
+          "name": "type",
+          "default": "spectral_coord",
+          "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Frequency",
+          "docstring": "Long-form name to use for axis"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "Hz"
+          ],
+          "name": "units",
+          "default": "Hz",
+          "docstring": "Units to associate with axis"
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "literal": [
+            "REST",
+            "BARY",
+            "TOPO",
+            "GALACTO",
+            "LGROUP",
+            "CMB",
+            "gcrs",
+            "icrs",
+            "hcrs",
+            "lsrk",
+            "lsrd",
+            "lsr"
+          ],
+          "name": "observer",
+          "default": "icrs",
+          "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "dataarray",
+          "array_schema": {
+            "$class": "ArraySchema",
+            "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+            "dimensions": [
+              []
+            ],
+            "dtypes": [
+              "<f8"
+            ],
+            "coordinates": [],
+            "attributes": [
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "Hz"
+                ],
+                "name": "units",
+                "docstring": null
+              },
+              {
+                "$class": "AttrSchemaRef",
+                "type": "str",
+                "literal": [
+                  "quantity"
+                ],
+                "name": "type",
+                "default": "quantity",
+                "docstring": null
+              }
+            ],
+            "class_docstring": "Quantity with units of Hertz",
+            "data_docstring": null
+          },
+          "name": "channel_width",
+          "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
           "name": "spectral_window_name",
           "docstring": "Name associated with spectral window. "
         },
@@ -246,46 +335,6 @@
           "type": "dataarray",
           "array_schema": {
             "$class": "ArraySchema",
-            "schema_name": "xradio.schema.measures.QuantityInHertzArray",
-            "dimensions": [
-              []
-            ],
-            "dtypes": [
-              "<f8"
-            ],
-            "coordinates": [],
-            "attributes": [
-              {
-                "$class": "AttrSchemaRef",
-                "type": "str",
-                "literal": [
-                  "Hz"
-                ],
-                "name": "units",
-                "docstring": null
-              },
-              {
-                "$class": "AttrSchemaRef",
-                "type": "str",
-                "literal": [
-                  "quantity"
-                ],
-                "name": "type",
-                "default": "quantity",
-                "docstring": null
-              }
-            ],
-            "class_docstring": "Quantity with units of Hertz",
-            "data_docstring": null
-          },
-          "name": "channel_width",
-          "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "dataarray",
-          "array_schema": {
-            "$class": "ArraySchema",
             "schema_name": "xradio.schema.measures.DopplerArray",
             "dimensions": [
               []
@@ -340,55 +389,6 @@
           "optional": true,
           "name": "doppler",
           "docstring": "Doppler tracking information "
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "str",
-          "literal": [
-            "spectral_coord"
-          ],
-          "name": "type",
-          "default": "spectral_coord",
-          "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "str",
-          "optional": true,
-          "name": "long_name",
-          "default": "Frequency",
-          "docstring": "Long-form name to use for axis"
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "str",
-          "literal": [
-            "Hz"
-          ],
-          "name": "units",
-          "default": "Hz",
-          "docstring": "Units to associate with axis"
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "str",
-          "literal": [
-            "REST",
-            "BARY",
-            "TOPO",
-            "GALACTO",
-            "LGROUP",
-            "CMB",
-            "gcrs",
-            "icrs",
-            "hcrs",
-            "lsrk",
-            "lsrd",
-            "lsr"
-          ],
-          "name": "observer",
-          "default": "icrs",
-          "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
         }
       ],
       "class_docstring": "Frequency coordinate in the main dataset.",
@@ -668,6 +668,95 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "Hz"
+              ],
+              "name": "units",
+              "default": "Hz",
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
             },
@@ -751,46 +840,6 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
-                "dimensions": [
-                  []
-                ],
-                "dtypes": [
-                  "<f8"
-                ],
-                "coordinates": [],
-                "attributes": [
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "Hz"
-                    ],
-                    "name": "units",
-                    "docstring": null
-                  },
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "quantity"
-                    ],
-                    "name": "type",
-                    "default": "quantity",
-                    "docstring": null
-                  }
-                ],
-                "class_docstring": "Quantity with units of Hertz",
-                "data_docstring": null
-              },
-              "name": "channel_width",
-              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "dataarray",
-              "array_schema": {
-                "$class": "ArraySchema",
                 "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
@@ -845,55 +894,6 @@
               "optional": true,
               "name": "doppler",
               "docstring": "Doppler tracking information "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "spectral_coord"
-              ],
-              "name": "type",
-              "default": "spectral_coord",
-              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "optional": true,
-              "name": "long_name",
-              "default": "Frequency",
-              "docstring": "Long-form name to use for axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "Hz"
-              ],
-              "name": "units",
-              "default": "Hz",
-              "docstring": "Units to associate with axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "REST",
-                "BARY",
-                "TOPO",
-                "GALACTO",
-                "LGROUP",
-                "CMB",
-                "gcrs",
-                "icrs",
-                "hcrs",
-                "lsrk",
-                "lsrd",
-                "lsr"
-              ],
-              "name": "observer",
-              "default": "icrs",
-              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
             }
           ],
           "class_docstring": "Frequency coordinate in the main dataset.",
@@ -1150,6 +1150,95 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "Hz"
+              ],
+              "name": "units",
+              "default": "Hz",
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
             },
@@ -1233,46 +1322,6 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
-                "dimensions": [
-                  []
-                ],
-                "dtypes": [
-                  "<f8"
-                ],
-                "coordinates": [],
-                "attributes": [
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "Hz"
-                    ],
-                    "name": "units",
-                    "docstring": null
-                  },
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "quantity"
-                    ],
-                    "name": "type",
-                    "default": "quantity",
-                    "docstring": null
-                  }
-                ],
-                "class_docstring": "Quantity with units of Hertz",
-                "data_docstring": null
-              },
-              "name": "channel_width",
-              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "dataarray",
-              "array_schema": {
-                "$class": "ArraySchema",
                 "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
@@ -1327,55 +1376,6 @@
               "optional": true,
               "name": "doppler",
               "docstring": "Doppler tracking information "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "spectral_coord"
-              ],
-              "name": "type",
-              "default": "spectral_coord",
-              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "optional": true,
-              "name": "long_name",
-              "default": "Frequency",
-              "docstring": "Long-form name to use for axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "Hz"
-              ],
-              "name": "units",
-              "default": "Hz",
-              "docstring": "Units to associate with axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "REST",
-                "BARY",
-                "TOPO",
-                "GALACTO",
-                "LGROUP",
-                "CMB",
-                "gcrs",
-                "icrs",
-                "hcrs",
-                "lsrk",
-                "lsrd",
-                "lsr"
-              ],
-              "name": "observer",
-              "default": "icrs",
-              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
             }
           ],
           "class_docstring": "Frequency coordinate in the main dataset.",
@@ -1414,6 +1414,14 @@
       "attributes": [
         {
           "$class": "AttrSchemaRef",
+          "type": "bool",
+          "optional": true,
+          "name": "allow_multiple_versions",
+          "default": true,
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
           "type": "list[str]",
           "optional": true,
           "name": "flag_bits",
@@ -1435,14 +1443,6 @@
           "optional": true,
           "name": "long_name",
           "default": "Visibility flags",
-          "docstring": null
-        },
-        {
-          "$class": "AttrSchemaRef",
-          "type": "bool",
-          "optional": true,
-          "name": "allow_multiple_versions",
-          "default": true,
           "docstring": null
         }
       ],
@@ -1647,6 +1647,95 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "Hz"
+              ],
+              "name": "units",
+              "default": "Hz",
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
             },
@@ -1730,46 +1819,6 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
-                "dimensions": [
-                  []
-                ],
-                "dtypes": [
-                  "<f8"
-                ],
-                "coordinates": [],
-                "attributes": [
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "Hz"
-                    ],
-                    "name": "units",
-                    "docstring": null
-                  },
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "quantity"
-                    ],
-                    "name": "type",
-                    "default": "quantity",
-                    "docstring": null
-                  }
-                ],
-                "class_docstring": "Quantity with units of Hertz",
-                "data_docstring": null
-              },
-              "name": "channel_width",
-              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "dataarray",
-              "array_schema": {
-                "$class": "ArraySchema",
                 "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
@@ -1824,55 +1873,6 @@
               "optional": true,
               "name": "doppler",
               "docstring": "Doppler tracking information "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "spectral_coord"
-              ],
-              "name": "type",
-              "default": "spectral_coord",
-              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "optional": true,
-              "name": "long_name",
-              "default": "Frequency",
-              "docstring": "Long-form name to use for axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "Hz"
-              ],
-              "name": "units",
-              "default": "Hz",
-              "docstring": "Units to associate with axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "REST",
-                "BARY",
-                "TOPO",
-                "GALACTO",
-                "LGROUP",
-                "CMB",
-                "gcrs",
-                "icrs",
-                "hcrs",
-                "lsrk",
-                "lsrd",
-                "lsr"
-              ],
-              "name": "observer",
-              "default": "icrs",
-              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
             }
           ],
           "class_docstring": "Frequency coordinate in the main dataset.",
@@ -1911,18 +1911,18 @@
       "attributes": [
         {
           "$class": "AttrSchemaRef",
-          "type": "str",
-          "optional": true,
-          "name": "long_name",
-          "default": "Visibility weights",
-          "docstring": null
-        },
-        {
-          "$class": "AttrSchemaRef",
           "type": "bool",
           "optional": true,
           "name": "allow_multiple_versions",
           "default": true,
+          "docstring": null
+        },
+        {
+          "$class": "AttrSchemaRef",
+          "type": "str",
+          "optional": true,
+          "name": "long_name",
+          "default": "Visibility weights",
           "docstring": null
         }
       ],
@@ -2472,6 +2472,95 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "Hz"
+              ],
+              "name": "units",
+              "default": "Hz",
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
             },
@@ -2555,46 +2644,6 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
-                "dimensions": [
-                  []
-                ],
-                "dtypes": [
-                  "<f8"
-                ],
-                "coordinates": [],
-                "attributes": [
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "Hz"
-                    ],
-                    "name": "units",
-                    "docstring": null
-                  },
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "quantity"
-                    ],
-                    "name": "type",
-                    "default": "quantity",
-                    "docstring": null
-                  }
-                ],
-                "class_docstring": "Quantity with units of Hertz",
-                "data_docstring": null
-              },
-              "name": "channel_width",
-              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "dataarray",
-              "array_schema": {
-                "$class": "ArraySchema",
                 "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
@@ -2649,55 +2698,6 @@
               "optional": true,
               "name": "doppler",
               "docstring": "Doppler tracking information "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "spectral_coord"
-              ],
-              "name": "type",
-              "default": "spectral_coord",
-              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "optional": true,
-              "name": "long_name",
-              "default": "Frequency",
-              "docstring": "Long-form name to use for axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "Hz"
-              ],
-              "name": "units",
-              "default": "Hz",
-              "docstring": "Units to associate with axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "REST",
-                "BARY",
-                "TOPO",
-                "GALACTO",
-                "LGROUP",
-                "CMB",
-                "gcrs",
-                "icrs",
-                "hcrs",
-                "lsrk",
-                "lsrd",
-                "lsr"
-              ],
-              "name": "observer",
-              "default": "icrs",
-              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
             }
           ],
           "class_docstring": "Frequency coordinate in the main dataset.",
@@ -2944,6 +2944,95 @@
             {
               "$class": "AttrSchemaRef",
               "type": "str",
+              "literal": [
+                "spectral_coord"
+              ],
+              "name": "type",
+              "default": "spectral_coord",
+              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "optional": true,
+              "name": "long_name",
+              "default": "Frequency",
+              "docstring": "Long-form name to use for axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "Hz"
+              ],
+              "name": "units",
+              "default": "Hz",
+              "docstring": "Units to associate with axis"
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
+              "literal": [
+                "REST",
+                "BARY",
+                "TOPO",
+                "GALACTO",
+                "LGROUP",
+                "CMB",
+                "gcrs",
+                "icrs",
+                "hcrs",
+                "lsrk",
+                "lsrd",
+                "lsr"
+              ],
+              "name": "observer",
+              "default": "icrs",
+              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "dataarray",
+              "array_schema": {
+                "$class": "ArraySchema",
+                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
+                "dimensions": [
+                  []
+                ],
+                "dtypes": [
+                  "<f8"
+                ],
+                "coordinates": [],
+                "attributes": [
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "Hz"
+                    ],
+                    "name": "units",
+                    "docstring": null
+                  },
+                  {
+                    "$class": "AttrSchemaRef",
+                    "type": "str",
+                    "literal": [
+                      "quantity"
+                    ],
+                    "name": "type",
+                    "default": "quantity",
+                    "docstring": null
+                  }
+                ],
+                "class_docstring": "Quantity with units of Hertz",
+                "data_docstring": null
+              },
+              "name": "channel_width",
+              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
+            },
+            {
+              "$class": "AttrSchemaRef",
+              "type": "str",
               "name": "spectral_window_name",
               "docstring": "Name associated with spectral window. "
             },
@@ -3027,46 +3116,6 @@
               "type": "dataarray",
               "array_schema": {
                 "$class": "ArraySchema",
-                "schema_name": "xradio.schema.measures.QuantityInHertzArray",
-                "dimensions": [
-                  []
-                ],
-                "dtypes": [
-                  "<f8"
-                ],
-                "coordinates": [],
-                "attributes": [
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "Hz"
-                    ],
-                    "name": "units",
-                    "docstring": null
-                  },
-                  {
-                    "$class": "AttrSchemaRef",
-                    "type": "str",
-                    "literal": [
-                      "quantity"
-                    ],
-                    "name": "type",
-                    "default": "quantity",
-                    "docstring": null
-                  }
-                ],
-                "class_docstring": "Quantity with units of Hertz",
-                "data_docstring": null
-              },
-              "name": "channel_width",
-              "docstring": "The nominal channel bandwidth. Same units as data array (see units key). "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "dataarray",
-              "array_schema": {
-                "$class": "ArraySchema",
                 "schema_name": "xradio.schema.measures.DopplerArray",
                 "dimensions": [
                   []
@@ -3121,55 +3170,6 @@
               "optional": true,
               "name": "doppler",
               "docstring": "Doppler tracking information "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "spectral_coord"
-              ],
-              "name": "type",
-              "default": "spectral_coord",
-              "docstring": "Coordinate type. Should be ``\"spectral_coord\"``. "
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "optional": true,
-              "name": "long_name",
-              "default": "Frequency",
-              "docstring": "Long-form name to use for axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "Hz"
-              ],
-              "name": "units",
-              "default": "Hz",
-              "docstring": "Units to associate with axis"
-            },
-            {
-              "$class": "AttrSchemaRef",
-              "type": "str",
-              "literal": [
-                "REST",
-                "BARY",
-                "TOPO",
-                "GALACTO",
-                "LGROUP",
-                "CMB",
-                "gcrs",
-                "icrs",
-                "hcrs",
-                "lsrk",
-                "lsrd",
-                "lsr"
-              ],
-              "name": "observer",
-              "default": "icrs",
-              "docstring": "Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).\nNote that Astropy does not use the name\n'topo' (telescope centric) velocity frame, rather it assumes if no velocity\nframe is given that this is the default."
             }
           ],
           "class_docstring": "Frequency coordinate in the main dataset.",

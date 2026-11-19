@@ -177,7 +177,7 @@ def _fits_image_to_xds(
     xr.Dataset
         The image dataset. Its polarization axis is in canonical (Jones
         matrix) order, see
-        :func:`xradio.image._util.conventions.canonical_polarization_order`.
+        :func:`xradio.schema.polarization.canonical_polarization_order`.
         A FITS ``STOKES`` axis must be a linear sequence of FITS codes, so FITS
         files store four correlations as RR, LL, RL, LR (or XX, YY, XY, YX);
         the reader reorders those planes, with their flags and per-plane
@@ -557,10 +557,22 @@ def _xds_coordinate_system_info_attrs_from_header(helpers: dict, header) -> dict
             f"Projections for direction axes ({p0}, {p1}) differ, but they "
             "must be the same"
         )
+    galactic = [
+        str(header[f"CTYPE{axis}"]).startswith(("GLON-", "GLAT-")) for axis in t_axes
+    ]
+    if galactic[0] != galactic[1]:
+        raise RuntimeError(
+            f"The direction axes {header[f'CTYPE{t_axes[0]}']} and "
+            f"{header[f'CTYPE{t_axes[1]}']} are not in the same frame"
+        )
     coordinate_system_info = {}
     coordinate_system_info["projection"] = p0
     helpers["projection"] = p0
-    ref_sys, ref_eqx = _direction_reference_frame(header)
+    if galactic[0]:
+        # galactic coordinates have neither RADESYS nor an equinox
+        ref_sys, ref_eqx = "galactic", None
+    else:
+        ref_sys, ref_eqx = _direction_reference_frame(header)
     helpers["ref_sys"] = ref_sys
     helpers["ref_eqx"] = ref_eqx
     dir_axes = helpers["dir_axes"]
@@ -808,9 +820,9 @@ def _create_dim_map(helpers: dict, header) -> dict:
     # fits indexing starts at 1, not 0
     for i in range(1, helpers["naxes"] + 1):
         ax_type = header[f"CTYPE{i}"]
-        if ax_type.startswith("RA-"):
+        if ax_type.startswith(("RA-", "GLON-")):
             t_axes[0] = i
-        elif ax_type.startswith("DEC-"):
+        elif ax_type.startswith(("DEC-", "GLAT-")):
             t_axes[1] = i
         elif ax_type == "STOKES":
             dim_map["polarization"] = i - 1
@@ -1211,7 +1223,7 @@ def _spectral_frame_from_header(header, ctype: str | None) -> str:
     -------
     str
         A casacore frame name (see
-        :data:`xradio.image._util.conventions.CASACORE_SPECTRAL_FRAMES`).
+        :data:`~xradio.schema.measures.CASACORE_SPECTRAL_FRAMES`).
     """
     specsys = str(header.get("SPECSYS", "")).strip()
     if specsys:
@@ -1581,10 +1593,10 @@ def _get_chunk_list(chunks: dict, helpers: dict) -> tuple:
     axis = 0
     ctype = helpers["ctype"]
     for c in ctype[::-1]:
-        if c.startswith("RA"):
+        if c.startswith(("RA", "GLON")):
             if "l" in chunks:
                 ret_list[axis] = chunks["l"]
-        elif c.startswith("DEC"):
+        elif c.startswith(("DEC", "GLAT")):
             if "m" in chunks:
                 ret_list[axis] = chunks["m"]
         elif _is_freq_like(c):
@@ -1609,11 +1621,11 @@ def _get_transpose_list(helpers: dict) -> tuple:
     not_covered = ["l", "m", "u", "v", "s", "f"]
     for i, c in enumerate(ctype[::-1]):
         b = c.lower()
-        if b.startswith("ra") or b.startswith("uu"):
+        if b.startswith(("ra", "uu", "glon")):
             transpose_list[3] = i
             not_covered.remove("l")
             not_covered.remove("u")
-        elif b.startswith("dec") or b.startswith("vv"):
+        elif b.startswith(("dec", "vv", "glat")):
             transpose_list[4] = i
             not_covered.remove("m")
             not_covered.remove("v")

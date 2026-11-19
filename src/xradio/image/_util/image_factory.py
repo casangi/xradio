@@ -20,17 +20,14 @@ from xradio.image._util.common import (
 )
 from xradio.image._util.conventions import (
     SINGLE_CHANNEL_WIDTH_FALLBACK_HZ,
-    canonical_polarization_order,
     normalize_spectral_frame,
     normalize_sub_type,
     spectral_frame_to_observer,
     time_values_to_astropy,
 )
 from xradio.image.schema import IMAGE_SCHEMA_VERSION
-
-# Equinox of the reference direction, by direction frame (frames that are
-# absent have no equinox)
-_DEFAULT_EQUINOX = {"fk5": "j2000.0", "fk4": "b1950.0"}
+from xradio.schema.measures import DEFAULT_EQUINOX
+from xradio.schema.polarization import canonical_polarization_order
 
 
 def _is_galactic_frame(direction_reference: str) -> bool:
@@ -328,7 +325,7 @@ def _add_common_attrs(
     )
     # FK5 and FK4 coordinates need an equinox (the CASA reader gives the same
     # values for casacore's J2000 and B1950); ICRS and galactic ones have none
-    equinox = _DEFAULT_EQUINOX.get(direction_reference.lower())
+    equinox = DEFAULT_EQUINOX.get(direction_reference.lower())
     if equinox is not None:
         reference["attrs"]["equinox"] = equinox
     xds.attrs = {

@@ -1,6 +1,8 @@
 import dataclasses
 import inspect
+import itertools
 import json
+import re
 import warnings
 from typing import Literal
 
@@ -29,6 +31,7 @@ from xradio.schema.check import (
     schema_checked,
 )
 from xradio.schema.dataclass import (
+    extract_field_docstrings,
     xarray_dataclass_to_array_schema,
     xarray_dataclass_to_dataset_schema,
     xarray_dataclass_to_dict_schema,
@@ -689,7 +692,8 @@ def _dataclass_to_dict(obj, ignore=()):
 # The equivalent of the above in the meta-model
 TEST_DATASET_SCHEMA = DatasetSchema(
     schema_name=__name__ + "._TestDatasetSchema",
-    dimensions=[["coord"], ["coord", "coord2"]],
+    dimensions=[["coord"]],
+    optional_dimensions=["coord2"],
     coordinates=[
         ArraySchemaRef(
             schema_name=__name__ + "._TestDatasetSchemaCoord",
@@ -769,6 +773,279 @@ TEST_DATASET_SCHEMA = DatasetSchema(
 
 def test_xarray_dataclass_to_dataset_schema():
     assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == TEST_DATASET_SCHEMA
+
+
+@xarray_dataarray_schema
+class _TestArraySubSchema(_TestArraySchema):
+    """Docstring of array subschema"""
+
+    attr3: Attr[int]
+    """Optional attribute redeclared as required"""
+    attr4: Attr[str] | None = None
+    """New optional attribute"""
+
+
+@xarray_dataset_schema
+class _TestDatasetSubSchema(_TestDatasetSchema):
+    """Docstring of dataset subschema"""
+
+    attr4: Attr[str] | None = None
+    """New optional attribute"""
+
+
+@dict_schema
+class _TestDictSubSchema(_TestDictSchema):
+    """Docstring of dict subschema"""
+
+    attr4: str | None = None
+    """New optional attribute"""
+
+
+def test_array_schema_of_subclass():
+    """A schema subclass gets its own schema, the base keeps its schema"""
+
+    schema = xarray_dataclass_to_array_schema(_TestArraySubSchema)
+    assert schema is not xarray_dataclass_to_array_schema(_TestArraySchema)
+    assert schema.schema_name == __name__ + "._TestArraySubSchema"
+    assert schema.class_docstring == "Docstring of array subschema"
+    assert [attr.name for attr in schema.attributes] == [
+        "attr1",
+        "attr2",
+        "attr3",
+        "attr4",
+    ]
+    assert xarray_dataclass_to_array_schema(_TestArraySchema) == TEST_ARRAY_SCHEMA
+
+
+def test_array_schema_of_subclass_docstrings():
+    """Field docstrings are read through the base classes"""
+
+    schema = xarray_dataclass_to_array_schema(_TestArraySubSchema)
+    assert schema.data_docstring == "Docstring of data"
+    assert [coord.docstring for coord in schema.coordinates] == [
+        "Docstring of coordinate"
+    ]
+    assert {attr.name: attr.docstring for attr in schema.attributes} == {
+        "attr1": "Required attribute",
+        "attr2": "Required attribute with default",
+        "attr3": "Optional attribute redeclared as required",
+        "attr4": "New optional attribute",
+    }
+
+
+def test_array_schema_of_subclass_redeclared_required():
+    """An optional base field redeclared without a default is required"""
+
+    sub = xarray_dataclass_to_array_schema(_TestArraySubSchema)
+    assert {a.name: a.optional for a in sub.attributes}["attr3"] is False
+    assert {a.name: a.optional for a in TEST_ARRAY_SCHEMA.attributes}["attr3"] is True
+
+    array = _TestArraySchema(data=[1j], coord=[0.5], attr1="a")
+    assert not check_array(array, _TestArraySchema)
+    issues = check_array(array, _TestArraySubSchema)
+    assert [issue.path for issue in issues] == [[("attrs", "attr3")]]
+
+
+def test_array_constructor_of_subclass():
+    """The constructor of a subclass applies the subclass schema"""
+
+    array = _TestArraySubSchema(data=[1j], coord=[0.5], attr1="a", attr3=1, attr4="new")
+    assert array.attrs == {"attr1": "a", "attr2": 123, "attr3": 1, "attr4": "new"}
+    with pytest.raises(SchemaIssues):
+        _TestArraySubSchema(data=[1j], coord=[0.5], attr1="a")
+
+
+def test_dataset_schema_of_subclass():
+    """Same for dataset schemas: own schema, inherited docstrings"""
+
+    schema = xarray_dataclass_to_dataset_schema(_TestDatasetSubSchema)
+    assert schema is not xarray_dataclass_to_dataset_schema(_TestDatasetSchema)
+    assert schema.schema_name == __name__ + "._TestDatasetSubSchema"
+    assert schema.class_docstring == "Docstring of dataset subschema"
+    assert schema.dimensions == TEST_DATASET_SCHEMA.dimensions
+    assert schema.optional_dimensions == TEST_DATASET_SCHEMA.optional_dimensions
+    assert schema.coordinates == TEST_DATASET_SCHEMA.coordinates
+    assert schema.data_vars == TEST_DATASET_SCHEMA.data_vars
+    assert schema.attributes[:-1] == TEST_DATASET_SCHEMA.attributes
+    assert schema.attributes[-1].name == "attr4"
+    assert schema.attributes[-1].docstring == "New optional attribute"
+    assert xarray_dataclass_to_dataset_schema(_TestDatasetSchema) == TEST_DATASET_SCHEMA
+
+
+def test_dict_schema_of_subclass():
+    """Same for dict schemas: own schema, inherited docstrings"""
+
+    schema = xarray_dataclass_to_dict_schema(_TestDictSubSchema)
+    assert schema is not xarray_dataclass_to_dict_schema(_TestDictSchema)
+    assert schema.schema_name == __name__ + "._TestDictSubSchema"
+    assert schema.class_docstring == "Docstring of dict subschema"
+    assert schema.attributes[:-1] == TEST_DICT_SCHEMA.attributes
+    assert schema.attributes[-1].name == "attr4"
+    assert schema.attributes[-1].docstring == "New optional attribute"
+    assert not check_dict({"attr1": "a", "attr2": 1, "attr4": "x"}, _TestDictSubSchema)
+    assert check_dict({"attr1": "a", "attr2": 1, "attr4": 1}, _TestDictSubSchema)
+    assert xarray_dataclass_to_dict_schema(_TestDictSchema) == TEST_DICT_SCHEMA
+
+
+class _PlainMixin:
+    """Not a dataclass: contributes no fields, so no docstrings"""
+
+    plain: str = "x"
+    """Docstring of a non-field"""
+
+
+@dict_schema
+class _TestDictSubSchemaRedeclared(_PlainMixin, _TestDictSchema):
+    """Redeclares fields with and without docstrings"""
+
+    attr1: str
+    """New docstring of attr1"""
+    attr2: int = 456
+
+
+def test_extract_field_docstrings_through_bases():
+    """A derived docstring wins, a redeclaration without docstring keeps the
+    base docstring, and classes that are not dataclasses are skipped"""
+
+    assert extract_field_docstrings(_TestDictSubSchemaRedeclared) == {
+        "attr1": "New docstring of attr1",
+        "attr2": "Required attribute with default",
+        "attr3": "Optional attribute with default",
+    }
+    schema = xarray_dataclass_to_dict_schema(_TestDictSubSchemaRedeclared)
+    assert [(a.name, a.default) for a in schema.attributes] == [
+        ("attr1", None),
+        ("attr2", 456),
+        ("attr3", None),
+    ]
+
+
+@xarray_dataarray_schema
+class _TestKwOnlyBase:
+    """Base whose attributes are keyword-only"""
+
+    data: Data[Dim1, float]
+    """Docstring of base data"""
+    _: dataclasses.KW_ONLY
+    attr1: Attr[str] = "a"
+    """Defaulted base attribute"""
+
+
+@xarray_dataarray_schema
+class _TestKwOnlySub(_TestKwOnlyBase):
+    """Subclass adding a required attribute after defaulted base attributes"""
+
+    attr2: Attr[str]
+    """Required subclass attribute"""
+
+
+def test_keyword_only_base_attributes():
+    """data stays positional, defaulted base attributes are keyword-only"""
+
+    params = inspect.signature(_TestKwOnlySub.__init__).parameters
+    assert params["data"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert params["attr2"].kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    assert params["attr1"].kind is inspect.Parameter.KEYWORD_ONLY
+    schema = xarray_dataclass_to_array_schema(_TestKwOnlySub)
+    assert [a.name for a in schema.attributes] == ["attr1", "attr2"]
+    array = _TestKwOnlySub([1.0], attr2="b")
+    assert array.attrs == {"attr1": "a", "attr2": "b"}
+    assert not check_array(array, _TestKwOnlySub)
+
+
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class _TestUndecoratedBase:
+    """Undecorated frozen dataclass base, like the shared bases of xradio.schema"""
+
+    data: Data[Dim1, float]
+    """Docstring of base data"""
+    _: dataclasses.KW_ONLY
+    attr1: Attr[str] | None = None
+    """Docstring of base attribute"""
+
+
+@xarray_dataarray_schema
+class _TestUndecoratedBaseSub(_TestUndecoratedBase):
+    """Subclass of an undecorated base"""
+
+    attr2: Attr[str]
+    """Required subclass attribute"""
+    _: dataclasses.KW_ONLY
+    attr1: Attr[str] = "a"
+
+
+def test_schema_of_undecorated_base_subclass():
+    """A schema subclass of an undecorated frozen dataclass takes over its
+    fields and docstrings, base fields first; a redeclaration keeps the
+    position and docstring of the base field"""
+
+    schema = xarray_dataclass_to_array_schema(_TestUndecoratedBaseSub)
+    assert schema.schema_name == __name__ + "._TestUndecoratedBaseSub"
+    assert schema.data_docstring == "Docstring of base data"
+    assert [
+        (a.name, a.optional, a.default, a.docstring) for a in schema.attributes
+    ] == [
+        ("attr1", False, "a", "Docstring of base attribute"),
+        ("attr2", False, None, "Required subclass attribute"),
+    ]
+    params = inspect.signature(_TestUndecoratedBaseSub.__init__).parameters
+    assert [(name, p.kind.name) for name, p in params.items() if name != "self"] == [
+        ("data", "POSITIONAL_OR_KEYWORD"),
+        ("attr2", "POSITIONAL_OR_KEYWORD"),
+        ("attr1", "KEYWORD_ONLY"),
+    ]
+    array = _TestUndecoratedBaseSub([1.0], attr2="b")
+    assert array.attrs == {"attr1": "a", "attr2": "b"}
+
+
+class _TestArraySubSchemaNotDecorated(_TestArraySchema):
+    """Array subschema that is not decorated"""
+
+    attr1: Attr[Literal["sub"]]
+
+
+class _TestDictSubSchemaNotDecorated(_TestDictSchema):
+    pass
+
+
+@dict_schema
+class _TestDictWithNotDecoratedFields:
+    """Fields annotated with schema subclasses that are not decorated"""
+
+    da: _TestArraySubSchemaNotDecorated
+    dct: _TestDictSubSchemaNotDecorated
+
+
+def test_schema_of_not_decorated_subclass():
+    """A schema subclass without a decorator of its own gets its own schema,
+    the same through a field annotation (looked up first, when the dict
+    schema above was decorated) as through check_array or its constructor.
+    Without a docstring of its own, it inherits the class docstring"""
+
+    fields = {
+        attr.name: attr
+        for attr in xarray_dataclass_to_dict_schema(
+            _TestDictWithNotDecoratedFields
+        ).attributes
+    }
+    array_schema = xarray_dataclass_to_array_schema(_TestArraySubSchemaNotDecorated)
+    assert fields["da"].array_schema is array_schema
+    assert array_schema.schema_name == __name__ + "._TestArraySubSchemaNotDecorated"
+    assert array_schema.class_docstring == "Array subschema that is not decorated"
+    dct_schema = xarray_dataclass_to_dict_schema(_TestDictSubSchemaNotDecorated)
+    assert fields["dct"].dict_schema is dct_schema
+    assert dct_schema.class_docstring == TEST_DICT_SCHEMA.class_docstring
+
+    array = _TestArraySchema(data=[1j], coord=[0.5], attr1="a")
+    issues = check_array(array, _TestArraySubSchemaNotDecorated)
+    assert [issue.path for issue in issues] == [[("attrs", "attr1")]]
+    issues = check_dict(
+        {"da": array, "dct": {"attr1": "a", "attr2": 1}},
+        _TestDictWithNotDecoratedFields,
+    )
+    assert [issue.path[-1] for issue in issues] == [("attrs", "attr1")]
+    array = _TestArraySubSchemaNotDecorated(data=[1j], coord=[0.5], attr1="sub")
+    assert not check_array(array, _TestArraySubSchemaNotDecorated)
 
 
 def test_check_dataset_constructor_dataset_style():
@@ -1066,7 +1343,8 @@ def test_check_dict_dict_attribute():
 TEST_DATASET_SCHEMA_JSON = {
     "$class": "DatasetSchema",
     "schema_name": "tests.unit.schema.test_schema._TestDatasetSchema",
-    "dimensions": [["coord"], ["coord", "coord2"]],
+    "dimensions": [["coord"]],
+    "optional_dimensions": ["coord2"],
     "coordinates": [
         {
             "$class": "ArraySchemaRef",
@@ -1639,6 +1917,191 @@ def test_check_dimensions_replace_hint():
     assert "replace" in issues[0].message
 
 
+def test_check_dimensions_optional():
+    """Optional dimensions may be present in any combination."""
+    for dims in [("coord",), ("coord", "opt1"), ("opt2", "coord", "opt1")]:
+        assert not check_dimensions(
+            dims,
+            [["coord"]],
+            check_order=False,
+            optional_dimensions={"opt1", "opt2"},
+        )
+
+
+def test_check_dimensions_optional_hints():
+    """The hints name neither optional nor allowed superfluous dimensions."""
+    optional = {"opt1", "opt2"}
+
+    issues = check_dimensions(
+        ("opt1",), [["coord"]], check_order=False, optional_dimensions=optional
+    )
+    assert len(issues) == 1
+    assert issues[0].message == "Missing dimension 'coord'!"
+    assert issues[0].expected == [["coord"]]
+    assert issues[0].found == ["opt1"]
+
+    issues = check_dimensions(
+        ("coord", "opt1", "extra"),
+        [["coord"]],
+        check_order=False,
+        optional_dimensions=optional,
+    )
+    assert issues[0].message == "Superfluous coordinate 'extra'?"
+
+    issues = check_dimensions(
+        ("opt2", "extra"), [["coord"]], check_order=False, optional_dimensions=optional
+    )
+    assert issues[0].message == "Unexpected coordinates, replace 'extra' by 'coord'?"
+
+    assert not check_dimensions(
+        ("coord", "opt1", "extra"),
+        [["coord"]],
+        check_order=False,
+        allow_superflous={"extra"},
+        optional_dimensions=optional,
+    )
+
+
+def _dataset_schema_classes():
+    """The dataset schema classes of the measurement set and image schemas"""
+    import xradio.image.schema
+    import xradio.measurement_set.schema
+    from xradio.schema.bases import is_dataset_schema
+
+    return [
+        obj
+        for module in (xradio.measurement_set.schema, xradio.image.schema)
+        for obj in vars(module).values()
+        if is_dataset_schema(obj) and obj.__module__ == module.__name__
+    ]
+
+
+def _sorted_hints(message: str) -> str:
+    """A check_dimensions message with the names in each hint sorted (they
+    come from sets, so their order is arbitrary)"""
+    return re.sub(
+        r"'[^']*'(?:,'[^']*')*",
+        lambda match: ",".join(sorted(match.group(0).split(","))),
+        message,
+    )
+
+
+@pytest.mark.parametrize(
+    "schema_class", _dataset_schema_classes(), ids=lambda klass: klass.__name__
+)
+def test_optional_dimensions_check_like_the_powerset(schema_class):
+    """Required plus optional dimensions accept exactly the datasets that the
+    powerset of the optional dimensions accepted (DatasetSchema.dimensions
+    listed every combination before optional_dimensions), with the same
+    issue: every combination of the schema's dimensions and two foreign ones,
+    with and without allowed superfluous dimensions."""
+    schema = xarray_dataclass_to_dataset_schema(schema_class)
+    (required,) = schema.dimensions
+    optional = schema.optional_dimensions or []
+    assert not set(required) & set(optional)
+    assert set(required) | set(optional) == {
+        dim
+        for array in schema.coordinates + schema.data_vars
+        for dims in array.dimensions
+        for dim in dims
+    }
+    powerset = [
+        required + list(subset)
+        for count in range(len(optional) + 1)
+        for subset in itertools.combinations(optional, count)
+    ]
+    candidates = required + optional + ["foreign1", "foreign2"]
+    allow_options = [frozenset(), frozenset({"foreign1"})]
+    allow_options += [frozenset(dims[:1]) for dims in (required, optional) if dims]
+    for count in range(len(candidates) + 1):
+        for dims in itertools.combinations(candidates, count):
+            for allow in allow_options:
+                old = check_dimensions(
+                    dims, powerset, check_order=False, allow_superflous=allow
+                )
+                new = check_dimensions(
+                    dims,
+                    schema.dimensions,
+                    check_order=False,
+                    allow_superflous=allow,
+                    optional_dimensions=set(optional),
+                )
+                assert bool(new) == bool(old), (dims, allow)
+                if old:
+                    assert len(new) == len(old) == 1
+                    assert _sorted_hints(new[0].message) == _sorted_hints(
+                        old[0].message
+                    )
+                    assert (new[0].path, new[0].found) == (old[0].path, old[0].found)
+
+
+def test_dataset_schema_required_and_optional_dimensions():
+    from xradio.image.schema import ImageXds
+    from xradio.measurement_set.schema import SpectrumXds, VisibilityXds
+
+    schema = xarray_dataclass_to_dataset_schema(ImageXds)
+    assert schema.dimensions == [["time", "frequency", "polarization"]]
+    assert schema.optional_dimensions == ["l", "m", "u", "v", "beam_params_label"]
+    # No optional dimensions: None, which the JSON export omits
+    for schema_class in (VisibilityXds, SpectrumXds):
+        schema = xarray_dataclass_to_dataset_schema(schema_class)
+        assert len(schema.dimensions) == 1
+        assert schema.optional_dimensions is None
+
+
+def test_schema_export_without_optional_dimensions(tmp_path):
+    from xradio.measurement_set.schema import VisibilityXds
+
+    export_schema_json_file(VisibilityXds, tmp_path / "schema.json")
+    with open(tmp_path / "schema.json", encoding="utf8") as f:
+        exported = json.load(f)
+    assert "optional_dimensions" not in exported
+    assert import_schema_json_file(tmp_path / "schema.json").optional_dimensions is None
+
+
+def test_powerset_schema_json_still_checks(tmp_path):
+    """A schema exported before optional_dimensions, which lists every
+    combination of dimensions, still imports and checks datasets as before."""
+    schema = xarray_dataclass_to_dataset_schema(_TestDatasetSchema)
+    with open(tmp_path / "schema.json", "w", encoding="utf8") as f:
+        json.dump(
+            {
+                **TEST_DATASET_SCHEMA_JSON,
+                "dimensions": [["coord"], ["coord", "coord2"]],
+                "optional_dimensions": None,
+            },
+            f,
+        )
+    old_schema = import_schema_json_file(tmp_path / "schema.json")
+    assert old_schema.optional_dimensions is None
+    assert old_schema.dimensions == [["coord"], ["coord", "coord2"]]
+
+    attrs = {"attr1": "str", "attr2": 123, "attr3": 345}
+    coord = xarray.DataArray(numpy.arange(10.0), dims=("coord",), attrs=attrs)
+    dataset = xarray.Dataset(
+        {"data_var": (("coord",), numpy.zeros(10, dtype=complex), attrs)},
+        {"coord": coord},
+        attrs,
+    )
+    with_coord2 = dataset.assign(
+        data_var_simple=(("coord2",), numpy.zeros(5, dtype=numpy.float32))
+    ).assign_coords(coord2=numpy.arange(5))
+    with_extra = dataset.assign(extra_var=(("extra",), numpy.zeros(2)))
+    for xds in (dataset, with_coord2, with_extra):
+        old = check_dataset(xds, old_schema)
+        new = check_dataset(xds, schema)
+        # The same issues, except that a dimension issue expects the
+        # required dimensions only, instead of every combination
+        assert [(i.path, i.message, i.found) for i in old] == [
+            (i.path, i.message, i.found) for i in new
+        ]
+    assert not check_dataset(with_coord2, old_schema)
+    (issue,) = check_dataset(with_extra, old_schema)
+    assert issue.expected == [["coord"], ["coord", "coord2"]]
+    (issue,) = check_dataset(with_extra, schema)
+    assert issue.expected == [["coord"]]
+
+
 # ---------------------------------------------------------------------------
 # _check_value() — dict → DataArray conversion
 # ---------------------------------------------------------------------------
@@ -1808,6 +2271,34 @@ def test_register_dataset_type_no_literal():
     )
     with pytest.warns(UserWarning, match='Attribute "type" should be a literal'):
         register_dataset_type(schema_no_literal)
+
+
+def test_dataset_subschema_keeps_registration(isolated_dataset_types):
+    from xradio.schema.check import _DATASET_TYPES
+
+    schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
+    assert _DATASET_TYPES["test_registered_type"] is schema
+
+    # A subclass inheriting "type" does not take over the registration
+    @xarray_dataset_schema
+    class _Sub(_TestRegisteredDatasetSchema):
+        extra: Attr[str]
+
+    assert _DATASET_TYPES["test_registered_type"] is schema
+    dataset = xarray.Dataset(
+        coords={"coord": numpy.arange(5, dtype=float)},
+        attrs={"type": "test_registered_type"},
+    )
+    assert not check_datatree(xarray.DataTree(dataset=dataset))
+
+    # A subclass declaring its own "type" is registered under it
+    @xarray_dataset_schema
+    class _SubWithType(_TestRegisteredDatasetSchema):
+        type: Attr[Literal["test_registered_subtype"]]
+
+    sub_schema = xarray_dataclass_to_dataset_schema(_SubWithType)
+    assert _DATASET_TYPES["test_registered_subtype"] is sub_schema
+    assert _DATASET_TYPES["test_registered_type"] is schema
 
 
 # ---------------------------------------------------------------------------
@@ -2144,20 +2635,22 @@ def test_check_dataset_dict_schema_class():
         check_dataset(_make_valid_dataset(), _TestDictSchema)
 
 
-def test_check_dataset_class_named_like_schema(isolated_dataset_types):
-    # A class with the name of a registered dataset schema (for example the
-    # accessor xradio.image.ImageXds next to the schema
-    # xradio.image.schema.ImageXds) is not mistaken for it, and the schema
-    # is suggested
+@pytest.mark.parametrize("suffix", ["", "Accessor"])
+def test_check_dataset_class_named_like_schema(isolated_dataset_types, suffix):
+    # A class with the name of a registered dataset schema, or that name
+    # followed by "Accessor" (an accessor class next to its schema), is not
+    # mistaken for it, and the schema is suggested
     from xradio.schema import xarray_dataclass_to_dataset_schema
 
     schema = xarray_dataclass_to_dataset_schema(_TestRegisteredDatasetSchema)
     register_dataset_type(schema)
-    look_alike = type("_TestRegisteredDatasetSchema", (), {"__module__": "elsewhere"})
+    look_alike = type(
+        f"_TestRegisteredDatasetSchema{suffix}", (), {"__module__": "elsewhere"}
+    )
     with pytest.raises(TypeError) as excinfo:
         check_dataset(_make_valid_dataset(), look_alike)
     message = str(excinfo.value)
-    assert "elsewhere._TestRegisteredDatasetSchema" in message
+    assert f"elsewhere._TestRegisteredDatasetSchema{suffix}" in message
     assert f"Did you mean the dataset schema {schema.schema_name}?" in message
 
 
@@ -2204,3 +2697,209 @@ def test_check_dict_list_list_float_invalid():
         {"params": [0.0], "matrix": [[1.0, "zero"]]}, _DictWithListFloatAttr
     )
     assert len(issues) == 1
+
+
+# ---------------------------------------------------------------------------
+# float values accept Python ints (not bools), as list[float] does
+# ---------------------------------------------------------------------------
+
+
+@dict_schema
+class _DictWithFloatAttr:
+    value: float
+    optional_value: float | None = None
+
+
+@pytest.mark.parametrize("value", [1.5, 2, 0, -3, numpy.float64(1.5)])
+def test_check_dict_float_accepts_int(value):
+    assert not check_dict({"value": value}, _DictWithFloatAttr)
+    assert not check_dict({"value": 1.0, "optional_value": value}, _DictWithFloatAttr)
+
+
+@pytest.mark.parametrize(
+    "value", [True, False, "1.5", [1.5], numpy.float32(1.5), numpy.int64(2)]
+)
+def test_check_dict_float_rejects_other_types(value):
+    (issue,) = check_dict({"value": value}, _DictWithFloatAttr)
+    assert issue.path == [("", "value")]
+    assert issue.message == f"{type(value).__name__} is not a float!"
+    assert issue.expected == [float]
+    assert issue.found is type(value)
+
+    (issue,) = check_dict({"value": 1.0, "optional_value": value}, _DictWithFloatAttr)
+    assert issue.expected == [float, type(None)]
+
+
+def test_check_array_float_attribute_accepts_int():
+    @xarray_dataarray_schema
+    class _ArrayWithFloatAttr:
+        data: Data[Dim1, float]
+        scale: Attr[float]
+
+    array = xarray.DataArray(numpy.zeros(3), dims=("coord",), attrs={"scale": 2})
+    assert not check_array(array, _ArrayWithFloatAttr)
+    array.attrs["scale"] = True
+    (issue,) = check_array(array, _ArrayWithFloatAttr)
+    assert issue.path == [("attrs", "scale")]
+
+
+def test_check_value_int_and_bool_unchanged():
+    """int values still reject floats, and accept bools as before"""
+    int_schema = AttrSchemaRef(name="value", type="int")
+    assert _check_value(1.0, int_schema)
+    assert not _check_value(True, int_schema)
+    assert _check_value(1, AttrSchemaRef(name="value", type="bool"))
+
+
+def test_schema_checked_float_parameter_accepts_int():
+    @schema_checked
+    def fn(value: float) -> float:
+        return value
+
+    assert fn(2) == 2
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn(True)
+    assert exc_info.value.issues[0].path == [("value", None)]
+
+
+# ---------------------------------------------------------------------------
+# list[dict] values: lists of dictionaries, each checked against a dict schema
+# ---------------------------------------------------------------------------
+
+
+@dict_schema
+class _StepDict:
+    type: Literal["mean", "maximum"]
+    axis: list[str]
+    note: str | None = None
+
+
+@dict_schema
+class _DictWithListDictAttr:
+    steps: list[_StepDict]
+    optional_steps: list[_StepDict] | None = None
+
+
+@xarray_dataset_schema
+class _DatasetWithListDictAttr:
+    coord: Coord[Dim1, float]
+    steps: Attr[list[_StepDict]] | None = None
+
+
+def test_list_dict_value_schema():
+    schema = xarray_dataclass_to_dict_schema(_DictWithListDictAttr)
+    steps, optional_steps = schema.attributes
+    assert (steps.type, steps.optional) == ("list[dict]", False)
+    assert (optional_steps.type, optional_steps.optional) == ("list[dict]", True)
+    assert steps.dict_schema == xarray_dataclass_to_dict_schema(_StepDict)
+    assert optional_steps.dict_schema == steps.dict_schema
+
+    # The element schema is looked up per class, as for a dict field: a
+    # subclass that is not decorated itself gets its own schema
+    from xradio.schema.dataclass import value_schema
+
+    element_schema = value_schema(
+        list[_TestDictSubSchemaNotDecorated], "_Klass", "steps"
+    )
+    assert element_schema.dict_schema == (
+        value_schema(_TestDictSubSchemaNotDecorated, "_Klass", "step").dict_schema
+    )
+    assert element_schema.dict_schema.schema_name.endswith(
+        "._TestDictSubSchemaNotDecorated"
+    )
+
+
+@pytest.mark.parametrize(
+    "steps",
+    [
+        [],
+        [{"type": "mean", "axis": ["time"]}],
+        [
+            {"type": "mean", "axis": ["time", "frequency"]},
+            {"type": "maximum", "axis": [], "note": "peak"},
+        ],
+    ],
+)
+def test_check_dict_list_dict_valid(steps):
+    assert not check_dict({"steps": steps}, _DictWithListDictAttr)
+    assert not check_dict({"steps": [], "optional_steps": steps}, _DictWithListDictAttr)
+
+
+def test_check_dict_list_dict_not_a_list():
+    for value, optional in [({"type": "mean", "axis": []}, False), ("mean", True)]:
+        key = "optional_steps" if optional else "steps"
+        (issue,) = check_dict({"steps": [], key: value}, _DictWithListDictAttr)
+        assert issue.path == [("", key)]
+        assert issue.message == f"{type(value).__name__} is not a list!"
+        assert issue.expected == [list[dict]] + ([type(None)] if optional else [])
+        assert issue.found is type(value)
+
+
+def test_check_dict_list_dict_elements():
+    """Every element is checked, and issues name the element by its index"""
+    steps = [
+        {"type": "mean", "axis": ["time"]},
+        "mean",
+        {"type": "meen", "axis": ["time"]},
+        {"type": "maximum"},
+        {"type": "maximum", "axis": "time"},
+    ]
+    issues = check_dict({"steps": steps}, _DictWithListDictAttr)
+    assert [(issue.path, issue.message) for issue in issues] == [
+        ([("", "steps"), ("", "1")], "str is not a dictionary!"),
+        ([("", "steps"), ("", "2"), ("", "type")], "Disallowed literal value!"),
+        (
+            [("", "steps"), ("", "3"), ("", "axis")],
+            "Non-optional attribute is missing!",
+        ),
+        ([("", "steps"), ("", "4"), ("", "axis")], "str is not a list!"),
+    ]
+    assert issues[0].expected == [dict]
+    assert issues[1].expected == ["mean", "maximum"]
+    assert issues[1].found == "meen"
+
+
+def test_check_dataset_list_dict_attribute():
+    dataset = xarray.Dataset(coords={"coord": numpy.arange(3.0)})
+    assert not check_dataset(dataset, _DatasetWithListDictAttr)
+    dataset.attrs["steps"] = [{"type": "mean", "axis": ["coord"]}]
+    assert not check_dataset(dataset, _DatasetWithListDictAttr)
+    dataset.attrs["steps"] = [{"type": "median", "axis": ["coord"]}]
+    (issue,) = check_dataset(dataset, _DatasetWithListDictAttr)
+    assert issue.path_str() == "attrs['steps'].['0'].['type']"
+
+
+def test_schema_export_list_dict_attribute(tmp_path):
+    export_schema_json_file(_DatasetWithListDictAttr, tmp_path / "schema.json")
+    with open(tmp_path / "schema.json", encoding="utf8") as f:
+        (attr,) = json.load(f)["attributes"]
+    assert attr["type"] == "list[dict]"
+    assert attr["dict_schema"]["schema_name"].endswith("._StepDict")
+    assert import_schema_json_file(
+        tmp_path / "schema.json"
+    ) == xarray_dataclass_to_dataset_schema(_DatasetWithListDictAttr)
+
+
+@pytest.mark.parametrize(
+    "annotation", [list[dict], list[int], list[_TestArraySchema], list[_StepDict, int]]
+)
+def test_list_annotation_must_be_of_a_dict_schema(annotation):
+    from xradio.schema.dataclass import value_schema
+
+    with pytest.raises(ValueError, match="a list of a dictionary schema"):
+        value_schema(annotation, "_Klass", "field")
+
+
+def test_schema_checked_list_dict_parameter():
+    @schema_checked
+    def fn(steps: list[_StepDict]) -> int:
+        return len(steps)
+
+    assert fn([{"type": "mean", "axis": ["time"]}]) == 1
+    with pytest.raises(SchemaIssues) as exc_info:
+        fn([{"type": "mean"}])
+    assert exc_info.value.issues[0].path == [
+        ("steps", None),
+        ("", "0"),
+        ("", "axis"),
+    ]

@@ -112,6 +112,7 @@ CASES = {
         {"partition_scheme": ["ANTENNA1"], "partition_filter": _ddi(1)},
     ),
     "single_dish": ("single_dish", {}),
+    "single_dish_corrected": ("single_dish_corrected", {}),
     "antenna1_without_autocorrelations": ("dense", {"partition_scheme": ["ANTENNA1"]}),
 }
 
@@ -136,6 +137,7 @@ def converted(backend_ms, tmp_path_factory):
 
 
 @pytest.mark.parametrize("case", list(CASES))
+@pytest.mark.filterwarnings("error::numpy.exceptions.ComplexWarning")
 def test_engine_equals_the_converted_processing_set(
     case, backend_ms, converted, ms_copy
 ):

@@ -1,49 +1,38 @@
 """
 Schema building blocks shared between the measurement set and image schemas.
 
-This module holds the dimension literals, quantity and measure data array
-schemas, unit literals and allowed value vocabularies that are common to
+This module holds the quantity and measure data array schemas, unit literals,
+allowed value vocabularies and casacore translation tables that are common to
 ``xradio.measurement_set.schema`` and ``xradio.image.schema``.
 The definitions originate from the measurement set v4 schema and are
-re-exported there for backwards compatibility.
+re-exported there for backwards compatibility. The dimension literals moved
+on to :py:mod:`xradio.schema.dimensions`; this module re-exports them.
 """
 
 from __future__ import annotations
 
+import dataclasses
+from dataclasses import KW_ONLY
 from typing import Literal
 
 from xradio.schema.bases import (
     xarray_dataarray_schema,
 )
+
+# Dimensions, defined in xradio.schema.dimensions and re-exported here (where
+# earlier releases defined them)
+from xradio.schema.dimensions import (  # noqa: F401
+    ZD,
+    CartesianPosLabel,
+    EllipsoidDirLabel,
+    EllipsoidDisLabel,
+    Frequency,
+    Polarization,
+    SkyDirLabel,
+    SkyDisLabel,
+    Time,
+)
 from xradio.schema.typing import Attr, Data
-
-# Dimensions
-Time = Literal["time"]
-""" Observation time dimension """
-Frequency = Literal["frequency"]
-""" Frequency dimension """
-Polarization = Literal["polarization"]
-""" Polarization dimension """
-SkyDirLabel = Literal["sky_dir_label"]
-""" Coordinate labels of sky directions (typically shape 2 and 'ra', 'dec') """
-SkyDisLabel = Literal["sky_dis_label"]
-""" Coordinate labels of sky distance (typically shape 1 and 'dist') """
-EllipsoidDirLabel = Literal["ellipsoid_dir_label"]
-""" Coordinate labels of the angles of spherical earth location data
-(typically shape 2 and 'lon', 'lat'). The ``coordinate_system`` attribute of
-the location measure says whether the latitude is geodetic or geocentric. """
-EllipsoidDisLabel = Literal["ellipsoid_dis_label"]
-""" Coordinate label of the radial component of spherical earth location data
-(typically shape 1): 'height' above the ellipsoid for geodetic locations, or
-'dist' from the geocenter for geocentric locations (see the
-``coordinate_system`` attribute of the location measure). """
-CartesianPosLabel = Literal["cartesian_pos_label"]
-""" Coordinate labels of geocentric earth location data (typically shape 3 and 'x', 'y', 'z')"""
-
-# Represents "no dimension", i.e. used for coordinates and data variables with
-# zero dimensions.
-ZD = tuple[()]
-
 
 # Types of quantity and measures
 Quantity = Literal["quantity"]
@@ -67,70 +56,84 @@ UnitsOfLocationInMetersOrRadians = Literal[
 UnitsOfDopplerShift = Literal["ratio", "m/s"]
 
 
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class QuantityArrayBase:
+    """
+    Base of the quantity arrays: a value without dimensions and its units.
+    Each quantity array schema derives from it and fixes the units.
+    """
+
+    data: Data[ZD, float]
+
+    units: Attr[str]
+    type: Attr[Quantity] = "quantity"
+
+
 @xarray_dataarray_schema
-class QuantityInSecondsArray:
+class QuantityInSecondsArray(QuantityArrayBase):
     """
     Quantity with units of seconds
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsSeconds]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInHertzArray:
+class QuantityInHertzArray(QuantityArrayBase):
     """
     Quantity with units of Hertz
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsHertz]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInMetersArray:
+class QuantityInMetersArray(QuantityArrayBase):
     """
     Quantity with units of meters
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsMeters]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInMetersPerSecondArray:
+class QuantityInMetersPerSecondArray(QuantityArrayBase):
     """
     Quantity with units of meters per second
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsMetersPerSecond]
-    type: Attr[Quantity] = "quantity"
 
 
 @xarray_dataarray_schema
-class QuantityInRadiansArray:
+class QuantityInRadiansArray(QuantityArrayBase):
     """
     Quantity with units of radians
     """
 
-    data: Data[ZD, float]
-
     units: Attr[UnitsRadians]
-    type: Attr[Quantity] = "quantity"
 
 
 AllowedTimeScales = Literal["tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc"]
 
 
 AllowedTimeFormats = Literal["unix", "mjd", "cxcsec", "gps"]
+
+#: casacore ``MEpoch`` reference -> astropy time scale. Sidereal references
+#: (LAST, LMST, GMST1, GAST) have no astropy scale and are absent.
+CASACORE_EPOCH_REF_TO_SCALE = {
+    "UTC": "utc",
+    "TAI": "tai",
+    "IAT": "tai",
+    "TT": "tt",
+    "TDT": "tt",
+    "ET": "tt",
+    "TDB": "tdb",
+    "TCB": "tcb",
+    "TCG": "tcg",
+    "UT1": "ut1",
+    "UT": "ut1",
+}
 
 
 @xarray_dataarray_schema
@@ -171,6 +174,25 @@ class TimeArray:
     """Time representation and epoch, see :py:class:`~xradio.schema.measures.TimeArray`."""
 
 
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class TimeSamplingArrayBase:
+    """
+    Base of the data variables that hold time sampling data, such as the time
+    centroids of the measurement set: the time measure attributes (see
+    :py:class:`TimeArray`). Each schema adds the data and coordinates.
+    """
+
+    _: KW_ONLY
+
+    scale: Attr[AllowedTimeScales] = "utc"
+    """ Astropy time scales, see :py:class:`astropy.time.Time` """
+    format: Attr[AllowedTimeFormats] = "unix"
+    """ Astropy format, see :py:class:`astropy.time.Time`. Default seconds from 1970-01-01 00:00:00 UTC """
+
+    long_name: Attr[str] | None = "Time sampling data"
+    units: Attr[UnitsSeconds] = "s"
+
+
 # Taken from the list of astropy built-in frame classes:
 # https://docs.astropy.org/en/stable/coordinates/index.html
 AllowedSkyCoordFrames = Literal[
@@ -203,6 +225,18 @@ AllowedSkyCoordFrames = Literal[
     "lsrd",
     "galacticlsr",
 ]
+
+#: casacore ``MDirection`` reference -> astropy frame, as the measurement set
+#: converters translate them (see :py:class:`SkyCoordArray`).
+CASACORE_DIRECTION_TO_FRAME = {
+    "AZELGEO": "altaz",
+    "ICRS": "icrs",
+    "J2000": "fk5",
+}
+
+#: Equinox of the equatorial frames that need one, in the form the image
+#: schema stores it (the equinox of casacore's J2000 and B1950 directions).
+DEFAULT_EQUINOX = {"fk5": "j2000.0", "fk4": "b1950.0"}
 
 
 @xarray_dataarray_schema
@@ -266,6 +300,35 @@ casacore's LSRK), so the image writers, which name spectral frames like
 casacore and FITS do, cannot write images in these frames.
 """
 
+#: casacore ``MFrequency`` reference frames, the canonical names held by the
+#: ``frame`` attribute of the image frequency coordinate.
+CASACORE_SPECTRAL_FRAMES = (
+    "REST",
+    "LSRK",
+    "LSRD",
+    "BARY",
+    "GEO",
+    "TOPO",
+    "GALACTO",
+    "LGROUP",
+    "CMB",
+)
+
+#: casacore frame -> ``observer`` of spectral coordinates, following the shared
+#: ``AllowedSpectralCoordFrames`` vocabulary: frames with an astropy
+#: equivalent use the lowercase astropy name, the others keep the casacore name.
+CASACORE_TO_OBSERVER = {
+    "REST": "REST",
+    "LSRK": "lsrk",
+    "LSRD": "lsrd",
+    "BARY": "BARY",
+    "GEO": "gcrs",
+    "TOPO": "TOPO",
+    "GALACTO": "GALACTO",
+    "LGROUP": "LGROUP",
+    "CMB": "CMB",
+}
+
 
 @xarray_dataarray_schema
 class SpectralCoordArray:
@@ -290,6 +353,28 @@ class SpectralCoordArray:
     """
 
     type: Attr[SpectralCoord] = "spectral_coord"
+
+
+@dataclasses.dataclass(init=True, repr=False, eq=False, frozen=True)
+class FrequencySamplingArrayBase:
+    """
+    Base of the data variables that hold frequency sampling data, such as the
+    frequency centroids and effective channel widths of the measurement set:
+    the spectral measure attributes (see :py:class:`SpectralCoordArray`).
+    Each schema adds the data and coordinates.
+    """
+
+    _: KW_ONLY
+
+    long_name: Attr[str] | None = "Frequency sampling data"
+    units: Attr[UnitsHertz] = "Hz"
+    observer: Attr[AllowedSpectralCoordFrames] = "icrs"
+    """
+    Astropy velocity reference frames (see :external:ref:`astropy-spectralcoord`).
+    Note that Astropy does not use the name
+    'topo' (telescope centric) velocity frame, rather it assumes if no velocity
+    frame is given that this is the default.
+    """
 
 
 AllowedLocationFrames = Literal["ITRS", "Undefined"]

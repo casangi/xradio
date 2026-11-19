@@ -819,16 +819,42 @@ class TestImageSchemaConstructors:
         assert paths == [("coords", "polarization")]
 
     def test_check_dataset_with_accessor_class(self, image_xds_valid):
-        """xradio.image.ImageXds is the xr_img accessor, not the schema
-        xradio.image.schema.ImageXds: check_dataset says so."""
-        assert xradio.image.ImageXds is not ImageXds
+        """xradio.image.ImageXdsAccessor (formerly xradio.image.ImageXds) is
+        the xr_img accessor, not the schema xradio.image.schema.ImageXds:
+        check_dataset says so and suggests the schema."""
+        assert xradio.image.ImageXdsAccessor is not ImageXds
         with pytest.raises(TypeError) as excinfo:
-            check_dataset(image_xds_valid, xradio.image.ImageXds)
+            check_dataset(image_xds_valid, xradio.image.ImageXdsAccessor)
         message = str(excinfo.value)
         assert "not a dataset schema" in message
         assert "Did you mean the dataset schema xradio.image.schema.ImageXds?" in (
             message
         )
+
+    def test_accessor_class_deprecated_name(self):
+        """ImageXds, the former name of the accessor class, is a deprecated
+        alias of ImageXdsAccessor. Each use warns exactly once, at the caller."""
+        import xradio.image.image_xds
+
+        for module in (xradio.image, xradio.image.image_xds):
+            with pytest.warns(DeprecationWarning, match="ImageXdsAccessor") as record:
+                assert module.ImageXds is xradio.image.ImageXdsAccessor
+            assert len(record) == 1
+            assert record[0].filename == __file__
+
+        # From the package, the import system looks the name up twice
+        # (importlib's hasattr probe, then the real lookup).
+        with pytest.warns(DeprecationWarning, match="ImageXdsAccessor") as record:
+            from xradio.image import ImageXds as alias
+        assert alias is xradio.image.ImageXdsAccessor
+        assert len(record) == 1
+        assert record[0].filename == __file__
+
+        with pytest.warns(DeprecationWarning, match="ImageXdsAccessor") as record:
+            from xradio.image.image_xds import ImageXds as alias
+        assert alias is xradio.image.ImageXdsAccessor
+        assert len(record) == 1
+        assert record[0].filename == __file__
 
 
 class TestMakeEmptyImageSchemas:

@@ -1,3 +1,4 @@
+import warnings
 from collections.abc import Iterable, Mapping
 from typing import Any
 
@@ -35,13 +36,13 @@ def _pixel_indices(pixels: np.ndarray) -> np.ndarray:
 
 class InvalidAccessorLocation(ValueError):
     """
-    Raised by ImageXds accessor functions called on a wrong Dataset (not image).
+    Raised by ImageXdsAccessor functions called on a wrong Dataset (not image).
     """
 
     pass
 
 
-class ImageXds:
+class ImageXdsAccessor:
     """Accessor to the Image Dataset.
 
     Registered as ``xr.Dataset.xr_img`` without xarray's accessor cache: every
@@ -57,12 +58,12 @@ class ImageXds:
 
     def __init__(self, dataset: xr.Dataset):
         """
-        Initialize the ImageXds instance.
+        Initialize the ImageXdsAccessor instance.
 
         Parameters
         ----------
         dataset: xarray.Dataset
-            The image Dataset node to construct an ImageXds accessor.
+            The image Dataset node to construct an ImageXdsAccessor.
         """
 
         self._xds: xr.Dataset = dataset
@@ -266,6 +267,209 @@ class ImageXds:
 
         return image_center_index
 
+    def get_fits_header(
+        self, data_group_name: str | None = None, role: str = "sky", time: int = 0
+    ):
+        """Get the FITS header of an image, as ``write_image`` writes it.
+
+        The header is the primary header of the FITS file that
+        ``write_image(xds.isel(time=[time]), name, out_format="fits")``
+        writes for the image of ``role`` in the data group
+        ``data_group_name``. It is built by the FITS writer's own code, so it
+        matches written files card for card. No pixels are read.
+        ``write_image`` writes no file unless it can plan the images of the
+        whole dataset and build the header of each of them, and so this
+        method raises if it cannot, even when the problem is in another data
+        group or another image. Like ``write_image``, it logs the warnings
+        about the header of every image of the dataset, not only of this one,
+        so a warning about the dataset, such as one about its time, is logged
+        once per image. It does not log the warnings of ``write_image``'s
+        plan, such as those about variables that are not written or about
+        images that several data groups share.
+
+        FITS images hold one time plane and have no time axis: ``time``
+        selects the plane, whose time is in ``DATE-OBS`` and ``MJD-OBS``.
+        The axes, from ``NAXIS1`` to ``NAXIS4``, are l, m, polarization
+        (``STOKES``) and frequency (``FREQ``). A FITS ``STOKES`` axis is
+        linear in the FITS polarization codes, so its planes can be in
+        another order than the dataset's: four correlations in canonical
+        order, ``RR, RL, LR, LL`` (``XX, XY, YX, YY``), are ``RR, LL, RL,
+        LR`` (``XX, YY, XY, YX``) in the file and in this header.
+        Polarizations that no order makes linear, such as ``I, Q, V``,
+        cannot be written to FITS.
+
+        Per plane beams are written to a ``BEAMS`` table extension, which is
+        not part of the header; the header then has ``CASAMBM = T`` instead
+        of ``BMAJ``, ``BMIN`` and ``BPA``. An image that several data groups
+        share is written once (see :func:`~xradio.image.write_image`), with
+        the flags and beam fit parameters of the first of those data groups
+        that names them, so its header is the same for each of them.
+
+        Parameters
+        ----------
+        data_group_name : str, optional
+            The name of the data group of the image. Default is "base" or if
+            not found the first data group.
+        role : str, optional
+            The data group role of the image, by default ``"sky"``: any image
+            role of an image with ``l`` and ``m`` dimensions, for example
+            ``"point_spread_function"``, ``"primary_beam"`` or ``"mask"``.
+        time : int, optional
+            Index of the time plane, by default 0. Negative indices count
+            from the end.
+
+        Returns
+        -------
+        astropy.io.fits.Header
+            The primary header.
+
+        Raises
+        ------
+        ValueError
+            ``InvalidAccessorLocation``, a ``ValueError``, if the dataset is
+            not an image dataset. As in ``write_image``, a ``ValueError`` if
+            the data group or its ``role`` image does not exist, the image has
+            no ``l`` and ``m`` dimensions, ``write_image`` cannot plan the
+            dataset (for example a data group refers to a missing flag
+            variable), or FITS cannot hold the image or another image of the
+            dataset, for example for polarizations without a linear STOKES
+            order, complex pixels or a non-uniform frequency axis.
+        RuntimeError
+            Where the FITS writer raises it, for example for a direction
+            reference frame other than fk4, fk5, icrs or galactic, a missing
+            ``coordinate_system_info`` attribute or ``l`` or ``m``
+            coordinate, or image or flag dimensions other than ``(time,
+            frequency, polarization, l, m)``.
+        IndexError
+            If ``time`` is out of range.
+
+        See Also
+        --------
+        get_wcs : The astropy WCS of an image.
+
+        Examples
+        --------
+        >>> header = img_xds.xr_img.get_fits_header()
+        >>> psf_header = img_xds.xr_img.get_fits_header(role="point_spread_function")
+        """
+        self.test_func()
+        from xradio.image._util.fits import _planned_fits_header
+
+        return _planned_fits_header(self._xds, data_group_name, role, time)
+
+    def get_wcs(
+        self,
+        data_group_name: str | None = None,
+        role: str = "sky",
+        time: int = 0,
+        celestial: bool = True,
+    ):
+        """Get the astropy WCS of an image.
+
+        The WCS is built from the FITS header of the image (see
+        :meth:`get_fits_header`), so it describes the pixels as the FITS
+        files ``write_image`` writes do. Like :meth:`get_fits_header`, it
+        raises for a dataset that ``write_image`` cannot plan.
+
+        With ``celestial=True`` (the default) the WCS has the two direction
+        axes. Its pixel axis 0 (x) runs along ``l`` and pixel axis 1 (y)
+        along ``m``, and its ``array_shape`` is ``(m, l)``: astropy, numpy
+        and matplotlib index an image as (y, x), while image datasets store
+        sky planes as (l, m). Transpose a plane to match, for example
+        ``img_xds.SKY.isel(time=0, frequency=0, polarization=0).transpose("m",
+        "l")``; never flip it. Pixel indices keep their FITS meaning: with
+        the usual negative ``CDELT1``, ``l`` decreases with the pixel index,
+        as right ascension does. ``pixel_to_world(i_l, i_m)`` takes the
+        (0-based) pixel indices along ``l`` and ``m`` and returns a
+        :class:`~astropy.coordinates.SkyCoord` in the image's frame (fk4,
+        fk5, icrs or galactic). The celestial WCS needs only the ``l`` and
+        ``m`` coordinates, ``coordinate_system_info`` and the time, so it
+        also exists for images that FITS cannot hold otherwise, such as
+        polarizations without a linear STOKES order (``I, Q, V``), and in
+        datasets with other images that FITS cannot hold. It logs only the
+        warnings about its direction axes and its time. It gives the same
+        positions as ``WCS(get_fits_header()).celestial``, whose header can
+        also have the spectral keywords (``RESTFRQ``, ``SPECSYS``) and the
+        telescope position (``OBSGEO-X/Y/Z``).
+
+        With ``celestial=False`` the WCS has the four axes of the FITS file,
+        l, m, ``STOKES`` and ``FREQ``, and its ``array_shape`` is
+        ``(frequency, polarization, m, l)``. It has no time axis: the time of
+        the plane is in ``wcs.wcs.dateobs`` and ``wcs.wcs.mjdobs``
+        (``DATE-OBS`` and ``MJD-OBS``). The ``STOKES`` axis is in file
+        order, which can differ from the dataset's (see
+        :meth:`get_fits_header`): four correlations in canonical order are
+        ``RR, LL, RL, LR`` (``XX, YY, XY, YX``) along it. Like
+        :meth:`get_fits_header`, it raises if FITS cannot hold the image or
+        another image of the dataset, and it logs the warnings about the
+        header of every image of the dataset.
+
+        Parameters
+        ----------
+        data_group_name : str, optional
+            The name of the data group of the image. Default is "base" or if
+            not found the first data group.
+        role : str, optional
+            The data group role of the image, by default ``"sky"`` (see
+            :meth:`get_fits_header`).
+        time : int, optional
+            Index of the time plane, by default 0. Negative indices count
+            from the end.
+        celestial : bool, optional
+            If True (default), the WCS of the direction axes; if False, of
+            all the axes of the FITS file.
+
+        Returns
+        -------
+        astropy.wcs.WCS
+            The WCS.
+
+        Raises
+        ------
+        ValueError
+            ``InvalidAccessorLocation``, a ``ValueError``, if the dataset is
+            not an image dataset. A ``ValueError`` if the data group or its
+            ``role`` image does not exist, the image has no ``l`` and ``m``
+            dimensions, ``write_image`` cannot plan the dataset, or FITS
+            cannot hold the image's direction axes (for example a
+            non-uniform ``l`` axis); with ``celestial=False``, also if FITS
+            cannot hold the image or another image of the dataset (see
+            :meth:`get_fits_header`).
+        RuntimeError
+            Where the FITS writer raises it, for example for a direction
+            reference frame other than fk4, fk5, icrs or galactic, or a
+            missing ``coordinate_system_info`` attribute or ``l`` or ``m``
+            coordinate; with ``celestial=False``, also for image or flag
+            dimensions other than ``(time, frequency, polarization, l, m)``.
+        IndexError
+            If ``time`` is out of range.
+
+        See Also
+        --------
+        get_fits_header : The FITS header of an image.
+
+        Examples
+        --------
+        >>> wcs = img_xds.xr_img.get_wcs()
+        >>> wcs.array_shape == (img_xds.sizes["m"], img_xds.sizes["l"])
+        True
+        >>> position = wcs.pixel_to_world(10, 20)  # l index 10, m index 20
+        >>> i_l, i_m = wcs.world_to_pixel(position)
+        """
+        self.test_func()
+        from astropy.wcs import WCS, FITSFixedWarning
+
+        from xradio.image._util.fits import _planned_fits_header
+
+        header = _planned_fits_header(
+            self._xds, data_group_name, role, time, celestial=celestial
+        )
+        with warnings.catch_warnings():
+            # wcslib's FITSFixedWarnings (for these headers, its note that it
+            # derives OBSGEO-L/B/H from OBSGEO-X/Y/Z)
+            warnings.simplefilter("ignore", FITSFixedWarning)
+            return WCS(header)
+
     def sel(
         self,
         indexers: Mapping[Any, Any] | None = None,
@@ -281,7 +485,7 @@ class ImageXds:
         Returns
         -------
         xarray.Dataset
-            xarray Dataset with ImageXds accessors
+            xarray Dataset with ImageXdsAccessor accessors
 
         Examples
         --------
@@ -352,7 +556,7 @@ class ImageXds:
         Returns
         -------
         xarray.Dataset
-            ImageXds Dataset with specified data variables deleted.
+            Image Dataset with specified data variables deleted.
 
         Raises
         ------
@@ -414,4 +618,18 @@ def _uv_in_wavelengths(coord: xr.DataArray, wavelength: float) -> xr.DataArray:
     return converted
 
 
-register_uncached_accessor("xr_img", xr.Dataset)(ImageXds)
+register_uncached_accessor("xr_img", xr.Dataset)(ImageXdsAccessor)
+
+#: Warning given when the accessor class is used by its former name.
+_IMAGE_XDS_DEPRECATION = (
+    "ImageXds, the class of the xr_img accessor, is deprecated: use "
+    "ImageXdsAccessor. The image dataset schema is xradio.image.schema.ImageXds."
+)
+
+
+def __getattr__(name: str):
+    # ImageXds: deprecated alias of ImageXdsAccessor
+    if name == "ImageXds":
+        warnings.warn(_IMAGE_XDS_DEPRECATION, DeprecationWarning, stacklevel=2)
+        return ImageXdsAccessor
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

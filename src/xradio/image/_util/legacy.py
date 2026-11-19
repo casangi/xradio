@@ -19,7 +19,6 @@ example to re-bless test truth stores).
 from __future__ import annotations
 
 import copy
-import re
 
 import numpy as np
 import xarray as xr
@@ -32,10 +31,8 @@ from xradio.image._util.conventions import (
     spectral_frame_to_observer,
 )
 from xradio.image.schema import IMAGE_SCHEMA_VERSION
+from xradio.schema.info import _semantic_version
 
-#: A semantic version, MAJOR.MINOR.PATCH (the form of the ``schema_version``
-#: attribute).
-_SEMANTIC_VERSION = re.compile(r"(\d+)\.(\d+)\.(\d+)")
 #: astropy time scales (astropy.time.Time.SCALES)
 _ASTROPY_TIME_SCALES = ("tai", "tcb", "tcg", "tdb", "tt", "ut1", "utc", "local")
 #: The ``note`` attributes of the l and m coordinates written by xradio <= 1.2.3,
@@ -98,7 +95,7 @@ def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
       get the ``units``, ``crval`` and ``cdelt`` attributes the CASA image
       reader writes;
     * ``u`` and ``v`` coordinates without ``units`` (as
-      ``ImageXds.add_uv_coordinates`` added them, in wavelengths) get the
+      ``xr_img.add_uv_coordinates`` added them, in wavelengths) get the
       ``units`` ``"lambda"``;
     * the ``note`` of the ``l`` and ``m`` coordinates, which described them as
       angles, is replaced by the current one (projection plane coordinates);
@@ -230,30 +227,6 @@ def upgrade_legacy_image_attrs(xds: xr.Dataset) -> xr.Dataset:
     for name, attrs in data_var_attrs.items():
         xds[name].attrs = attrs
     return xds
-
-
-def _semantic_version(version) -> tuple[int, int, int] | None:
-    """
-    Parse a semantic version.
-
-    Parameters
-    ----------
-    version : object
-        A ``schema_version`` attribute value.
-
-    Returns
-    -------
-    tuple of int or None
-        The (MAJOR, MINOR, PATCH) numbers, or None when ``version`` is not a
-        string of the form MAJOR.MINOR.PATCH.
-    """
-    if not isinstance(version, str):
-        return None
-    match = _SEMANTIC_VERSION.fullmatch(version.strip())
-    if match is None:
-        return None
-    major, minor, patch = (int(number) for number in match.groups())
-    return major, minor, patch
 
 
 def _upgraded_schema_version(version, changes: list) -> str | None:

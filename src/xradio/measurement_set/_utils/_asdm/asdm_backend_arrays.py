@@ -4,6 +4,7 @@ import numpy as np
 import xarray as xr
 
 from xradio._utils.logging import xradio_logger
+from xradio._utils.xarray_helpers import replace_empty_slices
 from xradio.measurement_set._utils._asdm._utils._bdf.robust_load_data_flags import (
     load_flags_from_partition_bdfs,
     load_visibilities_from_partition_bdfs,
@@ -35,14 +36,25 @@ class ASDMBackendArray(xr.backends.BackendArray):
         'key' is a tuple of slices/integers provided by Xarray's indexer.
         """
         return xr.core.indexing.explicit_indexing_adapter(
-            key,
+            replace_empty_slices(key, self.shape),
             self.shape,
             xr.core.indexing.IndexingSupport.BASIC,
             self._basic_indexing_method,
         )
 
     def _basic_indexing_method(self, key: tuple) -> np.ndarray:
-        """Loads with step-1 slices, then applies the steps and integer indices."""
+        """
+        Loads with step-1 slices, then applies the steps and integer indices.
+        Empty selections, all ``slice(0, 0)`` by now, load nothing.
+        """
+        if slice(0, 0) in key:
+            selected_shape = [
+                len(range(dim_len)[dim_key])
+                for dim_key, dim_len in zip(key, self.shape, strict=True)
+                if isinstance(dim_key, slice)
+            ]
+            return np.empty(selected_shape, self.dtype)
+
         slice_key = []
         residual_key = []
         for dim_key in key:

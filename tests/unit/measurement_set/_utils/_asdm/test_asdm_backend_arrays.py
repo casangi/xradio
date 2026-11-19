@@ -42,6 +42,7 @@ def test_ASDMBackendArray__raw_indexing_method(
         {"frequency": slice(1, 8, 3), "baseline_id": 4},
         {"baseline_id": slice(5, 0, -2)},
         {"time": slice(2, 2, 2)},
+        {"time": slice(2, 2, -1)},
     ],
 )
 def test_ASDMBackendArray_basic_indexing(dim_indexers):
@@ -73,6 +74,52 @@ def test_ASDMBackendArray_basic_indexing(dim_indexers):
         for key in raw_keys
         for dim_key in key
     )
+
+
+@pytest.mark.parametrize("reversed_frequency", [False, True])
+@pytest.mark.parametrize(
+    "dim_indexers",
+    [
+        {"time": 0, "frequency": slice(0, 0)},
+        {"time": 0, "frequency": slice(3, 3)},
+        {"time": 0, "frequency": slice(20, 30)},
+        {"time": 0, "polarization": slice(0, 0)},
+        {"time": 0, "baseline_id": slice(0, 0)},
+        {"time": 0, "baseline_id": slice(2, 2)},
+        {"time": slice(0, 0)},
+        {"time": slice(3, 3)},
+        {"frequency": []},
+    ],
+)
+def test_ASDMBackendArray_empty_selection_loads_nothing(
+    dim_indexers, reversed_frequency
+):
+    import xarray as xr
+
+    from xradio.measurement_set._utils._asdm.asdm_backend_arrays import (
+        ASDMBackendArray,
+    )
+
+    class NoLoadBackendArray(ASDMBackendArray):
+        def _raw_indexing_method(self, key):
+            raise AssertionError(f"Loading with {key=}")
+
+    array = xr.DataArray(
+        xr.core.indexing.LazilyIndexedArray(
+            NoLoadBackendArray((7, 6, 8, 2), np.dtype("complex128"))
+        ),
+        dims=("time", "baseline_id", "frequency", "polarization"),
+    )
+    if reversed_frequency:
+        array = array.isel(frequency=slice(None, None, -1))
+    selected = array.isel(dim_indexers)
+    declared_shape = selected.shape
+
+    values = selected.values
+
+    assert 0 in declared_shape
+    assert values.shape == declared_shape
+    assert values.dtype == np.dtype("complex128")
 
 
 @pytest.mark.parametrize(

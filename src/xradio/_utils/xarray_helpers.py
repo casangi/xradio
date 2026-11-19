@@ -299,3 +299,24 @@ def register_uncached_accessor(name: str, cls: type) -> Callable[[type], type]:
         return accessor
 
     return decorator
+
+
+def replace_empty_slices(
+    key: xr.core.indexing.ExplicitIndexer, shape: tuple[int, ...]
+) -> xr.core.indexing.ExplicitIndexer:
+    """
+    Replace slices that select nothing by ``slice(0, 0)``. xarray's key
+    decomposition fails (IndexError) on empty slices with a negative step.
+    """
+    empty = [
+        isinstance(dim_key, slice) and len(range(dim_len)[dim_key]) == 0
+        for dim_key, dim_len in zip(key.tuple, shape, strict=True)
+    ]
+    if not any(empty):
+        return key
+    return type(key)(
+        tuple(
+            slice(0, 0) if is_empty else dim_key
+            for dim_key, is_empty in zip(key.tuple, empty, strict=True)
+        )
+    )

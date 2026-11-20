@@ -16,6 +16,7 @@ def open_asdm(
     include_spectral_resolution_types: list[str] = None,
     with_pointing: bool = False,
     pointing_for_only_spectral_resolution_types: list[str] = None,
+    ephemeris_interpolate: bool = True,
 ) -> xr.DataTree:
     """
     Open an ASDM (ALMA Sciende Data Model) and present it as an Xarray DataTree.
@@ -55,6 +56,9 @@ def open_asdm(
         resolution types not included in the list will not have a pointing
         dataset. When the list is not given or is empty, all spectral
         resolution types will have a pointing dataset.
+    ephemeris_interpolate: bool, optional
+        Whether to interpolate ephemeris data to the correlated_xds time
+        coordinate. True by default.
 
     Returns
     -------

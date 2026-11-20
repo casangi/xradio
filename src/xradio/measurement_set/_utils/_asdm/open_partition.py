@@ -107,7 +107,7 @@ def open_partition(
 
     # field_and_source_xds
     field_and_source_xds = create_field_and_source_xds(
-        asdm, partition_descr, spw_id, is_spectrum_xds
+        asdm, partition_descr, spw_id, is_spectrum_xds, correlated_xds.coords["time"]
     )
 
     if not is_spectrum_xds:

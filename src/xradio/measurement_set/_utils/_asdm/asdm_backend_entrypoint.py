@@ -39,6 +39,7 @@ class ASDMBackendEntryPoint(BackendEntrypoint):
         include_spectral_resolution_types: list[str] = None,
         with_pointing: bool = None,
         pointing_for_only_spectral_resolution_types: list[str] = None,
+        ephemeris_interpolate: bool = True,
     ) -> xr.DataTree:
         open_asdm = self._try_lazy_import_open_asdm()
         if drop_variables is not None:
@@ -51,6 +52,7 @@ class ASDMBackendEntryPoint(BackendEntrypoint):
             include_spectral_resolution_types,
             with_pointing,
             pointing_for_only_spectral_resolution_types,
+            ephemeris_interpolate,
         )
 
     def open_groups_as_dict(

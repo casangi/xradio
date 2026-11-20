@@ -432,12 +432,14 @@ def _add_observer_position(xds: xr.Dataset, ephemeris_df: pd.DataFrame) -> xr.Da
     """
 
     observer_location = ephemeris_df["observerLocation"]
-    if not (observer_location[0] == observer_location).all():
+    if not observer_location.apply(
+        lambda location: np.array_equal(location, observer_location.iloc[0])
+    ).all():
         xradio_logger().warning(
             "Observer location varies throughout the ephemeris table. This is not expected nor supported. "
             "taking the fist location anyway."
         )
-    observer_location = observer_location[0]
+    observer_location = observer_location.iloc[0]
     # ASDM docs for observerLocation: A triple with all its elements equal to 0.0 will mean that a geocentric
     # coordinate system is in use instead of a topocentric one.
     # (But importasdm compares only the third element (distance) against 0.0)

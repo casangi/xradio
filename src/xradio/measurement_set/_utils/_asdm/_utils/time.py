@@ -11,10 +11,9 @@ def convert_time_asdm_to_unix(times_asdm: np.ndarray) -> np.ndarray:
     Parameters
     ----------
     times_asdm : (np.ndarray)
-        An array of ASDM time values (nanoseconds since MJD epoch). Supported types are:
-        - pyasdm.types.ArrayTime (each element is expected to have a `get()` method that
-          returns the time value as a float)
-        - np.int64
+        An array of ASDM time values (nanoseconds since MJD epoch). Supported dtypes are
+        pyasdm.types.ArrayTime and other numerical types. For ArrayTime, each element is
+        expected to have a `get()` method that returns the time value as a float.
 
     Returns
     -------
@@ -50,7 +49,7 @@ def convert_time_asdm_to_unix(times_asdm: np.ndarray) -> np.ndarray:
             asdm_times_ns = np.array(
                 [asdm_interval.get() for asdm_interval in times_asdm]
             )
-        elif isinstance(times_asdm[0], np.int64):
+        else:
             asdm_times_ns = times_asdm
 
         times_unix = (asdm_times_ns - MJD_TO_UNIX_TIME_DELTA_NS) / 1e9

@@ -206,40 +206,42 @@ def test_save_blob_info(tmp_path_factory):
     save_blob_info(dummy_name, pd.DataFrame(columns=["foo"]))
 
 
-def test_load_times_from_bdfs_empty():
+def test__load_times_from_bdfs_empty():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-        load_times_from_bdfs,
+        _load_times_from_bdfs,
     )
 
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
     ):
-        load_times_from_bdfs(["/path/nonexistant/foo", "/path/nonexistant/bar"])
+        _load_times_from_bdfs(["/path/nonexistant/foo", "/path/nonexistant/bar"])
 
 
-def test_load_times_from_bdfs():
+def test__load_times_from_bdfs():
     from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
-        load_times_from_bdfs,
+        _load_times_from_bdfs,
     )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False, True, False]
+        midpoint = 10e18
+        interval = 1e9
         subset_times = {
-            "midpointInNanoSeconds": 1e10,
+            "midpointInNanoSeconds": midpoint,
             "intervalInNanoSeconds": 1e9,
-            "actualTimes": {"present": True, "arr": 10.1e9 * np.ones(100)},
+            "actualTimes": {"present": True, "arr": 10.1e18 * np.ones(100)},
             "actualDurations": {"present": True, "arr": 1.01e9 * np.ones(100)},
         }
         mock_bdf_reader.return_value.getSubset.side_effect = [subset_times] * 2
 
         bdf_paths = ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"]
         centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
-            load_times_from_bdfs(bdf_paths)
+            _load_times_from_bdfs(bdf_paths)
         )
-        assert (centers == [10] * 2).all()
-        assert (durations == [1] * 2).all()
-        assert (actual_times == [10.1] * 2).all()
-        assert (actual_durations == [1.01] * 2).all()
+        assert (centers == [midpoint] * 2).all()
+        assert (durations == [interval] * 2).all()
+        assert (actual_times == [10.1e18] * 2).all()
+        assert (actual_durations == [1.01e9] * 2).all()
         assert time_indices_by_bdf == {
             "bdf_names": ["/no_path/nonexistant/foo", "/no_path/nonexistant/bar"],
             "bdf_start": [0, 1, 2],
@@ -248,24 +250,30 @@ def test_load_times_from_bdfs():
         assert mock_bdf_reader.return_value.getSubset.call_count == 2
 
 
-def test_load_times_bdf_empty():
-    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
+def test__load_times_bdf_empty():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        _load_times_bdf,
+    )
 
     with pytest.raises(
         pyasdm.exceptions.BDFReaderException, match="No such file or directory"
     ):
-        load_times_bdf("/path/nonexistant/foo")
+        _load_times_bdf("/path/nonexistant/foo")
 
 
-def test_load_times_bdf_without_actual_times():
-    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
+def test__load_times_bdf_without_actual_times():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        _load_times_bdf,
+    )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        midpoint = 1e10
+        interval = 1e9
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
         mock_bdf_reader.return_value.getSubset.side_effect = [
             {
-                "midpointInNanoSeconds": 1e10,
-                "intervalInNanoSeconds": 1e9,
+                "midpointInNanoSeconds": midpoint,
+                "intervalInNanoSeconds": interval,
                 "actualTimes": {"present": False, "arr": None},
                 "actualDurations": {"present": False, "arr": None},
             },
@@ -273,24 +281,28 @@ def test_load_times_bdf_without_actual_times():
         ]
 
         bdf_path = "/path/nonexistant/foo"
-        centers, durations, actual_times, actual_durations = load_times_bdf(bdf_path)
-        assert centers == [10]
-        assert durations == [1]
-        assert actual_times == [10]
-        assert actual_durations == [1]
+        centers, durations, actual_times, actual_durations = _load_times_bdf(bdf_path)
+        assert centers == [midpoint]
+        assert durations == [interval]
+        assert actual_times == [midpoint]
+        assert actual_durations == [interval]
         assert mock_bdf_reader.return_value.hasSubset.call_count == 2
         assert mock_bdf_reader.return_value.getSubset.call_count == 1
 
 
-def test_load_times_bdf():
-    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
+def test__load_times_bdf():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        _load_times_bdf,
+    )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
+        midpoint = 1e10
+        interval = 1e9
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
         mock_bdf_reader.return_value.getSubset.side_effect = [
             {
-                "midpointInNanoSeconds": 1e10,
-                "intervalInNanoSeconds": 1e9,
+                "midpointInNanoSeconds": midpoint,
+                "intervalInNanoSeconds": interval,
                 "actualTimes": {"present": True, "arr": 10.1e9 * np.ones(100)},
                 "actualDurations": {"present": True, "arr": 1.01e9 * np.ones(100)},
             },
@@ -298,30 +310,34 @@ def test_load_times_bdf():
         ]
 
         bdf_path = "/path/nonexistant/foo"
-        centers, durations, actual_times, actual_durations = load_times_bdf(bdf_path)
-        assert centers == [10]
-        assert durations == [1]
-        assert actual_times == [10.1]
-        assert actual_durations == [1.01]
+        centers, durations, actual_times, actual_durations = _load_times_bdf(bdf_path)
+        assert centers == [midpoint]
+        assert durations == [interval]
+        assert actual_times == [10.1e9]
+        assert actual_durations == [1.01e9]
         assert mock_bdf_reader.return_value.hasSubset.call_count == 2
         assert mock_bdf_reader.return_value.getSubset.call_count == 1
 
 
-def test_load_times_bdf_error_old_to_be_removed():
-    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
+def test__load_times_bdf_error_old_to_be_removed():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        _load_times_bdf,
+    )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
         mock_bdf_reader.return_value.getSubset.side_effect = [ValueError]
 
         bdf_path = "/path/nonexistant/foo"
-        centers, durations, actual_times, actual_durations = load_times_bdf(bdf_path)
+        centers, durations, actual_times, actual_durations = _load_times_bdf(bdf_path)
         for time_array in [centers, durations, actual_times, actual_durations]:
             assert time_array == [0]
 
 
-def test_load_times_bdf_pybdfreader_exception():
-    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import load_times_bdf
+def test__load_times_bdf_pybdfreader_exception():
+    from xradio.measurement_set._utils._asdm._utils._bdf.load_time import (
+        _load_times_bdf,
+    )
 
     with mock.patch("pyasdm.bdf.BDFReader") as mock_bdf_reader:
         mock_bdf_reader.return_value.hasSubset.side_effect = [True, False]
@@ -332,6 +348,6 @@ def test_load_times_bdf_pybdfreader_exception():
 
         bdf_path = "/path/nonexistant/foo"
         with pytest.raises(RuntimeError, match=bdf_reader_exception_msg):
-            _centers, _durations, _actual_times, _actual_durations = load_times_bdf(
+            _centers, _durations, _actual_times, _actual_durations = _load_times_bdf(
                 bdf_path
             )

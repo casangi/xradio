@@ -7,7 +7,8 @@
   rejects
 * ``TestMakeEmptyPolynomialImages`` → the ``n_polynomial_terms`` and
   ``n_time_polynomial_terms`` keywords of the ``make_empty_*`` factories
-* ``TestPolynomialImageStorage`` → zarr round trip
+* ``TestPolynomialImageStorage`` → zarr round trip, and the CASA and FITS
+  writers, which cannot write polynomial terms yet
 """
 
 import copy
@@ -451,7 +452,7 @@ class TestMakeEmptyPolynomialImages:
 
 
 class TestPolynomialImageStorage:
-    """Zarr holds polynomial terms."""
+    """Zarr holds polynomial terms; CASA and FITS cannot be written yet."""
 
     def test_zarr_round_trip(self, mtmfs_xds, tmp_path):
         xds = mtmfs_xds.copy()
@@ -464,3 +465,29 @@ class TestPolynomialImageStorage:
             xr.testing.assert_identical(back, xds)
             assert back.attrs["data_groups"] == xds.attrs["data_groups"]
             assert not check_image(back), str(check_image(back))
+
+    @pytest.mark.parametrize("out_format", ["casa", "fits"])
+    def test_writers_raise(self, mtmfs_xds, tmp_path, out_format):
+        name = str(tmp_path / ("mtmfs.fits" if out_format == "fits" else "mtmfs.im"))
+        with pytest.raises(ValueError, match="polynomial dimension"):
+            write_image(mtmfs_xds, name, out_format=out_format)
+        assert not list(tmp_path.iterdir())
+
+    def test_fits_header_and_wcs_raise(self, mtmfs_xds):
+        for call in (
+            lambda: mtmfs_xds.xr_img.get_fits_header(),
+            lambda: mtmfs_xds.xr_img.get_wcs(),
+            lambda: mtmfs_xds.xr_img.get_wcs(celestial=False),
+        ):
+            with pytest.raises(ValueError, match="polynomial dimension"):
+                call()
+
+    def test_frequency_images_still_written(self, tmp_path):
+        """Writing datasets without polynomial terms is unchanged."""
+        xds = make_empty_sky_image(
+            [0.2, -0.5], [8, 6], [1e-5, 1e-5], [1.4e9], ["I"], [55000.5]
+        )
+        xds["SKY"] = _image(CHANNELS, dict(xds.sizes), type="sky")
+        xds.attrs["data_groups"] = {"base": {"sky": "SKY"}}
+        (path,) = write_image(xds, str(tmp_path / "plain.fits"), out_format="fits")
+        assert open_image(path).SKY.dims == CHANNELS

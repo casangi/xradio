@@ -473,7 +473,10 @@ def write_image(
         If ``compressor`` is neither a zarr v3 bytes-to-bytes codec nor None.
     ValueError
         If ``out_format`` is not supported, ``imagename`` is a URL, the
-        dataset holds no image the format can store, or ``chunks``,
+        dataset holds no image the format can store, an image to write to
+        CASA or FITS has polynomial terms (the dimensions
+        ``frequency_polynomial``, ``frequency_polynomial_moment`` or
+        ``time_polynomial``, which only zarr stores hold yet), or ``chunks``,
         ``shards`` or ``compressor`` are given for CASA or FITS, or cannot be
         applied.
     """

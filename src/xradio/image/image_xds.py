@@ -331,9 +331,10 @@ class ImageXdsAccessor:
             the data group or its ``role`` image does not exist, the image has
             no ``l`` and ``m`` dimensions, ``write_image`` cannot plan the
             dataset (for example a data group refers to a missing flag
-            variable), or FITS cannot hold the image or another image of the
-            dataset, for example for polarizations without a linear STOKES
-            order, complex pixels or a non-uniform frequency axis.
+            variable, or an image has polynomial terms, which FITS files
+            cannot hold yet), or FITS cannot hold the image or another image
+            of the dataset, for example for polarizations without a linear
+            STOKES order, complex pixels or a non-uniform frequency axis.
         RuntimeError
             Where the FITS writer raises it, for example for a direction
             reference frame other than fk4, fk5, icrs or galactic, a missing
@@ -430,11 +431,11 @@ class ImageXdsAccessor:
             ``InvalidAccessorLocation``, a ``ValueError``, if the dataset is
             not an image dataset. A ``ValueError`` if the data group or its
             ``role`` image does not exist, the image has no ``l`` and ``m``
-            dimensions, ``write_image`` cannot plan the dataset, or FITS
-            cannot hold the image's direction axes (for example a
-            non-uniform ``l`` axis); with ``celestial=False``, also if FITS
-            cannot hold the image or another image of the dataset (see
-            :meth:`get_fits_header`).
+            dimensions, ``write_image`` cannot plan the dataset (for example
+            an image has polynomial terms), or FITS cannot hold the image's
+            direction axes (for example a non-uniform ``l`` axis); with
+            ``celestial=False``, also if FITS cannot hold the image or
+            another image of the dataset (see :meth:`get_fits_header`).
         RuntimeError
             Where the FITS writer raises it, for example for a direction
             reference frame other than fk4, fk5, icrs or galactic, or a

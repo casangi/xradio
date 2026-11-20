@@ -1,3 +1,4 @@
+import copy
 import datetime
 import os
 
@@ -10,6 +11,7 @@ from xradio._utils.dict_helpers import (
     make_skycoord_dict,
     make_spectral_coord_reference_dict,
     make_time_measure_attrs,
+    make_time_measure_dict,
 )
 from xradio._utils.logging import xradio_logger
 from xradio.image._util.common import (
@@ -420,6 +422,144 @@ def _make_common_coords(
     }
 
 
+def _number_of_polynomial_terms(n_terms, name: str) -> int | None:
+    """
+    Validate a number of polynomial terms given to an image factory.
+
+    Parameters
+    ----------
+    n_terms : int or None
+        Number of terms, or None for no polynomial coordinate.
+    name : str
+        Name of the parameter, for the error messages.
+
+    Returns
+    -------
+    int or None
+        The number of terms, None when ``n_terms`` is None.
+
+    Raises
+    ------
+    TypeError
+        If ``n_terms`` is neither an integer nor None.
+    ValueError
+        If ``n_terms`` is smaller than 1.
+    """
+    if n_terms is None:
+        return None
+    if isinstance(n_terms, bool) or not isinstance(n_terms, int | np.integer):
+        raise TypeError(f"{name} must be an integer or None, got {n_terms!r}")
+    if n_terms < 1:
+        raise ValueError(f"{name} must be at least 1, got {n_terms}")
+    return int(n_terms)
+
+
+def _sampled_span(values: np.ndarray) -> float | None:
+    """
+    Span covered by the samples of an axis.
+
+    Parameters
+    ----------
+    values : np.ndarray
+        Sample values (channel frequencies or times), at least one.
+
+    Returns
+    -------
+    float or None
+        The number of samples times their mean spacing (for uniform samples,
+        the span from the lower edge of the first to the upper edge of the
+        last), None for a single sample, whose width is not known.
+    """
+    values = np.asarray(values, dtype=np.float64)
+    if values.size < 2:
+        return None
+    return float((values.max() - values.min()) * values.size / (values.size - 1))
+
+
+def _add_polynomial_coords(
+    xds: xr.Dataset,
+    n_polynomial_terms: int | None,
+    n_time_polynomial_terms: int | None,
+) -> xr.Dataset:
+    """
+    Add the polynomial coordinates that the image factories make.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Image dataset with ``time`` and ``frequency`` coordinates and their
+        attributes.
+    n_polynomial_terms : int or None
+        Number n of terms of a polynomial in frequency: adds the coordinates
+        ``frequency_polynomial`` (0 to n - 1) and
+        ``frequency_polynomial_moment`` (0 to 2n - 2), with the
+        ``reference_frequency`` of the frequency coordinate and, for several
+        channels, the bandwidth they span as ``channel_width``. None adds
+        neither.
+    n_time_polynomial_terms : int or None
+        Number of terms of a polynomial in time: adds the coordinate
+        ``time_polynomial``, with the middle time as ``reference_time`` and,
+        for several times, the span they cover as ``integration_time``. None
+        adds none.
+
+    Returns
+    -------
+    xr.Dataset
+        The dataset with the polynomial coordinates (``xds`` itself when
+        there are none). The ``time`` and ``frequency`` coordinates are kept.
+
+    Raises
+    ------
+    TypeError
+        If a number of terms is neither an integer nor None.
+    ValueError
+        If a number of terms is smaller than 1.
+    """
+    n_terms = _number_of_polynomial_terms(n_polynomial_terms, "n_polynomial_terms")
+    n_time_terms = _number_of_polynomial_terms(
+        n_time_polynomial_terms, "n_time_polynomial_terms"
+    )
+    coords = {}
+    if n_terms is not None:
+        attrs = {
+            "reference_frequency": copy.deepcopy(
+                xds.frequency.attrs["reference_frequency"]
+            ),
+            "polynomial_type": "taylor",
+        }
+        bandwidth = _sampled_span(xds.frequency.values)
+        if bandwidth is not None:
+            attrs["channel_width"] = make_quantity(bandwidth, "Hz")
+        coords["frequency_polynomial"] = (
+            "frequency_polynomial",
+            np.arange(n_terms, dtype=np.int64),
+            attrs,
+        )
+        coords["frequency_polynomial_moment"] = (
+            "frequency_polynomial_moment",
+            np.arange(2 * n_terms - 1, dtype=np.int64),
+            copy.deepcopy(attrs),
+        )
+    if n_time_terms is not None:
+        times = np.asarray(xds.time.values, dtype=np.float64)
+        attrs = {
+            "reference_time": make_time_measure_dict(
+                times[len(times) // 2].item(), units="d", scale="utc", time_format="mjd"
+            ),
+            "polynomial_type": "taylor",
+        }
+        span = _sampled_span(times)
+        if span is not None:
+            # the time coordinate is in days
+            attrs["integration_time"] = make_quantity(span * 86400.0, "s")
+        coords["time_polynomial"] = (
+            "time_polynomial",
+            np.arange(n_time_terms, dtype=np.int64),
+            attrs,
+        )
+    return xds.assign_coords(coords) if coords else xds
+
+
 def _make_lm_values(
     image_size: list | np.ndarray,
     cell_size: list | np.ndarray,
@@ -523,6 +663,8 @@ def _make_empty_sky_image(
     projection: str,
     spectral_reference: str,
     do_sky_coords: bool,
+    n_polynomial_terms: int | None = None,
+    n_time_polynomial_terms: int | None = None,
 ) -> xr.Dataset:
     """
     Create an empty sky image dataset containing only coordinates.
@@ -549,12 +691,21 @@ def _make_empty_sky_image(
         Spectral frame identifier.
     do_sky_coords : bool
         Whether to add spherical sky-coordinate grids.
+    n_polynomial_terms : int or None
+        Number of terms of a polynomial in frequency, see
+        :func:`_add_polynomial_coords`.
+    n_time_polynomial_terms : int or None
+        Number of terms of a polynomial in time, see
+        :func:`_add_polynomial_coords`.
 
     Returns
     -------
     xr.Dataset
         Empty image dataset with coordinates and metadata.
     """
+    # fail on an invalid number of terms before computing any coordinates
+    _number_of_polynomial_terms(n_polynomial_terms, "n_polynomial_terms")
+    _number_of_polynomial_terms(n_time_polynomial_terms, "n_time_polynomial_terms")
     _input_checks(phase_center, image_size, cell_size)
     # fail on an unsupported frame before computing any coordinates
     _spectral_frame_and_observer(spectral_reference)
@@ -581,7 +732,7 @@ def _make_empty_sky_image(
         cell_size,
         projection,
     )
-    return xds
+    return _add_polynomial_coords(xds, n_polynomial_terms, n_time_polynomial_terms)
 
 
 def _make_uv_coords(
@@ -679,6 +830,8 @@ def _make_empty_aperture_image(
     direction_reference: str,
     projection: str,
     spectral_reference: str,
+    n_polynomial_terms: int | None = None,
+    n_time_polynomial_terms: int | None = None,
 ) -> xr.Dataset:
     """
     Create an empty aperture image dataset containing only coordinates.
@@ -703,12 +856,21 @@ def _make_empty_aperture_image(
         Projection code.
     spectral_reference : str
         Spectral frame identifier.
+    n_polynomial_terms : int or None
+        Number of terms of a polynomial in frequency, see
+        :func:`_add_polynomial_coords`.
+    n_time_polynomial_terms : int or None
+        Number of terms of a polynomial in time, see
+        :func:`_add_polynomial_coords`.
 
     Returns
     -------
     xr.Dataset
         Empty aperture-image dataset with coordinates and metadata.
     """
+    # fail on an invalid number of terms before computing any coordinates
+    _number_of_polynomial_terms(n_polynomial_terms, "n_polynomial_terms")
+    _number_of_polynomial_terms(n_time_polynomial_terms, "n_time_polynomial_terms")
     _input_checks(phase_center, image_size, sky_image_cell_size)
     # fail on an unsupported frame before computing any coordinates
     _spectral_frame_and_observer(spectral_reference)
@@ -727,7 +889,7 @@ def _make_empty_aperture_image(
         projection,
     )
     xds = _move_beam_param_dim_coord(xds)
-    return xds
+    return _add_polynomial_coords(xds, n_polynomial_terms, n_time_polynomial_terms)
 
 
 def _move_beam_param_dim_coord(xds: xr.Dataset) -> xr.Dataset:
@@ -760,6 +922,8 @@ def _make_empty_lmuv_image(
     projection: str,
     spectral_reference: str,
     do_sky_coords: bool,
+    n_polynomial_terms: int | None = None,
+    n_time_polynomial_terms: int | None = None,
 ) -> xr.Dataset:
     """
     Create an empty image dataset with both lm and uv coordinates.
@@ -786,6 +950,12 @@ def _make_empty_lmuv_image(
         Spectral frame identifier.
     do_sky_coords : bool
         Whether to include spherical sky-coordinate grids.
+    n_polynomial_terms : int or None
+        Number of terms of a polynomial in frequency, see
+        :func:`_add_polynomial_coords`.
+    n_time_polynomial_terms : int or None
+        Number of terms of a polynomial in time, see
+        :func:`_add_polynomial_coords`.
 
     Returns
     -------
@@ -803,6 +973,8 @@ def _make_empty_lmuv_image(
         projection,
         spectral_reference,
         do_sky_coords,
+        n_polynomial_terms,
+        n_time_polynomial_terms,
     )
     xds = _make_uv_coords(xds, image_size, sky_image_cell_size)
     xds = _move_beam_param_dim_coord(xds)

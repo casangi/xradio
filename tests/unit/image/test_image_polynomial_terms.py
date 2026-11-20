@@ -5,6 +5,8 @@
   and ``frequency_polynomial_moment`` dimensions, ``time_polynomial``, the
   primary beam, ``ALPHA``, ``ALPHA_ERROR`` and ``BETA``, and the layouts it
   rejects
+* ``TestMakeEmptyPolynomialImages`` → the ``n_polynomial_terms`` and
+  ``n_time_polynomial_terms`` keywords of the ``make_empty_*`` factories
 * ``TestPolynomialImageStorage`` → zarr round trip
 """
 
@@ -16,6 +18,8 @@ import xarray as xr
 
 from xradio.image import (
     load_image,
+    make_empty_aperture_image,
+    make_empty_lmuv_image,
     make_empty_sky_image,
     open_image,
     write_image,
@@ -352,6 +356,98 @@ class TestPolynomialImageSchema:
         issues = check_image(xds)
         assert [issue.path for issue in issues].count([("coords", dim)]) == 1
         assert f"Required coordinate '{dim}' is missing!" in _messages(issues)
+
+
+class TestMakeEmptyPolynomialImages:
+    """The n_polynomial_terms and n_time_polynomial_terms keywords."""
+
+    FACTORIES = [make_empty_sky_image, make_empty_aperture_image, make_empty_lmuv_image]
+
+    @staticmethod
+    def _make(factory, frequencies=(1.4e9,), times=(55000.5,), **kwargs):
+        return factory(
+            [0.2, -0.5],
+            [8, 6],
+            [1e-5, 1e-5],
+            list(frequencies),
+            ["I", "Q"],
+            list(times),
+            **kwargs,
+        )
+
+    @pytest.mark.parametrize("factory", FACTORIES)
+    def test_frequency_polynomial(self, factory):
+        xds = self._make(factory, n_polynomial_terms=3)
+        assert xds.frequency_polynomial.values.tolist() == [0, 1, 2]
+        assert xds.frequency_polynomial_moment.values.tolist() == [0, 1, 2, 3, 4]
+        # the frequency coordinate is kept, at the reference frequency
+        assert xds.frequency.values.tolist() == [1.4e9]
+        for name in ("frequency_polynomial", "frequency_polynomial_moment"):
+            attrs = xds[name].attrs
+            assert attrs["polynomial_type"] == "taylor"
+            assert (
+                attrs["reference_frequency"]
+                == xds.frequency.attrs["reference_frequency"]
+            )
+            # one channel: the bandwidth is not known
+            assert "channel_width" not in attrs
+        assert "time_polynomial" not in xds.coords
+        assert not check_image(xds), str(check_image(xds))
+
+    @pytest.mark.parametrize("factory", FACTORIES)
+    def test_frequency_polynomial_of_channels(self, factory):
+        xds = self._make(
+            factory, frequencies=[1.0e9, 1.5e9, 2.0e9], n_polynomial_terms=2
+        )
+        attrs = xds.frequency_polynomial.attrs
+        assert attrs["reference_frequency"]["data"] == 1.5e9
+        assert attrs["channel_width"] == {
+            "data": 1.5e9,
+            "dims": [],
+            "attrs": {"units": "Hz", "type": "quantity"},
+        }
+        assert xds.sizes["frequency"] == 3
+        assert not check_image(xds), str(check_image(xds))
+
+    @pytest.mark.parametrize("factory", FACTORIES)
+    def test_time_polynomial(self, factory):
+        xds = self._make(
+            factory, times=[55000.0, 55000.25, 55000.5], n_time_polynomial_terms=2
+        )
+        assert xds.time_polynomial.values.tolist() == [0, 1]
+        attrs = xds.time_polynomial.attrs
+        assert attrs["polynomial_type"] == "taylor"
+        assert attrs["reference_time"]["data"] == 55000.25
+        assert attrs["reference_time"]["attrs"]["units"] == "d"
+        assert attrs["integration_time"]["data"] == pytest.approx(3 * 0.25 * 86400.0)
+        assert attrs["integration_time"]["attrs"]["units"] == "s"
+        assert "frequency_polynomial" not in xds.coords
+        assert xds.sizes["time"] == 3
+        assert not check_image(xds), str(check_image(xds))
+        single = self._make(factory, n_time_polynomial_terms=1)
+        assert "integration_time" not in single.time_polynomial.attrs
+        assert not check_image(single)
+
+    @pytest.mark.parametrize("factory", FACTORIES)
+    def test_default_has_no_polynomial_coordinates(self, factory):
+        xds = self._make(factory)
+        assert not {
+            "time_polynomial",
+            "frequency_polynomial",
+            "frequency_polynomial_moment",
+        } & set(xds.coords)
+
+    @pytest.mark.parametrize("factory", FACTORIES)
+    @pytest.mark.parametrize(
+        "keyword", ["n_polynomial_terms", "n_time_polynomial_terms"]
+    )
+    @pytest.mark.parametrize(
+        "value,error",
+        [(0, ValueError), (-2, ValueError), (1.5, TypeError), (True, TypeError)],
+    )
+    def test_invalid_number_of_terms(self, factory, keyword, value, error):
+        with pytest.raises(error, match=keyword):
+            self._make(factory, **{keyword: value})
 
 
 class TestPolynomialImageStorage:

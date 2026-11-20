@@ -17,6 +17,10 @@ conventions as the measurement set v4 schema
 * The ``data_groups`` dataset attribute maps logical roles (``sky``,
   ``flag``, ``point_spread_function``, ...) to concrete data variable names,
   grouping the variables that belong together.
+* Images that hold the terms of a polynomial in frequency (or time), such as
+  the Taylor coefficients of multi-term multi-frequency synthesis, have a
+  polynomial dimension in the place of ``frequency`` (or ``time``), see
+  :py:class:`ImageXds`.
 * The ``schema_version`` dataset attribute holds the version of the image
   schema that the dataset conforms to, ``IMAGE_SCHEMA_VERSION`` for the
   datasets that xradio makes, opens or upgrades (as the measurement set
@@ -75,6 +79,7 @@ from xradio.schema.measures import (
     Location,
     PolarizationArray,
     QuantityInHertzArray,
+    QuantityInSecondsArray,
     SkyCoord,
     SpectralCoord,
     SpectralCoordArray,
@@ -87,7 +92,7 @@ from xradio.schema.measures import (
 from xradio.schema.polarization import check_polarization_order
 from xradio.schema.typing import Attr, Coord, Coordof, Data, Dataof
 
-IMAGE_SCHEMA_VERSION = "0.0.3"
+IMAGE_SCHEMA_VERSION = "0.0.4"
 """ Current version of the image schema (semantic versioning, see the
 documentation's schema versioning section). Image datasets carry it in their
 ``schema_version`` attribute, and the documentation takes it from here. """
@@ -105,6 +110,15 @@ U = Literal["u"]
 """ Aperture plane dimension conjugate to l. """
 V = Literal["v"]
 """ Aperture plane dimension conjugate to m. """
+FrequencyPolynomial = Literal["frequency_polynomial"]
+""" Terms of a polynomial in frequency, in the place of ``frequency`` (see
+:py:class:`FrequencyPolynomialCoordArray`). """
+FrequencyPolynomialMoment = Literal["frequency_polynomial_moment"]
+""" Weighted moments of a polynomial in frequency, in the place of
+``frequency`` (see :py:class:`FrequencyPolynomialMomentCoordArray`). """
+TimePolynomial = Literal["time_polynomial"]
+""" Terms of a polynomial in time, in the place of ``time`` (see
+:py:class:`TimePolynomialCoordArray`). """
 BeamParamsLabel = Literal["beam_params_label"]
 """ Coordinate labels of Gaussian beam fit parameters (shape 3 and 'major', 'minor', 'pa'). """
 
@@ -239,6 +253,99 @@ class VelocityCoordArray:
     """ Units to associate with axis, [ratio]/[m/s]. """
     doppler_type: Attr[AllowedDopplerTypes] = "radio"
     """ Doppler convention used to compute the velocities, typically ``"radio"``. """
+
+
+@xarray_dataarray_schema
+class FrequencyPolynomialCoordArray:
+    """Polynomial term coordinate of images that hold the terms of a
+    polynomial in frequency instead of frequency channels: the dimension
+    ``frequency_polynomial``, in the place of ``frequency``.
+
+    With ``polynomial_type`` ``"taylor"`` the terms are the Taylor
+    coefficients of multi-term multi-frequency synthesis (MT-MFS, the CASA
+    ``.tt0``, ``.tt1``, ... images of ``deconvolver="mtmfs"`` with ``nterms``
+    terms): term k is the image ``I_k`` of
+    ``I(nu) = I_0 + I_1 x + I_2 x**2 + ...``, where
+    ``x = (nu - nu_0) / nu_0`` and ``nu_0`` is the ``reference_frequency``.
+    The model, residual, restored and primary beam corrected sky images have
+    these terms, and so may the primary beam (the Taylor terms of the beam).
+
+    A ``frequency`` coordinate beside it, for the images without polynomial
+    terms (for example the mask), is optional. It holds either one channel,
+    at the reference frequency, or the frequency channels, and then every
+    variable with a ``frequency`` dimension has all of them."""
+
+    data: Data[FrequencyPolynomial, numpy.int64 | numpy.int32]
+    """ Term index k, the power of ``x``: 0, 1, ..., n - 1. """
+
+    reference_frequency: Attr[SpectralCoordArray]
+    """ Reference frequency ``nu_0`` of the polynomial, with its spectral
+    reference frame (``observer``). A one-channel ``frequency`` coordinate
+    beside the polynomial holds this frequency. """
+    channel_width: Attr[QuantityInHertzArray] | None = None
+    """ Bandwidth that the polynomial describes. Writers that store each term
+    as an image with a one-channel spectral axis at the reference frequency
+    (as the CASA ``.ttN`` images) use it as the width of that channel. """
+    polynomial_type: Attr[Literal["taylor"]] = "taylor"
+    """ Kind of polynomial. Should be ``"taylor"``: Taylor coefficients
+    about the reference frequency, as above. """
+
+
+@xarray_dataarray_schema
+class FrequencyPolynomialMomentCoordArray:
+    """Polynomial moment coordinate of images that hold the 2n - 1 weighted
+    moments of a polynomial in frequency of n terms: the dimension
+    ``frequency_polynomial_moment``, in the place of ``frequency``.
+
+    MT-MFS needs these moments for its Hessian: moment k of the point spread
+    function is ``sum_nu w_nu x**k PSF_nu``, the weighted sum of the point
+    spread functions of the channels (normalized like the point spread
+    function, so that moment 0 is unity at its peak), and moment k of the sum
+    of weights
+    (``VISIBILITY_NORMALIZATION``) is ``sum_nu w_nu x**k``, with ``x`` as for
+    :py:class:`FrequencyPolynomialCoordArray` (the CASA ``.psf.tt0`` to
+    ``.psf.tt<2n-2>`` and ``.sumwt.tt0`` to ``.sumwt.tt<2n-2>`` images). They
+    are not Taylor coefficients. A dataset with both polynomial dimensions has
+    2n - 1 moments for the n terms of ``frequency_polynomial``."""
+
+    data: Data[FrequencyPolynomialMoment, numpy.int64 | numpy.int32]
+    """ Moment index k, the power of ``x``: 0, 1, ..., 2n - 2. """
+
+    reference_frequency: Attr[SpectralCoordArray]
+    """ Reference frequency ``nu_0`` of the polynomial, with its spectral
+    reference frame (``observer``). A one-channel ``frequency`` coordinate
+    beside the polynomial holds this frequency. """
+    channel_width: Attr[QuantityInHertzArray] | None = None
+    """ Bandwidth that the polynomial describes. Writers that store each
+    moment as an image with a one-channel spectral axis at the reference
+    frequency (as the CASA ``.ttN`` images) use it as the width of that
+    channel. """
+    polynomial_type: Attr[Literal["taylor"]] = "taylor"
+    """ Kind of polynomial. Should be ``"taylor"``: moments of the Taylor
+    polynomial about the reference frequency, as above. """
+
+
+@xarray_dataarray_schema
+class TimePolynomialCoordArray:
+    """Polynomial term coordinate of images that hold the terms of a
+    polynomial in time instead of time samples: the dimension
+    ``time_polynomial``, in the place of ``time``. With ``polynomial_type``
+    ``"taylor"`` the terms are the Taylor coefficients of the images about the
+    ``reference_time``.
+
+    A ``time`` coordinate beside it, for the images without polynomial
+    terms, is optional."""
+
+    data: Data[TimePolynomial, numpy.int64 | numpy.int32]
+    """ Term index k, the power of the time offset: 0, 1, ..., n - 1. """
+
+    reference_time: Attr[TimeMeasureArray]
+    """ Reference time of the polynomial, as a time measure. """
+    integration_time: Attr[QuantityInSecondsArray] | None = None
+    """ Time span that the polynomial describes, in seconds. """
+    polynomial_type: Attr[Literal["taylor"]] = "taylor"
+    """ Kind of polynomial. Should be ``"taylor"``: Taylor coefficients
+    about the reference time. """
 
 
 @xarray_dataarray_schema
@@ -550,20 +657,30 @@ class SkyArray:
     (without changing the image ``type``): Intensity, Beam, ColumnDensity,
     DepolarizationRatio, KineticTemperature, MagneticField, OpticalDepth,
     RotationMeasure, RotationalTemperature, SpectralIndex, Velocity or
-    VelocityDispersion."""
+    VelocityDispersion.
+
+    The Taylor coefficients of multi-term multi-frequency synthesis have the
+    dimension ``frequency_polynomial`` in the place of ``frequency`` (see
+    :py:class:`FrequencyPolynomialCoordArray`), and images of the terms of a
+    polynomial in time ``time_polynomial`` in the place of ``time``."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, L, M],
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[Time, FrequencyPolynomial, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, FrequencyPolynomial, Polarization, L, M],
         numpy.float32 | numpy.float64,
     ]
     """ Sky brightness (see ``units``, typically Jy/beam or Jy/pixel). """
 
-    time: Coordof[TimeCoordArray]
-    frequency: Coordof[FrequencyCoordArray]
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray] | None
     polarization: Coordof[PolarizationArray]
     l: Coordof[LCoordArray]  # noqa: E741
     m: Coordof[MCoordArray]
 
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+    frequency_polynomial: Coordof[FrequencyPolynomialCoordArray] | None = None
     velocity: Coordof[VelocityCoordArray] | None = None
     right_ascension: Coord[tuple[L, M], float] | None = None
     """ Right ascension of each pixel, in radians. """
@@ -610,23 +727,38 @@ class FlagArray:
     have its dimensions: for example ``FLAG_SKY`` or ``FLAG_SKY_RESIDUAL`` on
     the sky plane ``(l, m)``, ``FLAG_APERTURE`` on the aperture plane
     ``(u, v)``, and ``FLAG_VISIBILITY_NORMALIZATION`` with one value per
-    plane."""
+    plane. The flags of images with a polynomial dimension have that
+    dimension too."""
 
     data: Data[
         tuple[Time, Frequency, Polarization, L, M]
+        | tuple[Time, FrequencyPolynomial, Polarization, L, M]
+        | tuple[Time, FrequencyPolynomialMoment, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, FrequencyPolynomial, Polarization, L, M]
+        | tuple[TimePolynomial, FrequencyPolynomialMoment, Polarization, L, M]
         | tuple[Time, Frequency, Polarization, U, V]
-        | tuple[Time, Frequency, Polarization],
+        | tuple[TimePolynomial, Frequency, Polarization, U, V]
+        | tuple[Time, Frequency, Polarization]
+        | tuple[Time, FrequencyPolynomialMoment, Polarization]
+        | tuple[TimePolynomial, Frequency, Polarization]
+        | tuple[TimePolynomial, FrequencyPolynomialMoment, Polarization],
         bool,
     ]
     """ Pixel flags, ``True`` means the pixel is invalid. """
 
-    time: Coordof[TimeCoordArray]
-    frequency: Coordof[FrequencyCoordArray]
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray] | None
     polarization: Coordof[PolarizationArray]
     l: Coordof[LCoordArray] | None = None  # noqa: E741
     m: Coordof[MCoordArray] | None = None
     u: Coordof[UCoordArray] | None = None
     v: Coordof[VCoordArray] | None = None
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+    frequency_polynomial: Coordof[FrequencyPolynomialCoordArray] | None = None
+    frequency_polynomial_moment: Coordof[FrequencyPolynomialMomentCoordArray] | None = (
+        None
+    )
 
     type: Attr[Literal["flag"]] = "flag"
     """ Image type. Should be ``"flag"``. """
@@ -647,10 +779,14 @@ class BeamFitParamsArray:
     * ``BEAM_FIT_PARAMS_POINT_SPREAD_FUNCTION``: The Gaussian fit to the peak
       of the point_spread_function."""
 
-    data: Data[tuple[Time, Frequency, Polarization, BeamParamsLabel], float]
+    data: Data[
+        tuple[Time, Frequency, Polarization, BeamParamsLabel]
+        | tuple[TimePolynomial, Frequency, Polarization, BeamParamsLabel],
+        float,
+    ]
     """ Gaussian fit parameters ('major', 'minor', 'pa'), in radians. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
     beam_params_label: Coordof[BeamParamsLabelCoordArray]
@@ -658,6 +794,9 @@ class BeamFitParamsArray:
     type: Attr[str]
     """ Image type, for example ``"beam_fit_params_sky"`` (matches the image
     the parameters apply to). """
+
+    # (after type, which has no default value)
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
     units: Attr[UnitsRadians] = "rad"
     """ Units of the fit parameters. """
     allow_multiple_versions: Attr[bool] | None = True
@@ -670,16 +809,19 @@ class MaskArray:
     selected). Loaders may deliver the mask as a float valued image."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, L, M],
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M],
         numpy.float32 | numpy.float64 | bool,
     ]
     """ Mask values, nonzero/``True`` means the pixel is selected. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
     l: Coordof[LCoordArray]  # noqa: E741
     m: Coordof[MCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
 
     type: Attr[str] = "mask"
     """ Image type. Should be ``"mask"``, or ``"mask_<suffix>"`` for versioned
@@ -701,19 +843,30 @@ class MaskArray:
 class PrimaryBeamArray:
     """The effective antenna power pattern projected onto the sky, describing
     how sensitivity falls off from the pointing center. Values range from 1.0
-    at center to ~0 at the edges."""
+    at center to ~0 at the edges.
+
+    For continuum imaging the primary beam can be given by its Taylor terms,
+    with the dimension ``frequency_polynomial`` in the place of ``frequency``
+    (see :py:class:`FrequencyPolynomialCoordArray`); a frequency-resolved
+    primary beam keeps ``frequency``."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, L, M],
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[Time, FrequencyPolynomial, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, FrequencyPolynomial, Polarization, L, M],
         numpy.float32 | numpy.float64,
     ]
     """ Primary beam response. """
 
-    time: Coordof[TimeCoordArray]
-    frequency: Coordof[FrequencyCoordArray]
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray] | None
     polarization: Coordof[PolarizationArray]
     l: Coordof[LCoordArray]  # noqa: E741
     m: Coordof[MCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+    frequency_polynomial: Coordof[FrequencyPolynomialCoordArray] | None = None
 
     type: Attr[str] = "primary_beam"
     """ Image type. Should be ``"primary_beam"``, or ``"primary_beam_<suffix>"``
@@ -747,16 +900,19 @@ class VoltagePatternArray:
     elevation."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, L, M],
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M],
         numpy.complex64 | numpy.complex128,
     ]
     """ Complex voltage pattern. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
     l: Coordof[LCoordArray]  # noqa: E741
     m: Coordof[MCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
 
     type: Attr[str] = "voltage_pattern"
     """ Image type. Should be ``"voltage_pattern"``, or
@@ -778,19 +934,32 @@ class PointSpreadFunctionArray:
     """The instrumental response or "dirty beam." Represents how a point
     source would appear given the uv-coverage and weighting scheme. Used by
     deconvolution algorithms to model and remove sidelobe artifacts.
-    Determines the resolution of the image. Should be unity at the peak."""
+    Determines the resolution of the image. Should be unity at the peak.
+
+    The 2n - 1 weighted moments of the point spread function that
+    multi-term multi-frequency synthesis needs have the dimension
+    ``frequency_polynomial_moment`` in the place of ``frequency`` (see
+    :py:class:`FrequencyPolynomialMomentCoordArray`)."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, L, M],
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[Time, FrequencyPolynomialMoment, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, FrequencyPolynomialMoment, Polarization, L, M],
         numpy.float32 | numpy.float64,
     ]
     """ Point spread function. """
 
-    time: Coordof[TimeCoordArray]
-    frequency: Coordof[FrequencyCoordArray]
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray] | None
     polarization: Coordof[PolarizationArray]
     l: Coordof[LCoordArray]  # noqa: E741
     m: Coordof[MCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+    frequency_polynomial_moment: Coordof[FrequencyPolynomialMomentCoordArray] | None = (
+        None
+    )
 
     type: Attr[str] = "point_spread_function"
     """ Image type. Should be ``"point_spread_function"``, or
@@ -816,17 +985,28 @@ class PointSpreadFunctionArray:
 class VisibilityNormalizationArray:
     """The aggregate of the image weights (the sum of gridded weights per
     plane) and used to normalize the gridded visibilities. Loaded from the
-    CASA sum of weights ('sumwt') image."""
+    CASA sum of weights ('sumwt') image. The 2n - 1 weighted moments of the
+    sum of weights of multi-term multi-frequency synthesis have the dimension
+    ``frequency_polynomial_moment`` in the place of ``frequency`` (see
+    :py:class:`FrequencyPolynomialMomentCoordArray`)."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization],
+        tuple[Time, Frequency, Polarization]
+        | tuple[Time, FrequencyPolynomialMoment, Polarization]
+        | tuple[TimePolynomial, Frequency, Polarization]
+        | tuple[TimePolynomial, FrequencyPolynomialMoment, Polarization],
         numpy.float32 | numpy.float64,
     ]
     """ Sum of weights per image plane. """
 
-    time: Coordof[TimeCoordArray]
-    frequency: Coordof[FrequencyCoordArray]
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray] | None
     polarization: Coordof[PolarizationArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+    frequency_polynomial_moment: Coordof[FrequencyPolynomialMomentCoordArray] | None = (
+        None
+    )
 
     type: Attr[Literal["visibility_normalization"]] = "visibility_normalization"
     """ Image type. Should be ``"visibility_normalization"``. """
@@ -849,16 +1029,19 @@ class VisibilityArray:
     debugging."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, U, V],
+        tuple[Time, Frequency, Polarization, U, V]
+        | tuple[TimePolynomial, Frequency, Polarization, U, V],
         numpy.complex64 | numpy.complex128,
     ]
     """ Gridded visibility values. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
     u: Coordof[UCoordArray]
     v: Coordof[VCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
 
     type: Attr[Literal["visibility"]] = "visibility"
     """ Image type. Should be ``"visibility"``. """
@@ -881,16 +1064,19 @@ class UvSamplingArray:
     debugging."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, U, V],
+        tuple[Time, Frequency, Polarization, U, V]
+        | tuple[TimePolynomial, Frequency, Polarization, U, V],
         numpy.float32 | numpy.float64 | numpy.complex64 | numpy.complex128,
     ]
     """ Gridded weight values. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
     u: Coordof[UCoordArray]
     v: Coordof[VCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
 
     type: Attr[Literal["uv_sampling"]] = "uv_sampling"
     """ Image type. Should be ``"uv_sampling"``. """
@@ -912,14 +1098,17 @@ class UvSamplingNormalizationArray:
     sensitivity can be calculated using 1/sqrt(uv_sampling_normalization)."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization],
+        tuple[Time, Frequency, Polarization]
+        | tuple[TimePolynomial, Frequency, Polarization],
         numpy.float32 | numpy.float64,
     ]
     """ Sum of weights per plane. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
 
     type: Attr[Literal["uv_sampling_normalization"]] = "uv_sampling_normalization"
     """ Image type. Should be ``"uv_sampling_normalization"``. """
@@ -933,16 +1122,19 @@ class ApertureArray:
     beam). Only used internally and for debugging."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization, U, V],
+        tuple[Time, Frequency, Polarization, U, V]
+        | tuple[TimePolynomial, Frequency, Polarization, U, V],
         numpy.complex64 | numpy.complex128,
     ]
     """ Gridded aperture values. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
     u: Coordof[UCoordArray]
     v: Coordof[VCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
 
     type: Attr[Literal["aperture"]] = "aperture"
     """ Image type. Should be ``"aperture"``. """
@@ -963,18 +1155,134 @@ class ApertureNormalizationArray:
     """Normalization used by the aperture data."""
 
     data: Data[
-        tuple[Time, Frequency, Polarization],
+        tuple[Time, Frequency, Polarization]
+        | tuple[TimePolynomial, Frequency, Polarization],
         numpy.float32 | numpy.float64,
     ]
     """ Aperture normalization per plane. """
 
-    time: Coordof[TimeCoordArray]
+    time: Coordof[TimeCoordArray] | None
     frequency: Coordof[FrequencyCoordArray]
     polarization: Coordof[PolarizationArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
 
     type: Attr[Literal["aperture_normalization"]] = "aperture_normalization"
     """ Image type. Should be ``"aperture_normalization"``. """
     units: Attr[str] | None = None
+
+
+@xarray_dataarray_schema
+class AlphaArray:
+    """Spectral index of the sky brightness at the reference frequency
+    ``nu_0`` of the frequency polynomial: ``alpha`` of
+    ``I(nu) = I(nu_0) * (nu / nu_0) ** (alpha + beta * ln(nu / nu_0))``,
+    which MT-MFS derives from the restored Taylor terms as ``I_1 / I_0``
+    (the CASA ``.alpha`` image). It is an image on a one-channel
+    ``frequency`` axis at the reference frequency (:py:func:`check_image`
+    requires one channel), and no data group role refers to it."""
+
+    data: Data[
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M],
+        numpy.float32 | numpy.float64,
+    ]
+    """ Spectral index (dimensionless). """
+
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray]
+    polarization: Coordof[PolarizationArray]
+    l: Coordof[LCoordArray]  # noqa: E741
+    m: Coordof[MCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+
+    type: Attr[Literal["alpha"]] = "alpha"
+    """ Image type. Should be ``"alpha"``. """
+    units: Attr[str] | None = None
+    telescope: Attr[TelescopeDict] | None = None
+    observer: Attr[str] | None = None
+    obsdate: Attr[TimeMeasureArray] | None = None
+    pointing_center: Attr[SkyDirectionArray] | None = None
+    object_name: Attr[str] | None = None
+    user: Attr[UserDict] | None = None
+    description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
+
+
+@xarray_dataarray_schema
+class AlphaErrorArray:
+    """Error of the spectral index (see :py:class:`AlphaArray`), the CASA
+    ``.alpha.error`` image of MT-MFS. It is an image on a one-channel
+    ``frequency`` axis at the reference frequency (:py:func:`check_image`
+    requires one channel), and no data group role refers to it."""
+
+    data: Data[
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M],
+        numpy.float32 | numpy.float64,
+    ]
+    """ Error of the spectral index (dimensionless). """
+
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray]
+    polarization: Coordof[PolarizationArray]
+    l: Coordof[LCoordArray]  # noqa: E741
+    m: Coordof[MCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+
+    type: Attr[Literal["alpha_error"]] = "alpha_error"
+    """ Image type. Should be ``"alpha_error"``. """
+    units: Attr[str] | None = None
+    telescope: Attr[TelescopeDict] | None = None
+    observer: Attr[str] | None = None
+    obsdate: Attr[TimeMeasureArray] | None = None
+    pointing_center: Attr[SkyDirectionArray] | None = None
+    object_name: Attr[str] | None = None
+    user: Attr[UserDict] | None = None
+    description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
+
+
+@xarray_dataarray_schema
+class BetaArray:
+    """Spectral curvature of the sky brightness at the reference frequency
+    (``beta`` in :py:class:`AlphaArray`), which MT-MFS with three or more
+    Taylor terms derives as ``I_2 / I_0 - alpha * (alpha - 1) / 2`` (the CASA
+    ``.beta`` image). It is an image on a one-channel ``frequency`` axis at
+    the reference frequency (:py:func:`check_image` requires one channel),
+    and no data group role refers to it."""
+
+    data: Data[
+        tuple[Time, Frequency, Polarization, L, M]
+        | tuple[TimePolynomial, Frequency, Polarization, L, M],
+        numpy.float32 | numpy.float64,
+    ]
+    """ Spectral curvature (dimensionless). """
+
+    time: Coordof[TimeCoordArray] | None
+    frequency: Coordof[FrequencyCoordArray]
+    polarization: Coordof[PolarizationArray]
+    l: Coordof[LCoordArray]  # noqa: E741
+    m: Coordof[MCoordArray]
+
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+
+    type: Attr[Literal["beta"]] = "beta"
+    """ Image type. Should be ``"beta"``. """
+    units: Attr[str] | None = None
+    telescope: Attr[TelescopeDict] | None = None
+    observer: Attr[str] | None = None
+    obsdate: Attr[TimeMeasureArray] | None = None
+    pointing_center: Attr[SkyDirectionArray] | None = None
+    object_name: Attr[str] | None = None
+    user: Attr[UserDict] | None = None
+    description: Attr[str] | None = None
+    sub_type: Attr[str] | None = None
+    """ Sub image type, derived from the casacore image type, if known. """
 
 
 # Data Sets
@@ -993,13 +1301,33 @@ class ImageXds:
     dimensions (the direction cosines for the SIN projection, see
     :py:class:`LCoordArray`), aperture plane data on the conjugate ``(u, v)``
     dimensions.
+
+    Images that hold the terms of a polynomial in frequency, such as the
+    Taylor coefficients of multi-term multi-frequency synthesis (MT-MFS),
+    have a polynomial dimension in the place of ``frequency``:
+    ``frequency_polynomial`` for the n terms of the model, residual, restored
+    and primary beam corrected sky images (and of a primary beam given by its
+    Taylor terms), ``frequency_polynomial_moment`` for the 2n - 1 weighted
+    moments of the point spread function and the sum of weights (see
+    :py:class:`FrequencyPolynomialCoordArray` and
+    :py:class:`FrequencyPolynomialMomentCoordArray`). The other images (the
+    mask, a frequency-resolved primary beam, ``ALPHA``, ``ALPHA_ERROR`` and
+    ``BETA``) and the beam fit parameters keep ``frequency``, which then
+    holds one channel at the reference frequency or all the channels (one
+    ``frequency`` axis per dataset). Likewise ``time_polynomial`` can take the
+    place of ``time`` (see :py:class:`TimePolynomialCoordArray`).
     """
 
-    # --- Required Coordinates ---
-    time: Coordof[TimeCoordArray]
-    """ Observation time (typically a single value, the observation date). """
-    frequency: Coordof[FrequencyCoordArray]
-    """ Center frequencies for each channel. """
+    # --- Required Coordinates (time and frequency, or polynomial dims instead) ---
+    time: Coordof[TimeCoordArray] | None
+    """ Observation time (typically a single value, the observation date).
+    Every image dataset has ``time`` or ``time_polynomial``, or both. """
+    frequency: Coordof[FrequencyCoordArray] | None
+    """ Center frequencies for each channel. Every image dataset has
+    ``frequency`` or a frequency polynomial dimension
+    (``frequency_polynomial``, ``frequency_polynomial_moment``), or both;
+    beside a polynomial dimension ``frequency`` holds one channel, at the
+    reference frequency of the polynomial, or all the channels. """
     polarization: Coordof[PolarizationArray]
     """ Labels for polarization types, e.g. ``['I', 'Q', 'U', 'V']``, in the
     order of the casacore ``Stokes`` enumeration (``I, Q, U, V``,
@@ -1026,6 +1354,20 @@ class ImageXds:
     # --- Optional Coordinates ---
     velocity: Coordof[VelocityCoordArray] | None = None
     """ Velocity of each frequency channel (non-dimensional coordinate parallel to ``frequency``). """
+    time_polynomial: Coordof[TimePolynomialCoordArray] | None = None
+    """ Terms of a polynomial in time, in the place of ``time`` (see
+    :py:class:`TimePolynomialCoordArray`). """
+    frequency_polynomial: Coordof[FrequencyPolynomialCoordArray] | None = None
+    """ Terms of a polynomial in frequency, in the place of ``frequency``,
+    for example the n Taylor coefficients of MT-MFS (see
+    :py:class:`FrequencyPolynomialCoordArray`). """
+    frequency_polynomial_moment: Coordof[FrequencyPolynomialMomentCoordArray] | None = (
+        None
+    )
+    """ The 2n - 1 weighted moments of a polynomial in frequency of n terms,
+    in the place of ``frequency``, for the point spread function and the sum
+    of weights of MT-MFS (see
+    :py:class:`FrequencyPolynomialMomentCoordArray`). """
     l: Coordof[LCoordArray] | None = None  # noqa: E741
     """ Projection plane coordinate towards the east (sky plane images; the
     direction cosine for the SIN projection). """
@@ -1074,6 +1416,14 @@ class ImageXds:
     """ Gridded weighted apertures (aperture plane). """
     APERTURE_NORMALIZATION: Dataof[ApertureNormalizationArray] | None = None
     """ Normalization of the aperture data. """
+    ALPHA: Dataof[AlphaArray] | None = None
+    """ Spectral index at the reference frequency of the frequency polynomial
+    (one channel), in no data group. """
+    ALPHA_ERROR: Dataof[AlphaErrorArray] | None = None
+    """ Error of the spectral index (one channel), in no data group. """
+    BETA: Dataof[BetaArray] | None = None
+    """ Spectral curvature at the reference frequency of the frequency
+    polynomial (one channel), in no data group. """
 
     # --- Optional Attributes ---
     coordinate_system_info: Attr[CoordinateSystemInfoDict] | None = None
@@ -1136,7 +1486,15 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
       writers select them by label, but other software indexes them by
       position);
     * the polarization labels are in canonical (casacore ``Stokes``, Jones
-      matrix) order, see :py:class:`ImageXds`.
+      matrix) order, see :py:class:`ImageXds`;
+    * the dataset has ``time`` or ``time_polynomial``, and ``frequency`` or a
+      frequency polynomial dimension (``frequency_polynomial``,
+      ``frequency_polynomial_moment``), each with its coordinate; the
+      polynomial terms are numbered 0, 1, ..., n - 1; there are 2n - 1
+      ``frequency_polynomial_moment`` moments for n ``frequency_polynomial``
+      terms; a one-channel ``frequency`` beside a frequency polynomial is at
+      its reference frequency; and ``ALPHA``, ``ALPHA_ERROR`` and ``BETA``
+      have one channel.
 
     A defect of a data variable is reported once, under the name of that
     variable, also when several data groups reference it. A defect of a
@@ -1144,8 +1502,9 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
     has the coordinate.
 
     The check covers structure and vocabularies (dimensions, dtypes and
-    attribute types and values). Apart from the beam parameter labels and the
-    order of the polarization labels it does not check coordinate values, nor
+    attribute types and values). Apart from the beam parameter labels, the
+    order of the polarization labels and the rules for the polynomial
+    dimensions above it does not check coordinate values, nor
     the consistency of attributes with each
     other, and a conforming dataset is not necessarily writable in every
     format: the CASA and FITS writers raise
@@ -1176,6 +1535,7 @@ def check_image(image_xds: xarray.Dataset) -> SchemaIssues:
     issues += _check_reference_attributes(image_xds, checked)
     issues += _check_beam_params_labels(image_xds)
     issues += check_polarization_order(image_xds)
+    issues += _check_polynomial_dimensions(image_xds)
     return issues
 
 
@@ -1243,3 +1603,120 @@ def _check_beam_params_labels(image_xds: xarray.Dataset) -> SchemaIssues:
             )
         ]
     )
+
+
+def _check_polynomial_dimensions(image_xds: xarray.Dataset) -> SchemaIssues:
+    """Check the time and frequency dimensions of an image dataset and the
+    polynomial dimensions that can take their place (see
+    :py:class:`ImageXds`).
+
+    The schema makes ``time`` and ``frequency`` optional, since polynomial
+    dimensions can replace them; this checks that a dataset has one of each
+    kind, with its coordinate, and the rules of the polynomial dimensions
+    that a schema cannot express.
+
+    :param image_xds: Image dataset
+    :returns: Schema issues found
+    """
+
+    issues = SchemaIssues()
+    dims = image_xds.sizes
+    polynomial_dims = (
+        "time_polynomial",
+        "frequency_polynomial",
+        "frequency_polynomial_moment",
+    )
+    for alternatives in (
+        ("time", "time_polynomial"),
+        ("frequency", "frequency_polynomial", "frequency_polynomial_moment"),
+    ):
+        if not any(dim in dims for dim in alternatives):
+            others = " or ".join(f"'{dim}'" for dim in alternatives[1:])
+            issues.add(
+                SchemaIssue(
+                    path=[("dims", None)],
+                    message=f"Missing dimension '{alternatives[0]}' (or {others})!",
+                    found=list(dims),
+                    expected=list(alternatives),
+                )
+            )
+    for dim in ("time", "frequency", *polynomial_dims):
+        if dim in dims and dim not in image_xds.coords:
+            issues.add(
+                SchemaIssue(
+                    path=[("coords", dim)],
+                    message=f"Required coordinate '{dim}' is missing!",
+                )
+            )
+
+    # The terms (moments) are numbered from 0, in order
+    for dim in polynomial_dims:
+        if dim not in image_xds.coords:
+            continue
+        values = numpy.asarray(image_xds.coords[dim].values).tolist()
+        expected = list(range(dims[dim]))
+        if values != expected:
+            issues.add(
+                SchemaIssue(
+                    path=[("coords", dim)],
+                    message="Polynomial terms must be numbered 0, 1, ..., n - 1 "
+                    "in this order!",
+                    found=values,
+                    expected=[expected],
+                )
+            )
+
+    # 2n - 1 weighted moments for n terms
+    if "frequency_polynomial" in dims and "frequency_polynomial_moment" in dims:
+        n_terms = dims["frequency_polynomial"]
+        if dims["frequency_polynomial_moment"] != 2 * n_terms - 1:
+            issues.add(
+                SchemaIssue(
+                    path=[("coords", "frequency_polynomial_moment")],
+                    message=f"There must be 2n - 1 = {2 * n_terms - 1} moments "
+                    f"for the n = {n_terms} terms of frequency_polynomial!",
+                    found=dims["frequency_polynomial_moment"],
+                    expected=[2 * n_terms - 1],
+                )
+            )
+
+    # A one-channel frequency beside a frequency polynomial is at its
+    # reference frequency (a malformed reference frequency has been reported
+    # by the coordinate check)
+    if "frequency" in image_xds.coords and dims.get("frequency") == 1:
+        frequency = float(numpy.asarray(image_xds.coords["frequency"].values)[0])
+        for dim in ("frequency_polynomial", "frequency_polynomial_moment"):
+            if dim not in image_xds.coords:
+                continue
+            reference = image_xds.coords[dim].attrs.get("reference_frequency")
+            value = reference.get("data") if isinstance(reference, dict) else None
+            if not isinstance(value, int | float | numpy.number):
+                continue
+            if not numpy.isclose(frequency, float(value), rtol=1e-9, atol=0.0):
+                issues.add(
+                    SchemaIssue(
+                        path=[("coords", "frequency")],
+                        message="A one-channel frequency beside "
+                        f"{dim} must be its reference frequency!",
+                        found=frequency,
+                        expected=[float(value)],
+                    )
+                )
+
+    # The spectral index, its error and the curvature are single images at
+    # the reference frequency
+    for name in ("ALPHA", "ALPHA_ERROR", "BETA"):
+        if name not in image_xds.data_vars:
+            continue
+        n_channels = image_xds[name].sizes.get("frequency")
+        if n_channels is not None and n_channels != 1:
+            issues.add(
+                SchemaIssue(
+                    path=[("data_vars", name), ("dims", None)],
+                    message=f"{name} must have a one-channel frequency axis (at "
+                    "the reference frequency)!",
+                    found=n_channels,
+                    expected=[1],
+                )
+            )
+    return issues

@@ -44,6 +44,7 @@ def open_partition(
     partition_descr: dict[str, np.ndarray],
     with_pointing: bool = False,
     pointing_for_only_spectral_resolution_types: list[str] = None,
+    ephemeris_interpolate: bool = True,
 ) -> xr.DataTree:
     """Open an ASDM partition and assemble its MSv4 DataTree.
 
@@ -65,6 +66,9 @@ def open_partition(
         pointing data should be included. The filter applies only when
         ``with_pointing`` is true. If this is ``None`` or empty, pointing data
         is included for every partition when requested.
+    ephemeris_interpolate: bool, optional
+        Whether to interpolate ephemeris data to the correlated_xds time
+        coordinate. True by default.
 
     Returns
     -------
@@ -107,7 +111,12 @@ def open_partition(
 
     # field_and_source_xds
     field_and_source_xds = create_field_and_source_xds(
-        asdm, partition_descr, spw_id, is_spectrum_xds, correlated_xds.coords["time"]
+        asdm,
+        partition_descr,
+        spw_id,
+        is_spectrum_xds,
+        correlated_xds.coords["time"],
+        ephemeris_interpolate,
     )
 
     if not is_spectrum_xds:

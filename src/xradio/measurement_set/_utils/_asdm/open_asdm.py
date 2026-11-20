@@ -128,6 +128,7 @@ def open_asdm(
                 partition_descr,
                 with_pointing,
                 pointing_for_only_spectral_resolution_types,
+                ephemeris_interpolate,
             )
         except RuntimeError as exc:
             trace = traceback.format_exc()

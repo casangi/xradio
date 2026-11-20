@@ -317,7 +317,7 @@ def _extract_ephemeris_info(
 
     xds.attrs["type"] = "field_and_source_ephemeris"
 
-    ephemeris_df = _read_ephemeris_table(asdm)
+    ephemeris_df = _read_ephemeris_table(asdm, ephemeris_id)
 
     xds = _add_coord_ephemeris_time(xds, ephemeris_df)
 
@@ -334,13 +334,15 @@ def _extract_ephemeris_info(
     return xds
 
 
-def _read_ephemeris_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
+def _read_ephemeris_table(asdm: pyasdm.ASDM, ephemeris_id: int) -> pd.DataFrame:
     """Read required and optional metadata from the ASDM Ephemeris table.
 
     Parameters
     ----------
     asdm : pyasdm.ASDM
         ASDM object containing the Ephemeris table.
+    ephemeris_id: int
+        Relevant ID for this partition. From the ASDM ephemerisId
 
     Returns
     -------
@@ -373,6 +375,8 @@ def _read_ephemeris_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
         sdm_ephemeris_required_attrs + sdm_ephemeris_optional_attrs,
         optional_per_row=True,
     )
+
+    ephemeris_df = ephemeris_df.loc[ephemeris_df["ephemerisId"].isin([ephemeris_id])]
 
     return ephemeris_df
 
@@ -443,14 +447,16 @@ def _add_observer_position(xds: xr.Dataset, ephemeris_df: pd.DataFrame) -> xr.Da
         observer_location[0] == observer_location[1] == observer_location[2] == 0.0
     )
 
-    location = EarthLocation.from_geodetic(
-        lon=observer_location[0] * u.rad,
-        lat=observer_location[1] * u.rad,
-        height=observer_location[2] * u.m,
-        ellipsoid="WGS84",
-    )
-
-    observer_position = location.itrs.cartesian.xyz.to_value(u.m)
+    if is_geocentric:
+        observer_position = [0, 0, 0]
+    else:
+        location = EarthLocation.from_geodetic(
+            lon=observer_location[0] * u.rad,
+            lat=observer_location[1] * u.rad,
+            height=observer_location[2] * u.m,
+            ellipsoid="WGS84",
+        )
+        observer_position = location.itrs.cartesian.xyz.to_value(u.m)
 
     xds = xds.assign_coords(
         {"sky_dis_label": ["dist"], "cartesian_pos_label": ["x", "y", "z"]}
@@ -609,7 +615,7 @@ def _interpolate_and_sum_source_and_field_direction(
     center_direction_name = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
     center_distance_name = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
-    xds = xds.assign_coords({"time": ("field_name", time_to_interpolate)})
+    xds = xds.assign_coords({"time": ("field_name", time_to_interpolate.data)})
     # TODO: revise/settle the tai <=> utc/unix discrepancies together with other datasets
     # (xradio/689) - also check against "standard_time_coord_attrs"
     time_attrs = make_time_measure_attrs("s", "tai", time_format="unix")

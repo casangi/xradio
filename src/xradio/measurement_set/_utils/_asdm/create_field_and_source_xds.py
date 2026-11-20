@@ -27,10 +27,10 @@ from xradio.measurement_set._utils._asdm._utils.metadata_tables import (
     exp_asdm_table_to_df,
 )
 from xradio.measurement_set._utils._asdm._utils.time import convert_time_asdm_to_unix
-from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+from xradio.measurement_set._utils._utils.interpolate import (
+    interpolate_to_time,
     rename_and_interpolate_to_time,
 )
-from xradio.measurement_set._utils._utils.interpolate import interpolate_to_time
 
 
 def create_field_and_source_xds(

@@ -51,9 +51,9 @@ def make_asdm_with_spw_simple():
   </row>
     """
     # chanWidth manually changed to negative sign
-    spw_row_spec_8 = """
+    spw_row_spec_1 = """
   <row>
-    <spectralWindowId> SpectralWindow_8 </spectralWindowId>
+    <spectralWindowId> SpectralWindow_1 </spectralWindowId>
     <basebandName>BB_1</basebandName>
     <netSideband>LSB</netSideband>
     <numChan> 128 </numChan>
@@ -81,9 +81,9 @@ def make_asdm_with_spw_simple():
     spw_row_0 = pyasdm.SpectralWindowRow(test_spw_table)
     spw_row_0.setFromXML(spw_row_spec_0)
     test_spw_table.add(spw_row_0)
-    spw_row_8 = pyasdm.SpectralWindowRow(test_spw_table)
-    spw_row_8.setFromXML(spw_row_spec_8)
-    test_spw_table.add(spw_row_8)
+    spw_row_1 = pyasdm.SpectralWindowRow(test_spw_table)
+    spw_row_1.setFromXML(spw_row_spec_1)
+    test_spw_table.add(spw_row_1)
     assert test_spw_table.size() == 2
     return test_asdm
 
@@ -199,7 +199,7 @@ def add_main_table(asdm: pyasdm.ASDM):
     main_row_1_xml = """
   <row>
     <time> 5009117394144000000 </time>
-    <numAntenna> 9 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <timeSampling>INTEGRATION</timeSampling>
     <interval> 24192000000 </interval>
     <numIntegration> 12 </numIntegration>
@@ -371,7 +371,7 @@ def add_config_description_table(asdm: pyasdm.ASDM):
     <processorType>RADIOMETER</processorType>
     <spectralType>BASEBAND_WIDE</spectralType>
     <antennaId> 1 12 Antenna_0 Antenna_1 Antenna_2 Antenna_3 Antenna_4 Antenna_5 Antenna_6 Antenna_7 Antenna_8 Antenna_9 Antenna_10 Antenna_11  </antennaId>
-    <dataDescriptionId> 1 4 DataDescription_0 DataDescription_1 DataDescription_2 DataDescription_3  </dataDescriptionId>
+    <dataDescriptionId> 1 4 DataDescription_0 DataDescription_2 DataDescription_4 DataDescription_6  </dataDescriptionId>
     <feedId> 1 12 0 0 0 0 0 0 0 0 0 0 0 0  </feedId>
     <processorId> Processor_0 </processorId>
     <switchCycleId> 1 4 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0  </switchCycleId>
@@ -379,7 +379,7 @@ def add_config_description_table(asdm: pyasdm.ASDM):
     """
     config_description_row_1_xml = """
   <row>
-    <numAntenna> 9 </numAntenna>
+    <numAntenna> 2 </numAntenna>
     <numDataDescription> 4 </numDataDescription>
     <numFeed> 1 </numFeed>
     <correlationMode>CROSS_AND_AUTO</correlationMode>
@@ -392,7 +392,7 @@ def add_config_description_table(asdm: pyasdm.ASDM):
     <assocNature> 1 1 CHANNEL_AVERAGE</assocNature>
     <antennaId> 1 9 Antenna_0 Antenna_1 Antenna_2 Antenna_3 Antenna_4 Antenna_5 Antenna_6 Antenna_7 Antenna_8  </antennaId>
     <assocConfigDescriptionId> 1 1 ConfigDescription_2  </assocConfigDescriptionId>
-    <dataDescriptionId> 1 4 DataDescription_4 DataDescription_6 DataDescription_8 DataDescription_10  </dataDescriptionId>
+    <dataDescriptionId> 1 4 DataDescription_1 DataDescription_3 DataDescription_5 DataDescription_7  </dataDescriptionId>
     <feedId> 1 9 0 0 0 0 0 0 0 0 0  </feedId>
     <processorId> Processor_1 </processorId>
     <switchCycleId> 1 4 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0 SwitchCycle_0  </switchCycleId>
@@ -468,10 +468,21 @@ def add_processor_table(asdm: pyasdm.ASDM):
     <processorSubType>SQUARE_LAW_DETECTOR</processorSubType>
   </row>
     """
+    processor_row_1_xml = """
+  <row>
+    <processorId>Processor_1</processorId>
+    <modeId>CorrelatorMode_0</modeId>
+    <processorType>CORRELATOR</processorType>
+    <processorSubType>ALMA_CORRELATOR_MODE</processorSubType>
+  </row>
+    """
     processor_table = asdm.getProcessor()
     processor_row_0 = pyasdm.ProcessorRow(processor_table)
     processor_row_0.setFromXML(processor_row_0_xml)
     processor_table.add(processor_row_0)
+    processor_row_1 = pyasdm.ProcessorRow(processor_table)
+    processor_row_1.setFromXML(processor_row_1_xml)
+    processor_table.add(processor_row_1)
 
 
 def add_sd_processor_table(asdm: pyasdm.ASDM):
@@ -605,10 +616,20 @@ def add_data_description_table(asdm: pyasdm.ASDM):
     <spectralWindowId> SpectralWindow_0 </spectralWindowId>
   </row>
     """
+    data_description_row_1_xml = """
+  <row>
+    <dataDescriptionId> DataDescription_1 </dataDescriptionId>
+    <polOrHoloId> Polarization_0 </polOrHoloId>
+    <spectralWindowId> SpectralWindow_1 </spectralWindowId>
+  </row>
+    """
     data_description_table = asdm.getDataDescription()
     data_description_row_0 = pyasdm.DataDescriptionRow(data_description_table)
     data_description_row_0.setFromXML(data_description_row_0_xml)
     data_description_table.add(data_description_row_0)
+    data_description_row_1 = pyasdm.DataDescriptionRow(data_description_table)
+    data_description_row_1.setFromXML(data_description_row_1_xml)
+    data_description_table.add(data_description_row_1)
 
 
 def make_asdm_with_main_data_description_config_description_antenna_polarization():
@@ -670,11 +691,25 @@ def add_source_table(asdm: pyasdm.ASDM):
     <size> 2 4 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </size>
     <spectralWindowId> SpectralWindow_0 </spectralWindowId>
   </row>
-"""
+    """
+    source_row_1_xml = """
+  <row>
+    <sourceId> 0 </sourceId>
+    <timeInterval> 7090683272335387903 4265377529038775807 </timeInterval>
+    <code> none </code>
+    <direction> 1 2 1.3528024488371877 0.31436086058385826  </direction>
+    <properMotion> 1 2 0.0 0.0  </properMotion>
+    <sourceName> J0510+1800 </sourceName>
+    <spectralWindowId> SpectralWindow_1 </spectralWindowId>
+  </row>
+    """
     source_table = asdm.getSource()
     source_row_0 = pyasdm.SourceRow(source_table)
     source_row_0.setFromXML(source_row_0_xml)
     source_table.add(source_row_0)
+    source_row_1 = pyasdm.SourceRow(source_table)
+    source_row_1.setFromXML(source_row_1_xml)
+    source_table.add(source_row_1)
 
 
 def make_asdm_with_main_etc_data_description_polarization_field_source():
@@ -1102,10 +1137,37 @@ def add_spw_table(asdm: pyasdm.ASDM):
     <assocSpectralWindowId> 1 1 SpectralWindow_0  </assocSpectralWindowId>
   </row>
     """
+    spw_row_1_xml = """
+  <row>
+    <spectralWindowId> SpectralWindow_1 </spectralWindowId>
+    <basebandName>BB_1</basebandName>
+    <netSideband>LSB</netSideband>
+    <numChan> 128 </numChan>
+    <numBin> 1 </numBin>
+    <refFreq> 9.702100190734863E10 </refFreq>
+    <sidebandProcessingMode>NONE</sidebandProcessingMode>
+    <totBandwidth> 2.0E9 </totBandwidth>
+    <windowFunction>HANNING</windowFunction>
+    <chanFreqStart> 9.701318940734863E10 </chanFreqStart>
+    <chanFreqStep> -1.5625E7 </chanFreqStep>
+    <chanWidth> 1.5625E7 </chanWidth>
+    <effectiveBw> 4.1671875E7 </effectiveBw>
+    <name> X0000000000#ALMA_RB_03#BB_1#SW-01#FULL_RES </name>
+    <quantization> false </quantization>
+    <refChan> -0.5 </refChan>
+    <resolution> 3.125E7 </resolution>
+    <numAssocValues> 4 </numAssocValues>
+    <assocNature> 1 4 BASEBAND_WIDE BASEBAND_WIDE BASEBAND_WIDE CHANNEL_AVERAGE</assocNature>
+    <assocSpectralWindowId> 1 4 SpectralWindow_5 SpectralWindow_6 SpectralWindow_7 SpectralWindow_9  </assocSpectralWindowId>
+  </row>
+    """
     spw_table = asdm.getSpectralWindow()
     spw_row_0 = pyasdm.SpectralWindowRow(spw_table)
     spw_row_0.setFromXML(spw_row_0_xml)
     spw_table.add(spw_row_0)
+    spw_row_1 = pyasdm.SpectralWindowRow(spw_table)
+    spw_row_1.setFromXML(spw_row_1_xml)
+    spw_table.add(spw_row_1)
 
 
 def add_scan_table(asdm: pyasdm.ASDM):

@@ -25,7 +25,7 @@ class ASDMBackendEntryPoint(BackendEntrypoint):
         except ModuleNotFoundError as exc:
             raise ImportError(
                 "The ASDM backend of xradio (xradio_asdm) requires the optional "
-                f" dependency pyasdm. It does not seem to be available. Details: {exc}"
+                f"dependency pyasdm. It does not seem to be available. Details: {exc}"
             ) from exc
         return open_asdm
 

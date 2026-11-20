@@ -374,8 +374,12 @@ def create_data_vars(
     data_vars[data_var_name] = (
         dims_data_weight_flag,
         xr.core.indexing.LazilyIndexedArray(
-            asdm_backend_arrays.VisibilityArray(
-                shape_vis_weight_flag, bdf_paths, bdf_spw_id, time_indices_by_bdf
+            asdm_backend_arrays.VisibilitySpectrumArray(
+                data_var_name,
+                shape_vis_weight_flag,
+                bdf_paths,
+                bdf_spw_id,
+                time_indices_by_bdf,
             )
         ),
         data_attrs,
@@ -586,14 +590,14 @@ def _create_antenna_coords(
     config = config_description_df.loc[
         config_description_df["configDescriptionId"] == config_description_id
     ]
-    num_antenna = config["numAntenna"].values[0]
+    num_antenna = config["numAntenna"].item()
     # TODO: use/constrain by num_antenna
 
     sdm_antenna_attrs = [
         "name",
     ]
     antenna_df = exp_asdm_table_to_df(asdm, "Antenna", sdm_antenna_attrs)
-    antenna_name = antenna_df["name"].values
+    antenna_name = antenna_df["name"].to_numpy(dtype="str")
     coords_antennas = {}
     coords_antennas["antenna_name"] = antenna_name
     len_antenna_coords = len(antenna_name)
@@ -628,8 +632,8 @@ def _create_baseline_coords(
     config = config_description_df.loc[
         config_description_df["configDescriptionId"] == config_description_id
     ]
-    num_antenna = config["numAntenna"].values[0]
-    correlation_mode = config["correlationMode"].values[0]
+    num_antenna = config["numAntenna"].item()
+    correlation_mode = config["correlationMode"].item()
     if correlation_mode == pyasdm.enumerations.CorrelationMode.AUTO_ONLY:
         auto_corr_indices = np.arange(num_antenna)
         baseline_antenna1_id = baseline_antenna2_id = auto_corr_indices
@@ -646,7 +650,7 @@ def _create_baseline_coords(
         "name",
     ]
     antenna_df = exp_asdm_table_to_df(asdm, "Antenna", sdm_antenna_attrs)
-    antenna_name = antenna_df["name"].values
+    antenna_name = antenna_df["name"].to_numpy(dtype="str")
     coords_baselines["baseline_antenna1_name"] = (
         ["baseline_id"],
         list([antenna_name[idx] for idx in baseline_antenna1_id]),
@@ -671,8 +675,8 @@ def _create_polarizations_coord(
     data_description = data_description_df.loc[
         data_description_df["dataDescriptionId"] == dd_id
     ]
-    spw_id = data_description["spectralWindowId"].values[0]
-    pol_setup_id = data_description["polOrHoloId"].values[0]
+    spw_id = data_description["spectralWindowId"].item()
+    pol_setup_id = data_description["polOrHoloId"].item()
 
     # polarization coord
     sdm_polarization_attrs = ["polarizationId", "numCorr", "corrType"]
@@ -680,8 +684,8 @@ def _create_polarizations_coord(
     polarization_metadata = polarization_df.loc[
         polarization_df["polarizationId"] == pol_setup_id
     ]
-    num_corr = polarization_metadata["numCorr"].values[0]
-    polarization_setup = polarization_metadata["corrType"].values[0][:num_corr]
+    num_corr = polarization_metadata["numCorr"].item()
+    polarization_setup = polarization_metadata["corrType"].item()[:num_corr]
 
     return polarization_setup, spw_id, data_description_df
 
@@ -733,7 +737,7 @@ def _create_frequency_coord_attrs(
     spw_df = exp_asdm_table_to_df(asdm, "SpectralWindow", sdm_spw_attrs)
     spectral_window = spw_df.loc[spw_df["spectralWindowId"] == spw_id]
     spw_name = get_spw_name(asdm, spw_id)
-    num_chan = spectral_window["numChan"].values[0]
+    num_chan = spectral_window["numChan"].item()
     frequency_centers = get_spw_frequency_centers(asdm, spw_id, num_chan)
 
     frequency_coord = (["frequency"], [freq for freq in frequency_centers])
@@ -744,7 +748,7 @@ def _create_frequency_coord_attrs(
         "spectral_window_name": ensure_spw_name_conforms(spw_name, spw_id),
         "spectral_window_intents": ["UNSPECIFIED"],
         "reference_frequency": make_spectral_coord_reference_dict(
-            spectral_window["refFreq"].values[0], "Hz", "TOPO"
+            spectral_window["refFreq"].item(), "Hz", "TOPO"
         ),
         "channel_width": make_quantity(get_chan_width(asdm, spw_id), "Hz"),
     }
@@ -860,12 +864,14 @@ def _translate_asdm_tables_spw_id_to_bdf_spw_id(
     this_config_df = config_description_df.loc[
         config_description_df["configDescriptionId"].isin(config_description_id)
     ]
-    data_description_ids = this_config_df["dataDescriptionId"].values[0]
+    data_description_ids = this_config_df["dataDescriptionId"].item()
 
     this_data_description_df = data_description_df.loc[
         data_description_df["dataDescriptionId"].isin(data_description_ids)
     ]
-    spw_ids_in_data_descriptions = this_data_description_df["spectralWindowId"].values
+    spw_ids_in_data_descriptions = this_data_description_df[
+        "spectralWindowId"
+    ].to_numpy()
 
     bdf_spw_id = int(np.argmax(spw_ids_in_data_descriptions == spw_id))
     return bdf_spw_id

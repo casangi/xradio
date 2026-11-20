@@ -224,7 +224,7 @@ def create_feed_xds(
         return feed_xds
 
     receptor_angle_values = [
-        [angle[0].get(), angle[1].get()] for angle in antenna_feed_df["receptorAngle"]
+        [angle[0], angle[1]] for angle in antenna_feed_df["receptorAngle"]
     ]
     feed_xds["ANTENNA_RECEPTOR_ANGLE"] = (
         ["antenna_name", "receptor_label"],

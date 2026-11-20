@@ -1,11 +1,15 @@
+"""Utilities for reading metadata tables from an ALMA ASDM.
+
+This module provides small helpers that extract columns from pyASDM tables and
+convert pyASDM wrapper and enumeration objects into values suitable for
+pandas data frames.
+"""
+
 from typing import Any
 
 import numpy as np
 import pandas as pd
 import pyasdm
-
-# TODO: check if all cases are covered, liek the the get() also for
-# Angle, Length, etc. quantities. Also types: PolarizationType
 
 
 def load_asdm_col(
@@ -16,7 +20,8 @@ def load_asdm_col(
     The column getter is called for each row. Supported ASDM wrappers and
     enumerations are converted by :func:`_decode_attribute_value`. If
     ``optional_per_row`` is true and a row reports that the column is absent,
-    the corresponding result is np.nan.
+    the corresponding result is ``np.nan``. If the row does not provide an
+    existence-check method, the getter is used and must be available.
 
     Parameters
     ----------
@@ -24,15 +29,15 @@ def load_asdm_col(
         ASDM table object whose rows provide the requested getter.
     col_name : str
         Column name used to construct the ASDM row getter name.
-    optional_per_row : bool
-        Check each row's ``is<Column>Exists`` method when available and omit
-        reading the value when it reports the column absent.
+    optional_per_row : bool, optional
+        If true, check each row's ``is<Column>Exists`` method when available
+        and omit reading the getter when it reports that the column is absent.
 
     Returns
     -------
     list[Any]
         Values in table row order, converted where supported. Rows identified
-        as missing an optional value contain an empty string.
+        as missing an optional value contain ``np.nan``.
 
     Raises
     ------
@@ -76,12 +81,14 @@ def load_asdm_col(
 
 
 def _decode_attribute_value(row: Any, get_col_function_name: str) -> Any:
-    """Call a row getter and convert recognized ASDM values.
+    """Call a row getter and convert recognized ASDM wrapper values.
 
-    Tags become integer tag values, entity references become entity IDs,
-    recognized enumerations become names, and supported quantity objects
-    become their underlying values. Values of other types are returned
-    unchanged.
+    Tags become integer tag values and entity references become entity IDs.
+    Lists of tags become NumPy integer arrays. Lists of supported
+    enumerations become names, while lists and arrays of supported angular
+    or frequency quantities become underlying numeric values. Scalar
+    frequencies are also unwrapped. Values without a recognized conversion
+    are returned unchanged.
 
     Parameters
     ----------
@@ -157,6 +164,12 @@ def _decode_attribute_value(row: Any, get_col_function_name: str) -> Any:
     elif (
         isinstance(value, list)
         and len(value) > 0
+        and isinstance(value[0], pyasdm.types.Angle)
+    ):
+        value = [item_val.get() for item_val in value]
+    elif (
+        isinstance(value, list)
+        and len(value) > 0
         and (
             isinstance(value[0], list)
             and (
@@ -166,9 +179,11 @@ def _decode_attribute_value(row: Any, get_col_function_name: str) -> Any:
         )
     ):
         # two-dim list/array of list/array of Angle, as seen in Pointing
-        value = [
-            [item_val.get() for item_val in first_dim_val] for first_dim_val in value
-        ]
+        value = np.array(
+            [[item_val.get() for item_val in first_dim_val] for first_dim_val in value]
+        )
+        if len(value) == 1:
+            value = value[0]
     elif type(value) in [pyasdm.types.Frequency]:
         value = value.get()
     elif (
@@ -215,7 +230,7 @@ def exp_asdm_table_to_df(
         a ``Table`` suffix.
     col_names : list[str]
         Column names to extract, in the desired DataFrame column order.
-    optional_per_row : bool
+    optional_per_row : bool, optional
         Passed to :func:`load_asdm_col` to handle columns absent from
         individual rows.
 

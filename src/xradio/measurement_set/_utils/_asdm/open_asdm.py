@@ -73,7 +73,7 @@ def open_asdm(
         decreases.
     """
 
-    if not partition_scheme:
+    if partition_scheme is None:
         partition_scheme = ["fieldId"]
 
     if not include_processor_types:
@@ -95,6 +95,8 @@ def open_asdm(
         include_spectral_resolution_types,
     )
 
+    asdm_name = Path(asdm_path).name
+    msv4_name_idx_width = len(str(len(partitions) - 1))
     for msv4_idx, partition_descr in enumerate(partitions):
         xradio_logger().info(
             "Opening partition for: execBlock "
@@ -134,8 +136,8 @@ def open_asdm(
             )
             msv4_xdt = xr.DataTree()
 
-        msv4_idx = f"{msv4_idx:0>{len(str(len(partitions) - 1))}}"
-        msv4_name = f"{Path(asdm_path).name}_{msv4_idx}"
+        msv4_idx_suffix = f"{msv4_idx:0>{msv4_name_idx_width}}"
+        msv4_name = f"{asdm_name}_{msv4_idx_suffix}"
         ps_xdt[msv4_name] = msv4_xdt
 
     return ps_xdt

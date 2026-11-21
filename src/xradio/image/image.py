@@ -473,7 +473,10 @@ def write_image(
         If ``compressor`` is neither a zarr v3 bytes-to-bytes codec nor None.
     ValueError
         If ``out_format`` is not supported, ``imagename`` is a URL, the
-        dataset holds no image the format can store, or ``chunks``,
+        dataset holds no image the format can store, an image to write to
+        CASA or FITS has polynomial terms (the dimensions
+        ``frequency_polynomial``, ``frequency_polynomial_moment`` or
+        ``time_polynomial``, which only zarr stores hold yet), or ``chunks``,
         ``shards`` or ``compressor`` are given for CASA or FITS, or cannot be
         applied.
     """
@@ -559,6 +562,8 @@ def make_empty_sky_image(
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
     do_sky_coords: bool = False,
+    n_polynomial_terms: int | None = None,
+    n_time_polynomial_terms: int | None = None,
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
@@ -598,6 +603,25 @@ def make_empty_sky_image(
     do_sky_coords : bool
         If True, compute SkyCoord at each pixel and add spherical (sky) dimensions as
         non-dimensional coordinates in the returned xr.Dataset.
+    n_polynomial_terms : int, optional
+        Number n of terms of a polynomial in frequency, for example the Taylor
+        terms of multi-term multi-frequency synthesis (CASA ``nterms``). The
+        dataset then also has the coordinates ``frequency_polynomial`` (terms
+        0 to n - 1, for the Taylor coefficient images) and
+        ``frequency_polynomial_moment`` (the 2n - 1 moments of the point spread
+        function and the sum of weights), with ``polynomial_type``
+        ``'taylor'``, the ``reference_frequency`` of the frequency coordinate
+        (its middle channel) and, for several channels, the bandwidth they
+        span as ``channel_width``. The ``frequency`` coordinate is kept for the
+        images without polynomial terms: give one channel, at the reference
+        frequency, or the channels. By default there are no polynomial
+        coordinates.
+    n_time_polynomial_terms : int, optional
+        Number of terms of a polynomial in time. The dataset then also has the
+        coordinate ``time_polynomial`` (terms 0 to n - 1), with
+        ``polynomial_type`` ``'taylor'``, the middle time as ``reference_time``
+        and, for several times, the span they cover as ``integration_time``.
+        The ``time`` coordinate is kept. By default there is none.
     Returns
     -------
     xarray.Dataset
@@ -606,10 +630,12 @@ def make_empty_sky_image(
     ------
     TypeError
         If ``time_coords`` are neither numbers nor times (for example
-        ``timedelta64`` durations or booleans).
+        ``timedelta64`` durations or booleans), or a number of polynomial
+        terms is neither an integer nor None.
     ValueError
-        If ``pol_coords`` are not in canonical order, or
-        ``spectral_reference`` is not a spectral reference frame.
+        If ``pol_coords`` are not in canonical order,
+        ``spectral_reference`` is not a spectral reference frame, or a number
+        of polynomial terms is smaller than 1.
     """
     return _make_empty_sky_image(
         phase_center,
@@ -622,6 +648,8 @@ def make_empty_sky_image(
         projection,
         spectral_reference,
         do_sky_coords,
+        n_polynomial_terms,
+        n_time_polynomial_terms,
     )
 
 
@@ -635,6 +663,8 @@ def make_empty_aperture_image(
     direction_reference: str = "fk5",
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
+    n_polynomial_terms: int | None = None,
+    n_time_polynomial_terms: int | None = None,
 ) -> xr.Dataset:
     """
     Create an aperture (uv) mage xarray.Dataset with only coordinates (no datavariables).
@@ -671,6 +701,25 @@ def make_empty_aperture_image(
         The astropy frames ``'icrs'``, ``'hcrs'`` and ``'lsr'``, which have no
         casacore equivalent, are accepted too, but images in them cannot be
         written to CASA or FITS.
+    n_polynomial_terms : int, optional
+        Number n of terms of a polynomial in frequency, for example the Taylor
+        terms of multi-term multi-frequency synthesis (CASA ``nterms``). The
+        dataset then also has the coordinates ``frequency_polynomial`` (terms
+        0 to n - 1, for the Taylor coefficient images) and
+        ``frequency_polynomial_moment`` (the 2n - 1 moments of the point spread
+        function and the sum of weights), with ``polynomial_type``
+        ``'taylor'``, the ``reference_frequency`` of the frequency coordinate
+        (its middle channel) and, for several channels, the bandwidth they
+        span as ``channel_width``. The ``frequency`` coordinate is kept for the
+        images without polynomial terms: give one channel, at the reference
+        frequency, or the channels. By default there are no polynomial
+        coordinates.
+    n_time_polynomial_terms : int, optional
+        Number of terms of a polynomial in time. The dataset then also has the
+        coordinate ``time_polynomial`` (terms 0 to n - 1), with
+        ``polynomial_type`` ``'taylor'``, the middle time as ``reference_time``
+        and, for several times, the span they cover as ``integration_time``.
+        The ``time`` coordinate is kept. By default there is none.
     Returns
     -------
     xarray.Dataset
@@ -678,10 +727,12 @@ def make_empty_aperture_image(
     Raises
     ------
     TypeError
-        If ``time_coords`` are neither numbers nor times.
+        If ``time_coords`` are neither numbers nor times, or a number of
+        polynomial terms is neither an integer nor None.
     ValueError
-        If ``pol_coords`` are not in canonical order, or
-        ``spectral_reference`` is not a spectral reference frame.
+        If ``pol_coords`` are not in canonical order,
+        ``spectral_reference`` is not a spectral reference frame, or a number
+        of polynomial terms is smaller than 1.
     """
     return _make_empty_aperture_image(
         phase_center,
@@ -693,6 +744,8 @@ def make_empty_aperture_image(
         direction_reference,
         projection,
         spectral_reference,
+        n_polynomial_terms,
+        n_time_polynomial_terms,
     )
 
 
@@ -707,6 +760,8 @@ def make_empty_lmuv_image(
     projection: str = "SIN",
     spectral_reference: str = "lsrk",
     do_sky_coords: bool = True,
+    n_polynomial_terms: int | None = None,
+    n_time_polynomial_terms: int | None = None,
 ) -> xr.Dataset:
     """
     Create an image xarray.Dataset with only coordinates (no datavariables).
@@ -747,6 +802,25 @@ def make_empty_lmuv_image(
     do_sky_coords : bool
         If True, compute SkyCoord at each pixel and add spherical (sky) dimensions as
         non-dimensional coordinates in the returned xr.Dataset.
+    n_polynomial_terms : int, optional
+        Number n of terms of a polynomial in frequency, for example the Taylor
+        terms of multi-term multi-frequency synthesis (CASA ``nterms``). The
+        dataset then also has the coordinates ``frequency_polynomial`` (terms
+        0 to n - 1, for the Taylor coefficient images) and
+        ``frequency_polynomial_moment`` (the 2n - 1 moments of the point spread
+        function and the sum of weights), with ``polynomial_type``
+        ``'taylor'``, the ``reference_frequency`` of the frequency coordinate
+        (its middle channel) and, for several channels, the bandwidth they
+        span as ``channel_width``. The ``frequency`` coordinate is kept for the
+        images without polynomial terms: give one channel, at the reference
+        frequency, or the channels. By default there are no polynomial
+        coordinates.
+    n_time_polynomial_terms : int, optional
+        Number of terms of a polynomial in time. The dataset then also has the
+        coordinate ``time_polynomial`` (terms 0 to n - 1), with
+        ``polynomial_type`` ``'taylor'``, the middle time as ``reference_time``
+        and, for several times, the span they cover as ``integration_time``.
+        The ``time`` coordinate is kept. By default there is none.
     Returns
     -------
     xarray.Dataset
@@ -754,10 +828,12 @@ def make_empty_lmuv_image(
     Raises
     ------
     TypeError
-        If ``time_coords`` are neither numbers nor times.
+        If ``time_coords`` are neither numbers nor times, or a number of
+        polynomial terms is neither an integer nor None.
     ValueError
-        If ``pol_coords`` are not in canonical order, or
-        ``spectral_reference`` is not a spectral reference frame.
+        If ``pol_coords`` are not in canonical order,
+        ``spectral_reference`` is not a spectral reference frame, or a number
+        of polynomial terms is smaller than 1.
     """
     return _make_empty_lmuv_image(
         phase_center,
@@ -770,4 +846,6 @@ def make_empty_lmuv_image(
         projection,
         spectral_reference,
         do_sky_coords,
+        n_polynomial_terms,
+        n_time_polynomial_terms,
     )

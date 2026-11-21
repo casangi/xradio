@@ -82,9 +82,16 @@ for full details) are:
   ``APERTURE_NORMALIZATION``: the normalization of the gridded data, one value
   per ``(time, frequency, polarization)`` plane, for example the sum of
   weights (the CASA ``sumwt`` image) in ``VISIBILITY_NORMALIZATION``.
+- ``ALPHA``, ``ALPHA_ERROR`` and ``BETA``: the spectral index, its error and
+  the spectral curvature at the reference frequency of multi-term
+  multi-frequency synthesis (the CASA ``.alpha``, ``.alpha.error`` and
+  ``.beta`` images), on a one-channel ``frequency`` axis (see `Polynomial
+  Terms`_).
 
 The coordinates ``time`` (typically a single value, the observation date),
-``frequency`` and ``polarization`` are always present. Optional coordinates
+``frequency`` and ``polarization`` are present, except that polynomial
+dimensions can take the place of ``time`` and ``frequency`` (see `Polynomial
+Terms`_). Optional coordinates
 are ``l`` and ``m`` (with the ``right_ascension`` and ``declination``, or
 galactic coordinates, of every pixel when they have been computed), ``u`` and
 ``v``, ``beam_params_label`` (``major``, ``minor``, ``pa``) and ``velocity``,
@@ -107,6 +114,58 @@ The image variables have attributes as well, for example ``units``,
 FITS header cards or casacore miscinfo.
 :py:func:`~xradio.image.schema.check_image` checks a dataset against the
 schema, including its data groups and the data variables they reference.
+
+Polynomial Terms
+----------------
+
+Continuum images made with multi-term multi-frequency synthesis (MT-MFS, CASA
+``deconvolver="mtmfs"``) describe the sky brightness by the Taylor
+coefficients ``I_k`` of ``I(nu) = I_0 + I_1 x + I_2 x**2 + ...``, where
+``x = (nu - nu_0) / nu_0`` and ``nu_0`` is the reference frequency. Such
+images have a polynomial dimension in the place of ``frequency``, so each
+product has exactly its own number of planes:
+
+- ``frequency_polynomial``, with the n terms 0 to n - 1, for the Taylor
+  coefficients of the model, residual, restored and primary beam corrected
+  sky images (the CASA ``.ttN`` images), and of a primary beam given by its
+  Taylor terms;
+- ``frequency_polynomial_moment``, with the 2n - 1 moments 0 to 2n - 2, for
+  the weighted moments of the point spread function and of the sum of weights
+  (``VISIBILITY_NORMALIZATION``) that MT-MFS needs for its Hessian.
+
+Both coordinates carry the ``polynomial_type`` (``"taylor"``), the
+``reference_frequency`` ``nu_0`` and, when it is known, the bandwidth
+(``channel_width``). The
+images without polynomial terms (the mask, a frequency-resolved primary beam,
+``ALPHA``, ``ALPHA_ERROR`` and ``BETA``) and the beam fit parameters keep the
+``frequency`` dimension. A dataset has one ``frequency`` axis: either one
+channel at the reference frequency, or the frequency channels, and then every
+variable with a ``frequency`` dimension has all of them, so a
+frequency-resolved primary beam can sit beside the Taylor products.
+``ALPHA``, ``ALPHA_ERROR`` and ``BETA`` need a one-channel ``frequency``
+axis. Likewise ``time_polynomial`` can take the place of ``time``, for the
+terms of a polynomial in time about a ``reference_time``.
+
+The products use the usual data group roles: each sky image is the ``sky`` of
+its own data group, and the groups share the point spread function, primary
+beam, mask and sum of weights. ``ALPHA``, ``ALPHA_ERROR`` and ``BETA``
+belong to no data group:
+
+.. code:: python
+
+   shared = {"point_spread_function": "POINT_SPREAD_FUNCTION",
+             "primary_beam": "PRIMARY_BEAM", "mask": "MASK",
+             "visibility_normalization": "VISIBILITY_NORMALIZATION"}
+   img_xds.attrs["data_groups"] = {
+       "base": {"sky": "SKY", **shared},
+       "model": {"sky": "SKY_MODEL", **shared},
+       "residual": {"sky": "SKY_RESIDUAL", **shared},
+   }
+
+The ``make_empty_*`` factories add the polynomial coordinates when given
+``n_polynomial_terms`` (and ``n_time_polynomial_terms``). Zarr stores hold
+polynomial terms; the CASA and FITS writers do not write them yet, and raise
+an error for an image with a polynomial dimension.
 
 Data Groups
 -----------

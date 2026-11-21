@@ -57,6 +57,15 @@ COMPANION_ROLES = {
 # Data group entries that hold text, not the name of a data variable
 _TEXT_ROLES = ("description", "date")
 
+# Dimensions of image schema 0.0.4 that hold polynomial terms in the place
+# of time samples or frequency channels. The CASA and FITS writers cannot
+# write images with them yet.
+_POLYNOMIAL_DIMENSIONS = (
+    "time_polynomial",
+    "frequency_polynomial",
+    "frequency_polynomial_moment",
+)
+
 _FITS_EXTENSION = ".fits"
 
 #: Extension of the zarr stores ``write_image`` writes (processing sets have
@@ -241,7 +250,9 @@ def plan_image_outputs(
     image that names them). Images the format cannot hold are skipped: FITS
     holds only sky plane images (l and m dimensions); CASA holds sky plane and
     aperture plane (u and v dimensions) images, but not the normalization
-    images without l and m or u and v dimensions.
+    images without l and m or u and v dimensions. Images with polynomial
+    terms (the dimensions ``time_polynomial``, ``frequency_polynomial`` and
+    ``frequency_polynomial_moment``) cannot be written yet.
 
     Parameters
     ----------
@@ -262,7 +273,9 @@ def plan_image_outputs(
     ValueError
         If the dataset has no data groups or no image the format can hold, if
         a data group refers to a missing flag or beam fit parameters variable,
-        or if a data group name cannot be part of a file name.
+        if an image to write, or its flags or beam fit parameters, has a
+        polynomial dimension, or if a data group name cannot be part of a file
+        name.
     """
     out_format = out_format.lower()
     if out_format not in _FORMAT_NAMES:
@@ -346,6 +359,17 @@ def plan_image_outputs(
                     f"{names[0]} is written with {variable}"
                 )
             companions[kind] = names[0]
+        for name in (variable, *companions.values()):
+            polynomial = [
+                dim for dim in xds[name].dims if dim in _POLYNOMIAL_DIMENSIONS
+            ]
+            if polynomial:
+                raise ValueError(
+                    f"Cannot write {name} to {format_name} images: it has the "
+                    f"polynomial dimension {', '.join(map(repr, polynomial))}, "
+                    f"and writing polynomial terms to {format_name} images is "
+                    "not supported yet; write the image dataset to zarr instead"
+                )
         outputs.append(
             ImageOutput(
                 variable=variable,

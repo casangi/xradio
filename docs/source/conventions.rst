@@ -87,7 +87,9 @@ Pixel indexing
 
 - Image data variables have the dimensions ``(time, frequency, polarization, l, m)`` on the sky plane and
   ``(time, frequency, polarization, u, v)`` on the aperture plane, so their arrays are indexed ``[..., l, m]``. FITS
-  files store the transpose, ``(m, l)`` in numpy order; the FITS reader and writer convert.
+  files store the transpose, ``(m, l)`` in numpy order; the FITS reader and writer convert. Images of polynomial terms
+  have ``frequency_polynomial`` or ``frequency_polynomial_moment`` in the place of ``frequency``, and
+  ``time_polynomial`` in the place of ``time`` (see :py:class:`~xradio.image.schema.FrequencyPolynomialCoordArray`).
 - Pixel indices keep their FITS meaning: the readers keep the sign of ``CDELT``, so in the usual orientation ``l``
   decreases with the pixel index, as right ascension does, and the ``make_empty_*`` factories make sky images that
   way. Going between ``(l, m)`` and ``(m, l)`` arrays is a transpose, never a flip.

@@ -2040,8 +2040,20 @@ def test_dataset_schema_required_and_optional_dimensions():
     from xradio.measurement_set.schema import SpectrumXds, VisibilityXds
 
     schema = xarray_dataclass_to_dataset_schema(ImageXds)
-    assert schema.dimensions == [["time", "frequency", "polarization"]]
-    assert schema.optional_dimensions == ["l", "m", "u", "v", "beam_params_label"]
+    # time and frequency are optional, as polynomial dims can take their place
+    assert schema.dimensions == [["polarization"]]
+    assert schema.optional_dimensions == [
+        "time",
+        "frequency",
+        "time_polynomial",
+        "frequency_polynomial",
+        "frequency_polynomial_moment",
+        "l",
+        "m",
+        "u",
+        "v",
+        "beam_params_label",
+    ]
     # No optional dimensions: None, which the JSON export omits
     for schema_class in (VisibilityXds, SpectrumXds):
         schema = xarray_dataclass_to_dataset_schema(schema_class)

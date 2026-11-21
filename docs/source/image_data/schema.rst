@@ -101,6 +101,18 @@ Data Arrays
 
    .. xradio_array_schema_table:: xradio.image.schema.ApertureNormalizationArray
 
+.. autoclass:: xradio.image.schema.AlphaArray()
+
+   .. xradio_array_schema_table:: xradio.image.schema.AlphaArray
+
+.. autoclass:: xradio.image.schema.AlphaErrorArray()
+
+   .. xradio_array_schema_table:: xradio.image.schema.AlphaErrorArray
+
+.. autoclass:: xradio.image.schema.BetaArray()
+
+   .. xradio_array_schema_table:: xradio.image.schema.BetaArray
+
 .. _image coordinates:
 
 Coordinates
@@ -117,6 +129,18 @@ Coordinates
 .. autoclass:: xradio.image.schema.VelocityCoordArray()
 
    .. xradio_array_schema_table:: xradio.image.schema.VelocityCoordArray
+
+.. autoclass:: xradio.image.schema.FrequencyPolynomialCoordArray()
+
+   .. xradio_array_schema_table:: xradio.image.schema.FrequencyPolynomialCoordArray
+
+.. autoclass:: xradio.image.schema.FrequencyPolynomialMomentCoordArray()
+
+   .. xradio_array_schema_table:: xradio.image.schema.FrequencyPolynomialMomentCoordArray
+
+.. autoclass:: xradio.image.schema.TimePolynomialCoordArray()
+
+   .. xradio_array_schema_table:: xradio.image.schema.TimePolynomialCoordArray
 
 .. autoclass:: xradio.image.schema.LCoordArray()
 

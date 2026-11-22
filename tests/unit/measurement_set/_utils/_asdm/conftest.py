@@ -1273,7 +1273,7 @@ def add_misbehaving_ephemeris_table(asdm: pyasdm.ASDM):
   <row>
     <timeInterval> 4986694800000000000 1200000000000 </timeInterval>
     <ephemerisId> 0 </ephemerisId>
-    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <observerLocation> 1 3 0.0 -0.0 0.0  </observerLocation>
     <equinoxEquator> 1950.0 </equinoxEquator>
     <numPolyDir> 2 </numPolyDir>
     <dir> 2 2 2 3.3966968420230086 -0.0868206036978841 0.01 -0.01  </dir>

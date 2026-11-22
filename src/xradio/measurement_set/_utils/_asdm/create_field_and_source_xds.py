@@ -192,38 +192,7 @@ def _extract_source_info(
         make_sky_coord_measure_attrs("rad", direction_code),
     )
 
-    line_info_available = (
-        pd.to_numeric(source_df["numLines"], errors="coerce") > 0
-    ).any()
-    if line_info_available:
-        line_name = (
-            source_df["transition"].explode().str.strip('"').to_numpy(dtype="str")
-        )
-        line_name = line_name[np.newaxis, :] if line_name.ndim < 2 else line_name
-        line_label = [f"{idx}" for idx in np.arange(line_name.shape[-1])]
-        line_coords = {
-            "line_label": line_label,
-            "line_name": (["field_name", "line_label"], line_name),
-        }
-        xds = xds.assign_coords(line_coords)
-
-        rest_freq = (
-            source_df["restFrequency"]
-            .explode()
-            .to_numpy(dtype="float64")[np.newaxis, :]
-        )
-        frequency_frame = retrieve_source_frequency_frame(source_df)
-        xds["LINE_REST_FREQUENCY"] = (
-            ["field_name", "line_label"],
-            rest_freq,
-            make_spectral_coord_measure_attrs("Hz", observer=frequency_frame),
-        )
-        sys_vel = source_df["sysVel"].explode().to_numpy(dtype="float64")[np.newaxis, :]
-        xds["LINE_SYSTEMIC_VELOCITY"] = (
-            ["field_name", "line_label"],
-            sys_vel,
-            make_quantity_attrs("m/s"),
-        )
+    xds = _add_line_info(xds, source_df)
 
     return xds
 
@@ -265,6 +234,62 @@ def _read_source_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
     )
 
     return source_df
+
+
+def _add_line_info(xds: xr.Dataset, source_df: pd.DataFrame) -> xr.Dataset:
+    """Add spectral-line metadata from source rows to a dataset.
+
+    If any source row has line information, add line labels and names,
+    rest frequencies, and systemic velocities as coordinates or variables.
+
+    Parameters
+    ----------
+    xds : xr.Dataset
+        Dataset to which the line metadata is added.
+    source_df : pd.DataFrame
+        Source-table rows, including line metadata columns.
+
+    Returns
+    -------
+    xr.Dataset
+        Dataset with line metadata when it is available; otherwise unchanged.
+    """
+
+    line_info_available = (
+        pd.to_numeric(source_df["numLines"], errors="coerce") > 0
+    ).any()
+    if line_info_available:
+        line_name = (
+            source_df["transition"].explode().str.strip('"').to_numpy(dtype="str")
+        )
+        line_name = line_name[np.newaxis, :] if line_name.ndim < 2 else line_name
+        line_label = [f"{idx}" for idx in np.arange(line_name.shape[-1])]
+        line_coords = {
+            "line_label": line_label,
+            "line_name": (["field_name", "line_label"], line_name),
+        }
+        xds = xds.assign_coords(line_coords)
+
+        rest_freq = (
+            source_df["restFrequency"]
+            .explode()
+            .to_numpy(dtype="float64")[np.newaxis, :]
+        )
+        frequency_frame = retrieve_source_frequency_frame(source_df)
+        xds["LINE_REST_FREQUENCY"] = (
+            ["field_name", "line_label"],
+            rest_freq,
+            make_spectral_coord_measure_attrs("Hz", observer=frequency_frame),
+        )
+
+        sys_vel = source_df["sysVel"].explode().to_numpy(dtype="float64")[np.newaxis, :]
+        xds["LINE_SYSTEMIC_VELOCITY"] = (
+            ["field_name", "line_label"],
+            sys_vel,
+            make_quantity_attrs("m/s"),
+        )
+
+    return xds
 
 
 def _extract_ephemeris_info(
@@ -450,7 +475,7 @@ def _add_observer_position(xds: xr.Dataset, ephemeris_df: pd.DataFrame) -> xr.Da
     )
 
     if is_geocentric:
-        observer_position = [0, 0, 0]
+        observer_position = [0.0, 0.0, 0.0]
     else:
         location = EarthLocation.from_geodetic(
             lon=observer_location[0] * u.rad,

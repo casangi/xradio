@@ -75,16 +75,7 @@ def create_field_and_source_xds(
 
     xds = xr.Dataset(attrs={"type": "field_and_source"})
 
-    sdm_field_required_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir"]
-    sdm_field_optional_attrs = ["ephemerisId", "sourceId", "directionCode"]
-    # sourceId is an opt attr, but so far always present in ALMA ASDMs. directionCode also seems to
-    # always be present. ephemerisId is NOT always present.
-    field_df = exp_asdm_table_to_df(
-        asdm,
-        "Field",
-        sdm_field_required_attrs + sdm_field_optional_attrs,
-        optional_per_row=True,
-    )
+    field_df = _read_field_table(asdm)
 
     field_id = partition_descr["fieldId"]
     field_df = field_df.loc[field_df["fieldId"].isin(field_id)]
@@ -125,6 +116,35 @@ def create_field_and_source_xds(
     )
 
     return xds
+
+
+def _read_field_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
+    """Read required and optional attributes from the ASDM Field table.
+
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        ASDM object containing the Field table.
+
+    Returns
+    -------
+    pd.DataFrame
+        Field-table rows with the required attributes and any available
+        optional attributes.
+    """
+
+    sdm_field_required_attrs = ["fieldId", "fieldName", "phaseDir", "referenceDir"]
+    sdm_field_optional_attrs = ["ephemerisId", "sourceId", "directionCode"]
+    # sourceId is an opt attr, but so far always present in ALMA ASDMs. directionCode also seems to
+    # always be present. ephemerisId is NOT always present.
+    field_df = exp_asdm_table_to_df(
+        asdm,
+        "Field",
+        sdm_field_required_attrs + sdm_field_optional_attrs,
+        optional_per_row=True,
+    )
+
+    return field_df
 
 
 def _extract_source_info(

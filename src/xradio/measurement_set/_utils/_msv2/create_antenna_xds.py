@@ -14,10 +14,10 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     make_taql_where_between_min_max,
     table_exists,
 )
-from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
+from xradio.measurement_set._utils._utils.interpolate import (
     rename_and_interpolate_to_time,
 )
-from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 
 
 def create_antenna_xds(

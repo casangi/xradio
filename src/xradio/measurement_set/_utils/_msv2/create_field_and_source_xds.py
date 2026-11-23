@@ -27,12 +27,12 @@ from xradio.measurement_set._utils._msv2._tables.read import (
     load_generic_table,
     make_taql_where_between_min_max,
 )
-from xradio.measurement_set._utils._msv2.msv4_sub_xdss import (
+from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
+from xradio.measurement_set._utils._utils.interpolate import (
     interpolate_to_time,
     rename_and_interpolate_to_time,
     standard_time_coord_attrs,
 )
-from xradio.measurement_set._utils._msv2.subtables import subt_rename_ids
 
 
 def create_field_and_source_xds(

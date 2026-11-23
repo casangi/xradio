@@ -541,14 +541,12 @@ def _add_source_direction_and_distance(
 
     sky_coord_units = "rad"  # Fixed in ASDM table
     expected_equator = 2000.0
-    if (ephemeris_df["equinoxEquator"] == expected_equator).all():
-        sky_coord_frame = "fk5"
-    else:
+    if not (ephemeris_df["equinoxEquator"] == expected_equator).all():
         xradio_logger().warning(
             f"EquinoxEquator is not as expected: {expected_equator}. This is not expected nor supported. "
-            "assuming icrs frame."
+            "assuming ICRS frame with J2000.0 epoch."
         )
-        sky_coord_frame = "icrs"
+    sky_coord_frame = "icrs"
 
     direction_attrs = {
         "type": "sky_coord",

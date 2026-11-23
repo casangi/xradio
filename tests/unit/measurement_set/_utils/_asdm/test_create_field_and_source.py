@@ -279,10 +279,7 @@ def test_create_field_and_source_xds_with_ephemeris(asdm_name, request):
     xr.testing.assert_allclose(
         if_field_and_source_xds[phase_center_name], expected_phase_center
     )
-    if asdm_name == "asdm_with_misbehaving_field_ephemeris":
-        expected_frame = "icrs"
-    else:
-        expected_frame = "fk5"
+    expected_frame = "icrs"
     assert if_field_and_source_xds[phase_center_name].attrs["frame"] == expected_frame
 
     # SD
@@ -303,10 +300,7 @@ def test_create_field_and_source_xds_with_ephemeris(asdm_name, request):
     xr.testing.assert_allclose(
         sd_field_and_source_xds[reference_center_name], expected_reference_center
     )
-    if asdm_name == "asdm_with_misbehaving_field_ephemeris":
-        expected_frame_sd = "icrs"
-    else:
-        expected_frame_sd = "fk5"
+    expected_frame_sd = "icrs"
     assert (
         sd_field_and_source_xds[reference_center_name].attrs["frame"]
         == expected_frame_sd

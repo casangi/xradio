@@ -10,7 +10,7 @@ def test_rename_and_interpolate_to_time_with_none_time(pointing_xds_min):
     out_xds = rename_and_interpolate_to_time(
         pointing_xds_min, "time_bogus", None, message_prefix="test_call"
     )
-    assert out_xds == pointing_xds_min
+    xr.testing.assert_identical(out_xds, pointing_xds_min)
 
 
 def test_rename_and_interpolate_to_time_with_syscal_none_time(sys_cal_xds_min):
@@ -21,7 +21,7 @@ def test_rename_and_interpolate_to_time_with_syscal_none_time(sys_cal_xds_min):
     out_xds = rename_and_interpolate_to_time(
         sys_cal_xds_min, "time_bogus", None, message_prefix="test_call"
     )
-    assert out_xds == sys_cal_xds_min
+    xr.testing.assert_identical(out_xds, sys_cal_xds_min)
 
 
 def test_rename_and_interpolate_to_time_bogus(pointing_xds_min, msv4_xds_min):

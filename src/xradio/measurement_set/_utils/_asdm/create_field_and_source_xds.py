@@ -634,11 +634,8 @@ def _interpolate_and_sum_source_and_field_direction(
             "time_ephemeris",
         )
 
-    phase_or_reference = (
-        "PHASE" if "FIELD_PHASE_CENTER_DIRECTION" in xds.data_vars else "REFERENCE"
-    )
-    center_direction_name = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
-    center_distance_name = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
+    # Expand from n fields to n times (of interpolated source data)
+    xds = xds.isel(field_name=np.zeros(time_to_interpolate.size, dtype=int))
 
     xds = xds.assign_coords({"time": ("field_name", time_to_interpolate.data)})
     # TODO: revise/settle the tai <=> utc/unix discrepancies together with other datasets
@@ -646,6 +643,12 @@ def _interpolate_and_sum_source_and_field_direction(
     time_attrs = make_time_measure_attrs("s", "tai", time_format="unix")
     xds["time"].attrs = time_attrs
     xds = xds.swap_dims({"field_name": "time"})
+
+    phase_or_reference = (
+        "PHASE" if "FIELD_PHASE_CENTER_DIRECTION" in xds.data_vars else "REFERENCE"
+    )
+    center_direction_name = f"FIELD_{phase_or_reference}_CENTER_DIRECTION"
+    center_distance_name = f"FIELD_{phase_or_reference}_CENTER_DISTANCE"
 
     overall_field_center_direction = wrap_to_pi(
         xds[center_direction_name].data + source_direction_interpolated

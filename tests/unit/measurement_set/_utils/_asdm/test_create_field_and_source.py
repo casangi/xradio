@@ -132,7 +132,7 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
     field_row_0.setFromXML(field_row_0_xml)
     field_table.add(field_row_0)
 
-    time_to_interpolate = np.ones(1) * 1e9
+    time_to_interpolate = np.array([1, 1.1, 1.2]) * 1e9
 
     # IF
     if_field_and_source_xds = create_field_and_source_xds(
@@ -249,8 +249,8 @@ def test_create_field_and_source_xds_with_field_source(asdm_with_spw_simple):
 def test_create_field_and_source_xds_with_ephemeris(asdm_name, request):
     asdm_with_field_ephemeris = request.getfixturevalue(asdm_name)
 
-    # time_to_interpolate = np.array([0.1]) #, 0.15, 0.3]) * 1.e9
-    time_to_interpolate = np.array([1.4799780e09])
+    ntimes = 10
+    time_to_interpolate = np.arange(0, ntimes) + 1.4799780e09
     if_field_and_source_xds = create_field_and_source_xds(
         asdm_with_field_ephemeris,
         {"fieldId": [1]},
@@ -267,11 +267,11 @@ def test_create_field_and_source_xds_with_ephemeris(asdm_name, request):
     assert phase_center_name in if_field_and_source_xds.data_vars
     time_coord_name = "time"
     expected_phase_center = xr.DataArray(
-        data=[[-2.886488, -0.086821]],
+        data=[[-2.886488, -0.086821]] * ntimes,
         dims=[time_coord_name, "sky_dir_label"],
         coords={
-            "field_name": (time_coord_name, ["Ganymede_1"]),
-            "source_name": (time_coord_name, ["Ganymede"]),
+            "field_name": (time_coord_name, ["Ganymede_1"] * ntimes),
+            "source_name": (time_coord_name, ["Ganymede"] * ntimes),
             "sky_dir_label": ["ra", "dec"],
             time_coord_name: time_to_interpolate,
         },
@@ -329,7 +329,7 @@ def test__extract_ephemeris_info(asdm_with_field_ephemeris, input_interpolate):
 
     ephem_fields = {"fieldId": {0: 0}, "ephemerisId": {0: 0}}
     field_df = pd.DataFrame.from_dict(ephem_fields)
-    time_to_interpolate = np.array([0.0])
+    time_to_interpolate = np.arange(0, 5) + 1.4799780e09
 
     # populate initial (field+source info) dataset with minimum
     # stuff required for the function to work

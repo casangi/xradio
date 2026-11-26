@@ -933,6 +933,98 @@ def asdm_sd_with_execblock_antenna_station_feed():
     return sd_asdm
 
 
+def add_weather_table(asdm: pyasdm.ASDM):
+    # Examples of time samples adapted from uid___A002_Xbb0685_X4e96
+    weather_rows_xml = [
+        """
+  <row>
+    <timeInterval> 4982231373024000000 48000000 </timeInterval>
+    <pressure> 55854.3518066 </pressure>
+    <relHumidity> 14.8353004456 </relHumidity>
+    <temperature> 273.54779999852195 </temperature>
+    <windDirection> 4.97418836818384 </windDirection>
+    <windSpeed> 9.10000038147 </windSpeed>
+    <windMax> 9.10000038147 </windMax>
+    <stationId> Station_0 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 4986701689024000000 48000000 </timeInterval>
+    <pressure> 55661.5112305 </pressure>
+    <relHumidity> 8.82520008087 </relHumidity>
+    <temperature> 268.28009977341 </temperature>
+    <windDirection> 5.3930673886624785 </windDirection>
+    <windSpeed> 5.80000019073 </windSpeed>
+    <windMax> 5.80000019073 </windMax>
+    <stationId> Station_1 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 4986701667024000000 48000000 </timeInterval>
+    <pressure> 55254.1870117 </pressure>
+    <relHumidity> 9.27970027924 </relHumidity>
+    <temperature> 267.83540000915997 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_13 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 3506716800024000000 48000000 </timeInterval>
+    <pressure> 0.0 </pressure>
+    <relHumidity> 0.0 </relHumidity>
+    <temperature> 273.15 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_0 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 3506716800024000000 48000000 </timeInterval>
+    <pressure> 0.0 </pressure>
+    <relHumidity> 0.0 </relHumidity>
+    <temperature> 273.15 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_1 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 3506716800024000000 48000000 </timeInterval>
+    <pressure> 0.0 </pressure>
+    <relHumidity> 0.0 </relHumidity>
+    <temperature> 273.15 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_16 </stationId>
+  </row>
+        """,
+    ]
+    weather_table = asdm.getWeather()
+    for row_xml in weather_rows_xml:
+        weather_row = pyasdm.WeatherRow(weather_table)
+        weather_row.setFromXML(row_xml)
+        weather_table.add(weather_row)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_antenna_station_weather():
+    """Meant for create_weather_xds tests"""
+    asdm = make_asdm_with_spw_simple()
+    add_antenna_station_tables(asdm)
+    add_weather_table(asdm)
+    return asdm
+
+
 def add_polarization_table(asdm: pyasdm.ASDM):
     polarization_row_0_xml = """
   <row>

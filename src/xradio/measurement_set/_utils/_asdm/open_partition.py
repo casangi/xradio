@@ -36,6 +36,7 @@ from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
 )
 from xradio.measurement_set._utils._asdm.create_info_dicts import create_info_dicts
 from xradio.measurement_set._utils._asdm.create_pointing_xds import create_pointing_xds
+from xradio.measurement_set._utils._asdm.create_weather_xds import create_weather_xds
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 
 
@@ -95,6 +96,10 @@ def open_partition(
     # system_calibration_xds
 
     # weather_xds
+    try:
+        weather_xds = create_weather_xds(asdm)
+    except (AttributeError, RuntimeError):
+        weather_xds = None
 
     # pointing_xds
     read_pointing = with_pointing and (
@@ -135,6 +140,8 @@ def open_partition(
     msv4_xdt.ds = correlated_xds
     msv4_xdt["/antenna_xds"] = antenna_xds
     msv4_xdt["/field_and_source_base_xds"] = field_and_source_xds
+    if weather_xds is not None:
+        msv4_xdt["/weather_xds"] = weather_xds
     if read_pointing:
         msv4_xdt["/pointing_xds"] = pointing_xds
 

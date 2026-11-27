@@ -74,6 +74,8 @@ asdm = [
     'pyasdm',
     'toolviper',
     'xarray',
+    # scipy is an optional dependency of xrarray, but required for interpolation
+    'scipy',
 ]
 
 interactive = [

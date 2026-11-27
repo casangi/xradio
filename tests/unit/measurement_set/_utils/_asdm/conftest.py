@@ -692,6 +692,7 @@ def make_asdm_with_main_etc_data_description_polarization_field_source():
     add_polarization_table(asdm)
     add_field_table(asdm)
     add_source_table(asdm)
+    add_weather_table(asdm)
     return asdm
 
 

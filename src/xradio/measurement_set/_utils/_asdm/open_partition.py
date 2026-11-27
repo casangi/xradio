@@ -95,7 +95,7 @@ def open_partition(
 
     # system_calibration_xds
 
-    # weather_xds
+    # weather_xds. TODO: create only once in caller/open_asdm
     try:
         weather_xds = create_weather_xds(asdm)
     except (AttributeError, RuntimeError) as exc:

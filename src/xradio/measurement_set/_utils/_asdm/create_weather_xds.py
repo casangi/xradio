@@ -41,21 +41,20 @@ def create_weather_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
     )
 
     station_df = _read_station_table(asdm)
+    station_df = _generate_station_label(station_df)
 
     weather_df = _read_weather_table(asdm)
-
     weather_df = weather_df.merge(
-        station_df[["stationId", "name"]],
+        station_df[["stationId", "station_label"]],
         on="stationId",
         how="left",
     )
-    weather_df = weather_df.rename(columns={"name": "station_name"})
+    weather_df = weather_df.rename(columns={"station_label": "station_name"})
 
     weather_times = _get_weather_times(weather_df)
     unique_times = unique_1d(weather_times)
 
-    station_df["name"] = station_df["name"].astype(str)
-    unique_stations = unique_1d(station_df["name"].to_numpy()).astype(str)
+    unique_stations = unique_1d(station_df["station_label"].to_numpy()).astype(str)
     station_df = _reindex_to_sorted_unique_stations(station_df, unique_stations)
 
     xds = _add_coordinates(xds, unique_stations, unique_times)
@@ -91,6 +90,42 @@ def _read_station_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
     sdm_station_attrs = ["stationId", "name", "position"]
     station_df = exp_asdm_table_to_df(asdm, "Station", sdm_station_attrs)
 
+    return station_df
+
+
+def _generate_station_label(station_df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Generate a unique station label for each station row. This should be
+    used in coordinates rather than the station name found in the
+    ASDM/Station table.
+
+    Station names are not guaranteed to be unique in pyasdm, which checks
+    uniqueness using name, position, and type. Repeated names are
+    disambiguated by appending the station id (``_id_<stationId>``); unique
+    names are kept unchanged.
+    This is arguably a corner case that I have never seen in ALMA Station
+    tables.
+
+    Parameters
+    ----------
+    station_df : pandas.DataFrame
+        Station table DataFrame containing ``name`` and ``stationId`` columns.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Copy of ``station_df`` with an added ``station_label`` column.
+    """
+
+    station_df["name"] = station_df["name"].astype(str)
+    name_counts = station_df["name"].value_counts()
+    station_df["station_label"] = station_df["name"]
+    duplicate_name_mask = station_df["name"].map(name_counts) > 1
+    station_df.loc[duplicate_name_mask, "station_label"] = (
+        station_df.loc[duplicate_name_mask, "name"]
+        + "_id_"
+        + station_df.loc[duplicate_name_mask, "stationId"].astype(str)
+    )
     return station_df
 
 
@@ -171,7 +206,7 @@ def _reindex_to_sorted_unique_stations(
     Parameters
     ----------
     station_df : pandas.DataFrame
-        Station table DataFrame with a ``name`` column.
+        Station table DataFrame with a ``station_label`` column.
     unique_stations : numpy.ndarray
         Sorted unique station names.
 
@@ -182,7 +217,9 @@ def _reindex_to_sorted_unique_stations(
         as a column.
     """
 
-    station_df = station_df.set_index("name").loc[unique_stations].reset_index()
+    station_df = (
+        station_df.set_index("station_label").loc[unique_stations].reset_index()
+    )
 
     return station_df
 

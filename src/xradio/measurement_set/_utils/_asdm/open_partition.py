@@ -98,7 +98,10 @@ def open_partition(
     # weather_xds
     try:
         weather_xds = create_weather_xds(asdm)
-    except (AttributeError, RuntimeError):
+    except (AttributeError, RuntimeError) as exc:
+        xradio_logger().warning(
+            f"Failed to create the weather_xds sub-dataset. Exception details: {exc}"
+        )
         weather_xds = None
 
     # pointing_xds
@@ -108,7 +111,13 @@ def open_partition(
         in pointing_for_only_spectral_resolution_types
     )
     if read_pointing:
-        pointing_xds = create_pointing_xds(asdm)
+        try:
+            pointing_xds = create_pointing_xds(asdm)
+        except (AttributeError, RuntimeError) as exc:
+            xradio_logger().warning(
+                f"Failed to create the pointing_xds sub-dataset. Exception details: {exc}"
+            )
+            pointing_xds = None
 
     # phased_array_xds
 
@@ -142,7 +151,7 @@ def open_partition(
     msv4_xdt["/field_and_source_base_xds"] = field_and_source_xds
     if weather_xds is not None:
         msv4_xdt["/weather_xds"] = weather_xds
-    if read_pointing:
+    if read_pointing and pointing_xds:
         msv4_xdt["/pointing_xds"] = pointing_xds
 
     xradio_logger().debug(

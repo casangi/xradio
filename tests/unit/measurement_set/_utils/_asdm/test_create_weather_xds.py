@@ -34,7 +34,8 @@ def test_create_weather_xds_with_asdm_antenna_station_weather(
     asdm_with_antenna_station_weather,
 ):
     weather_xds = create_weather_xds(asdm_with_antenna_station_weather)
-    check_dataset(weather_xds, WeatherXds)
+    issues = check_dataset(weather_xds, WeatherXds)
+    assert not issues
 
     for coord in ["station_name", "time_weather", "cartesian_pos_label"]:
         assert coord in weather_xds.coords

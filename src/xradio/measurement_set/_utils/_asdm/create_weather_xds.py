@@ -52,10 +52,11 @@ def create_weather_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
     weather_df = weather_df.rename(columns={"name": "station_name"})
 
     weather_times = _get_weather_times(weather_df)
-    unique_times = unique_1d(weather_times).tolist()
+    unique_times = unique_1d(weather_times)
 
-    station_names = station_df["name"].astype(str).to_numpy()
-    unique_stations = unique_1d(station_names).tolist()
+    station_df["name"] = station_df["name"].astype(str)
+    unique_stations = unique_1d(station_df["name"].to_numpy()).astype(str)
+    station_df = _reindex_to_sorted_unique_stations(station_df, unique_stations)
 
     xds = _add_coordinates(xds, unique_stations, unique_times)
 
@@ -73,6 +74,19 @@ def create_weather_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
 
 
 def _read_station_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
+    """
+    Read the ASDM Station table into a DataFrame.
+
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        ASDM instance containing the Station table.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with ``stationId``, ``name``, and ``position`` columns.
+    """
 
     sdm_station_attrs = ["stationId", "name", "position"]
     station_df = exp_asdm_table_to_df(asdm, "Station", sdm_station_attrs)
@@ -81,6 +95,25 @@ def _read_station_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
 
 
 def _read_weather_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
+    """
+    Read the ASDM Weather table into a DataFrame.
+
+    Required columns (``stationId``, ``timeInterval``) and optional weather
+    quantities are requested with per-row optional handling, so missing values
+    become ``NaN``.
+
+    Parameters
+    ----------
+    asdm : pyasdm.ASDM
+        ASDM instance containing the Weather table.
+
+    Returns
+    -------
+    pandas.DataFrame
+        DataFrame with one row per Weather table entry and columns for the
+        station id, time interval, and available weather quantities.
+    """
+
     sdm_weather_required_attrs = ["stationId", "timeInterval"]
 
     sdm_weather_optional_attrs = [
@@ -102,6 +135,22 @@ def _read_weather_table(asdm: pyasdm.ASDM) -> pd.DataFrame:
 
 
 def _get_weather_times(weather_df: pd.DataFrame) -> np.ndarray:
+    """
+    Convert Weather table time intervals to Unix timestamps.
+
+    The midpoint of each ASDM ``ArrayTimeInterval`` is used as the
+    representative time for the corresponding weather row.
+
+    Parameters
+    ----------
+    weather_df : pandas.DataFrame
+        Weather table DataFrame containing a ``timeInterval`` column.
+
+    Returns
+    -------
+    numpy.ndarray
+        Array of Unix timestamps (seconds) for the weather rows.
+    """
 
     # Use mid-points from ASDM TimInterval objects as timestamps
     weather_midpoints = np.array(
@@ -112,9 +161,55 @@ def _get_weather_times(weather_df: pd.DataFrame) -> np.ndarray:
     return weather_times
 
 
+def _reindex_to_sorted_unique_stations(
+    station_df: pd.DataFrame, unique_stations: np.ndarray[str]
+) -> pd.DataFrame:
+    """
+    Reindex the station table to the (sorted) order of the unique
+    stations that go in the `station_name` coordinate.
+
+    Parameters
+    ----------
+    station_df : pandas.DataFrame
+        Station table DataFrame with a ``name`` column.
+    unique_stations : numpy.ndarray
+        Sorted unique station names.
+
+    Returns
+    -------
+    pandas.DataFrame
+        Station table reordered to ``unique_stations``, with ``name`` restored
+        as a column.
+    """
+
+    station_df = station_df.set_index("name").loc[unique_stations].reset_index()
+
+    return station_df
+
+
 def _add_coordinates(
     xds: xr.Dataset, unique_stations: np.ndarray, unique_times: np.ndarray
-) -> pd.DataFrame:
+) -> xr.Dataset:
+    """
+    Assign the weather dataset coordinates.
+
+    Adds ``station_name``, ``time_weather``, and
+    ``cartesian_pos_label`` coordinates to ``xds``.
+
+    Parameters
+    ----------
+    xds : xarray.Dataset
+        Weather dataset being built.
+    unique_stations : numpy.ndarray
+        Sorted unique station names.
+    unique_times : numpy.ndarray
+        Sorted unique weather times.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with the weather coordinates assigned.
+    """
 
     # TODO: revise/settle the tai <=> utc/unix discrepancies together with other datasets (xradio/689)
     time_attrs = make_time_measure_attrs("s", "tai", time_format="unix")
@@ -132,6 +227,24 @@ def _add_coordinates(
 
 
 def _add_station_position(xds: xr.Dataset, station_df: pd.DataFrame) -> xr.Dataset:
+    """
+    Add the required ``STATION_POSITION`` variable.
+
+    Station positions are read from the (already reordered) station table and
+    stored as a location quantity in the ITRS geocentric frame.
+
+    Parameters
+    ----------
+    xds : xarray.Dataset
+        Weather dataset being built.
+    station_df : pandas.DataFrame
+        Station table DataFrame ordered like ``xds.station_name``.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with ``STATION_POSITION`` assigned.
+    """
 
     station_positions = np.array(
         [
@@ -166,6 +279,31 @@ def _add_weather_variables(
     unique_stations: np.ndarray,
     unique_times: np.ndarray,
 ) -> xr.Dataset:
+    """
+    Add optional weather quantity variables.
+
+    Each ASDM weather quantity is converted to its numeric value and placed
+    into a ``(station_name, time_weather)`` array. Rows whose station or time
+    is not in the output coordinates, or whose value is missing, are skipped.
+
+    Parameters
+    ----------
+    xds : xarray.Dataset
+        Weather dataset being built.
+    weather_df : pandas.DataFrame
+        Weather table merged with station names.
+    weather_times : numpy.ndarray
+        Unix timestamps for the weather rows.
+    unique_stations : numpy.ndarray
+        Sorted unique station names used as the coordinate.
+    unique_times : numpy.ndarray
+        Sorted unique weather times used as the coordinate.
+
+    Returns
+    -------
+    xarray.Dataset
+        Dataset with weather quantity variables assigned.
+    """
 
     # Map each weather row to its station/time indices in the output arrays.
     station_names_by_index = {name: idx for idx, name in enumerate(unique_stations)}
@@ -210,7 +348,23 @@ def _add_weather_variables(
 
 
 def _asdm_quantity_to_numeric(value):
-    """Convert various ASDM quantity objects (Pressure, Temp)"""
+    """
+    Convert an ASDM quantity object to its numeric value.
+
+    ASDM quantity objects (such as ``Pressure``, ``Temperature``, or
+    ``Angle``) expose their value through ``get()``. Plain values are
+    returned unchanged.
+
+    Parameters
+    ----------
+    value : Any
+        ASDM quantity object or plain numeric value.
+
+    Returns
+    -------
+    float or Any
+        Numeric value for quantity objects, otherwise the input value.
+    """
     if hasattr(value, "get"):
         return value.get()
     return value

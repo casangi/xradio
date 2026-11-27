@@ -12,18 +12,21 @@ def test_create_weather_xds_empty():
         create_weather_xds(None)
 
 
+expected_exception_msg = "Could not convert tuple"
+
+
 def test_create_weather_xds_with_asdm_empty(asdm_empty):
-    with pytest.raises(RuntimeError, match="Station table seems empty"):
+    with pytest.raises(ValueError, match=expected_exception_msg):
         create_weather_xds(asdm_empty)
 
 
 def test_create_weather_xds_with_asdm_default(asdm_with_spw_default):
-    with pytest.raises(RuntimeError, match="Station table seems empty"):
+    with pytest.raises(ValueError, match=expected_exception_msg):
         create_weather_xds(asdm_with_spw_default)
 
 
 def test_create_weather_xds_with_asdm_simple(asdm_with_spw_simple):
-    with pytest.raises(RuntimeError, match="Station table seems empty"):
+    with pytest.raises(ValueError, match=expected_exception_msg):
         create_weather_xds(asdm_with_spw_simple)
 
 

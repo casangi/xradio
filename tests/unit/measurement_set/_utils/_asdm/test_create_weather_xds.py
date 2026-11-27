@@ -1,3 +1,4 @@
+import numpy as np
 import pytest
 
 from xradio.measurement_set._utils._asdm.create_weather_xds import (
@@ -59,3 +60,15 @@ def test_create_weather_xds_with_asdm_antenna_station_weather(
 
     # Station positions come from the Station table.
     assert weather_xds["STATION_POSITION"].shape == (2, 3)
+
+    # A zero reading and a nonzero reading are extracted and indexed correctly.
+    n602_pressure = weather_xds["PRESSURE"].sel(station_name="N602")
+    assert n602_pressure.isel(time_weather=0).item() == 0.0
+    assert n602_pressure.isel(time_weather=1).item() == pytest.approx(55854.3518066)
+    j503_pressure = weather_xds["PRESSURE"].sel(station_name="J503")
+    assert j503_pressure.isel(time_weather=0).item() == 0.0
+    assert j503_pressure.isel(time_weather=3).item() == pytest.approx(55661.5112305)
+
+    # dewPoint is absent from every weather row, so all values are NaN.
+    assert np.isnan(weather_xds["DEW_POINT"].sel(station_name="N602").values).all()
+    assert np.isnan(weather_xds["DEW_POINT"].sel(station_name="J503").values).all()

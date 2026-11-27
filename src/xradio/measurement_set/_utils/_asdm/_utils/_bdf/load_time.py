@@ -47,7 +47,7 @@ def load_times_from_partition_bdfs(
 
     try:
         time_centers, durations, actual_times, actual_durations, time_indices_by_bdf = (
-            load_times_from_bdfs(bdf_paths)
+            _load_times_from_bdfs(bdf_paths)
         )
         time_centers = convert_time_asdm_to_unix(time_centers)
         actual_times = convert_time_asdm_to_unix(actual_times)
@@ -58,7 +58,13 @@ def load_times_from_partition_bdfs(
         )
         raise exc
 
-    return time_centers, durations, actual_times, actual_durations, time_indices_by_bdf
+    return (
+        time_centers,
+        durations / 1e9,
+        actual_times,
+        actual_durations / 1e9,
+        time_indices_by_bdf,
+    )
 
 
 def save_all_blob_infos(bdf_paths: list[str], output_path: str = None):
@@ -67,7 +73,7 @@ def save_all_blob_infos(bdf_paths: list[str], output_path: str = None):
         try:
             bdf_reader.open(bdf_path)
             bdf_header = bdf_reader.getHeader()
-            # xradio_logger().debug(" * In load_times_from_bdf, {bdf_path=}, BDF header: ")
+            # xradio_logger().debug(" * In _load_times_from_bdf, {bdf_path=}, BDF header: ")
             # xradio_logger().debug(bdf_header)
             blob_info = make_blob_info(bdf_header)
             output_path = (
@@ -132,7 +138,7 @@ def save_blob_info(csv_path: str, blob_info: pd.DataFrame) -> None:
     blob_info.to_csv(csv_path, mode="a", header=do_header)
 
 
-def load_times_from_bdfs(
+def _load_times_from_bdfs(
     bdf_paths: list[str],
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray, dict]:
     """
@@ -158,7 +164,6 @@ def load_times_from_bdfs(
 
     Notes
     -----
-    Times are converted from nanoseconds to seconds (divided by 1e9) in the output.
     For subsets where actual times/durations are not present, the nominal values are used instead.
     WVR data is currently not supported and will return arrays of zeros.
     """
@@ -180,7 +185,7 @@ def load_times_from_bdfs(
         save_all_blob_infos()
 
     for bdf_path in bdf_paths:
-        midpoint, interval, actual_times, actual_durations = load_times_bdf(bdf_path)
+        midpoint, interval, actual_times, actual_durations = _load_times_bdf(bdf_path)
         all_time_centers.append(midpoint)
         all_durations.append(interval)
         all_actual_times.append(actual_times)
@@ -202,11 +207,14 @@ def load_times_from_bdfs(
     )
 
 
-def load_times_bdf(
+def _load_times_bdf(
     bdf_path: str,
 ) -> tuple[list, list, list, list]:
     bdf_reader = pyasdm.bdf.BDFReader()
     bdf_reader.open(bdf_path)
+    """
+    Times and durations are returned in the scale of the ASDM (ns).
+    """
 
     # TODO: I'd hope this is not a general problem but for some test datasets WVR SPWs produce
     # failures related to the BDF dims:
@@ -252,19 +260,19 @@ def load_times_bdf(
         # BAL ANT BAB?
         # actual_times_dims = bdf_header.getAxesNames("actualTimes")
 
-        midpoint = subset["midpointInNanoSeconds"] / 1e9
+        midpoint = subset["midpointInNanoSeconds"]
         all_midpoints.append(midpoint)
         if subset["actualTimes"]["present"]:
             # note, for now ignoring the unclear/values-dont-add-up baseline? dim, just first
-            all_actual_times.append(subset["actualTimes"]["arr"][0] / 1e9)
+            all_actual_times.append(subset["actualTimes"]["arr"][0])
         else:
             all_actual_times.append(midpoint)
 
-        interval = subset["intervalInNanoSeconds"] / 1e9
+        interval = subset["intervalInNanoSeconds"]
         all_intervals.append(interval)
         if subset["actualDurations"]["present"]:
             # note, for now ignoring the unclear baseline? dim, just first
-            all_actual_durations.append(subset["actualDurations"]["arr"][0] / 1e9)
+            all_actual_durations.append(subset["actualDurations"]["arr"][0])
         else:
             all_actual_durations.append(interval)
 

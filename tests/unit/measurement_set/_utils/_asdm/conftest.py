@@ -692,6 +692,7 @@ def make_asdm_with_main_etc_data_description_polarization_field_source():
     add_polarization_table(asdm)
     add_field_table(asdm)
     add_source_table(asdm)
+    add_weather_table(asdm)
     return asdm
 
 
@@ -933,6 +934,98 @@ def asdm_sd_with_execblock_antenna_station_feed():
     return sd_asdm
 
 
+def add_weather_table(asdm: pyasdm.ASDM):
+    # Examples of time samples adapted from uid___A002_Xbb0685_X4e96
+    weather_rows_xml = [
+        """
+  <row>
+    <timeInterval> 4982231373024000000 48000000 </timeInterval>
+    <pressure> 55854.3518066 </pressure>
+    <relHumidity> 14.8353004456 </relHumidity>
+    <temperature> 273.54779999852195 </temperature>
+    <windDirection> 4.97418836818384 </windDirection>
+    <windSpeed> 9.10000038147 </windSpeed>
+    <windMax> 9.10000038147 </windMax>
+    <stationId> Station_0 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 4986701689024000000 48000000 </timeInterval>
+    <pressure> 55661.5112305 </pressure>
+    <relHumidity> 8.82520008087 </relHumidity>
+    <temperature> 268.28009977341 </temperature>
+    <windDirection> 5.3930673886624785 </windDirection>
+    <windSpeed> 5.80000019073 </windSpeed>
+    <windMax> 5.80000019073 </windMax>
+    <stationId> Station_1 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 4986701667024000000 48000000 </timeInterval>
+    <pressure> 55254.1870117 </pressure>
+    <relHumidity> 9.27970027924 </relHumidity>
+    <temperature> 267.83540000915997 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_13 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 3506716800024000000 48000000 </timeInterval>
+    <pressure> 0.0 </pressure>
+    <relHumidity> 0.0 </relHumidity>
+    <temperature> 273.15 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_0 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 3506716800024000000 48000000 </timeInterval>
+    <pressure> 0.0 </pressure>
+    <relHumidity> 0.0 </relHumidity>
+    <temperature> 273.15 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_1 </stationId>
+  </row>
+        """,
+        """
+  <row>
+    <timeInterval> 3506716800024000000 48000000 </timeInterval>
+    <pressure> 0.0 </pressure>
+    <relHumidity> 0.0 </relHumidity>
+    <temperature> 273.15 </temperature>
+    <windDirection> 0.0 </windDirection>
+    <windSpeed> 0.0 </windSpeed>
+    <windMax> 0.0 </windMax>
+    <stationId> Station_16 </stationId>
+  </row>
+        """,
+    ]
+    weather_table = asdm.getWeather()
+    for row_xml in weather_rows_xml:
+        weather_row = pyasdm.WeatherRow(weather_table)
+        weather_row.setFromXML(row_xml)
+        weather_table.add(weather_row)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_antenna_station_weather():
+    """Meant for create_weather_xds tests"""
+    asdm = make_asdm_with_spw_simple()
+    add_antenna_station_tables(asdm)
+    add_weather_table(asdm)
+    return asdm
+
+
 def add_polarization_table(asdm: pyasdm.ASDM):
     polarization_row_0_xml = """
   <row>
@@ -1106,6 +1199,233 @@ def add_spw_table(asdm: pyasdm.ASDM):
     spw_row_0 = pyasdm.SpectralWindowRow(spw_table)
     spw_row_0.setFromXML(spw_row_0_xml)
     spw_table.add(spw_row_0)
+
+
+def add_field_with_ephemeris_table(asdm: pyasdm.ASDM):
+    # Examples taken from uid___A002_Xbb0685_X4e96
+    field_rows_xml = [
+        """
+  <row>
+    <fieldId> Field_0 </fieldId>
+    <fieldName> J1229+0203 </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 3.2686162621080546 0.03582093394620076  </delayDir>
+    <phaseDir> 2 1 2 3.2686162621080546 0.03582093394620076  </phaseDir>
+    <referenceDir> 2 1 2 3.268616262108897 0.035820933946185546  </referenceDir>
+    <time> 4986701690928000000 </time>
+    <code> none </code>
+    <directionCode>ICRS</directionCode>
+    <sourceId> 0 </sourceId>
+  </row>
+    """,
+        """
+  <row>
+    <fieldId> Field_1 </fieldId>
+    <fieldName> Ganymede </fieldName>
+    <numPoly> 1 </numPoly>
+    <delayDir> 2 1 2 0.0 0.0  </delayDir>
+    <phaseDir> 2 1 2 0.0 0.0  </phaseDir>
+    <referenceDir> 2 1 2 0.0 0.0  </referenceDir>
+    <time> 4986703296768000000 </time>
+    <code> none </code>
+    <directionCode>ICRS</directionCode>
+    <ephemerisId> 0 </ephemerisId>
+    <sourceId> 1 </sourceId>
+  </row>
+    """,
+    ]
+    field_table = asdm.getField()
+    for row_xml in field_rows_xml:
+        field_row = pyasdm.FieldRow(field_table)
+        field_row.setFromXML(row_xml)
+        field_table.add(field_row)
+
+
+def add_source_with_ephemeris_table(asdm: pyasdm.ASDM):
+    # Examples taken from uid___A002_Xbb0685_X4e96
+    source_rows_xml = [
+        """
+  <row>
+    <sourceId> 0 </sourceId>
+    <timeInterval> 7105036824452387903 4236670424804775807 </timeInterval>
+    <code> none </code>
+    <direction> 1 2 3.268616262108897 0.035820933946185546  </direction>
+    <properMotion> 1 2 0.0 0.0  </properMotion>
+    <sourceName> J1229+0203 </sourceName>
+    <directionCode>ICRS</directionCode>
+    <numFreq> 4 </numFreq>
+    <numStokes> 4 </numStokes>
+    <frequency> 1 4 3.4555995065626306E11 3.4726279750393E11 3.3537092040953125E11 3.3337228560384076E11  </frequency>
+    <stokesParameter> 1 4 I Q U V</stokesParameter>
+    <flux> 2 4 4 3.870323219710316 0.0 0.0 0.0 3.857180544502288 0.0 0.0 0.0 3.9513138964839314 0.0 0.0 0.0 3.967690958363503 0.0 0.0 0.0  </flux>
+    <size> 2 4 2 0.0 0.0 0.0 0.0 0.0 0.0 0.0 0.0  </size>
+    <spectralWindowId> SpectralWindow_0 </spectralWindowId>
+  </row>
+    """,
+        """
+  <row>
+    <sourceId> 1 </sourceId>
+    <timeInterval> 7105036824452387903 4236670424804775807 </timeInterval>
+    <code> none </code>
+    <direction> 1 2 0.0 0.0  </direction>
+    <properMotion> 1 2 0.0 0.0  </properMotion>
+    <sourceName> Ganymede </sourceName>
+    <directionCode>ICRS</directionCode>
+    <numLines> 1 </numLines>
+    <transition> 1 1 &quot;CO_v_0_3_2(ID=3768104)&quot;  </transition>
+    <restFrequency> 1 1 3.4579599E11  </restFrequency>
+    <sysVel> 1 1 0.0  </sysVel>
+    <velRefCode>LSRK</velRefCode>
+    <spectralWindowId> SpectralWindow_16 </spectralWindowId>
+  </row>
+    """,
+    ]
+
+    source_table = asdm.getSource()
+    for row_xml in source_rows_xml:
+        source_row = pyasdm.SourceRow(source_table)
+        source_row.setFromXML(row_xml)
+        source_table.add(source_row)
+
+
+def add_ephemeris_table(asdm: pyasdm.ASDM):
+    # Examples taken from uid___A002_Xbb0685_X4e96
+    ephemeris_rows_xml = [
+        """
+  <row>
+    <timeInterval> 4986694800000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3966968420230086 -0.0868206036978841  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.096364091722689E11  </distance>
+    <timeOrigin> 4986694200000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 1 </numPolyRadVel>
+    <radVel> 1 1 -10349.7118  </radVel>
+  </row>
+    """,
+        """
+  <row>
+    <timeInterval> 4986697200000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3967705603672895 -0.08685140875918179  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.096116739806102E11  </distance>
+    <timeOrigin> 4986696600000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 1 </numPolyRadVel>
+    <radVel> 1 1 -10262.971  </radVel>
+  </row>
+    """,
+        """
+  <row>
+    <timeInterval> 4986700800000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3968819778234143 -0.0868981254054935  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.095749744424258E11  </distance>
+    <timeOrigin> 4986700200000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 1 </numPolyRadVel>
+    <radVel> 1 1 -10125.3174  </radVel>
+  </row>
+    """,
+    ]
+    ephemeris_table = asdm.getEphemeris()
+    for row_xml in ephemeris_rows_xml:
+        ephemeris_row = pyasdm.EphemerisRow(ephemeris_table)
+        ephemeris_row.setFromXML(row_xml)
+        ephemeris_table.add(ephemeris_row)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_field_ephemeris():
+    """
+    Meant for create_field_and_source_xds tests
+    """
+    asdm = make_asdm_with_spw_simple()
+    add_field_with_ephemeris_table(asdm)
+    add_source_with_ephemeris_table(asdm)
+    add_ephemeris_table(asdm)
+    return asdm
+
+
+def add_misbehaving_ephemeris_table(asdm: pyasdm.ASDM):
+    # Added unexpected features (equinox, polynomials) on uid___A002_Xbb0685_X4e96
+    ephemeris_rows_xml = [
+        """
+  <row>
+    <timeInterval> 4986694800000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 0.0 -0.0 0.0  </observerLocation>
+    <equinoxEquator> 1950.0 </equinoxEquator>
+    <numPolyDir> 2 </numPolyDir>
+    <dir> 2 2 2 3.3966968420230086 -0.0868206036978841 0.01 -0.01  </dir>
+    <numPolyDist> 2 </numPolyDist>
+    <distance> 1 2 9.096364091722689E11 9.1E11 </distance>
+    <timeOrigin> 4986694200000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 2 </numPolyRadVel>
+    <radVel> 1 2 -10349.7118 -10349.7  </radVel>
+  </row>
+    """,
+        """
+  <row>
+    <timeInterval> 4986697200000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3967705603672895 -0.08685140875918179  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.096116739806102E11  </distance>
+    <timeOrigin> 4986696600000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+  </row>
+    """,
+        """
+  <row>
+    <timeInterval> 4986700800000000000 1200000000000 </timeInterval>
+    <ephemerisId> 0 </ephemerisId>
+    <observerLocation> 1 3 5.10064280544132 -0.4009166735935308 5076.71  </observerLocation>
+    <equinoxEquator> 2000.0 </equinoxEquator>
+    <numPolyDir> 1 </numPolyDir>
+    <dir> 2 1 2 3.3968819778234143 -0.0868981254054935  </dir>
+    <numPolyDist> 1 </numPolyDist>
+    <distance> 1 1 9.095749744424258E11  </distance>
+    <timeOrigin> 4986700200000000000 </timeOrigin>
+    <origin> JPL Horizons </origin>
+    <numPolyRadVel> 1 </numPolyRadVel>
+    <radVel> 1 1 -10125.3174  </radVel>
+  </row>
+    """,
+    ]
+    ephemeris_table = asdm.getEphemeris()
+    for row_xml in ephemeris_rows_xml:
+        ephemeris_row = pyasdm.EphemerisRow(ephemeris_table)
+        ephemeris_row.setFromXML(row_xml)
+        ephemeris_table.add(ephemeris_row)
+
+
+@pytest.fixture(scope="session")
+def asdm_with_misbehaving_field_ephemeris():
+    """
+    Meant for create_field_and_source_xds tests
+    """
+    asdm = make_asdm_with_spw_simple()
+    add_field_with_ephemeris_table(asdm)
+    add_source_with_ephemeris_table(asdm)
+    add_misbehaving_ephemeris_table(asdm)
+    return asdm
 
 
 def add_scan_table(asdm: pyasdm.ASDM):

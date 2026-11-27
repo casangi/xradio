@@ -36,6 +36,7 @@ from xradio.measurement_set._utils._asdm.create_field_and_source_xds import (
 )
 from xradio.measurement_set._utils._asdm.create_info_dicts import create_info_dicts
 from xradio.measurement_set._utils._asdm.create_pointing_xds import create_pointing_xds
+from xradio.measurement_set._utils._asdm.create_weather_xds import create_weather_xds
 from xradio.measurement_set.schema import MSV4_SCHEMA_VERSION
 
 
@@ -44,6 +45,7 @@ def open_partition(
     partition_descr: dict[str, np.ndarray],
     with_pointing: bool = False,
     pointing_for_only_spectral_resolution_types: list[str] = None,
+    ephemeris_interpolate: bool = True,
 ) -> xr.DataTree:
     """Open an ASDM partition and assemble its MSv4 DataTree.
 
@@ -65,6 +67,9 @@ def open_partition(
         pointing data should be included. The filter applies only when
         ``with_pointing`` is true. If this is ``None`` or empty, pointing data
         is included for every partition when requested.
+    ephemeris_interpolate: bool, optional
+        Whether to interpolate ephemeris data to the correlated_xds time
+        coordinate. True by default.
 
     Returns
     -------
@@ -90,7 +95,14 @@ def open_partition(
 
     # system_calibration_xds
 
-    # weather_xds
+    # weather_xds. TODO: create only once in caller/open_asdm
+    try:
+        weather_xds = create_weather_xds(asdm)
+    except (AttributeError, RuntimeError) as exc:
+        xradio_logger().warning(
+            f"Failed to create the weather_xds sub-dataset. Exception details: {exc}"
+        )
+        weather_xds = None
 
     # pointing_xds
     read_pointing = with_pointing and (
@@ -99,7 +111,13 @@ def open_partition(
         in pointing_for_only_spectral_resolution_types
     )
     if read_pointing:
-        pointing_xds = create_pointing_xds(asdm)
+        try:
+            pointing_xds = create_pointing_xds(asdm)
+        except (AttributeError, RuntimeError) as exc:
+            xradio_logger().warning(
+                f"Failed to create the pointing_xds sub-dataset. Exception details: {exc}"
+            )
+            pointing_xds = None
 
     # phased_array_xds
 
@@ -107,7 +125,12 @@ def open_partition(
 
     # field_and_source_xds
     field_and_source_xds = create_field_and_source_xds(
-        asdm, partition_descr, spw_id, is_spectrum_xds
+        asdm,
+        partition_descr,
+        spw_id,
+        is_spectrum_xds,
+        correlated_xds.coords["time"],
+        ephemeris_interpolate,
     )
 
     if not is_spectrum_xds:
@@ -126,7 +149,9 @@ def open_partition(
     msv4_xdt.ds = correlated_xds
     msv4_xdt["/antenna_xds"] = antenna_xds
     msv4_xdt["/field_and_source_base_xds"] = field_and_source_xds
-    if read_pointing:
+    if weather_xds is not None:
+        msv4_xdt["/weather_xds"] = weather_xds
+    if read_pointing and pointing_xds:
         msv4_xdt["/pointing_xds"] = pointing_xds
 
     xradio_logger().debug(

@@ -13,12 +13,12 @@ MJD_TO_UNIX_TIME_DELTA = 3_506_716_800
         (0, None, pytest.raises(TypeError, match="has no len")),
         (
             np.array([0, 1, 5]),
-            np.array([0, 1, 5]) - MJD_TO_UNIX_TIME_DELTA,
+            np.array([0, 1, 5]) / 1e9 - MJD_TO_UNIX_TIME_DELTA,
             no_raises(),
         ),
         (
             np.array([1e9, 3e9, 5e9]),
-            np.array([1e9, 3e9, 5e9]) - MJD_TO_UNIX_TIME_DELTA,
+            np.array([1e9, 3e9, 5e9]) / 1e9 - MJD_TO_UNIX_TIME_DELTA,
             no_raises(),
         ),
         (

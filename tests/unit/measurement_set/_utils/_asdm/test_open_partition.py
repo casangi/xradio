@@ -598,6 +598,69 @@ def _open_partition_with_fake_bdfs(asdm, monkeypatch, frequency, time):
     return partition, stored, reads
 
 
+def test_open_partition_create_weather_xds_failure(
+    asdm_with_main_etc_data_description_polarization_field_source, monkeypatch
+):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
+    )
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.create_weather_xds",
+        lambda asdm: (_ for _ in ()).throw(RuntimeError("boom weather")),
+    )
+    partition = open_partition(
+        asdm_with_main_etc_data_description_polarization_field_source,
+        {
+            "fieldId": [0],
+            "configDescriptionId": [0],
+            "scanNumber": [0],
+            "scanIntent": [0],
+            "dataDescriptionId": [0],
+            "BDFPath": ["/inexistent_test_path/foo"],
+        },
+    )
+
+    assert isinstance(partition, xr.DataTree)
+    assert not check_datatree(partition)
+    assert "weather_xds" not in partition
+    assert "pointing_xds" not in partition
+
+
+def test_open_partition_create_pointing_xds_failure(
+    asdm_with_main_etc_data_description_polarization_field_source, monkeypatch
+):
+    from xradio.measurement_set._utils._asdm.open_partition import open_partition
+
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.load_times_from_partition_bdfs",
+        mock_load_times_from_partition_bdfs,
+    )
+    monkeypatch.setattr(
+        "xradio.measurement_set._utils._asdm.open_partition.create_pointing_xds",
+        lambda asdm: (_ for _ in ()).throw(RuntimeError("boom pointing")),
+    )
+    partition = open_partition(
+        asdm_with_main_etc_data_description_polarization_field_source,
+        {
+            "fieldId": [0],
+            "configDescriptionId": [0],
+            "scanNumber": [0],
+            "scanIntent": [0],
+            "dataDescriptionId": [0],
+            "BDFPath": ["/inexistent_test_path/foo"],
+        },
+        with_pointing=True,
+    )
+
+    assert isinstance(partition, xr.DataTree)
+    assert not check_datatree(partition)
+    assert "pointing_xds" not in partition
+    assert "weather_xds" in partition
+
+
 @pytest.mark.parametrize(
     "frequency_step, first_two_channels", [(1, slice(0, 2)), (-1, slice(2, 4))]
 )
@@ -622,6 +685,7 @@ def test_open_partition_reverses_decreasing_axes(
     assert not check_datatree(partition)
     np.testing.assert_array_equal(partition.frequency, np.sort(frequency))
     np.testing.assert_array_equal(partition.time, np.sort(time))
+
     np.testing.assert_array_equal(
         partition.TIME_CENTROID.values[:, 0], partition.time.values + 0.1
     )

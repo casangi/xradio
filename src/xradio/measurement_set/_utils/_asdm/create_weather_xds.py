@@ -73,7 +73,6 @@ def create_weather_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
     )
 
     # Weather rows are tagged with a station id; resolve to station names.
-    weather_df = weather_df.copy()
     weather_df["station_name"] = weather_df["stationId"].map(station_lookup)
 
     # Convert ASDM time intervals to Unix timestamps (mid points).
@@ -100,6 +99,8 @@ def create_weather_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
         }
     )
 
+    # ASDM fixes position to "The position of the station in geocentric frame
+    # of reference (X, Y, Z coordinates). ITRF"
     location_attrs = {
         "type": "location",
         "units": "m",
@@ -113,12 +114,10 @@ def create_weather_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
         location_attrs,
     )
 
-    # Helper to convert ASDM quantity objects (Pressure, Temperature, ...)
-    # to their underlying numeric value.
-    def _to_number(value):
-        if hasattr(value, "get"):
-            return value.get()
-        return value
+    # Map each weather row to its station/time indices in the output arrays.
+    station_indices = weather_df["station_name"].map(station_index)
+    time_indices = weather_df["time_weather"].map(time_index)
+    valid_station_time = station_indices.notna() & time_indices.notna()
 
     # Weather quantities, mapped from ASDM attributes to MSv4 data variables.
     quantity_specs = {
@@ -130,26 +129,35 @@ def create_weather_xds(asdm: pyasdm.ASDM) -> xr.Dataset:
         "dewPoint": ("DEW_POINT", make_quantity_attrs("K")),
     }
 
-    for source_name, (target_name, attrs) in quantity_specs.items():
+    for asdm_name, (msv4_name, attrs) in quantity_specs.items():
         values = np.full((len(unique_stations), len(unique_times)), np.nan, dtype=float)
-        for row in weather_df.itertuples(index=False):
-            station_name = row.station_name
-            if station_name not in station_index:
-                continue
-            si = station_index[station_name]
-            ti = time_index[row.time_weather]
-            raw = _to_number(getattr(row, source_name))
-            if isinstance(raw, (float, np.floating)) and np.isnan(raw):
-                continue
-            values[si, ti] = float(raw)
+        # Convert optional ASDM quantity objects to their numeric values.
+        numeric_values = (
+            weather_df[asdm_name].map(_asdm_quantity_to_numeric).to_numpy(dtype=float)
+        )
+        valid_value = ~np.isnan(numeric_values)
+        mask = valid_station_time.to_numpy() & valid_value
 
-        xds[target_name] = (
+        if mask.any():
+            si = station_indices[mask].astype(int).to_numpy()
+            ti = time_indices[mask].astype(int).to_numpy()
+            values[si, ti] = numeric_values[mask]
+
+        xds[msv4_name] = (
             ["station_name", "time_weather"],
             values,
             attrs,
         )
 
-    xradio_logger().info(f"create_weather_xds() took {time.time() - time_start:0.2f} s")
+    xradio_logger().debug(
+        f"create_weather_xds() took {time.time() - time_start:0.2f} s"
+    )
 
-    print(f" ****{xds=}")
     return xds
+
+
+def _asdm_quantity_to_numeric(value):
+    """Convert various ASDM quantity objects (Pressure, Temp)"""
+    if hasattr(value, "get"):
+        return value.get()
+    return value
